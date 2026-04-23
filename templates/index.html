@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>へきネイター</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  h1 {
+    font-size: 2rem;
+    color: #e94560;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .subtitle {
+    color: #888;
+    font-size: 0.85rem;
+    margin-bottom: 32px;
+    text-align: center;
+  }
+  .card {
+    background: #16213e;
+    border-radius: 16px;
+    padding: 24px 20px;
+    width: 100%;
+    max-width: 480px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .progress-bar {
+    height: 6px;
+    background: #0f3460;
+    border-radius: 3px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #e94560, #f5a623);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+  .question-text {
+    font-size: 1.15rem;
+    line-height: 1.6;
+    text-align: center;
+    margin-bottom: 28px;
+    min-height: 60px;
+  }
+  .btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .btn {
+    padding: 14px;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    cursor: pointer;
+    font-weight: bold;
+    transition: transform 0.1s, opacity 0.1s;
+  }
+  .btn:active { transform: scale(0.97); opacity: 0.85; }
+  .btn-yes      { background: #27ae60; color: #fff; }
+  .btn-prob-yes { background: #1e7a48; color: #ccc; font-size: 0.9rem; }
+  .btn-no       { background: #e74c3c; color: #fff; }
+  .btn-prob-no  { background: #8e2a1e; color: #ccc; font-size: 0.9rem; }
+  .btn-idk      { background: #555;    color: #ccc; }
+  .btn-start  { background: #e94560; color: #fff; width: 100%; }
+  .btn-retry  { background: #0f3460; color: #eee; width: 100%; }
+
+  /* 結果画面 */
+  .result-icon { font-size: 3rem; text-align: center; margin-bottom: 12px; }
+  .result-name {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #e94560;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .result-desc {
+    color: #aaa;
+    font-size: 0.9rem;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  .result-prob {
+    color: #f5a623;
+    font-size: 0.85rem;
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .confirm-label {
+    text-align: center;
+    font-size: 0.95rem;
+    margin-bottom: 12px;
+    color: #ccc;
+  }
+  .btn-correct { background: #27ae60; color: #fff; margin-bottom: 8px; }
+  .btn-wrong   { background: #555;    color: #ccc; }
+
+  /* 正解選択 */
+  .fetish-list {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 16px;
+  }
+  .fetish-item {
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    background: #0f3460;
+    cursor: pointer;
+    font-size: 0.95rem;
+    transition: background 0.15s;
+  }
+  .fetish-item:hover { background: #1a4a8a; }
+
+  .msg {
+    text-align: center;
+    padding: 12px;
+    border-radius: 8px;
+    background: #27ae60;
+    color: #fff;
+    font-size: 0.95rem;
+  }
+
+  #start-screen { text-align: center; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<h1>へきネイター</h1>
+<p class="subtitle">あなたの性癖を当ててみせましょう…</p>
+
+<div class="card">
+
+  <!-- スタート画面 -->
+  <div id="start-screen">
+    <p style="margin-bottom:20px;color:#aaa;font-size:0.95rem;line-height:1.7;">
+      頭の中に「好きな二次元の性癖」を一つ思い浮かべてください。<br>
+      質問に答えると当てに行きます。<br>
+      遊ぶほど賢くなります。
+    </p>
+    <button class="btn btn-start" onclick="startGame()">スタート</button>
+  </div>
+
+  <!-- 質問画面 -->
+  <div id="question-screen" class="hidden">
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+    <div class="question-text" id="question-text">読み込み中…</div>
+    <div class="btn-group">
+      <button class="btn btn-yes"      onclick="sendAnswer(1)">はい</button>
+      <button class="btn btn-prob-yes" onclick="sendAnswer(0.5)">どちらかといえばはい</button>
+      <button class="btn btn-idk"      onclick="sendAnswer(0)">わからない</button>
+      <button class="btn btn-prob-no"  onclick="sendAnswer(-0.5)">どちらかといえばいいえ</button>
+      <button class="btn btn-no"       onclick="sendAnswer(-1)">いいえ</button>
+    </div>
+  </div>
+
+  <!-- 結果画面 -->
+  <div id="result-screen" class="hidden">
+    <div class="result-icon">🔮</div>
+    <div class="result-name" id="result-name"></div>
+    <div class="result-desc" id="result-desc"></div>
+    <div class="result-prob" id="result-prob"></div>
+    <div class="confirm-label">当たりましたか？</div>
+    <div class="btn-group">
+      <button class="btn btn-correct btn-yes" onclick="confirmResult(true)">正解！</button>
+      <button class="btn btn-wrong  btn-idk" onclick="confirmResult(false)">外れ…</button>
+    </div>
+  </div>
+
+  <!-- 正解選択画面 -->
+  <div id="teach-screen" class="hidden">
+    <p style="margin-bottom:12px;color:#aaa;font-size:0.9rem;">正解を教えてください（学習します）</p>
+    <div class="fetish-list" id="fetish-list"></div>
+    <button class="btn btn-retry" onclick="showStart()">スキップ</button>
+  </div>
+
+  <!-- 完了メッセージ -->
+  <div id="done-screen" class="hidden">
+    <div class="msg" id="done-msg"></div>
+    <br>
+    <button class="btn btn-retry" onclick="showStart()">もう一回</button>
+  </div>
+
+</div>
+
+<script>
+let currentQ = null;
+
+function show(id) {
+  ['start-screen','question-screen','result-screen','teach-screen','done-screen']
+    .forEach(s => document.getElementById(s).classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+function showStart() { show('start-screen'); }
+
+async function startGame() {
+  const res = await fetch('/api/start', {method:'POST'});
+  const data = await res.json();
+  showQuestion(data);
+}
+
+function showQuestion(data) {
+  currentQ = data.question_id;
+  document.getElementById('question-text').textContent = data.question;
+  const pct = Math.round((data.count / data.total) * 100);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  show('question-screen');
+}
+
+async function sendAnswer(ans) {
+  const res = await fetch('/api/answer', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({question_id: currentQ, answer: ans})
+  });
+  const data = await res.json();
+  if (data.action === 'question') {
+    showQuestion(data);
+  } else {
+    showGuess(data);
+  }
+}
+
+function showGuess(data) {
+  document.getElementById('result-name').textContent = data.fetish_name;
+  document.getElementById('result-desc').textContent = data.fetish_desc;
+  document.getElementById('result-prob').textContent = `確信度: ${data.probability}%`;
+  window._guessedId = data.fetish_id;
+  show('result-screen');
+}
+
+async function confirmResult(correct) {
+  const res = await fetch('/api/confirm', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({correct: correct, fetish_id: window._guessedId})
+  });
+  const data = await res.json();
+
+  if (data.status === 'learned') {
+    document.getElementById('done-msg').textContent = '✓ 学習しました！ありがとうございます。';
+    show('done-screen');
+  } else {
+    // 外れ → 正解選択
+    const list = document.getElementById('fetish-list');
+    list.innerHTML = '';
+    data.fetishes.forEach(f => {
+      const div = document.createElement('div');
+      div.className = 'fetish-item';
+      div.textContent = f.name;
+      div.onclick = () => teachCorrect(f.id, f.name);
+      list.appendChild(div);
+    });
+    show('teach-screen');
+  }
+}
+
+async function teachCorrect(id, name) {
+  await fetch('/api/teach', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({fetish_id: id})
+  });
+  document.getElementById('done-msg').textContent = `✓「${name}」として学習しました！`;
+  show('done-screen');
+}
+</script>
+</body>
+</html>
