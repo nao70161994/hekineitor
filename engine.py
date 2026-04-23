@@ -83,13 +83,14 @@ def _build_initial_matrix(nf, nq):
 
 class Engine:
     def __init__(self):
-        self.fetishes  = self._load_json('fetishes.json')
         self.questions = self._load_json('questions.json')
         if _use_db():
             self._ensure_db()
-            self.matrix = self._load_from_db()
+            self.fetishes = self._load_fetishes_from_db()
+            self.matrix   = self._load_from_db()
         else:
-            self.matrix = self._load_matrix_file()
+            self.fetishes = self._load_json('fetishes.json')
+            self.matrix   = self._load_matrix_file()
 
     # ── JSON ローカル ──────────────────────────────────────
     def _load_json(self, fname):
@@ -123,6 +124,13 @@ class Engine:
             with conn:
                 cur = conn.cursor()
                 cur.execute('''
+                    CREATE TABLE IF NOT EXISTS fetishes (
+                        id   SERIAL PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        desc TEXT NOT NULL
+                    )
+                ''')
+                cur.execute('''
                     CREATE TABLE IF NOT EXISTS matrix (
                         fetish_id   INTEGER,
                         question_id INTEGER,
@@ -131,14 +139,33 @@ class Engine:
                         PRIMARY KEY (fetish_id, question_id)
                     )
                 ''')
-                cur.execute('SELECT COUNT(*) FROM matrix')
+                cur.execute('SELECT COUNT(*) FROM fetishes')
                 if cur.fetchone()[0] == 0:
-                    self._seed_db(cur)
+                    seed_fetishes = self._load_json('fetishes.json')
+                    psycopg2.extras.execute_values(
+                        cur,
+                        'INSERT INTO fetishes (id, name, desc) VALUES %s',
+                        [(f['id'], f['name'], f['desc']) for f in seed_fetishes]
+                    )
+                    cur.execute('SELECT COUNT(*) FROM matrix')
+                    if cur.fetchone()[0] == 0:
+                        self._seed_db(cur, seed_fetishes)
         finally:
             conn.close()
 
-    def _seed_db(self, cur):
-        nf = len(self.fetishes)
+    def _load_fetishes_from_db(self):
+        conn = _get_conn()
+        try:
+            cur = conn.cursor()
+            cur.execute('SELECT id, name, desc FROM fetishes ORDER BY id')
+            return [{'id': r[0], 'name': r[1], 'desc': r[2]} for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def _seed_db(self, cur, fetishes=None):
+        if fetishes is None:
+            fetishes = self.fetishes
+        nf = len(fetishes)
         nq = len(self.questions)
         yes, total = _build_initial_matrix(nf, nq)
         rows = [
@@ -245,6 +272,44 @@ class Engine:
             self._save_to_db(fetish_idx, updates)
         else:
             self._save_matrix_file()
+
+    def add_fetish(self, name, desc, answers):
+        """新しい性癖を追加して即学習"""
+        nq = len(self.questions)
+        alpha = 2.0
+        new_yes   = [alpha] * nq
+        new_total = [alpha * 2.0] * nq
+        new_id = len(self.fetishes)
+
+        if _use_db():
+            conn = _get_conn()
+            try:
+                with conn:
+                    cur = conn.cursor()
+                    cur.execute(
+                        'INSERT INTO fetishes (id, name, desc) VALUES (%s, %s, %s)',
+                        (new_id, name, desc)
+                    )
+                    rows = [(new_id, q, new_yes[q], new_total[q]) for q in range(nq)]
+                    psycopg2.extras.execute_values(
+                        cur,
+                        'INSERT INTO matrix (fetish_id, question_id, yes_count, total_count) VALUES %s',
+                        rows
+                    )
+            finally:
+                conn.close()
+
+        self.fetishes.append({'id': new_id, 'name': name, 'desc': desc})
+        self.matrix['yes'].append(new_yes)
+        self.matrix['total'].append(new_total)
+
+        if not _use_db():
+            fetishes_path = os.path.join(DATA_DIR, 'fetishes.json')
+            with open(fetishes_path, 'w', encoding='utf-8') as f:
+                json.dump(self.fetishes, f, ensure_ascii=False, indent=2)
+
+        self.learn(answers, new_id)
+        return new_id
 
     def _entropy(self, probs):
         return -sum(p * math.log2(p) for p in probs if p > 1e-10)

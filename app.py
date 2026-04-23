@@ -101,5 +101,19 @@ def teach():
     return jsonify({'status': 'learned', 'fetish_name': engine.fetishes[f_idx]['name']})
 
 
+@app.route('/api/add_fetish', methods=['POST'])
+def add_fetish():
+    data    = request.json
+    name    = data.get('name', '').strip()
+    desc    = data.get('desc', '').strip()
+    answers = session.get('answers', {})
+    if not name:
+        return jsonify({'status': 'error', 'message': '名前を入力してください'}), 400
+    if not desc:
+        desc = name
+    new_id = engine.add_fetish(name, desc, answers)
+    return jsonify({'status': 'learned', 'fetish_name': name, 'fetish_id': new_id})
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
