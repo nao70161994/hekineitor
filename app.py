@@ -271,6 +271,10 @@ def add_fetish():
         return jsonify({'status': 'error', 'message': '名前は100文字以内で入力してください'}), 400
     if not desc:
         desc = name
+    existing = next((f for f in engine.fetishes if f['name'] == name), None)
+    if existing:
+        engine.learn(answers, existing['id'])
+        return jsonify({'status': 'learned', 'fetish_name': existing['name'], 'fetish_id': existing['id']})
     new_id = engine.add_fetish(name, desc, answers)
     return jsonify({'status': 'learned', 'fetish_name': name, 'fetish_id': new_id})
 
