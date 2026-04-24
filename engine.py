@@ -670,7 +670,8 @@ class Engine:
             if not _use_db():
                 self._save_fetishes_file()
 
-        self.learn(answers, new_id)
+        for _ in range(4):
+            self.learn(answers, new_id)
         return new_id
 
     def get_related(self, fetish_id):
