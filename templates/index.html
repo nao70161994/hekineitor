@@ -510,10 +510,6 @@
       style="width:100%;padding:10px;border-radius:8px;border:1px solid #333;background:#0f3460;color:#eee;font-size:0.95rem;margin-bottom:8px;">
     <input id="new-fetish-desc" type="text" placeholder="説明（省略可）"
       style="width:100%;padding:10px;border-radius:8px;border:1px solid #333;background:#0f3460;color:#eee;font-size:0.9rem;margin-bottom:8px;">
-    <select id="template-fetish"
-      style="width:100%;padding:10px;border-radius:8px;border:1px solid #333;background:#0f3460;color:#aaa;font-size:0.85rem;margin-bottom:10px;">
-      <option value="">似ている既存の性癖をテンプレートにする（任意）</option>
-    </select>
     <button class="btn btn-yes" style="width:100%;margin-bottom:8px;" onclick="addFetish()">追加して学習</button>
     <button class="btn btn-retry" onclick="showStart()">スキップ</button>
   </div>
@@ -794,14 +790,7 @@ async function submitConfirm() {
     list.appendChild(div);
   });
 
-  const sel = document.getElementById('template-fetish');
-  sel.innerHTML = '<option value="">似ている既存の性癖をテンプレートにする（任意）</option>';
-  data.fetishes.forEach(f => {
-    const opt = document.createElement('option');
-    opt.value = f.id;
-    opt.textContent = f.name;
-    sel.appendChild(opt);
-  });
+
 
   document.getElementById('teach-submit-btn').style.display = '';
   updateTeachSubmitBtn();
@@ -857,12 +846,10 @@ async function addFetish() {
   if (_fetching) return;
   const name = document.getElementById('new-fetish-name').value.trim();
   const desc = document.getElementById('new-fetish-desc').value.trim();
-  const templateVal = document.getElementById('template-fetish').value;
-  const template_id = templateVal !== '' ? parseInt(templateVal) : null;
   if (!name) { alert('名前を入力してください'); return; }
   _fetching = true;
   try {
-    const data = await apiFetch('/api/add_fetish', {name, desc, template_id});
+    const data = await apiFetch('/api/add_fetish', {name, desc});
     lastFetishName = data.fetish_name;
     document.getElementById('done-msg').textContent = `✓「${data.fetish_name}」を追加して学習しました！`;
     show('done-screen');

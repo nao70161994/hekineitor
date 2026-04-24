@@ -628,14 +628,18 @@ class Engine:
 
         self._increment_learn_count()
 
-    def add_fetish(self, name, desc, answers, template_id=None):
+    def add_fetish(self, name, desc, answers):
         nq = len(self.questions)
         alpha = 2.0
 
+        # 現在の回答から最も確率の高い既存性癖をテンプレートに自動選択
+        probs = self.posteriors(answers)
+        auto_template = int(max(range(len(probs)), key=lambda i: probs[i])) if probs else None
+
         with self._lock:
-            if template_id is not None and 0 <= template_id < len(self.fetishes):
-                new_yes   = list(self.matrix['yes'][template_id])
-                new_total = list(self.matrix['total'][template_id])
+            if auto_template is not None and 0 <= auto_template < len(self.fetishes):
+                new_yes   = list(self.matrix['yes'][auto_template])
+                new_total = list(self.matrix['total'][auto_template])
             else:
                 new_yes   = [alpha] * nq
                 new_total = [alpha * 2.0] * nq
