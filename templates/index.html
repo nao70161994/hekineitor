@@ -523,7 +523,12 @@
       <button class="btn btn-yes" style="width:100%;margin-bottom:8px;" onclick="addFetishStep2(false)">登録する</button>
       <button class="btn btn-idk" style="width:100%;margin-bottom:8px;font-size:0.85rem;" onclick="addFetishStep2(true)">説明をスキップ</button>
     </div>
-    <button class="btn btn-retry" onclick="showStart()">スキップ</button>
+    <div id="add-step-more" style="display:none">
+      <div id="add-added-list" style="margin-bottom:8px;font-size:0.82rem;color:#27ae60;"></div>
+      <button class="btn btn-yes" style="width:100%;margin-bottom:8px;" onclick="addFetishMore()">もう1件追加する</button>
+      <button class="btn btn-correct" style="width:100%;margin-bottom:8px;" onclick="addFetishDone()">完了</button>
+    </div>
+    <button class="btn btn-retry" id="add-skip-btn" onclick="showStart()">スキップ</button>
   </div>
 
   <!-- 完了メッセージ -->
@@ -882,12 +887,8 @@ async function pickSimilar(id, name) {
   if (_fetching) return;
   _fetching = true;
   try {
-    const data = await apiFetch('/api/teach', {fetish_id: id});
-    document.getElementById('add-step-similar').style.display = 'none';
-    document.getElementById('add-step1').style.display = '';
-    lastFetishName = name;
-    document.getElementById('done-msg').textContent = `✓「${name}」を学習しました！`;
-    show('done-screen');
+    await apiFetch('/api/teach', {fetish_id: id});
+    _finishAdd({fetish_name: name});
   } finally {
     _fetching = false;
   }
@@ -920,12 +921,39 @@ async function addFetishStep2(skip) {
 }
 
 function _finishAdd(data) {
-  document.getElementById('add-step1').style.display = '';
+  if (!window._addedNames) window._addedNames = [];
+  window._addedNames.push(data.fetish_name);
+
+  document.getElementById('add-step1').style.display = 'none';
   document.getElementById('add-step-similar').style.display = 'none';
   document.getElementById('add-step2').style.display = 'none';
   document.getElementById('new-fetish-name').value = '';
-  lastFetishName = data.fetish_name;
-  document.getElementById('done-msg').textContent = `✓「${data.fetish_name}」を学習しました！`;
+
+  if (window._addedNames.length < 3) {
+    document.getElementById('add-added-list').textContent =
+      '追加済み: ' + window._addedNames.join('、');
+    document.getElementById('add-step-more').style.display = '';
+    document.getElementById('add-skip-btn').style.display = 'none';
+  } else {
+    addFetishDone();
+  }
+}
+
+function addFetishMore() {
+  document.getElementById('add-step-more').style.display = 'none';
+  document.getElementById('add-step1').style.display = '';
+  document.getElementById('add-skip-btn').style.display = '';
+}
+
+function addFetishDone() {
+  const names = window._addedNames || [];
+  window._addedNames = [];
+  document.getElementById('add-step-more').style.display = 'none';
+  document.getElementById('add-step1').style.display = '';
+  document.getElementById('add-skip-btn').style.display = '';
+  lastFetishName = names.join(' × ');
+  document.getElementById('done-msg').textContent =
+    `✓「${names.join('」「')}」を学習しました！`;
   show('done-screen');
 }
 
