@@ -250,9 +250,10 @@ class Engine:
                         value INTEGER NOT NULL DEFAULT 0
                     )
                 ''')
-                cur.execute(
-                    "INSERT INTO stats (key, value) VALUES ('learn_count', 0) ON CONFLICT DO NOTHING"
-                )
+                for k in ('learn_count', 'play_count'):
+                    cur.execute(
+                        "INSERT INTO stats (key, value) VALUES (%s, 0) ON CONFLICT DO NOTHING", (k,)
+                    )
         finally:
             _put_conn(conn)
 
@@ -298,13 +299,16 @@ class Engine:
             _put_conn(conn)
         return {'yes': yes, 'total': total}
 
-    def _increment_learn_count(self):
+    def _increment_stat(self, key):
         if _use_db():
             conn = _get_conn()
             try:
                 with conn:
                     cur = conn.cursor()
-                    cur.execute("UPDATE stats SET value = value + 1 WHERE key = 'learn_count'")
+                    cur.execute(
+                        "INSERT INTO stats (key, value) VALUES (%s, 1) ON CONFLICT (key) DO UPDATE SET value = stats.value + 1",
+                        (key,)
+                    )
             finally:
                 _put_conn(conn)
         else:
@@ -313,27 +317,34 @@ class Engine:
                 with open(path, encoding='utf-8') as f:
                     s = json.load(f)
             except (OSError, json.JSONDecodeError):
-                s = {'learn_count': 0}
-            s['learn_count'] = s.get('learn_count', 0) + 1
+                s = {}
+            s[key] = s.get(key, 0) + 1
             self._atomic_write(path, s)
 
-    def get_learn_count(self):
+    def _increment_learn_count(self):
+        self._increment_stat('learn_count')
+
+    def increment_play_count(self):
+        self._increment_stat('play_count')
+
+    def get_stats(self):
+        keys = ('play_count', 'learn_count')
         if _use_db():
             conn = _get_conn()
             try:
                 cur = conn.cursor()
-                cur.execute("SELECT value FROM stats WHERE key = 'learn_count'")
-                row = cur.fetchone()
-                return row[0] if row else 0
+                cur.execute("SELECT key, value FROM stats WHERE key = ANY(%s)", (list(keys),))
+                result = dict(cur.fetchall())
             finally:
                 _put_conn(conn)
         else:
             path = os.path.join(DATA_DIR, 'stats.json')
             try:
                 with open(path, encoding='utf-8') as f:
-                    return json.load(f).get('learn_count', 0)
+                    result = json.load(f)
             except (OSError, json.JSONDecodeError):
-                return 0
+                result = {}
+        return {k: result.get(k, 0) for k in keys}
 
     def _save_to_db(self, all_updates):
         if not all_updates:

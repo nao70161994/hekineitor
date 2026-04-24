@@ -144,6 +144,7 @@ PROFILE_MIN_RATIO = 0.25   # best_p に対する比率の下限
 PROFILE_MIN_PROB  = 0.08   # 絶対確率の下限
 
 def _make_guess(answers):
+    engine.increment_play_count()
     probs   = engine.posteriors(answers)
     ranked  = sorted(range(len(probs)), key=lambda i: probs[i], reverse=True)
     best_f  = ranked[0]
@@ -263,8 +264,8 @@ def _require_admin(f):
 @_require_admin
 def admin():
     stats = engine.get_learning_stats()
-    learn_count = engine.get_learn_count()
-    return render_template('admin.html', stats=stats, learn_count=learn_count)
+    s = engine.get_stats()
+    return render_template('admin.html', stats=stats, play_count=s['play_count'], learn_count=s['learn_count'])
 
 
 if __name__ == '__main__':
