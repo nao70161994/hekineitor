@@ -372,6 +372,12 @@ class Engine:
                             'INSERT INTO matrix (fetish_id, question_id, yes_count, total_count) VALUES %s ON CONFLICT DO NOTHING',
                             new_rows
                         )
+                    # 既存性癖の名前・説明を fetishes.json と同期
+                    for f in seed:
+                        cur.execute(
+                            'UPDATE fetishes SET name=%s, "desc"=%s WHERE id=%s',
+                            (f['name'], f['desc'], f['id'])
+                        )
         finally:
             _put_conn(conn)
 
