@@ -308,17 +308,44 @@ def add_fetish():
         return jsonify({'status': 'error', 'message': '名前は100文字以内で入力してください'}), 400
     existing = next((f for f in engine.fetishes if f['name'] == name), None)
     if existing:
-        engine.learn(answers, existing['id'])
-        return jsonify({'status': 'learned', 'fetish_name': existing['name'], 'fetish_id': existing['id']})
+        # 学習は /api/finalize_added にまとめる（完了ボタン押下時）
+        return jsonify({'status': 'learned', 'fetish_name': existing['name'],
+                        'fetish_id': existing['id'], 'is_new': False})
     if confirmed:
         if not desc:
             desc = name
-        new_id = engine.add_fetish(name, desc, answers)
-        return jsonify({'status': 'learned', 'fetish_name': name, 'fetish_id': new_id})
+        _, db_id = engine.add_fetish(name, desc, answers)
+        return jsonify({'status': 'learned', 'fetish_name': name,
+                        'fetish_id': db_id, 'is_new': True})
     similar = _find_similar(name, engine.fetishes)
     if similar:
         return jsonify({'status': 'similar', 'candidates': similar})
     return jsonify({'status': 'needs_desc'})
+
+
+@app.route('/api/finalize_added', methods=['POST'])
+def finalize_added():
+    data  = request.get_json(silent=True) or {}
+    items = data.get('items', [])
+    if not isinstance(items, list):
+        return jsonify({'status': 'error', 'message': 'items はリストで指定してください'}), 400
+    answers = session.get('answers', {})
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        try:
+            db_id  = int(item.get('id'))
+            is_new = bool(item.get('is_new'))
+        except (ValueError, TypeError):
+            continue
+        idx = engine.index_of(db_id)
+        if idx is None:
+            continue
+        if is_new:
+            engine.boost_learn_new(idx, answers)
+        else:
+            engine.learn(answers, idx)
+    return jsonify({'status': 'done'})
 
 
 @app.route('/api/fetish/<int:fetish_id>', methods=['DELETE'])

@@ -693,6 +693,8 @@ class Engine:
             self._save_to_db(all_updates)
 
     def add_fetish(self, name, desc, answers):
+        """新しい性癖をDBに登録する（学習はしない）。返り値は (array_idx, db_id)。
+        学習は完了確定時に boost_learn_new() を別途呼ぶ。"""
         nq = len(self.questions)
         alpha = 2.0
 
@@ -742,10 +744,17 @@ class Engine:
             if not _use_db():
                 self._save_fetishes_file()
 
+        return array_idx, db_id
+
+    def boost_learn_new(self, fetish_idx, answers):
+        """新規追加時の初期ブースト：_learn_silent × 3 + learn × 1。"""
         for _ in range(3):
-            self._learn_silent(answers, array_idx)
-        self.learn(answers, array_idx)
-        return array_idx
+            self._learn_silent(answers, fetish_idx)
+        self.learn(answers, fetish_idx)
+
+    def index_of(self, db_id):
+        """DB id から配列インデックスを取得する。見つからなければ None。"""
+        return next((i for i, f in enumerate(self.fetishes) if f['id'] == db_id), None)
 
     def delete_fetish(self, fetish_id):
         """プレイヤー追加性癖（ID >= PLAYER_FETISH_BASE_ID）を削除する。"""

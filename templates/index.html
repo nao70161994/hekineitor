@@ -889,15 +889,9 @@ async function addFetishStep1() {
   }
 }
 
-async function pickSimilar(id, name) {
-  if (_fetching) return;
-  _fetching = true;
-  try {
-    await apiFetch('/api/teach', {fetish_id: id});
-    _finishAdd({fetish_name: name});
-  } finally {
-    _fetching = false;
-  }
+function pickSimilar(id, name) {
+  // 学習は完了時にまとめて行う（既存性癖なので is_new=false）
+  _finishAdd({fetish_id: id, fetish_name: name, is_new: false});
 }
 
 function addFetishConfirmNew() {
@@ -928,7 +922,7 @@ async function addFetishStep2(skip) {
 
 function _finishAdd(data) {
   if (!window._addedItems) window._addedItems = [];
-  window._addedItems.push({name: data.fetish_name, id: data.fetish_id});
+  window._addedItems.push({id: data.fetish_id, name: data.fetish_name, is_new: !!data.is_new});
 
   document.getElementById('add-step1').style.display = 'none';
   document.getElementById('add-step-similar').style.display = 'none';
@@ -958,9 +952,13 @@ async function deleteAddedItem(id, name) {
   if (_fetching) return;
   _fetching = true;
   try {
-    const res = await fetch(`/api/fetish/${id}`, {method: 'DELETE'});
-    if (!res.ok && res.status !== 403 && res.status !== 404) {
-      showToast('削除に失敗しました', '#c0392b'); return;
+    const item = (window._addedItems || []).find(i => i.id === id);
+    // 新規追加分のみDBから削除（既存を選んだだけなら記録から外すだけ）
+    if (item && item.is_new) {
+      const res = await fetch(`/api/fetish/${id}`, {method: 'DELETE'});
+      if (!res.ok && res.status !== 404) {
+        showToast('削除に失敗しました', '#c0392b'); return;
+      }
     }
     window._addedItems = (window._addedItems || []).filter(item => item.id !== id);
     if (window._addedItems.length === 0) {
@@ -981,12 +979,23 @@ function addFetishMore() {
   document.getElementById('add-skip-btn').style.display = '';
 }
 
-function addFetishDone() {
+async function addFetishDone() {
+  if (_fetching) return;
   const items = window._addedItems || [];
   window._addedItems = [];
   document.getElementById('add-step-more').style.display = 'none';
   document.getElementById('add-step1').style.display = '';
   document.getElementById('add-skip-btn').style.display = '';
+  if (items.length > 0) {
+    _fetching = true;
+    try {
+      await apiFetch('/api/finalize_added', {
+        items: items.map(i => ({id: i.id, is_new: i.is_new}))
+      });
+    } finally {
+      _fetching = false;
+    }
+  }
   const names = items.map(i => i.name);
   lastFetishName = names.join(' × ');
   document.getElementById('done-msg').textContent =
