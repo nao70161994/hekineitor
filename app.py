@@ -262,19 +262,22 @@ def teach():
 @app.route('/api/add_fetish', methods=['POST'])
 def add_fetish():
     data        = request.get_json(silent=True) or {}
-    name    = data.get('name', '').strip()
-    desc    = data.get('desc', '').strip()
-    answers = session.get('answers', {})
+    name      = data.get('name', '').strip()
+    desc      = data.get('desc', '').strip()
+    confirmed = data.get('confirmed', False)
+    answers   = session.get('answers', {})
     if not name:
         return jsonify({'status': 'error', 'message': '名前を入力してください'}), 400
     if len(name) > 100:
         return jsonify({'status': 'error', 'message': '名前は100文字以内で入力してください'}), 400
-    if not desc:
-        desc = name
     existing = next((f for f in engine.fetishes if f['name'] == name), None)
     if existing:
         engine.learn(answers, existing['id'])
         return jsonify({'status': 'learned', 'fetish_name': existing['name'], 'fetish_id': existing['id']})
+    if not confirmed:
+        return jsonify({'status': 'needs_desc'})
+    if not desc:
+        desc = name
     new_id = engine.add_fetish(name, desc, answers)
     return jsonify({'status': 'learned', 'fetish_name': name, 'fetish_id': new_id})
 
