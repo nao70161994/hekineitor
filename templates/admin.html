@@ -49,5 +49,21 @@
   </tr>
   {% endfor %}
 </table>
+
+{% if player_fetishes %}
+<h2 style="color:#f5a623;font-size:1rem;margin-top:32px;margin-bottom:8px;">プレイヤーが追加した性癖（{{ player_fetishes|length }}件）</h2>
+<table>
+  <tr><th>ID</th><th>名前</th><th>説明</th></tr>
+  {% for f in player_fetishes %}
+  <tr>
+    <td style="color:#666;font-size:0.8rem">{{ f.id }}</td>
+    <td>{{ f.name }}</td>
+    <td style="color:#888;font-size:0.82rem">{{ f.desc }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p style="color:#555;font-size:0.85rem;margin-top:32px;">プレイヤーが追加した性癖はまだありません。</p>
+{% endif %}
 </body>
 </html>
