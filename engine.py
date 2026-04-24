@@ -747,6 +747,29 @@ class Engine:
         self.learn(answers, array_idx)
         return array_idx
 
+    def delete_fetish(self, fetish_id):
+        """プレイヤー追加性癖（ID >= PLAYER_FETISH_BASE_ID）を削除する。"""
+        with self._lock:
+            idx = next((i for i, f in enumerate(self.fetishes) if f['id'] == fetish_id), None)
+            if idx is None or self.fetishes[idx]['id'] < PLAYER_FETISH_BASE_ID:
+                return False
+            self.fetishes.pop(idx)
+            self.matrix['yes'].pop(idx)
+            self.matrix['total'].pop(idx)
+            if _use_db():
+                conn = _get_conn()
+                try:
+                    with conn:
+                        cur = conn.cursor()
+                        cur.execute('DELETE FROM fetishes WHERE id = %s', (fetish_id,))
+                        cur.execute('DELETE FROM matrix WHERE fetish_id = %s', (fetish_id,))
+                finally:
+                    _put_conn(conn)
+            else:
+                self._save_fetishes_file()
+                self._save_matrix_file()
+        return True
+
     def get_related(self, fetish_id):
         related_ids = FETISH_RELATIONS.get(fetish_id, [])
         return [

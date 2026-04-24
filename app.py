@@ -5,7 +5,7 @@ import hashlib
 import functools
 import unicodedata
 from flask import Flask, render_template, request, jsonify, session, Response, send_from_directory
-from engine import Engine
+from engine import Engine, PLAYER_FETISH_BASE_ID
 
 app = Flask(__name__)
 _secret = os.environ.get('SECRET_KEY')
@@ -321,6 +321,16 @@ def add_fetish():
     return jsonify({'status': 'needs_desc'})
 
 
+@app.route('/api/fetish/<int:fetish_id>', methods=['DELETE'])
+def delete_fetish(fetish_id):
+    if fetish_id < PLAYER_FETISH_BASE_ID:
+        return jsonify({'status': 'error', 'message': 'シード性癖は削除できません'}), 403
+    ok = engine.delete_fetish(fetish_id)
+    if not ok:
+        return jsonify({'status': 'error', 'message': '見つかりません'}), 404
+    return jsonify({'status': 'deleted'})
+
+
 def _require_admin(f):
     @functools.wraps(f)
     def decorated(*args, **kwargs):
@@ -336,8 +346,6 @@ def _require_admin(f):
         return f(*args, **kwargs)
     return decorated
 
-
-from engine import PLAYER_FETISH_BASE_ID
 
 @app.route('/admin')
 @_require_admin

@@ -527,7 +527,7 @@
       <button class="btn btn-idk" style="width:100%;margin-bottom:8px;font-size:0.85rem;" onclick="addFetishStep2(true)">説明をスキップ</button>
     </div>
     <div id="add-step-more" style="display:none">
-      <div id="add-added-list" style="margin-bottom:8px;font-size:0.82rem;color:#27ae60;"></div>
+      <div id="add-added-list" style="margin-bottom:8px;"></div>
       <button class="btn btn-yes" style="width:100%;margin-bottom:8px;" onclick="addFetishMore()">もう1件追加する</button>
       <button class="btn btn-correct" style="width:100%;margin-bottom:8px;" onclick="addFetishDone()">完了</button>
     </div>
@@ -853,6 +853,7 @@ async function submitTeach() {
     }).filter(Boolean);
     const wrongNames = [...selected.values()];
     const allNames = [...correctNames, ...wrongNames];
+    window._addedItems = [];
     lastFetishName = allNames.join(' × ') || lastFetishName;
     const msg = allNames.length > 0
       ? `✓「${allNames.join('」「')}」として学習しました！`
@@ -926,21 +927,51 @@ async function addFetishStep2(skip) {
 }
 
 function _finishAdd(data) {
-  if (!window._addedNames) window._addedNames = [];
-  window._addedNames.push(data.fetish_name);
+  if (!window._addedItems) window._addedItems = [];
+  window._addedItems.push({name: data.fetish_name, id: data.fetish_id});
 
   document.getElementById('add-step1').style.display = 'none';
   document.getElementById('add-step-similar').style.display = 'none';
   document.getElementById('add-step2').style.display = 'none';
   document.getElementById('new-fetish-name').value = '';
 
-  if (window._addedNames.length < 3) {
-    document.getElementById('add-added-list').textContent =
-      '追加済み: ' + window._addedNames.join('、');
+  if (window._addedItems.length < 3) {
+    _renderAddedList();
     document.getElementById('add-step-more').style.display = '';
     document.getElementById('add-skip-btn').style.display = 'none';
   } else {
     addFetishDone();
+  }
+}
+
+function _renderAddedList() {
+  const container = document.getElementById('add-added-list');
+  container.innerHTML = (window._addedItems || []).map(item => `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+      <span style="flex:1;font-size:0.82rem;color:#27ae60;">✓ ${item.name}</span>
+      <button onclick="deleteAddedItem(${item.id}, '${item.name.replace(/'/g, "\\'")}')"
+        style="background:none;border:1px solid #555;color:#888;border-radius:4px;padding:2px 8px;font-size:0.75rem;cursor:pointer;">×</button>
+    </div>`).join('');
+}
+
+async function deleteAddedItem(id, name) {
+  if (_fetching) return;
+  _fetching = true;
+  try {
+    const res = await fetch(`/api/fetish/${id}`, {method: 'DELETE'});
+    if (!res.ok && res.status !== 403 && res.status !== 404) {
+      showToast('削除に失敗しました', '#c0392b'); return;
+    }
+    window._addedItems = (window._addedItems || []).filter(item => item.id !== id);
+    if (window._addedItems.length === 0) {
+      document.getElementById('add-step-more').style.display = 'none';
+      document.getElementById('add-step1').style.display = '';
+      document.getElementById('add-skip-btn').style.display = '';
+    } else {
+      _renderAddedList();
+    }
+  } finally {
+    _fetching = false;
   }
 }
 
@@ -951,11 +982,12 @@ function addFetishMore() {
 }
 
 function addFetishDone() {
-  const names = window._addedNames || [];
-  window._addedNames = [];
+  const items = window._addedItems || [];
+  window._addedItems = [];
   document.getElementById('add-step-more').style.display = 'none';
   document.getElementById('add-step1').style.display = '';
   document.getElementById('add-skip-btn').style.display = '';
+  const names = items.map(i => i.name);
   lastFetishName = names.join(' × ');
   document.getElementById('done-msg').textContent =
     `✓「${names.join('」「')}」を学習しました！`;
