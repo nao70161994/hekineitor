@@ -8,7 +8,7 @@
 - `engine.py` — ベイズ推論エンジン。情報利得で次の質問を選択
 - `templates/index.html` — シングルページUI
 - `templates/admin.html` — 学習データ量管理ページ
-- `data/` — questions.json（87問）/ fetishes.json（64件）/ matrix.json（ローカル用・gitignore済み）
+- `data/` — questions.json（87問）/ fetishes.json（83件）/ matrix.json（ローカル用・gitignore済み）
 
 ## データ永続化
 
@@ -91,8 +91,16 @@ python app.py
 gunicorn app:app --workers 1 --threads 4
 ```
 
+## プレイヤー追加性癖
+
+- `PLAYER_FETISH_BASE_ID = 10000`（engine.pyで定義）以上のIDがプレイヤー追加性癖
+- シードとIDが競合しない設計
+- DBの `fetishes` テーブルに永続化
+- 管理画面でプレイヤー追加分を一覧表示
+
 ## 注意
 
 - `data/matrix.json` は `.gitignore` 済み（学習データをgitに含めない）
 - gunicornは `--workers 1` 固定（複数プロセスだとin-memoryのmatrixが分裂するため）
 - Termux環境では長いコマンドはスクリプトファイルに書いて実行する
+- シードの性癖をDBに登録せずJSONで管理しているのは、JSONが「正解」でありDB側はfetish_idを参照するだけのため（シード増減もマイグレーションで自動追従）
