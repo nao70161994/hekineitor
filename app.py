@@ -337,7 +337,7 @@ def _require_admin(f):
     return decorated
 
 
-SEED_FETISH_COUNT = 64  # data/fetishes.json の件数
+SEED_FETISH_COUNT = 65  # data/fetishes.json の件数
 
 @app.route('/admin')
 @_require_admin
