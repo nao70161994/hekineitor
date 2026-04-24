@@ -230,6 +230,8 @@
     transition: background 0.15s;
   }
   .fetish-item:hover { background: #1a4a8a; }
+  .fetish-item.selected { background: #27ae60; color: #fff; }
+  .fetish-item.selected:hover { background: #219a52; }
 
   .msg {
     text-align: center;
@@ -499,8 +501,9 @@
 
   <!-- 正解選択画面 -->
   <div id="teach-screen" class="hidden">
-    <p style="margin-bottom:12px;color:#aaa;font-size:0.9rem;">正解を教えてください（学習します）</p>
+    <p id="teach-label" style="margin-bottom:12px;color:#aaa;font-size:0.9rem;text-align:center;"></p>
     <div class="fetish-list" id="fetish-list"></div>
+    <button class="btn btn-yes" id="teach-submit-btn" style="width:100%;margin-bottom:8px;display:none;" onclick="submitTeach()">学習する</button>
     <hr style="border-color:#333;margin:14px 0;">
     <p style="color:#aaa;font-size:0.85rem;margin-bottom:10px;">リストにない場合は追加できます</p>
     <input id="new-fetish-name" type="text" placeholder="性癖の名前（例：獣耳ヒロイン）"
@@ -743,15 +746,22 @@ function setItemState(id, state, btn) {
 async function submitConfirm() {
   const items = document.querySelectorAll('#confirm-items .confirm-item');
   const correctIds = [];
+  const wrongCount  = [];
   items.forEach(item => {
     if (item.dataset.state === 'yes') correctIds.push(parseInt(item.dataset.id));
+    else wrongCount.push(parseInt(item.dataset.id));
   });
 
+  // ○がついた項目を即学習
   if (correctIds.length > 0) {
-    // 正解の項目をまとめて学習
     for (const fid of correctIds) {
       await apiFetch('/api/teach', {fetish_id: fid});
     }
+  }
+
+  const missCount = wrongCount.length;
+  if (missCount === 0) {
+    // 全部正解
     const names = correctIds.map(id => {
       const el = document.getElementById(`ci-${id}`);
       return el ? el.querySelector('.confirm-item-name').textContent : '';
@@ -759,38 +769,84 @@ async function submitConfirm() {
     lastFetishName = names.join(' × ');
     document.getElementById('done-msg').textContent = `✓「${names.join('」「')}」として学習しました！`;
     show('done-screen');
-  } else {
-    // 全部外れ → 正解選択画面へ
-    const data = await apiFetch('/api/confirm', {correct: false, fetish_id: window._guessedId});
-    if (!data || !data.fetishes) return;
-    const list = document.getElementById('fetish-list');
-    list.innerHTML = '';
-    data.fetishes.forEach(f => {
-      const div = document.createElement('div');
-      div.className = 'fetish-item';
-      div.textContent = f.name;
-      div.onclick = () => teachCorrect(f.id, f.name);
-      list.appendChild(div);
-    });
-    const sel = document.getElementById('template-fetish');
-    sel.innerHTML = '<option value="">似ている既存の性癖をテンプレートにする（任意）</option>';
-    data.fetishes.forEach(f => {
-      const opt = document.createElement('option');
-      opt.value = f.id;
-      opt.textContent = f.name;
-      sel.appendChild(opt);
-    });
-    show('teach-screen');
+    return;
   }
+
+  // 外れあり → 正解を最大 missCount 件選んでもらう
+  const data = await apiFetch('/api/confirm', {correct: false, fetish_id: window._guessedId});
+  if (!data || !data.fetishes) return;
+
+  window._teachMax      = missCount;
+  window._teachSelected = new Map(); // id → name
+  window._teachCorrectIds = correctIds;
+
+  document.getElementById('teach-label').textContent =
+    `外れた${missCount}項目の正解を選んでください（最大${missCount}件）`;
+
+  const list = document.getElementById('fetish-list');
+  list.innerHTML = '';
+  data.fetishes.forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'fetish-item';
+    div.id = `ti-${f.id}`;
+    div.textContent = f.name;
+    div.onclick = () => toggleTeachItem(f.id, f.name, div);
+    list.appendChild(div);
+  });
+
+  const sel = document.getElementById('template-fetish');
+  sel.innerHTML = '<option value="">似ている既存の性癖をテンプレートにする（任意）</option>';
+  data.fetishes.forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f.id;
+    opt.textContent = f.name;
+    sel.appendChild(opt);
+  });
+
+  document.getElementById('teach-submit-btn').style.display = '';
+  updateTeachSubmitBtn();
+  show('teach-screen');
 }
 
-async function teachCorrect(id, name) {
+function toggleTeachItem(id, name, el) {
+  if (window._teachSelected.has(id)) {
+    window._teachSelected.delete(id);
+    el.classList.remove('selected');
+  } else {
+    if (window._teachSelected.size >= window._teachMax) return;
+    window._teachSelected.set(id, name);
+    el.classList.add('selected');
+  }
+  updateTeachSubmitBtn();
+}
+
+function updateTeachSubmitBtn() {
+  const btn = document.getElementById('teach-submit-btn');
+  const n = window._teachSelected ? window._teachSelected.size : 0;
+  const max = window._teachMax || 1;
+  btn.textContent = n > 0 ? `${n}件を学習する` : `選んで学習する`;
+  btn.disabled = n === 0;
+}
+
+async function submitTeach() {
   if (_fetching) return;
   _fetching = true;
   try {
-    lastFetishName = name;
-    await apiFetch('/api/teach', {fetish_id: id});
-    document.getElementById('done-msg').textContent = `✓「${name}」として学習しました！`;
+    const selected = window._teachSelected || new Map();
+    for (const [fid] of selected) {
+      await apiFetch('/api/teach', {fetish_id: fid});
+    }
+    const correctNames = (window._teachCorrectIds || []).map(id => {
+      const el = document.getElementById(`ci-${id}`);
+      return el ? el.querySelector('.confirm-item-name').textContent : '';
+    }).filter(Boolean);
+    const wrongNames = [...selected.values()];
+    const allNames = [...correctNames, ...wrongNames];
+    lastFetishName = allNames.join(' × ') || lastFetishName;
+    const msg = allNames.length > 0
+      ? `✓「${allNames.join('」「')}」として学習しました！`
+      : '✓ 学習しました！ありがとうございます。';
+    document.getElementById('done-msg').textContent = msg;
     show('done-screen');
   } finally {
     _fetching = false;
