@@ -243,12 +243,158 @@
     background: none; border: none; color: #666;
     font-size: 1.2rem; cursor: pointer; padding: 4px;
   }
+
+  /* 魔人キャラ */
+  .genie-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 12px;
+    height: 150px;
+  }
+  #genie {
+    filter: drop-shadow(0 0 10px rgba(168,85,247,0.5));
+    animation: genie-float 3s ease-in-out infinite;
+    transform-origin: 50% 100%;
+  }
+  @keyframes genie-float {
+    0%,100% { transform: translateY(0px); }
+    50%      { transform: translateY(-12px); }
+  }
+  #genie.thinking {
+    animation: genie-think 2s ease-in-out infinite;
+  }
+  @keyframes genie-think {
+    0%,100% { transform: translateY(0) rotate(-1deg); }
+    33%      { transform: translateY(-8px) rotate(1.5deg); }
+    66%      { transform: translateY(-4px) rotate(-1.5deg); }
+  }
+  #genie.reveal {
+    animation: genie-reveal 0.4s ease-in-out 4, genie-float 3s ease-in-out 4s infinite;
+    filter: drop-shadow(0 0 22px rgba(233,69,96,0.9));
+  }
+  @keyframes genie-reveal {
+    0%,100% { transform: scale(1); }
+    50%      { transform: scale(1.08) translateY(-6px); }
+  }
+  .eye-blink {
+    animation: blink 5s ease-in-out infinite;
+  }
+  @keyframes blink {
+    0%,92%,100% { transform: scaleY(1); }
+    96%          { transform: scaleY(0.1); }
+  }
+  .smoke-wisp {
+    animation: wisp 4s ease-in-out infinite;
+  }
+  @keyframes wisp {
+    0%,100% { d: path("M38,190 Q25,170 35,150 Q50,135 60,145 Q70,135 85,150 Q95,170 82,190 Z"); }
+    50%      { d: path("M42,190 Q20,172 32,148 Q48,132 60,143 Q72,132 88,148 Q100,172 78,190 Z"); }
+  }
+  .orb-glow {
+    animation: orb-pulse 2s ease-in-out infinite;
+  }
+  @keyframes orb-pulse {
+    0%,100% { opacity: 0.6; r: 8; }
+    50%      { opacity: 1.0; r: 10; }
+  }
 </style>
 </head>
 <body>
 
 <h1>へきネイター</h1>
 <p class="subtitle">あなたの性癖を当ててみせましょう…</p>
+
+<!-- 魔人キャラ -->
+<div class="genie-wrap">
+<svg id="genie" viewBox="0 0 120 190" width="110" height="150" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="eyeG" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#f0e6ff"/>
+      <stop offset="45%" stop-color="#c084fc"/>
+      <stop offset="100%" stop-color="#6b21a8"/>
+    </radialGradient>
+    <radialGradient id="bodyG" cx="50%" cy="20%" r="75%">
+      <stop offset="0%" stop-color="#3b1f6e"/>
+      <stop offset="100%" stop-color="#0d0020"/>
+    </radialGradient>
+    <radialGradient id="orbG" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#c084fc"/>
+      <stop offset="100%" stop-color="#1a0040"/>
+    </radialGradient>
+    <filter id="glow-f" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- 煙の体 -->
+  <path d="M38,190 Q22,168 33,148 Q48,130 60,142 Q72,130 87,148 Q98,168 82,190 Z"
+        fill="url(#bodyG)" opacity="0.85"/>
+  <!-- ローブの筋 -->
+  <path d="M48,155 Q46,172 47,186" stroke="#4a2090" stroke-width="1" fill="none" opacity="0.6"/>
+  <path d="M60,148 Q60,170 60,186" stroke="#4a2090" stroke-width="1" fill="none" opacity="0.6"/>
+  <path d="M72,155 Q74,172 73,186" stroke="#4a2090" stroke-width="1" fill="none" opacity="0.6"/>
+
+  <!-- 水晶玉 -->
+  <circle cx="36" cy="152" r="11" fill="url(#orbG)" stroke="#7c3aed" stroke-width="1" opacity="0.85"/>
+  <circle class="orb-glow" cx="36" cy="152" r="8" fill="#c084fc" opacity="0.3"/>
+  <ellipse cx="33" cy="149" rx="3" ry="2" fill="white" opacity="0.35"/>
+
+  <!-- 首 -->
+  <rect x="50" y="90" width="20" height="18" rx="6" fill="#1e0838"/>
+
+  <!-- 頭 -->
+  <ellipse cx="60" cy="68" rx="30" ry="32" fill="#1e0838"/>
+
+  <!-- 角 -->
+  <polygon points="36,54 27,26 44,46" fill="#e94560"/>
+  <polygon points="84,54 93,26 76,46" fill="#e94560"/>
+
+  <!-- ターバン装飾 -->
+  <path d="M31,58 Q60,48 89,58" stroke="#7c3aed" stroke-width="5" fill="none"
+        stroke-linecap="round" opacity="0.8"/>
+  <circle cx="60" cy="53" r="5" fill="#e94560"/>
+  <circle cx="60" cy="53" r="2.5" fill="#ff8fa3"/>
+
+  <!-- 目 (瞬き対応) -->
+  <g class="eye-blink" style="transform-origin:47px 66px">
+    <ellipse cx="47" cy="66" rx="10" ry="11" fill="url(#eyeG)" filter="url(#glow-f)"/>
+    <ellipse cx="47" cy="67" rx="5" ry="6" fill="#3b0068"/>
+    <circle  cx="44" cy="63" r="2.2" fill="white" opacity="0.85"/>
+  </g>
+  <g class="eye-blink" style="transform-origin:73px 66px">
+    <ellipse cx="73" cy="66" rx="10" ry="11" fill="url(#eyeG)" filter="url(#glow-f)"/>
+    <ellipse cx="73" cy="67" rx="5" ry="6" fill="#3b0068"/>
+    <circle  cx="70" cy="63" r="2.2" fill="white" opacity="0.85"/>
+  </g>
+
+  <!-- 眉 -->
+  <path id="brow-l" d="M37,53 Q47,48 56,53" stroke="#9333ea" stroke-width="2.5"
+        fill="none" stroke-linecap="round"/>
+  <path id="brow-r" d="M64,53 Q73,48 83,53" stroke="#9333ea" stroke-width="2.5"
+        fill="none" stroke-linecap="round"/>
+
+  <!-- 口 (デフォルト：ニヤり) -->
+  <path id="mouth-smirk" d="M45,82 Q54,89 70,82" stroke="#e94560" stroke-width="2.5"
+        fill="none" stroke-linecap="round"/>
+  <!-- 口 (考え中：へ字) -->
+  <path id="mouth-think" d="M46,84 Q56,80 68,84" stroke="#e94560" stroke-width="2.5"
+        fill="none" stroke-linecap="round" opacity="0"/>
+  <!-- 口 (結果：ニタァ) -->
+  <g id="mouth-reveal" opacity="0">
+    <path d="M40,80 Q60,96 80,80 L78,86 Q60,100 42,86 Z" fill="white"/>
+    <path d="M40,80 Q60,96 80,80" stroke="#e94560" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- 考える腕 (デフォルト非表示) -->
+  <g id="arm-think" opacity="0">
+    <path d="M86,120 Q96,105 90,95 Q84,86 76,84"
+          stroke="#2d1560" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <ellipse cx="74" cy="82" rx="8" ry="7" fill="#2d1560"/>
+    <path d="M68,80 Q74,76 80,80" stroke="#4a2090" stroke-width="1.5" fill="none"/>
+  </g>
+</svg>
+</div>
 
 <div class="card">
 
@@ -359,7 +505,43 @@ function show(id) {
   document.getElementById(id).classList.remove('hidden');
 }
 
-function showStart() { show('start-screen'); }
+function setGenieState(state) {
+  const g = document.getElementById('genie');
+  g.classList.remove('thinking', 'reveal');
+
+  const smirk  = document.getElementById('mouth-smirk');
+  const think  = document.getElementById('mouth-think');
+  const reveal = document.getElementById('mouth-reveal');
+  const arm    = document.getElementById('arm-think');
+  const browL  = document.getElementById('brow-l');
+  const browR  = document.getElementById('brow-r');
+
+  smirk.setAttribute('opacity',  '0');
+  think.setAttribute('opacity',  '0');
+  reveal.setAttribute('opacity', '0');
+  arm.setAttribute('opacity',    '0');
+  browL.setAttribute('d', 'M37,53 Q47,48 56,53');
+  browR.setAttribute('d', 'M64,53 Q73,48 83,53');
+
+  if (state === 'thinking') {
+    g.classList.add('thinking');
+    think.setAttribute('opacity', '1');
+    arm.setAttribute('opacity', '1');
+    // 片眉を上げて考え顔
+    browL.setAttribute('d', 'M37,55 Q47,50 56,55');
+    browR.setAttribute('d', 'M64,50 Q73,45 83,50');
+  } else if (state === 'reveal') {
+    g.classList.add('reveal');
+    reveal.setAttribute('opacity', '1');
+    // 両眉をつり上げてニタァ顔
+    browL.setAttribute('d', 'M36,50 Q47,44 56,50');
+    browR.setAttribute('d', 'M64,50 Q73,44 84,50');
+  } else {
+    smirk.setAttribute('opacity', '1');
+  }
+}
+
+function showStart() { show('start-screen'); setGenieState('idle'); }
 
 function confirmRestart() {
   document.getElementById('modal-restart').classList.remove('hidden');
@@ -413,6 +595,7 @@ function showQuestion(data) {
   document.getElementById('progress-fill').style.width = pct + '%';
   document.getElementById('btn-back').style.visibility = data.count > 0 ? 'visible' : 'hidden';
   show('question-screen');
+  setGenieState('thinking');
 }
 
 async function goBack() {
@@ -439,6 +622,7 @@ async function sendAnswer(ans) {
 }
 
 function showGuess(data) {
+  setGenieState('reveal');
   document.getElementById('result-name').textContent = data.fetish_name;
   document.getElementById('result-desc').textContent = data.fetish_desc;
   document.getElementById('result-prob').textContent = `一致度: ${data.probability}%`;
