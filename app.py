@@ -6,11 +6,14 @@ from flask import Flask, render_template, request, jsonify, session, Response, s
 from engine import Engine
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'hekineitor_secret_2024')
-
-if not os.environ.get('SECRET_KEY'):
+_secret = os.environ.get('SECRET_KEY')
+if not _secret:
+    if os.environ.get('DATABASE_URL'):
+        raise RuntimeError('本番環境では SECRET_KEY 環境変数の設定が必須です')
     import warnings
     warnings.warn('SECRET_KEY が未設定です。本番環境では環境変数に設定してください。', stacklevel=1)
+    _secret = 'hekineitor_dev_secret_2024'
+app.secret_key = _secret
 
 def _app_version():
     h = hashlib.md5()
@@ -85,6 +88,10 @@ def answer():
 
     answers[str(q_idx)] = ans
     session['answers']  = answers
+
+    # back() 後の再回答でも q_idx を asked に含める（重複質問防止）
+    if q_idx not in asked:
+        asked.append(q_idx)
 
     # 「わからない」連続カウント
     idk_streak = session.get('idk_streak', 0)

@@ -26,7 +26,7 @@ def _get_pool():
                 url = DATABASE_URL
                 if url.startswith('postgres://'):
                     url = url.replace('postgres://', 'postgresql://', 1)
-                _conn_pool = psycopg2_pool.SimpleConnectionPool(1, 5, url, sslmode='require')
+                _conn_pool = psycopg2_pool.SimpleConnectionPool(2, 20, url, sslmode='require')
     return _conn_pool
 
 # (fetish_idx, question_idx, probability)
@@ -283,11 +283,15 @@ class Engine:
     def _atomic_write(self, path, data, **kwargs):
         fd, tmp = tempfile.mkstemp(dir=DATA_DIR, suffix='.tmp')
         try:
+            os.chmod(tmp, 0o600)
             with os.fdopen(fd, 'w', encoding='utf-8') as f:
                 json.dump(data, f, **kwargs)
             os.replace(tmp, path)
         except Exception:
-            os.unlink(tmp)
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
             raise
 
     def _save_matrix_file(self):

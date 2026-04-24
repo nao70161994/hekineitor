@@ -565,18 +565,24 @@ function showToast(msg, color) {
 let _fetching = false;
 
 async function apiFetch(url, body) {
+  let res;
   try {
-    const res = await fetch(url, {
+    res = await fetch(url, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (e) {
+  } catch {
     showToast('通信エラーが発生しました。リロードしてください。', '#c0392b');
-    throw e;
+    throw new Error('network');
   }
+  if (!res.ok) {
+    let msg = `サーバーエラー (${res.status})`;
+    try { const e = await res.json(); if (e.message) msg = e.message; } catch {}
+    showToast(msg, '#c0392b');
+    throw new Error(msg);
+  }
+  return await res.json();
 }
 
 function setAnswerButtons(disabled) {
@@ -729,14 +735,14 @@ const banner = document.getElementById('install-banner');
 
 function dismissInstall() {
   banner.classList.add('hidden');
-  sessionStorage.setItem('install-dismissed', '1');
+  localStorage.setItem('install-dismissed', '1');
 }
 
 // Android / Chrome: beforeinstallprompt を捕捉（ページロード前でも取りこぼさないよう最上位に登録）
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredPrompt = e;
-  if (!sessionStorage.getItem('install-dismissed')) {
+  if (!localStorage.getItem('install-dismissed')) {
     banner.classList.remove('hidden');
   }
 });
@@ -759,7 +765,7 @@ window.addEventListener('appinstalled', () => banner.classList.add('hidden'));
 // iOS Safari: スタンドアロンでなければ手順を案内
 const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-if (isIos && !isStandalone && !sessionStorage.getItem('install-dismissed')) {
+if (isIos && !isStandalone && !localStorage.getItem('install-dismissed')) {
   document.getElementById('install-msg').textContent =
     'ホーム画面に追加：Safari の 共有ボタン → "ホーム画面に追加"';
   document.getElementById('btn-install').style.display = 'none';
