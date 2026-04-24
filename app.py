@@ -149,6 +149,8 @@ def back():
 
 PROFILE_MIN_RATIO = 0.25   # best_p に対する比率の下限
 PROFILE_MIN_PROB  = 0.08   # 絶対確率の下限
+COMPOUND_RATIO    = 0.55   # 2位がこの比率以上なら複合
+TRIPLE_RATIO      = 0.45   # 3位がこの比率以上なら三重複合
 
 def _make_guess(answers):
     engine.increment_play_count()
@@ -158,19 +160,37 @@ def _make_guess(answers):
     best_p  = probs[best_f]
     f       = engine.fetishes[best_f]
 
+    # 複合判定
+    compound = []
+    compound_ids = set()
+    if len(ranked) > 1 and probs[ranked[1]] >= best_p * COMPOUND_RATIO:
+        compound.append({'fetish_id': ranked[1],
+                         'fetish_name': engine.fetishes[ranked[1]]['name'],
+                         'probability': round(probs[ranked[1]] * 100, 1)})
+        compound_ids.add(ranked[1])
+        if len(ranked) > 2 and probs[ranked[2]] >= best_p * TRIPLE_RATIO:
+            compound.append({'fetish_id': ranked[2],
+                             'fetish_name': engine.fetishes[ranked[2]]['name'],
+                             'probability': round(probs[ranked[2]] * 100, 1)})
+            compound_ids.add(ranked[2])
+
     threshold = max(best_p * PROFILE_MIN_RATIO, PROFILE_MIN_PROB)
     profile = [
         {'fetish_id': fi, 'fetish_name': engine.fetishes[fi]['name'],
          'probability': round(probs[fi] * 100, 1)}
         for fi in ranked[1:]
-        if probs[fi] >= threshold
+        if probs[fi] >= threshold and fi not in compound_ids
     ]
 
     profile_ids = {p['fetish_id'] for p in profile}
-    related = [
-        r for r in engine.get_related(best_f)
-        if r['fetish_id'] not in profile_ids
-    ]
+    related_src = [best_f] + list(compound_ids)
+    related_seen = profile_ids | compound_ids | {best_f}
+    related = []
+    for src in related_src:
+        for r in engine.get_related(src):
+            if r['fetish_id'] not in related_seen:
+                related.append(r)
+                related_seen.add(r['fetish_id'])
 
     return jsonify({
         'action':      'guess',
@@ -178,6 +198,7 @@ def _make_guess(answers):
         'fetish_name': f['name'],
         'fetish_desc': f['desc'],
         'probability': round(best_p * 100, 1),
+        'compound':    compound,
         'profile':     profile,
         'related':     related,
     })
@@ -198,7 +219,16 @@ def confirm():
     answers = session.get('answers', {})
 
     if correct:
-        engine.learn(answers, f_idx)
+        learn_ids = [f_idx]
+        for cid in data.get('compound_ids', []):
+            try:
+                cid = int(cid)
+                if 0 <= cid < len(engine.fetishes) and cid != f_idx:
+                    learn_ids.append(cid)
+            except (ValueError, TypeError):
+                pass
+        for fid in learn_ids:
+            engine.learn(answers, fid)
         return jsonify({'status': 'learned'})
     else:
         fetishes_snapshot = list(engine.fetishes)

@@ -94,6 +94,8 @@
     color: #e94560;
     text-align: center;
     margin-bottom: 8px;
+    word-break: break-all;
+    line-height: 1.4;
   }
   .result-desc {
     color: #aaa;
@@ -629,11 +631,19 @@ async function sendAnswer(ans) {
 
 function showGuess(data) {
   setGenieState('reveal');
-  document.getElementById('result-name').textContent = data.fetish_name;
+  window._guessedId   = data.fetish_id;
+  window._compoundIds = (data.compound || []).map(c => c.fetish_id);
+
+  if (data.compound && data.compound.length > 0) {
+    const names = [data.fetish_name, ...data.compound.map(c => c.fetish_name)];
+    document.getElementById('result-name').textContent = names.join(' × ');
+    lastFetishName = names.join(' × ');
+  } else {
+    document.getElementById('result-name').textContent = data.fetish_name;
+    lastFetishName = data.fetish_name;
+  }
   document.getElementById('result-desc').textContent = data.fetish_desc;
   document.getElementById('result-prob').textContent = `一致度: ${data.probability}%`;
-  window._guessedId = data.fetish_id;
-  lastFetishName = data.fetish_name;
 
   const profileSection = document.getElementById('profile-section');
   const profileList    = document.getElementById('profile-list');
@@ -661,7 +671,7 @@ function showGuess(data) {
 }
 
 async function confirmResult(correct) {
-  const data = await apiFetch('/api/confirm', {correct, fetish_id: window._guessedId});
+  const data = await apiFetch('/api/confirm', {correct, fetish_id: window._guessedId, compound_ids: window._compoundIds || []});
 
   if (data.status === 'learned') {
     document.getElementById('done-msg').textContent = '✓ 学習しました！ありがとうございます。';
