@@ -500,22 +500,34 @@ async function confirmResult(correct) {
 }
 
 async function teachCorrect(id, name) {
-  lastFetishName = name;
-  await apiFetch('/api/teach', {fetish_id: id});
-  document.getElementById('done-msg').textContent = `✓「${name}」として学習しました！`;
-  show('done-screen');
+  if (_fetching) return;
+  _fetching = true;
+  try {
+    lastFetishName = name;
+    await apiFetch('/api/teach', {fetish_id: id});
+    document.getElementById('done-msg').textContent = `✓「${name}」として学習しました！`;
+    show('done-screen');
+  } finally {
+    _fetching = false;
+  }
 }
 
 async function addFetish() {
+  if (_fetching) return;
   const name = document.getElementById('new-fetish-name').value.trim();
   const desc = document.getElementById('new-fetish-desc').value.trim();
   const templateVal = document.getElementById('template-fetish').value;
   const template_id = templateVal !== '' ? parseInt(templateVal) : null;
   if (!name) { alert('名前を入力してください'); return; }
-  const data = await apiFetch('/api/add_fetish', {name, desc, template_id});
-  lastFetishName = data.fetish_name;
-  document.getElementById('done-msg').textContent = `✓「${data.fetish_name}」を追加して学習しました！`;
-  show('done-screen');
+  _fetching = true;
+  try {
+    const data = await apiFetch('/api/add_fetish', {name, desc, template_id});
+    lastFetishName = data.fetish_name;
+    document.getElementById('done-msg').textContent = `✓「${data.fetish_name}」を追加して学習しました！`;
+    show('done-screen');
+  } finally {
+    _fetching = false;
+  }
 }
 
 function shareResult() {

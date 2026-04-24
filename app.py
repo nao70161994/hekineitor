@@ -36,7 +36,7 @@ def index():
 
 @app.route('/manifest.json')
 def manifest():
-    return send_from_directory('static', 'manifest.json'), 200, {
+    return send_from_directory(app.static_folder, 'manifest.json'), 200, {
         'Content-Type': 'application/manifest+json',
         'Cache-Control': 'no-cache',
     }

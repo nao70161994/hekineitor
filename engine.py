@@ -218,7 +218,7 @@ class Engine:
                 cur = conn.cursor()
                 cur.execute('''
                     CREATE TABLE IF NOT EXISTS fetishes (
-                        id   SERIAL PRIMARY KEY,
+                        id   INTEGER PRIMARY KEY,
                         name TEXT NOT NULL,
                         "desc" TEXT NOT NULL
                     )
