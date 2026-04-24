@@ -337,14 +337,14 @@ def _require_admin(f):
     return decorated
 
 
-SEED_FETISH_COUNT = 65  # data/fetishes.json の件数
+from engine import PLAYER_FETISH_BASE_ID
 
 @app.route('/admin')
 @_require_admin
 def admin():
     stats = engine.get_learning_stats()
     s = engine.get_stats()
-    player_fetishes = [f for f in engine.fetishes if f['id'] >= SEED_FETISH_COUNT]
+    player_fetishes = [f for f in engine.fetishes if f['id'] >= PLAYER_FETISH_BASE_ID]
     return render_template('admin.html', stats=stats, play_count=s['play_count'],
                            learn_count=s['learn_count'], player_fetishes=player_fetishes)
 

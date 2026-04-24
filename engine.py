@@ -12,8 +12,9 @@ try:
 except ImportError:
     HAS_PSYCOPG2 = False
 
-DATA_DIR     = os.path.join(os.path.dirname(__file__), 'data')
-DATABASE_URL = os.environ.get('DATABASE_URL', '')
+DATA_DIR              = os.path.join(os.path.dirname(__file__), 'data')
+DATABASE_URL          = os.environ.get('DATABASE_URL', '')
+PLAYER_FETISH_BASE_ID = 10000  # プレイヤー追加性癖のIDはここから開始（シードIDとの競合防止）
 
 _conn_pool      = None
 _conn_pool_lock = threading.Lock()
@@ -349,11 +350,11 @@ class Engine:
                         "INSERT INTO stats (key, value) VALUES (%s, 0) ON CONFLICT DO NOTHING", (k,)
                     )
                 # 新しい性癖を fetishes.json から差分追加（マイグレーション）
-                cur.execute('SELECT MAX(id) FROM fetishes')
-                max_id = cur.fetchone()[0]
-                if max_id is not None:
+                cur.execute('SELECT id FROM fetishes')
+                existing_ids = {r[0] for r in cur.fetchall()}
+                if existing_ids is not None:
                     seed = self._load_json('fetishes.json')
-                    new_f = [f for f in seed if f['id'] > max_id]
+                    new_f = [f for f in seed if f['id'] not in existing_ids]
                     if new_f:
                         psycopg2.extras.execute_values(
                             cur,
@@ -412,12 +413,11 @@ class Engine:
     def _seed_db(self, cur, fetishes=None):
         if fetishes is None:
             fetishes = self.fetishes
-        nf = len(fetishes)
         nq = len(self.questions)
-        yes, total = _build_initial_matrix(nf, nq)
+        alpha = 2.0
         rows = [
-            (f, q, yes[f][q], total[f][q])
-            for f in range(nf) for q in range(nq)
+            (f['id'], q, alpha, alpha * 2.0)
+            for f in fetishes for q in range(nq)
         ]
         psycopg2.extras.execute_values(
             cur,
@@ -428,16 +428,18 @@ class Engine:
     def _load_from_db(self):
         nf = len(self.fetishes)
         nq = len(self.questions)
+        id_to_idx = {f['id']: i for i, f in enumerate(self.fetishes)}
         yes   = [[0.0] * nq for _ in range(nf)]
         total = [[0.0] * nq for _ in range(nf)]
         conn = _get_conn()
         try:
             cur = conn.cursor()
             cur.execute('SELECT fetish_id, question_id, yes_count, total_count FROM matrix')
-            for f, q, y, t in cur.fetchall():
-                if 0 <= f < nf and 0 <= q < nq:
-                    yes[f][q]   = y
-                    total[f][q] = t
+            for f_id, q, y, t in cur.fetchall():
+                idx = id_to_idx.get(f_id)
+                if idx is not None and 0 <= q < nq:
+                    yes[idx][q]   = y
+                    total[idx][q] = t
         finally:
             _put_conn(conn)
         return {'yes': yes, 'total': total}
@@ -493,9 +495,10 @@ class Engine:
         if not all_updates:
             return
         rows = [
-            (fetish_idx, q_idx, delta_yes, delta_total)
+            (self.fetishes[fetish_idx]['id'], q_idx, delta_yes, delta_total)
             for fetish_idx, updates in all_updates.items()
             for q_idx, delta_yes, delta_total in updates
+            if fetish_idx < len(self.fetishes)
         ]
         conn = _get_conn()
         try:
@@ -698,13 +701,13 @@ class Engine:
         auto_template = int(max(range(len(probs)), key=lambda i: probs[i])) if probs else None
 
         with self._lock:
-            if auto_template is not None and 0 <= auto_template < len(self.fetishes):
+            array_idx = len(self.fetishes)
+            if auto_template is not None and 0 <= auto_template < array_idx:
                 new_yes   = list(self.matrix['yes'][auto_template])
                 new_total = list(self.matrix['total'][auto_template])
             else:
                 new_yes   = [alpha] * nq
                 new_total = [alpha * 2.0] * nq
-            new_id = len(self.fetishes)
 
             if _use_db():
                 conn = _get_conn()
@@ -712,10 +715,15 @@ class Engine:
                     with conn:
                         cur = conn.cursor()
                         cur.execute(
-                            'INSERT INTO fetishes (id, name, "desc") VALUES (%s, %s, %s)',
-                            (new_id, name, desc)
+                            'SELECT COALESCE(MAX(id), %s - 1) + 1 FROM fetishes WHERE id >= %s',
+                            (PLAYER_FETISH_BASE_ID, PLAYER_FETISH_BASE_ID)
                         )
-                        rows = [(new_id, q, new_yes[q], new_total[q]) for q in range(nq)]
+                        db_id = max(cur.fetchone()[0], PLAYER_FETISH_BASE_ID)
+                        cur.execute(
+                            'INSERT INTO fetishes (id, name, "desc") VALUES (%s, %s, %s)',
+                            (db_id, name, desc)
+                        )
+                        rows = [(db_id, q, new_yes[q], new_total[q]) for q in range(nq)]
                         psycopg2.extras.execute_values(
                             cur,
                             'INSERT INTO matrix (fetish_id, question_id, yes_count, total_count) VALUES %s',
@@ -723,8 +731,11 @@ class Engine:
                         )
                 finally:
                     _put_conn(conn)
+            else:
+                player_ids = [f['id'] for f in self.fetishes if f['id'] >= PLAYER_FETISH_BASE_ID]
+                db_id = max(player_ids) + 1 if player_ids else PLAYER_FETISH_BASE_ID
 
-            self.fetishes.append({'id': new_id, 'name': name, 'desc': desc})
+            self.fetishes.append({'id': db_id, 'name': name, 'desc': desc})
             self.matrix['yes'].append(new_yes)
             self.matrix['total'].append(new_total)
 
@@ -732,9 +743,9 @@ class Engine:
                 self._save_fetishes_file()
 
         for _ in range(3):
-            self._learn_silent(answers, new_id)
-        self.learn(answers, new_id)
-        return new_id
+            self._learn_silent(answers, array_idx)
+        self.learn(answers, array_idx)
+        return array_idx
 
     def get_related(self, fetish_id):
         related_ids = FETISH_RELATIONS.get(fetish_id, [])
