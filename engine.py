@@ -378,6 +378,25 @@ class Engine:
                             'UPDATE fetishes SET name=%s, "desc"=%s WHERE id=%s',
                             (f['name'], f['desc'], f['id'])
                         )
+                # 新しい質問を matrix に差分追加
+                nq = len(self.questions)
+                cur.execute('SELECT MAX(question_id) FROM matrix')
+                max_qid = cur.fetchone()[0]
+                if max_qid is not None and max_qid < nq - 1:
+                    cur.execute('SELECT id FROM fetishes')
+                    all_fids = [row[0] for row in cur.fetchall()]
+                    alpha = 2.0
+                    new_q_rows = [
+                        (fid, q, alpha, alpha * 2.0)
+                        for fid in all_fids
+                        for q in range(max_qid + 1, nq)
+                    ]
+                    if new_q_rows:
+                        psycopg2.extras.execute_values(
+                            cur,
+                            'INSERT INTO matrix (fetish_id, question_id, yes_count, total_count) VALUES %s ON CONFLICT DO NOTHING',
+                            new_q_rows
+                        )
         finally:
             _put_conn(conn)
 
@@ -474,7 +493,7 @@ class Engine:
         if not all_updates:
             return
         rows = [
-            (delta_yes, delta_total, fetish_idx, q_idx)
+            (fetish_idx, q_idx, delta_yes, delta_total)
             for fetish_idx, updates in all_updates.items()
             for q_idx, delta_yes, delta_total in updates
         ]
@@ -483,10 +502,11 @@ class Engine:
             with conn:
                 cur = conn.cursor()
                 cur.executemany('''
-                    UPDATE matrix
-                    SET yes_count   = yes_count   + %s,
-                        total_count = total_count + %s
-                    WHERE fetish_id = %s AND question_id = %s
+                    INSERT INTO matrix (fetish_id, question_id, yes_count, total_count)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (fetish_id, question_id) DO UPDATE
+                    SET yes_count   = matrix.yes_count   + EXCLUDED.yes_count,
+                        total_count = matrix.total_count + EXCLUDED.total_count
                 ''', rows)
         finally:
             _put_conn(conn)
