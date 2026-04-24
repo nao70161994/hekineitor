@@ -628,6 +628,47 @@ class Engine:
 
         self._increment_learn_count()
 
+    def _learn_silent(self, answers, fetish_idx):
+        """learn() without incrementing learn_count (used for initial boost)."""
+        neg_weight = 0.3
+        all_updates = {}
+
+        with self._lock:
+            nf = len(self.fetishes)
+            nq = len(self.questions)
+            if not (0 <= fetish_idx < nf):
+                return
+            for q_str, ans in answers.items():
+                try:
+                    q = int(q_str)
+                except (ValueError, TypeError):
+                    continue
+                if ans == 0 or not (0 <= q < nq):
+                    continue
+                strength = abs(ans)
+                scale = min(1.0, PSEUDO / max(self.matrix['total'][fetish_idx][q], PSEUDO))
+                effective = strength * scale
+
+                delta_yes = effective if ans > 0 else 0.0
+                self.matrix['total'][fetish_idx][q] += effective
+                self.matrix['yes'][fetish_idx][q]   += delta_yes
+                all_updates.setdefault(fetish_idx, []).append((q, delta_yes, effective))
+
+                for f in range(nf):
+                    if f == fetish_idx:
+                        continue
+                    w = neg_weight * effective
+                    neg_yes = w * (0.0 if ans > 0 else 1.0)
+                    self.matrix['total'][f][q] += w
+                    self.matrix['yes'][f][q]   += neg_yes
+                    all_updates.setdefault(f, []).append((q, neg_yes, w))
+
+            if not _use_db():
+                self._save_matrix_file()
+
+        if _use_db():
+            self._save_to_db(all_updates)
+
     def add_fetish(self, name, desc, answers):
         nq = len(self.questions)
         alpha = 2.0
@@ -670,8 +711,9 @@ class Engine:
             if not _use_db():
                 self._save_fetishes_file()
 
-        for _ in range(4):
-            self.learn(answers, new_id)
+        for _ in range(3):
+            self._learn_silent(answers, new_id)
+        self.learn(answers, new_id)
         return new_id
 
     def get_related(self, fetish_id):
