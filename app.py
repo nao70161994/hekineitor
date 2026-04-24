@@ -263,7 +263,8 @@ def _require_admin(f):
 @_require_admin
 def admin():
     stats = engine.get_learning_stats()
-    return render_template('admin.html', stats=stats)
+    learn_count = engine.get_learn_count()
+    return render_template('admin.html', stats=stats, learn_count=learn_count)
 
 
 if __name__ == '__main__':

@@ -244,6 +244,15 @@ class Engine:
                 if cur.fetchone()[0] == 0:
                     seed_fetishes = self._load_json('fetishes.json')
                     self._seed_db(cur, seed_fetishes)
+                cur.execute('''
+                    CREATE TABLE IF NOT EXISTS stats (
+                        key   TEXT PRIMARY KEY,
+                        value INTEGER NOT NULL DEFAULT 0
+                    )
+                ''')
+                cur.execute(
+                    "INSERT INTO stats (key, value) VALUES ('learn_count', 0) ON CONFLICT DO NOTHING"
+                )
         finally:
             _put_conn(conn)
 
@@ -288,6 +297,43 @@ class Engine:
         finally:
             _put_conn(conn)
         return {'yes': yes, 'total': total}
+
+    def _increment_learn_count(self):
+        if _use_db():
+            conn = _get_conn()
+            try:
+                with conn:
+                    cur = conn.cursor()
+                    cur.execute("UPDATE stats SET value = value + 1 WHERE key = 'learn_count'")
+            finally:
+                _put_conn(conn)
+        else:
+            path = os.path.join(DATA_DIR, 'stats.json')
+            try:
+                with open(path, encoding='utf-8') as f:
+                    s = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                s = {'learn_count': 0}
+            s['learn_count'] = s.get('learn_count', 0) + 1
+            self._atomic_write(path, s)
+
+    def get_learn_count(self):
+        if _use_db():
+            conn = _get_conn()
+            try:
+                cur = conn.cursor()
+                cur.execute("SELECT value FROM stats WHERE key = 'learn_count'")
+                row = cur.fetchone()
+                return row[0] if row else 0
+            finally:
+                _put_conn(conn)
+        else:
+            path = os.path.join(DATA_DIR, 'stats.json')
+            try:
+                with open(path, encoding='utf-8') as f:
+                    return json.load(f).get('learn_count', 0)
+            except (OSError, json.JSONDecodeError):
+                return 0
 
     def _save_to_db(self, all_updates):
         if not all_updates:
@@ -444,6 +490,8 @@ class Engine:
 
         if _use_db():
             self._save_to_db(all_updates)
+
+        self._increment_learn_count()
 
     def add_fetish(self, name, desc, answers, template_id=None):
         nq = len(self.questions)

@@ -27,6 +27,9 @@
 <body>
 <h1>学習データ量</h1>
 <p class="sub">少ない性癖ほど要プレイ。<a href="/">← ゲームに戻る</a></p>
+<p style="color:#f5a623;font-size:1rem;margin-bottom:20px;">
+  累計学習回数: <strong>{{ learn_count }}</strong> 回
+</p>
 <table>
   <tr><th>#</th><th>性癖</th><th>データ量</th><th></th></tr>
   {% set max_w = [stats[-1].data_weight, 1] | max if stats else 1 %}
