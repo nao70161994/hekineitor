@@ -1,7 +1,9 @@
 import os
+import re
 import hmac
 import hashlib
 import functools
+import unicodedata
 from flask import Flask, render_template, request, jsonify, session, Response, send_from_directory
 from engine import Engine
 
@@ -30,6 +32,40 @@ engine = Engine()
 
 GUESS_THRESHOLD = 0.75
 MAX_QUESTIONS   = 20
+
+
+def _normalize_name(s):
+    s = unicodedata.normalize('NFKC', s)
+    s = s.lower()
+    s = re.sub(r'[\s\u3000・･（）()「」『』【】〔〕\-_～~、。×]', '', s)
+    return s
+
+def _levenshtein(a, b):
+    if len(a) < len(b):
+        a, b = b, a
+    if not b:
+        return len(a)
+    prev = list(range(len(b) + 1))
+    for ca in a:
+        curr = [prev[0] + 1]
+        for j, cb in enumerate(b):
+            curr.append(min(prev[j] + (ca != cb), curr[-1] + 1, prev[j + 1] + 1))
+        prev = curr
+    return prev[-1]
+
+def _find_similar(name, fetishes):
+    norm_new = _normalize_name(name)
+    results = []
+    for f in fetishes:
+        norm_f = _normalize_name(f['name'])
+        if norm_new == norm_f:
+            continue
+        if norm_new in norm_f or norm_f in norm_new:
+            results.append(f)
+            continue
+        if len(norm_new) <= 12 and len(norm_f) <= 12 and _levenshtein(norm_new, norm_f) <= 2:
+            results.append(f)
+    return results[:5]
 
 
 @app.route('/')
@@ -274,12 +310,15 @@ def add_fetish():
     if existing:
         engine.learn(answers, existing['id'])
         return jsonify({'status': 'learned', 'fetish_name': existing['name'], 'fetish_id': existing['id']})
-    if not confirmed:
-        return jsonify({'status': 'needs_desc'})
-    if not desc:
-        desc = name
-    new_id = engine.add_fetish(name, desc, answers)
-    return jsonify({'status': 'learned', 'fetish_name': name, 'fetish_id': new_id})
+    if confirmed:
+        if not desc:
+            desc = name
+        new_id = engine.add_fetish(name, desc, answers)
+        return jsonify({'status': 'learned', 'fetish_name': name, 'fetish_id': new_id})
+    similar = _find_similar(name, engine.fetishes)
+    if similar:
+        return jsonify({'status': 'similar', 'candidates': similar})
+    return jsonify({'status': 'needs_desc'})
 
 
 def _require_admin(f):
