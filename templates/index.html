@@ -562,6 +562,7 @@
 <script>
 let currentQ = null;
 let lastFetishName = '';
+let _diagnosedName = '';
 
 function show(id) {
   ['start-screen','question-screen','result-screen','teach-screen','done-screen']
@@ -705,6 +706,7 @@ function showGuess(data) {
     document.getElementById('result-name').textContent = data.fetish_name;
     lastFetishName = data.fetish_name;
   }
+  _diagnosedName = lastFetishName;
   document.getElementById('result-desc').textContent = data.fetish_desc;
   document.getElementById('result-prob').textContent = `一致度: ${data.probability}%`;
 
@@ -959,7 +961,7 @@ function addFetishDone() {
 
 function shareResult() {
   const appUrl = window.location.origin;
-  const text = `へきネイターで診断したら「${lastFetishName}」でした！\nあなたの性癖も試してみて → ${appUrl} #へきネイター`;
+  const text = `へきネイターで診断したら「${_diagnosedName}」でした！\nあなたの性癖も試してみて → ${appUrl} #へきネイター`;
   if (navigator.clipboard) {
     navigator.clipboard.writeText(text).then(() => showToast('クリップボードにコピーしました', '#27ae60'));
   }
