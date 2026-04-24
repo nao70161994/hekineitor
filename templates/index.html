@@ -505,7 +505,7 @@
     <div class="fetish-list" id="fetish-list"></div>
     <button class="btn btn-yes" id="teach-submit-btn" style="width:100%;margin-bottom:8px;display:none;" onclick="submitTeach()">学習する</button>
     <hr style="border-color:#333;margin:14px 0;">
-    <p style="color:#aaa;font-size:0.85rem;margin-bottom:10px;">あなたにとって重要な性癖がリストにない場合は追加できます</p>
+    <p style="color:#aaa;font-size:0.85rem;margin-bottom:10px;">あなたにとって重要な性癖がリストにない場合はこちらに記入</p>
     <input id="new-fetish-name" type="text" placeholder="性癖の名前（例：獣耳ヒロイン）"
       style="width:100%;padding:10px;border-radius:8px;border:1px solid #333;background:#0f3460;color:#eee;font-size:0.95rem;margin-bottom:8px;">
     <input id="new-fetish-desc" type="text" placeholder="説明（省略可）"
@@ -851,7 +851,7 @@ async function addFetish() {
   try {
     const data = await apiFetch('/api/add_fetish', {name, desc});
     lastFetishName = data.fetish_name;
-    document.getElementById('done-msg').textContent = `✓「${data.fetish_name}」を追加して学習しました！`;
+    document.getElementById('done-msg').textContent = `✓「${data.fetish_name}」を学習しました！`;
     show('done-screen');
   } finally {
     _fetching = false;
