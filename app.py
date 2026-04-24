@@ -234,10 +234,12 @@ def confirm():
         fetishes_snapshot = list(engine.fetishes)
         probs = engine.posteriors(answers)
         nf = len(probs)
+        excluded = {f_idx} | {int(cid) for cid in data.get('compound_ids', [])
+                               if str(cid).lstrip('-').isdigit()}
         sorted_fetishes = sorted(
-            [f for f in fetishes_snapshot if f['id'] < nf],
+            [f for f in fetishes_snapshot if f['id'] < nf and f['id'] not in excluded],
             key=lambda f: probs[f['id']], reverse=True,
-        )
+        )[:15]
         return jsonify({'status': 'wrong', 'fetishes': sorted_fetishes})
 
 

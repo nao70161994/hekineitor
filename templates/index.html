@@ -773,7 +773,7 @@ async function submitConfirm() {
   }
 
   // 外れあり → 正解を最大 missCount 件選んでもらう
-  const data = await apiFetch('/api/confirm', {correct: false, fetish_id: window._guessedId});
+  const data = await apiFetch('/api/confirm', {correct: false, fetish_id: window._guessedId, compound_ids: window._compoundIds || []});
   if (!data || !data.fetishes) return;
 
   window._teachMax      = missCount;
