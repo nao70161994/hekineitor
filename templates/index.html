@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#e94560">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="へきネイター">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
 <title>へきネイター</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -99,7 +105,56 @@
     color: #f5a623;
     font-size: 0.85rem;
     text-align: center;
-    margin-bottom: 24px;
+    margin-bottom: 12px;
+  }
+  .result-prob-note {
+    color: #666;
+    font-size: 0.72rem;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .profile-section {
+    margin-bottom: 16px;
+    border-top: 1px solid #333;
+    padding-top: 10px;
+  }
+  .profile-label {
+    color: #666;
+    font-size: 0.75rem;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  .profile-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    color: #888;
+    padding: 3px 4px;
+  }
+  .profile-item span { color: #f5a623; }
+  .related-section {
+    margin-bottom: 16px;
+    border-top: 1px solid #333;
+    padding-top: 10px;
+  }
+  .related-label {
+    color: #666;
+    font-size: 0.75rem;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  .related-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+  }
+  .related-tag {
+    background: #0f3460;
+    color: #aaa;
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 12px;
   }
   .confirm-label {
     text-align: center;
@@ -138,6 +193,56 @@
 
   #start-screen { text-align: center; }
   .hidden { display: none !important; }
+
+  .btn-back {
+    background: none; border: 1px solid #444; color: #888;
+    font-size: 0.8rem; padding: 6px 14px; border-radius: 8px;
+    cursor: pointer; margin-bottom: 12px;
+  }
+  .btn-back:hover { border-color: #888; color: #ccc; }
+  .btn-share {
+    background: #1a4a8a; color: #eee; font-size: 0.85rem;
+    padding: 10px; border-radius: 10px; border: none; cursor: pointer;
+    width: 100%; margin-bottom: 8px;
+  }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #e67e22; color: #fff; padding: 10px 20px;
+    border-radius: 10px; font-size: 0.85rem; z-index: 999;
+    transition: opacity 0.4s;
+  }
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+  }
+  .modal-box {
+    background: #16213e; border-radius: 16px; padding: 24px 20px;
+    width: 88%; max-width: 360px; text-align: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .modal-box p { color: #ccc; font-size: 0.95rem; margin-bottom: 20px; line-height: 1.6; }
+  .modal-btns { display: flex; gap: 10px; }
+  .modal-btns button { flex: 1; padding: 12px; border-radius: 10px; border: none; font-size: 0.95rem; cursor: pointer; font-weight: bold; }
+  .modal-cancel { background: #333; color: #aaa; }
+  .modal-confirm { background: #e94560; color: #fff; }
+
+  .install-banner {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #16213e; border-top: 1px solid #e94560;
+    padding: 12px 16px; display: flex; align-items: center;
+    gap: 12px; z-index: 998; box-shadow: 0 -4px 16px rgba(0,0,0,0.4);
+  }
+  .install-banner p { flex: 1; font-size: 0.85rem; color: #ccc; margin: 0; }
+  .install-banner .btn-install {
+    background: #e94560; color: #fff; border: none;
+    padding: 8px 16px; border-radius: 8px; font-size: 0.85rem;
+    cursor: pointer; white-space: nowrap;
+  }
+  .install-banner .btn-dismiss {
+    background: none; border: none; color: #666;
+    font-size: 1.2rem; cursor: pointer; padding: 4px;
+  }
 </style>
 </head>
 <body>
@@ -162,6 +267,10 @@
     <div class="progress-bar">
       <div class="progress-fill" id="progress-fill" style="width:0%"></div>
     </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <button class="btn-back" id="btn-back" onclick="goBack()">← 戻る</button>
+      <button class="btn-back" onclick="confirmRestart()">最初から</button>
+    </div>
     <div class="question-text" id="question-text">読み込み中…</div>
     <div class="btn-group">
       <button class="btn btn-yes"      onclick="sendAnswer(1)">はい</button>
@@ -178,6 +287,15 @@
     <div class="result-name" id="result-name"></div>
     <div class="result-desc" id="result-desc"></div>
     <div class="result-prob" id="result-prob"></div>
+    <div class="result-prob-note">※ モデルの推定一致度です（実際の正解率とは異なります）</div>
+    <div class="profile-section hidden" id="profile-section">
+      <div class="profile-label">他に該当しそうなジャンル</div>
+      <div id="profile-list"></div>
+    </div>
+    <div class="related-section hidden" id="related-section">
+      <div class="related-label">関連ジャンル</div>
+      <div class="related-tags" id="related-tags"></div>
+    </div>
     <div class="confirm-label">当たりましたか？</div>
     <div class="btn-group">
       <button class="btn btn-correct btn-yes" onclick="confirmResult(true)">正解！</button>
@@ -194,7 +312,11 @@
     <input id="new-fetish-name" type="text" placeholder="性癖の名前（例：獣耳ヒロイン）"
       style="width:100%;padding:10px;border-radius:8px;border:1px solid #333;background:#0f3460;color:#eee;font-size:0.95rem;margin-bottom:8px;">
     <input id="new-fetish-desc" type="text" placeholder="説明（省略可）"
-      style="width:100%;padding:10px;border-radius:8px;border:1px solid #333;background:#0f3460;color:#eee;font-size:0.9rem;margin-bottom:10px;">
+      style="width:100%;padding:10px;border-radius:8px;border:1px solid #333;background:#0f3460;color:#eee;font-size:0.9rem;margin-bottom:8px;">
+    <select id="template-fetish"
+      style="width:100%;padding:10px;border-radius:8px;border:1px solid #333;background:#0f3460;color:#aaa;font-size:0.85rem;margin-bottom:10px;">
+      <option value="">似ている既存の性癖をテンプレートにする（任意）</option>
+    </select>
     <button class="btn btn-yes" style="width:100%;margin-bottom:8px;" onclick="addFetish()">追加して学習</button>
     <button class="btn btn-retry" onclick="showStart()">スキップ</button>
   </div>
@@ -203,13 +325,33 @@
   <div id="done-screen" class="hidden">
     <div class="msg" id="done-msg"></div>
     <br>
+    <button class="btn-share" onclick="shareResult()">結果をシェア / コピー</button>
     <button class="btn btn-retry" onclick="showStart()">もう一回</button>
   </div>
 
 </div>
 
+<div class="toast hidden" id="toast"></div>
+
+<div class="modal-overlay hidden" id="modal-restart">
+  <div class="modal-box">
+    <p>最初からやり直しますか？<br>現在の進行状況は失われます。</p>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeModal('modal-restart')">キャンセル</button>
+      <button class="modal-confirm" onclick="doRestart()">やり直す</button>
+    </div>
+  </div>
+</div>
+
+<div class="install-banner hidden" id="install-banner">
+  <p id="install-msg">ホーム画面に追加してオフラインでも使えます</p>
+  <button class="btn-install" id="btn-install">追加する</button>
+  <button class="btn-dismiss" onclick="dismissInstall()">✕</button>
+</div>
+
 <script>
 let currentQ = null;
+let lastFetishName = '';
 
 function show(id) {
   ['start-screen','question-screen','result-screen','teach-screen','done-screen']
@@ -219,9 +361,48 @@ function show(id) {
 
 function showStart() { show('start-screen'); }
 
+function confirmRestart() {
+  document.getElementById('modal-restart').classList.remove('hidden');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+function doRestart() {
+  closeModal('modal-restart');
+  showStart();
+}
+
+function showToast(msg, color) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = color || '#e67e22';
+  t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), 3000);
+}
+
+let _fetching = false;
+
+async function apiFetch(url, body) {
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    showToast('通信エラーが発生しました。リロードしてください。', '#c0392b');
+    throw e;
+  }
+}
+
+function setAnswerButtons(disabled) {
+  document.querySelectorAll('#question-screen .btn').forEach(b => b.disabled = disabled);
+}
+
 async function startGame() {
-  const res = await fetch('/api/start', {method:'POST'});
-  const data = await res.json();
+  const data = await apiFetch('/api/start');
   showQuestion(data);
 }
 
@@ -230,44 +411,72 @@ function showQuestion(data) {
   document.getElementById('question-text').textContent = data.question;
   const pct = Math.round((data.count / data.total) * 100);
   document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('btn-back').style.visibility = data.count > 0 ? 'visible' : 'hidden';
   show('question-screen');
 }
 
+async function goBack() {
+  const data = await apiFetch('/api/back');
+  if (data.status === 'no_history') return;
+  showQuestion(data);
+}
+
 async function sendAnswer(ans) {
-  const res = await fetch('/api/answer', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({question_id: currentQ, answer: ans})
-  });
-  const data = await res.json();
-  if (data.action === 'question') {
-    showQuestion(data);
-  } else {
-    showGuess(data);
+  if (_fetching) return;
+  _fetching = true;
+  setAnswerButtons(true);
+  try {
+    const data = await apiFetch('/api/answer', {question_id: currentQ, answer: ans});
+    if (data.action === 'question') {
+      showQuestion(data);
+    } else {
+      showGuess(data);
+    }
+  } finally {
+    _fetching = false;
+    setAnswerButtons(false);
   }
 }
 
 function showGuess(data) {
   document.getElementById('result-name').textContent = data.fetish_name;
   document.getElementById('result-desc').textContent = data.fetish_desc;
-  document.getElementById('result-prob').textContent = `確信度: ${data.probability}%`;
+  document.getElementById('result-prob').textContent = `一致度: ${data.probability}%`;
   window._guessedId = data.fetish_id;
+  lastFetishName = data.fetish_name;
+
+  const profileSection = document.getElementById('profile-section');
+  const profileList    = document.getElementById('profile-list');
+  if (data.profile && data.profile.length > 0) {
+    profileList.innerHTML = data.profile.map(r =>
+      `<div class="profile-item">${r.fetish_name}<span>${r.probability}%</span></div>`
+    ).join('');
+    profileSection.classList.remove('hidden');
+  } else {
+    profileSection.classList.add('hidden');
+  }
+
+  const relatedSection = document.getElementById('related-section');
+  const relatedTags    = document.getElementById('related-tags');
+  if (data.related && data.related.length > 0) {
+    relatedTags.innerHTML = data.related.map(r =>
+      `<span class="related-tag">${r.fetish_name}</span>`
+    ).join('');
+    relatedSection.classList.remove('hidden');
+  } else {
+    relatedSection.classList.add('hidden');
+  }
+
   show('result-screen');
 }
 
 async function confirmResult(correct) {
-  const res = await fetch('/api/confirm', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({correct: correct, fetish_id: window._guessedId})
-  });
-  const data = await res.json();
+  const data = await apiFetch('/api/confirm', {correct, fetish_id: window._guessedId});
 
   if (data.status === 'learned') {
     document.getElementById('done-msg').textContent = '✓ 学習しました！ありがとうございます。';
     show('done-screen');
   } else {
-    // 外れ → 正解選択
     const list = document.getElementById('fetish-list');
     list.innerHTML = '';
     data.fetishes.forEach(f => {
@@ -277,16 +486,22 @@ async function confirmResult(correct) {
       div.onclick = () => teachCorrect(f.id, f.name);
       list.appendChild(div);
     });
+    // テンプレートドロップダウンを更新
+    const sel = document.getElementById('template-fetish');
+    sel.innerHTML = '<option value="">似ている既存の性癖をテンプレートにする（任意）</option>';
+    data.fetishes.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.id;
+      opt.textContent = f.name;
+      sel.appendChild(opt);
+    });
     show('teach-screen');
   }
 }
 
 async function teachCorrect(id, name) {
-  await fetch('/api/teach', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({fetish_id: id})
-  });
+  lastFetishName = name;
+  await apiFetch('/api/teach', {fetish_id: id});
   document.getElementById('done-msg').textContent = `✓「${name}」として学習しました！`;
   show('done-screen');
 }
@@ -294,18 +509,109 @@ async function teachCorrect(id, name) {
 async function addFetish() {
   const name = document.getElementById('new-fetish-name').value.trim();
   const desc = document.getElementById('new-fetish-desc').value.trim();
-  if (!name) {
-    alert('名前を入力してください');
-    return;
-  }
-  const res = await fetch('/api/add_fetish', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({name, desc})
-  });
-  const data = await res.json();
+  const templateVal = document.getElementById('template-fetish').value;
+  const template_id = templateVal !== '' ? parseInt(templateVal) : null;
+  if (!name) { alert('名前を入力してください'); return; }
+  const data = await apiFetch('/api/add_fetish', {name, desc, template_id});
+  lastFetishName = data.fetish_name;
   document.getElementById('done-msg').textContent = `✓「${data.fetish_name}」を追加して学習しました！`;
   show('done-screen');
+}
+
+function shareResult() {
+  const appUrl = window.location.origin;
+  const text = `へきネイターで診断したら「${lastFetishName}」でした！\nあなたの性癖も試してみて → ${appUrl} #へきネイター`;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => showToast('クリップボードにコピーしました', '#27ae60'));
+  }
+  const url = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text);
+  window.open(url, '_blank', 'noopener');
+}
+// インストール促進
+let deferredPrompt = null;
+const banner = document.getElementById('install-banner');
+
+function dismissInstall() {
+  banner.classList.add('hidden');
+  sessionStorage.setItem('install-dismissed', '1');
+}
+
+// Android / Chrome: beforeinstallprompt を捕捉（ページロード前でも取りこぼさないよう最上位に登録）
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (!sessionStorage.getItem('install-dismissed')) {
+    banner.classList.remove('hidden');
+  }
+});
+
+document.getElementById('btn-install').onclick = async () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    banner.classList.add('hidden');
+  } else {
+    showToast('ブラウザのメニュー →「ホーム画面に追加」からインストールできます', '#1a4a8a');
+    banner.classList.add('hidden');
+  }
+};
+
+// インストール完了時にバナーを消す
+window.addEventListener('appinstalled', () => banner.classList.add('hidden'));
+
+// iOS Safari: スタンドアロンでなければ手順を案内
+const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+if (isIos && !isStandalone && !sessionStorage.getItem('install-dismissed')) {
+  document.getElementById('install-msg').textContent =
+    'ホーム画面に追加：Safari の 共有ボタン → "ホーム画面に追加"';
+  document.getElementById('btn-install').style.display = 'none';
+  banner.classList.remove('hidden');
+}
+
+// SW登録・更新検知
+if ('serviceWorker' in navigator) {
+  let swReg = null;
+
+  function showUpdateBanner() {
+    const msg = document.getElementById('install-msg');
+    const btn = document.getElementById('btn-install');
+    const banner = document.getElementById('install-banner');
+    msg.textContent = '新しいバージョンがあります';
+    btn.textContent = '今すぐ更新';
+    btn.onclick = () => {
+      if (swReg && swReg.waiting) {
+        swReg.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
+    };
+    banner.classList.remove('hidden');
+  }
+
+  // 新SW がアクティブになったらリロード（無限ループ防止フラグ付き）
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!reloading) { reloading = true; location.reload(); }
+  });
+
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      swReg = reg;
+
+      // 既に waiting 中の SW がある場合（タブを長時間開いていたケース）
+      if (reg.waiting) { showUpdateBanner(); return; }
+
+      // 新しい SW がインストールされたとき
+      reg.addEventListener('updatefound', () => {
+        const newSW = reg.installing;
+        newSW.addEventListener('statechange', () => {
+          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+            showUpdateBanner();
+          }
+        });
+      });
+    }).catch(() => {});
+  });
 }
 </script>
 </body>

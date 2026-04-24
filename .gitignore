@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 data/matrix.json
 .env
+gen_icons.py
