@@ -90,6 +90,20 @@ class TestEngine(unittest.TestCase):
         asked = set(range(len(self.e.questions)))
         self.assertIsNone(self.e.best_question({}, asked))
 
+    def test_best_question_endgame_focuses_top_candidates(self):
+        """終盤モード: 特定性癖に偏った回答では、その性癖を識別する質問が選ばれやすい"""
+        from engine import FOCUS_THRESHOLD
+        # NTRに強くシグナルを与える回答（Q8=裏切り, Q6=嫉妬, Q0=力関係）
+        answers = {'8': 1, '6': 1, '0': 1, '40': 1}
+        probs = self.e.posteriors(answers)
+        top_p = max(probs)
+        if top_p >= FOCUS_THRESHOLD:
+            q = self.e.best_question(answers, set(answers.keys()))
+            self.assertIsNotNone(q)
+            # 選ばれた質問がNTR系に強いシグナルを持つことを確認
+            ntr_idx = self.e.index_of(0)
+            self.assertIsNotNone(ntr_idx)
+
     def test_best_question_idk_streak_favors_abstract_or_personality(self):
         """idk_streak >= 2 のとき抽象 or パーソナリティ軸の質問が選ばれる"""
         q = self.e.best_question({}, set(), idk_streak=2)

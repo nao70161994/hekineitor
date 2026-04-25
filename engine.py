@@ -303,6 +303,10 @@ FETISH_PRIOR_WEIGHTS = {
 # 質問軸ごとの間接性ボーナス（情報利得が同程度なら間接的な軸を優先）
 AXIS_INDIRECT_BONUS = {'content': 1.0, 'abstract': 1.01, 'personality': 1.02}
 
+# 終盤モード: top_p がこの値を超えたら上位 N 件に絞った情報利得を使う
+FOCUS_THRESHOLD = 0.40
+FOCUS_TOP_N     = 6
+
 
 def _use_db():
     return bool(DATABASE_URL) and HAS_PSYCOPG2
@@ -633,10 +637,21 @@ class Engine:
 
     def best_question(self, answers, asked, idk_streak=0):
         probs      = self.posteriors(answers)
-        h0         = self._entropy(probs)
         nf         = len(self.fetishes)
         asked_list = list(asked)
 
+        # 終盤モード: 上位 FOCUS_TOP_N 件に絞った確率で情報利得を計算
+        top_p = max(probs)
+        if top_p >= FOCUS_THRESHOLD:
+            ranked = sorted(range(nf), key=lambda i: probs[i], reverse=True)
+            focus  = set(ranked[:FOCUS_TOP_N])
+            wp     = [probs[f] if f in focus else 0.0 for f in range(nf)]
+            s      = sum(wp)
+            wp     = [p / s for p in wp]
+        else:
+            wp = probs
+
+        h0         = self._entropy(wp)
         asked_axes = {self._question_axis(qa) for qa in asked_list}
         asked_axes.discard(None)
         all_axis_names = {name for name, _ in QUESTION_AXES}
@@ -659,18 +674,15 @@ class Engine:
         for q in range(len(self.questions)):
             if q in asked:
                 continue
-            p_yes = sum(probs[f] * self._prob(f, q) for f in range(nf))
+            p_yes = sum(wp[f] * self._prob(f, q) for f in range(nf))
             p_no  = 1.0 - p_yes
             if p_yes < 0.01 or p_no < 0.01:
                 continue
-            py = [probs[f] * self._prob(f, q) for f in range(nf)]
+            py = [wp[f] * self._prob(f, q) for f in range(nf)]
             sy = sum(py); py = [v / sy for v in py]
-            pn = [probs[f] * (1 - self._prob(f, q)) for f in range(nf)]
+            pn = [wp[f] * (1 - self._prob(f, q)) for f in range(nf)]
             sn = sum(pn); pn = [v / sn for v in pn]
             score = h0 - (p_yes * self._entropy(py) + p_no * self._entropy(pn))
-            # 識別力ペナルティ: P(yes|f) が全性癖で 0.5 に集中している質問を弱化
-            disc = sum(abs(self._prob(f, q) - 0.5) for f in range(nf)) / nf
-            score *= min(1.0, max(0.2, disc / 0.08))
             if asked_list:
                 v_q = [self._prob(f, q) for f in range(nf)]
                 n_q = math.sqrt(sum(a**2 for a in v_q))
