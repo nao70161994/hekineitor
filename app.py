@@ -141,7 +141,7 @@ def answer():
     if idk_streak >= 4 or top_p >= GUESS_THRESHOLD or count >= MAX_QUESTIONS:
         return _make_guess(answers)
 
-    next_q = engine.best_question(answers, set(asked))
+    next_q = engine.best_question(answers, set(asked), idk_streak=idk_streak)
     if next_q is None:
         return _make_guess(answers)
 
@@ -188,56 +188,66 @@ PROFILE_MIN_PROB  = 0.08   # 絶対確率の下限
 COMPOUND_RATIO    = 0.55   # 2位がこの比率以上なら複合
 TRIPLE_RATIO      = 0.45   # 3位がこの比率以上なら三重複合
 
-def _make_guess(answers):
-    engine.increment_play_count()
+def _compute_guess(answers):
+    """診断結果を返す（play_count はインクリメントしない、純粋計算）。
+    レスポンスの fetish_id 系は全てDB id（永続的・プレイヤー追加性癖でも安全）。"""
     probs   = engine.posteriors(answers)
     ranked  = sorted(range(len(probs)), key=lambda i: probs[i], reverse=True)
-    best_f  = ranked[0]
-    best_p  = probs[best_f]
-    f       = engine.fetishes[best_f]
+    best_i  = ranked[0]
+    best_p  = probs[best_i]
+    best_f  = engine.fetishes[best_i]
+    best_db = best_f['id']
 
-    # 複合判定
     compound = []
-    compound_ids = set()
+    compound_db_ids = set()
     if len(ranked) > 1 and probs[ranked[1]] >= best_p * COMPOUND_RATIO:
-        compound.append({'fetish_id': ranked[1],
-                         'fetish_name': engine.fetishes[ranked[1]]['name'],
+        c = engine.fetishes[ranked[1]]
+        compound.append({'fetish_id': c['id'],
+                         'fetish_name': c['name'],
                          'probability': round(probs[ranked[1]] * 100, 1)})
-        compound_ids.add(ranked[1])
+        compound_db_ids.add(c['id'])
         if len(ranked) > 2 and probs[ranked[2]] >= best_p * TRIPLE_RATIO:
-            compound.append({'fetish_id': ranked[2],
-                             'fetish_name': engine.fetishes[ranked[2]]['name'],
+            c = engine.fetishes[ranked[2]]
+            compound.append({'fetish_id': c['id'],
+                             'fetish_name': c['name'],
                              'probability': round(probs[ranked[2]] * 100, 1)})
-            compound_ids.add(ranked[2])
+            compound_db_ids.add(c['id'])
 
     threshold = max(best_p * PROFILE_MIN_RATIO, PROFILE_MIN_PROB)
-    profile = [
-        {'fetish_id': fi, 'fetish_name': engine.fetishes[fi]['name'],
-         'probability': round(probs[fi] * 100, 1)}
-        for fi in ranked[1:]
-        if probs[fi] >= threshold and fi not in compound_ids
-    ]
+    profile = []
+    for fi in ranked[1:]:
+        f_dict = engine.fetishes[fi]
+        if f_dict['id'] == best_db or f_dict['id'] in compound_db_ids:
+            continue
+        if probs[fi] >= threshold:
+            profile.append({'fetish_id': f_dict['id'],
+                            'fetish_name': f_dict['name'],
+                            'probability': round(probs[fi] * 100, 1)})
 
-    profile_ids = {p['fetish_id'] for p in profile}
-    related_src = [best_f] + list(compound_ids)
-    related_seen = profile_ids | compound_ids | {best_f}
-    related = []
-    for src in related_src:
-        for r in engine.get_related(src):
+    profile_db_ids = {p['fetish_id'] for p in profile}
+    related_seen   = profile_db_ids | compound_db_ids | {best_db}
+    related        = []
+    for src_db in [best_db] + list(compound_db_ids):
+        for r in engine.get_related(src_db):
             if r['fetish_id'] not in related_seen:
                 related.append(r)
                 related_seen.add(r['fetish_id'])
 
-    return jsonify({
+    return {
         'action':      'guess',
-        'fetish_id':   best_f,
-        'fetish_name': f['name'],
-        'fetish_desc': f['desc'],
+        'fetish_id':   best_db,
+        'fetish_name': best_f['name'],
+        'fetish_desc': best_f['desc'],
         'probability': round(best_p * 100, 1),
         'compound':    compound,
         'profile':     profile,
         'related':     related,
-    })
+    }
+
+
+def _make_guess(answers):
+    engine.increment_play_count()
+    return jsonify(_compute_guess(answers))
 
 
 @app.route('/api/confirm', methods=['POST'])
@@ -246,36 +256,42 @@ def confirm():
     if 'correct' not in data or 'fetish_id' not in data:
         return jsonify({'status': 'error', 'message': 'correct と fetish_id が必要です'}), 400
     try:
-        f_idx = int(data['fetish_id'])
+        f_db_id = int(data['fetish_id'])
     except (ValueError, TypeError):
         return jsonify({'status': 'error', 'message': '不正な fetish_id です'}), 400
-    if f_idx < 0 or f_idx >= len(engine.fetishes):
+    f_idx = engine.index_of(f_db_id)
+    if f_idx is None:
         return jsonify({'status': 'error', 'message': '存在しない fetish_id です'}), 400
     correct = data['correct']
     answers = session.get('answers', {})
 
     if correct:
-        learn_ids = [f_idx]
+        learn_idxs = [f_idx]
         for cid in data.get('compound_ids', []):
             try:
-                cid = int(cid)
-                if 0 <= cid < len(engine.fetishes) and cid != f_idx:
-                    learn_ids.append(cid)
+                c_idx = engine.index_of(int(cid))
+                if c_idx is not None and c_idx != f_idx:
+                    learn_idxs.append(c_idx)
             except (ValueError, TypeError):
                 pass
-        for fid in learn_ids:
-            engine.learn(answers, fid)
+        for idx in learn_idxs:
+            engine.learn(answers, idx)
         return jsonify({'status': 'learned'})
     else:
-        fetishes_snapshot = list(engine.fetishes)
         probs = engine.posteriors(answers)
-        nf = len(probs)
-        excluded = {f_idx} | {int(cid) for cid in data.get('compound_ids', [])
-                               if str(cid).lstrip('-').isdigit()}
-        sorted_fetishes = sorted(
-            [f for f in fetishes_snapshot if f['id'] < nf and f['id'] not in excluded],
-            key=lambda f: probs[f['id']], reverse=True,
-        )[:15]
+        excluded_db_ids = {f_db_id}
+        for cid in data.get('compound_ids', []):
+            try:
+                excluded_db_ids.add(int(cid))
+            except (ValueError, TypeError):
+                pass
+        candidates = []
+        for i, f in enumerate(engine.fetishes):
+            if f['id'] in excluded_db_ids:
+                continue
+            candidates.append((probs[i], f))
+        candidates.sort(key=lambda t: t[0], reverse=True)
+        sorted_fetishes = [f for _, f in candidates[:15]]
         return jsonify({'status': 'wrong', 'fetishes': sorted_fetishes})
 
 
@@ -285,10 +301,11 @@ def teach():
     if 'fetish_id' not in data:
         return jsonify({'status': 'error', 'message': 'fetish_id が必要です'}), 400
     try:
-        f_idx = int(data['fetish_id'])
+        f_db_id = int(data['fetish_id'])
     except (ValueError, TypeError):
         return jsonify({'status': 'error', 'message': '不正な fetish_id です'}), 400
-    if f_idx < 0 or f_idx >= len(engine.fetishes):
+    f_idx = engine.index_of(f_db_id)
+    if f_idx is None:
         return jsonify({'status': 'error', 'message': '存在しない fetish_id です'}), 400
     answers = session.get('answers', {})
     engine.learn(answers, f_idx)

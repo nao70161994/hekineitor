@@ -16,6 +16,13 @@ DATA_DIR              = os.path.join(os.path.dirname(__file__), 'data')
 DATABASE_URL          = os.environ.get('DATABASE_URL', '')
 PLAYER_FETISH_BASE_ID = 10000  # プレイヤー追加性癖のIDはここから開始（シードIDとの競合防止）
 
+# 質問の3軸構造（best_question で軸の多様性確保・idk連続時の切替に使用）
+QUESTION_AXES = [
+    ('content',     range(0, 55)),    # 0-54: コンテンツ軸（55問）
+    ('abstract',    range(55, 63)),   # 55-62: 抽象軸（8問）
+    ('personality', range(63, 87)),   # 63-86: パーソナリティ軸（24問）
+]
+
 _conn_pool      = None
 _conn_pool_lock = threading.Lock()
 
@@ -542,16 +549,36 @@ class Engine:
         s = sum(probs)
         return [p / s for p in probs]
 
-    def best_question(self, answers, asked):
+    def _question_axis(self, q):
+        for name, r in QUESTION_AXES:
+            if q in r:
+                return name
+        return None
+
+    def best_question(self, answers, asked, idk_streak=0):
         probs      = self.posteriors(answers)
         h0         = self._entropy(probs)
         nf         = len(self.fetishes)
         asked_list = list(asked)
-        best_q, best_score = None, -1.0
+
+        asked_axes = {self._question_axis(qa) for qa in asked_list}
+        asked_axes.discard(None)
+        all_axis_names = {name for name, _ in QUESTION_AXES}
+
+        # 軸フィルタリング: idk連続なら抽象/パーソナリティへ、序盤は未カバーの軸を優先
+        if idk_streak >= 2:
+            axis_filter = {'abstract', 'personality'}
+        elif len(asked_list) < 3 and (all_axis_names - asked_axes):
+            axis_filter = all_axis_names - asked_axes
+        else:
+            axis_filter = None
 
         q_vecs = {}
         for qa in asked_list:
             q_vecs[qa] = [self._prob(f, qa) for f in range(nf)]
+
+        best_filtered_q, best_filtered_s = None, -1.0
+        best_any_q,      best_any_s      = None, -1.0
 
         for q in range(len(self.questions)):
             if q in asked:
@@ -578,10 +605,16 @@ class Engine:
                     if sim > max_sim:
                         max_sim = sim
                 score *= (1.0 - 0.4 * max_sim)
-            if score > best_score:
-                best_score = score
-                best_q = q
-        return best_q
+            if axis_filter is None or self._question_axis(q) in axis_filter:
+                if score > best_filtered_s:
+                    best_filtered_s = score
+                    best_filtered_q = q
+            if score > best_any_s:
+                best_any_s = score
+                best_any_q = q
+
+        # 軸フィルタで該当が無ければ全体ベストにフォールバック
+        return best_filtered_q if best_filtered_q is not None else best_any_q
 
     def get_learning_stats(self):
         nq = len(self.questions)
@@ -651,8 +684,9 @@ class Engine:
 
         self._increment_learn_count()
 
-    def _learn_silent(self, answers, fetish_idx):
-        """learn() without incrementing learn_count (used for initial boost)."""
+    def _learn_silent(self, answers, fetish_idx, cold_start=False):
+        """learn() without incrementing learn_count (used for initial boost).
+        cold_start=True で蓄積データによる減衰を無効化（新規追加性癖の cold start 対応）。"""
         neg_weight = 0.3
         all_updates = {}
 
@@ -669,7 +703,10 @@ class Engine:
                 if ans == 0 or not (0 <= q < nq):
                     continue
                 strength = abs(ans)
-                scale = min(1.0, PSEUDO / max(self.matrix['total'][fetish_idx][q], PSEUDO))
+                if cold_start:
+                    scale = 1.0
+                else:
+                    scale = min(1.0, PSEUDO / max(self.matrix['total'][fetish_idx][q], PSEUDO))
                 effective = strength * scale
 
                 delta_yes = effective if ans > 0 else 0.0
@@ -747,9 +784,10 @@ class Engine:
         return array_idx, db_id
 
     def boost_learn_new(self, fetish_idx, answers):
-        """新規追加時の初期ブースト：_learn_silent × 3 + learn × 1。"""
-        for _ in range(3):
-            self._learn_silent(answers, fetish_idx)
+        """新規追加時の初期ブースト：cold_start で _learn_silent × 5 + learn × 1。
+        cold_start=True により蓄積データの減衰を無視し、回答済みの質問の値を確実に動かす。"""
+        for _ in range(5):
+            self._learn_silent(answers, fetish_idx, cold_start=True)
         self.learn(answers, fetish_idx)
 
     def index_of(self, db_id):
@@ -781,11 +819,12 @@ class Engine:
 
     def get_related(self, fetish_id):
         related_ids = FETISH_RELATIONS.get(fetish_id, [])
-        return [
-            {'fetish_id': fid, 'fetish_name': self.fetishes[fid]['name']}
-            for fid in related_ids
-            if 0 <= fid < len(self.fetishes)
-        ]
+        out = []
+        for fid in related_ids:
+            idx = self.index_of(fid)
+            if idx is not None:
+                out.append({'fetish_id': fid, 'fetish_name': self.fetishes[idx]['name']})
+        return out
 
     def _entropy(self, probs):
         return -sum(p * math.log2(p) for p in probs if p > 1e-10)
