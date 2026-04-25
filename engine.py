@@ -1,6 +1,7 @@
 import json
 import math
 import os
+import random
 import tempfile
 import threading
 
@@ -306,6 +307,10 @@ AXIS_INDIRECT_BONUS = {'content': 1.0, 'abstract': 1.01, 'personality': 1.02}
 # 終盤モード: top_p がこの値を超えたら上位 N 件に絞った情報利得を使う
 FOCUS_THRESHOLD = 0.40
 FOCUS_TOP_N     = 6
+
+# 序盤ランダム性: 最初の N 問は上位 K 件からランダムに選ぶ（毎ゲームの多様性確保）
+EARLY_RANDOM_DEPTH = 3
+EARLY_RANDOM_TOP_K = 5
 
 
 def _use_db():
@@ -664,12 +669,14 @@ class Engine:
         else:
             axis_filter = None
 
+        early_game = len(asked_list) < EARLY_RANDOM_DEPTH
         q_vecs = {}
         for qa in asked_list:
             q_vecs[qa] = [self._prob(f, qa) for f in range(nf)]
 
         best_filtered_q, best_filtered_s = None, -1.0
         best_any_q,      best_any_s      = None, -1.0
+        early_cands = []  # (weighted_score, q) — 序盤ランダム用
 
         for q in range(len(self.questions)):
             if q in asked:
@@ -702,9 +709,17 @@ class Engine:
                 if weighted > best_filtered_s:
                     best_filtered_s = weighted
                     best_filtered_q = q
+                if early_game:
+                    early_cands.append((weighted, q))
             if weighted > best_any_s:
                 best_any_s = weighted
                 best_any_q = q
+
+        # 序盤: 上位 K 件からランダムに選んで毎ゲームの多様性を確保
+        if early_game and early_cands:
+            early_cands.sort(reverse=True)
+            pool = [q for _, q in early_cands[:EARLY_RANDOM_TOP_K]]
+            return random.choice(pool)
 
         # 軸フィルタで該当が無ければ全体ベストにフォールバック
         return best_filtered_q if best_filtered_q is not None else best_any_q
