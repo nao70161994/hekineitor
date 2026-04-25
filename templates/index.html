@@ -770,10 +770,10 @@ async function submitConfirm() {
     else wrongCount.push(parseInt(item.dataset.id));
   });
 
-  // ○がついた項目を即学習
+  // ○がついた項目を即学習（total_n で√n スケーリング）
   if (correctIds.length > 0) {
     for (const fid of correctIds) {
-      await apiFetch('/api/teach', {fetish_id: fid});
+      await apiFetch('/api/teach', {fetish_id: fid, total_n: correctIds.length});
     }
   }
 
@@ -790,16 +790,14 @@ async function submitConfirm() {
     return;
   }
 
-  // 外れあり → 正解を最大 missCount 件選んでもらう
+  // 外れあり → 正解を自由に選んでもらう
   const data = await apiFetch('/api/confirm', {correct: false, fetish_id: window._guessedId, compound_ids: window._compoundIds || []});
   if (!data || !data.fetishes) return;
 
-  window._teachMax      = missCount;
   window._teachSelected = new Map(); // id → name
   window._teachCorrectIds = correctIds;
 
-  document.getElementById('teach-label').textContent =
-    `外れた${missCount}項目の正解を選んでください（最大${missCount}件）`;
+  document.getElementById('teach-label').textContent = '正解の性癖を選んでください（複数選択可）';
 
   const list = document.getElementById('fetish-list');
   list.innerHTML = '';
@@ -824,7 +822,6 @@ function toggleTeachItem(id, name, el) {
     window._teachSelected.delete(id);
     el.classList.remove('selected');
   } else {
-    if (window._teachSelected.size >= window._teachMax) return;
     window._teachSelected.set(id, name);
     el.classList.add('selected');
   }
@@ -834,7 +831,6 @@ function toggleTeachItem(id, name, el) {
 function updateTeachSubmitBtn() {
   const btn = document.getElementById('teach-submit-btn');
   const n = window._teachSelected ? window._teachSelected.size : 0;
-  const max = window._teachMax || 1;
   btn.textContent = n > 0 ? `${n}件を学習する` : `選んで学習する`;
   btn.disabled = n === 0;
 }
@@ -844,8 +840,9 @@ async function submitTeach() {
   _fetching = true;
   try {
     const selected = window._teachSelected || new Map();
+    const totalN = selected.size;
     for (const [fid] of selected) {
-      await apiFetch('/api/teach', {fetish_id: fid});
+      await apiFetch('/api/teach', {fetish_id: fid, total_n: totalN});
     }
     const correctNames = (window._teachCorrectIds || []).map(id => {
       const el = document.getElementById(`ci-${id}`);

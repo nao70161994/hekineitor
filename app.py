@@ -186,10 +186,21 @@ def back():
     })
 
 
+import math as _math
+
 PROFILE_MIN_RATIO = 0.25   # best_p に対する比率の下限
 PROFILE_MIN_PROB  = 0.08   # 絶対確率の下限
 COMPOUND_RATIO    = 0.55   # 2位がこの比率以上なら複合
 TRIPLE_RATIO      = 0.45   # 3位がこの比率以上なら三重複合
+
+def _learn_factor(answers, total_n=1):
+    """確信度スケーリング × √n 分散: 不確実なほど強く、多く選ぶほど弱く。"""
+    probs  = engine.posteriors(answers)
+    top_p  = max(probs) if probs else GUESS_THRESHOLD
+    conf   = max(0.5, min(2.0, GUESS_THRESHOLD / max(top_p, 0.1)))
+    n_scale = 1.0 / _math.sqrt(max(total_n, 1))
+    return max(0.3, min(2.0, conf * n_scale))
+
 
 def _compute_guess(answers):
     """診断結果を返す（play_count はインクリメントしない、純粋計算）。
@@ -269,10 +280,6 @@ def confirm():
     answers = session.get('answers', {})
 
     if correct:
-        # 確信度が低いほど強く学習（確信度=0.75基準: それより低→強化、高→抑制）
-        probs  = engine.posteriors(answers)
-        top_p  = max(probs) if probs else GUESS_THRESHOLD
-        factor = max(0.5, min(2.0, GUESS_THRESHOLD / max(top_p, 0.1)))
         learn_idxs = [f_idx]
         for cid in data.get('compound_ids', []):
             try:
@@ -281,6 +288,7 @@ def confirm():
                     learn_idxs.append(c_idx)
             except (ValueError, TypeError):
                 pass
+        factor = _learn_factor(answers, total_n=len(learn_idxs))
         for idx in learn_idxs:
             engine.learn(answers, idx, strength_factor=factor)
         return jsonify({'status': 'learned'})
@@ -316,8 +324,9 @@ def teach():
     f_idx = engine.index_of(f_db_id)
     if f_idx is None:
         return jsonify({'status': 'error', 'message': '存在しない fetish_id です'}), 400
-    answers = session.get('answers', {})
-    engine.learn(answers, f_idx)
+    answers  = session.get('answers', {})
+    total_n  = max(1, int(data.get('total_n', 1)))
+    engine.learn(answers, f_idx, strength_factor=_learn_factor(answers, total_n))
     return jsonify({'status': 'learned', 'fetish_name': engine.fetishes[f_idx]['name']})
 
 
@@ -355,7 +364,9 @@ def finalize_added():
     items = data.get('items', [])
     if not isinstance(items, list):
         return jsonify({'status': 'error', 'message': 'items はリストで指定してください'}), 400
-    answers = session.get('answers', {})
+    answers  = session.get('answers', {})
+    total_n  = max(1, len([i for i in items if isinstance(i, dict)]))
+    factor   = _learn_factor(answers, total_n)
     correct_db_ids = set()
     for item in items:
         if not isinstance(item, dict):
@@ -370,9 +381,9 @@ def finalize_added():
             continue
         correct_db_ids.add(db_id)
         if is_new:
-            engine.boost_learn_new(idx, answers)
+            engine.boost_learn_new(idx, answers)  # boost は独自スケーリング済み
         else:
-            engine.learn(answers, idx)
+            engine.learn(answers, idx, strength_factor=factor)
     # 外れた診断に対するネガティブ学習（正解として選ばれなかったもののみ）
     wrong_db_ids = session.pop('wrong_db_ids', [])
     for wid in wrong_db_ids:

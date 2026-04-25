@@ -312,6 +312,9 @@ FOCUS_TOP_N     = 6
 EARLY_RANDOM_DEPTH = 3
 EARLY_RANDOM_TOP_K = 5
 
+# UCB探索ボーナス: 使用回数が少ない質問に加算（一度も試されない質問を防ぐ）
+UCB_EXPLORE_C = 0.05
+
 
 def _use_db():
     return bool(DATABASE_URL) and HAS_PSYCOPG2
@@ -703,6 +706,8 @@ class Engine:
                     if sim > max_sim:
                         max_sim = sim
                 score *= (1.0 - 0.4 * max_sim)
+            ask_count = sum(self.matrix['total'][f][q] for f in range(nf))
+            score += UCB_EXPLORE_C / math.sqrt(ask_count / max(nf, 1) + 1)
             axis_name = self._question_axis(q)
             weighted = score * AXIS_INDIRECT_BONUS.get(axis_name, 1.0)
             if axis_filter is None or axis_name in axis_filter:
