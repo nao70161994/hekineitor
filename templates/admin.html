@@ -65,5 +65,26 @@
 {% else %}
 <p style="color:#555;font-size:0.85rem;margin-top:32px;">プレイヤーが追加した性癖はまだありません。</p>
 {% endif %}
+
+<details style="margin-top:40px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">質問の識別力（低い順、展開で表示）</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">識別力 = 各性癖でP(yes)が0.5からどれだけ離れているかの平均（0〜0.5。低いほど全性癖に均等で区別しにくい）</p>
+<table style="margin-top:8px;">
+  <tr><th>#</th><th>質問</th><th>識別力</th><th></th></tr>
+  {% set max_d = [question_stats[-1].disc, 0.01] | max if question_stats else 0.01 %}
+  {% for q in question_stats %}
+  <tr>
+    <td style="color:#666;font-size:0.78rem">{{ q.id }}</td>
+    <td style="font-size:0.82rem;max-width:320px">{{ q.text }}{% if q.disc < 0.05 %}<span class="tag-low">低識別力</span>{% endif %}</td>
+    <td>
+      <div class="bar-wrap" style="width:120px;">
+        <div class="bar-fill" style="width: {{ [[(q.disc / max_d * 100)|int, 2]|max, 100]|min }}%;background:linear-gradient(90deg,#0f3460,#e94560);"></div>
+      </div>
+    </td>
+    <td style="color:#888;font-size:0.78rem">{{ q.disc }}</td>
+  </tr>
+  {% endfor %}
+</table>
+</details>
 </body>
 </html>
