@@ -8,7 +8,7 @@
 - `engine.py` — ベイズ推論エンジン。情報利得で次の質問を選択
 - `templates/index.html` — シングルページUI
 - `templates/admin.html` — 学習データ量管理ページ
-- `data/` — questions.json（87問）/ fetishes.json（83件）/ matrix.json（ローカル用・gitignore済み）
+- `data/` — questions.json（87問）/ fetishes.json（99件）/ matrix.json（ローカル用・gitignore済み）
 
 ## データ永続化
 
