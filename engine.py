@@ -285,6 +285,24 @@ FETISH_RELATIONS = {
     82: [74, 28],      # VTuber → アイドル・アンドロイド
 }
 
+# 各性癖の相対的な出現頻度（事前確率の重み）。未登録は 1.0
+FETISH_PRIOR_WEIGHTS = {
+    # 非常に人気（3倍）
+    0: 3.0, 10: 3.0, 23: 3.0,
+    # 人気（2〜2.5倍）
+    1: 2.0, 2: 2.0, 3: 2.0, 8: 2.0, 12: 2.0, 15: 2.0, 16: 2.5,
+    17: 2.5, 18: 2.0, 21: 2.5, 22: 2.0, 25: 2.0, 36: 2.0,
+    # やや人気（1.5〜1.8倍）
+    5: 1.8, 6: 1.8, 7: 1.8, 9: 1.8, 11: 1.8, 13: 1.8, 24: 1.8,
+    27: 1.8, 35: 1.8, 37: 1.8, 40: 1.8, 47: 1.8, 64: 1.8, 65: 1.5,
+    73: 1.8, 74: 1.5, 81: 1.5,
+    # ニッチ（0.5〜0.7倍）
+    32: 0.5, 33: 0.6, 49: 0.5, 50: 0.6, 61: 0.5, 62: 0.5, 79: 0.6, 82: 0.6,
+}
+
+# 質問軸ごとの間接性ボーナス（情報利得が同程度なら間接的な軸を優先）
+AXIS_INDIRECT_BONUS = {'content': 1.0, 'abstract': 1.01, 'personality': 1.02}
+
 
 def _use_db():
     return bool(DATABASE_URL) and HAS_PSYCOPG2
@@ -589,7 +607,8 @@ class Engine:
     def posteriors(self, answers):
         nf = len(self.fetishes)
         nq = len(self.questions)
-        log_p = [0.0] * nf
+        log_p = [math.log(FETISH_PRIOR_WEIGHTS.get(self.fetishes[f]['id'], 1.0))
+                 for f in range(nf)]
         for q_str, ans in answers.items():
             try:
                 q = int(q_str)
@@ -662,12 +681,14 @@ class Engine:
                     if sim > max_sim:
                         max_sim = sim
                 score *= (1.0 - 0.4 * max_sim)
-            if axis_filter is None or self._question_axis(q) in axis_filter:
-                if score > best_filtered_s:
-                    best_filtered_s = score
+            axis_name = self._question_axis(q)
+            weighted = score * AXIS_INDIRECT_BONUS.get(axis_name, 1.0)
+            if axis_filter is None or axis_name in axis_filter:
+                if weighted > best_filtered_s:
+                    best_filtered_s = weighted
                     best_filtered_q = q
-            if score > best_any_s:
-                best_any_s = score
+            if weighted > best_any_s:
+                best_any_s = weighted
                 best_any_q = q
 
         # 軸フィルタで該当が無ければ全体ベストにフォールバック

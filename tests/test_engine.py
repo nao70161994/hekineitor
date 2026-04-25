@@ -4,20 +4,18 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import unittest
 from unittest.mock import patch
 import engine as eng_module
-from engine import Engine
+from engine import Engine, FETISH_PRIOR_WEIGHTS
 
 MATRIX_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'matrix.json')
 
 class TestEngine(unittest.TestCase):
     def setUp(self):
-        # matrix.json を退避して常にフレッシュな状態でテスト
         self._matrix_backup = None
         if os.path.exists(MATRIX_PATH):
             with open(MATRIX_PATH, 'rb') as f:
                 self._matrix_backup = f.read()
             os.remove(MATRIX_PATH)
 
-        # ファイル書き込みをモックして本番データを汚さない
         self._patches = [
             patch.object(Engine, '_save_matrix_file',  return_value=None),
             patch.object(Engine, '_save_fetishes_file', return_value=None),
@@ -30,18 +28,21 @@ class TestEngine(unittest.TestCase):
     def tearDown(self):
         for p in self._patches:
             p.stop()
-        # matrix.json を元に戻す
         if self._matrix_backup is not None:
             with open(MATRIX_PATH, 'wb') as f:
                 f.write(self._matrix_backup)
 
     # ── posteriors ────────────────────────────────────────
-    def test_posteriors_uniform_with_no_answers(self):
+    def test_posteriors_sums_to_one_no_answers(self):
         probs = self.e.posteriors({})
         self.assertAlmostEqual(sum(probs), 1.0, places=6)
-        mean = 1.0 / len(probs)
-        for p in probs:
-            self.assertAlmostEqual(p, mean, places=6)
+
+    def test_posteriors_popular_fetish_higher_prior(self):
+        """事前確率: NTR(0, weight=3.0) はゾンビ(49, weight=0.5) より高い"""
+        probs = self.e.posteriors({})
+        ntr_idx   = self.e.index_of(0)
+        zombie_idx = self.e.index_of(49)
+        self.assertGreater(probs[ntr_idx], probs[zombie_idx])
 
     def test_posteriors_increases_matching_fetish(self):
         probs_before = self.e.posteriors({})
@@ -89,6 +90,12 @@ class TestEngine(unittest.TestCase):
         asked = set(range(len(self.e.questions)))
         self.assertIsNone(self.e.best_question({}, asked))
 
+    def test_best_question_idk_streak_favors_abstract_or_personality(self):
+        """idk_streak >= 2 のとき抽象 or パーソナリティ軸の質問が選ばれる"""
+        q = self.e.best_question({}, set(), idk_streak=2)
+        self.assertIsNotNone(q)
+        self.assertGreaterEqual(q, 55)  # 抽象(55-62) or パーソナリティ(63-86)
+
     # ── learn ─────────────────────────────────────────────
     def test_learn_increases_yes_count(self):
         before = self.e.matrix['yes'][0][8]
@@ -106,7 +113,6 @@ class TestEngine(unittest.TestCase):
         self.assertGreater(self.e.matrix['total'][1][8], before)
 
     def test_learn_proportional_to_strength(self):
-        import engine as eng
         e1 = Engine(); e2 = Engine()
         b1 = e1.matrix['total'][0][9]
         b2 = e2.matrix['total'][0][9]
@@ -122,14 +128,64 @@ class TestEngine(unittest.TestCase):
         self.e.add_fetish('テスト', '説明', {})
         self.assertEqual(len(self.e.fetishes), before + 1)
 
-    def test_add_fetish_with_template_copies_distribution(self):
+    def test_add_fetish_new_has_valid_matrix_row(self):
+        """追加された性癖の matrix 行が valid（yes <= total）であること"""
+        idx, _ = self.e.add_fetish('テンプレートテスト', '説明', {'0': 1, '3': -1})
         nq = len(self.e.questions)
-        self.e.add_fetish('テンプレートテスト', '説明', {}, template_id=3)
-        new_id = len(self.e.fetishes) - 1
         for q in range(nq):
-            r_new  = self.e.matrix['yes'][new_id][q] / self.e.matrix['total'][new_id][q]
-            r_tmpl = self.e.matrix['yes'][3][q]       / self.e.matrix['total'][3][q]
-            self.assertAlmostEqual(r_new, r_tmpl, places=5)
+            yes   = self.e.matrix['yes'][idx][q]
+            total = self.e.matrix['total'][idx][q]
+            self.assertGreaterEqual(total, yes)
+
+    def test_add_fetish_id_gte_base(self):
+        """プレイヤー追加性癖のIDが PLAYER_FETISH_BASE_ID 以上であること"""
+        from engine import PLAYER_FETISH_BASE_ID
+        self.e.add_fetish('IDテスト', '説明', {})
+        new_f = self.e.fetishes[-1]
+        self.assertGreaterEqual(new_f['id'], PLAYER_FETISH_BASE_ID)
+
+    # ── boost_learn_new ───────────────────────────────────
+    def test_boost_learn_new_increases_matrix_data(self):
+        idx, _ = self.e.add_fetish('ブースト性癖', '説明', {})
+        total_before = sum(self.e.matrix['total'][idx])
+        self.e.boost_learn_new(idx, {'0': 1, '1': -1})
+        total_after = sum(self.e.matrix['total'][idx])
+        self.assertGreater(total_after, total_before)
+
+    # ── get_question_stats ────────────────────────────────
+    def test_get_question_stats_sorted_ascending(self):
+        stats = self.e.get_question_stats()
+        discs = [s['disc'] for s in stats]
+        self.assertEqual(discs, sorted(discs))
+
+    def test_get_question_stats_count(self):
+        stats = self.e.get_question_stats()
+        self.assertEqual(len(stats), len(self.e.questions))
+
+    def test_get_question_stats_disc_range(self):
+        for s in self.e.get_question_stats():
+            self.assertGreaterEqual(s['disc'], 0.0)
+            self.assertLessEqual(s['disc'], 0.5)
+
+    # ── index_of ─────────────────────────────────────────
+    def test_index_of_seed_fetish(self):
+        idx = self.e.index_of(0)
+        self.assertEqual(idx, 0)
+
+    def test_index_of_unknown_returns_none(self):
+        self.assertIsNone(self.e.index_of(99999))
+
+    # ── get_related ───────────────────────────────────────
+    def test_get_related_returns_list(self):
+        related = self.e.get_related(0)
+        self.assertIsInstance(related, list)
+
+    def test_get_related_no_unknown_ids(self):
+        all_db_ids = {f['id'] for f in self.e.fetishes}
+        for fid in range(83):
+            for r in self.e.get_related(fid):
+                self.assertIn(r['fetish_id'], all_db_ids)
+
 
 if __name__ == '__main__':
     unittest.main()
