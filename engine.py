@@ -668,6 +668,9 @@ class Engine:
             pn = [probs[f] * (1 - self._prob(f, q)) for f in range(nf)]
             sn = sum(pn); pn = [v / sn for v in pn]
             score = h0 - (p_yes * self._entropy(py) + p_no * self._entropy(pn))
+            # 識別力ペナルティ: P(yes|f) が全性癖で 0.5 に集中している質問を弱化
+            disc = sum(abs(self._prob(f, q) - 0.5) for f in range(nf)) / nf
+            score *= min(1.0, max(0.2, disc / 0.08))
             if asked_list:
                 v_q = [self._prob(f, q) for f in range(nf)]
                 n_q = math.sqrt(sum(a**2 for a in v_q))
@@ -775,6 +778,36 @@ class Engine:
             self._save_to_db(all_updates)
 
         self._increment_learn_count()
+
+    def learn_negative(self, answers, fetish_idx):
+        """fetish_idx が外れだった弱いネガティブ更新。learn() の約1/5の強度。"""
+        neg_str = 0.2
+        all_updates = {}
+        with self._lock:
+            nf = len(self.fetishes)
+            nq = len(self.questions)
+            if not (0 <= fetish_idx < nf):
+                return
+            for q_str, ans in answers.items():
+                try:
+                    q = int(q_str)
+                except (ValueError, TypeError):
+                    continue
+                if ans == 0 or not (0 <= q < nq):
+                    continue
+                strength = abs(ans) * neg_str
+                scale = min(1.0, PSEUDO / max(self.matrix['total'][fetish_idx][q], PSEUDO))
+                effective = strength * scale
+                # yes回答 → このfetishはyesしにくい方向: total++, yes据え置き
+                # no回答  → このfetishはnoしにくい方向: yes++, total++
+                dy = 0.0 if ans > 0 else effective
+                self.matrix['yes'][fetish_idx][q]   += dy
+                self.matrix['total'][fetish_idx][q] += effective
+                all_updates.setdefault(fetish_idx, []).append((q, dy, effective))
+            if not _use_db():
+                self._save_matrix_file()
+        if _use_db():
+            self._save_to_db(all_updates)
 
     def _learn_silent(self, answers, fetish_idx, cold_start=False):
         """learn() without incrementing learn_count (used for initial boost).

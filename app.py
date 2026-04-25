@@ -134,11 +134,14 @@ def answer():
     idk_streak = idk_streak + 1 if ans == 0 else 0
     session['idk_streak'] = idk_streak
 
-    top_f, top_p = engine.top_guess(answers)
+    top2 = engine.top_guess(answers, n=2)
+    top_p  = top2[0][1]
+    second_p = top2[1][1] if len(top2) > 1 else 0.0
     count = len(asked)
 
-    # わからない4連続 or 通常の終了条件で診断へ
-    if idk_streak >= 4 or top_p >= GUESS_THRESHOLD or count >= MAX_QUESTIONS:
+    # 終了条件: idk連続4回 / 問題数上限 / 通常閾値 / 早期打ち切り（5問以上かつ確信度高）
+    early_stop = count >= 5 and top_p >= 0.65 and (top_p - second_p) >= 0.25
+    if idk_streak >= 4 or top_p >= GUESS_THRESHOLD or count >= MAX_QUESTIONS or early_stop:
         return _make_guess(answers)
 
     next_q = engine.best_question(answers, set(asked), idk_streak=idk_streak)
@@ -292,6 +295,8 @@ def confirm():
             candidates.append((probs[i], f))
         candidates.sort(key=lambda t: t[0], reverse=True)
         sorted_fetishes = [f for _, f in candidates[:15]]
+        # 後でネガティブ学習できるよう外れた診断IDを保存
+        session['wrong_db_ids'] = list(excluded_db_ids)
         return jsonify({'status': 'wrong', 'fetishes': sorted_fetishes})
 
 
@@ -347,6 +352,7 @@ def finalize_added():
     if not isinstance(items, list):
         return jsonify({'status': 'error', 'message': 'items はリストで指定してください'}), 400
     answers = session.get('answers', {})
+    correct_db_ids = set()
     for item in items:
         if not isinstance(item, dict):
             continue
@@ -358,10 +364,18 @@ def finalize_added():
         idx = engine.index_of(db_id)
         if idx is None:
             continue
+        correct_db_ids.add(db_id)
         if is_new:
             engine.boost_learn_new(idx, answers)
         else:
             engine.learn(answers, idx)
+    # 外れた診断に対するネガティブ学習（正解として選ばれなかったもののみ）
+    wrong_db_ids = session.pop('wrong_db_ids', [])
+    for wid in wrong_db_ids:
+        if wid not in correct_db_ids:
+            w_idx = engine.index_of(wid)
+            if w_idx is not None:
+                engine.learn_negative(answers, w_idx)
     return jsonify({'status': 'done'})
 
 

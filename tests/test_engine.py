@@ -152,6 +152,21 @@ class TestEngine(unittest.TestCase):
         total_after = sum(self.e.matrix['total'][idx])
         self.assertGreater(total_after, total_before)
 
+    # ── learn_negative ────────────────────────────────────
+    def test_learn_negative_decreases_prob(self):
+        """ネガティブ学習: yes回答済みの質問でP(yes|f)が下がる方向に動くこと"""
+        answers = {'8': 1}  # Q8=yes
+        before = self.e._prob(0, 8)  # NTR(0) の初期P(yes|Q8)
+        self.e.learn_negative(answers, 0)
+        after = self.e._prob(0, 8)
+        self.assertLess(after, before)
+
+    def test_learn_negative_no_side_effects_on_others(self):
+        """ネガティブ学習は対象外の性癖の行を変更しない"""
+        before = self.e.matrix['total'][1][8]
+        self.e.learn_negative({'8': 1}, 0)
+        self.assertEqual(self.e.matrix['total'][1][8], before)
+
     # ── get_question_stats ────────────────────────────────
     def test_get_question_stats_sorted_ascending(self):
         stats = self.e.get_question_stats()
