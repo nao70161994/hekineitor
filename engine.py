@@ -763,7 +763,8 @@ class Engine:
             return top[0], probs[top[0]]
         return [(f, probs[f]) for f in top]
 
-    def learn(self, answers, fetish_idx):
+    def learn(self, answers, fetish_idx, strength_factor=1.0):
+        """strength_factor: 確信度が低いほど大きく（最大2.0）、高いほど小さく（最小0.5）。"""
         neg_weight = 0.3
         all_updates = {}
 
@@ -782,7 +783,7 @@ class Engine:
                 strength = abs(ans)
                 # 蓄積データが多いほど1セッションの影響を小さくする（汚染対策）
                 scale = min(1.0, PSEUDO / max(self.matrix['total'][fetish_idx][q], PSEUDO))
-                effective = strength * scale
+                effective = strength * scale * strength_factor
 
                 delta_yes = effective if ans > 0 else 0.0
                 self.matrix['total'][fetish_idx][q] += effective

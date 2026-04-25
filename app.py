@@ -269,6 +269,10 @@ def confirm():
     answers = session.get('answers', {})
 
     if correct:
+        # 確信度が低いほど強く学習（確信度=0.75基準: それより低→強化、高→抑制）
+        probs  = engine.posteriors(answers)
+        top_p  = max(probs) if probs else GUESS_THRESHOLD
+        factor = max(0.5, min(2.0, GUESS_THRESHOLD / max(top_p, 0.1)))
         learn_idxs = [f_idx]
         for cid in data.get('compound_ids', []):
             try:
@@ -278,7 +282,7 @@ def confirm():
             except (ValueError, TypeError):
                 pass
         for idx in learn_idxs:
-            engine.learn(answers, idx)
+            engine.learn(answers, idx, strength_factor=factor)
         return jsonify({'status': 'learned'})
     else:
         probs = engine.posteriors(answers)
