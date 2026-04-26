@@ -27,7 +27,8 @@ def _app_version():
             pass
     return h.hexdigest()[:8]
 
-APP_VERSION = _app_version()
+APP_VERSION    = _app_version()
+DISPLAY_VERSION = 'v1.0.0'
 engine = Engine()
 
 GUESS_THRESHOLD = 0.75
@@ -70,7 +71,7 @@ def _find_similar(name, fetishes):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', display_version=DISPLAY_VERSION)
 
 
 @app.route('/manifest.json')
