@@ -117,12 +117,13 @@
 {% if player_fetishes %}
 <h2 style="color:#f5a623;font-size:1rem;margin-top:32px;margin-bottom:8px;">プレイヤーが追加した性癖（{{ player_fetishes|length }}件）</h2>
 <table>
-  <tr><th>ID</th><th>名前</th><th>説明</th></tr>
+  <tr><th>ID</th><th>名前</th><th>説明</th><th></th></tr>
   {% for f in player_fetishes %}
-  <tr>
+  <tr id="pfrow-{{ f.id }}">
     <td style="color:#666;font-size:0.8rem">{{ f.id }}</td>
     <td>{{ f.name }}</td>
     <td style="color:#888;font-size:0.82rem">{{ f.desc }}</td>
+    <td><button class="btn-toggle disabled" onclick="deletePlayerFetish({{ f.id }}, this)">削除</button></td>
   </tr>
   {% endfor %}
 </table>
@@ -239,6 +240,19 @@ async function cleanupSessions() {
   const res = await fetch('/api/admin/cleanup_sessions', {method: 'POST'});
   const data = await res.json();
   document.getElementById('cleanup-msg').textContent = `${data.deleted} 件削除しました`;
+}
+
+async function deletePlayerFetish(fid, btn) {
+  if (!confirm(`ID ${fid} の性癖を削除しますか？この操作は元に戻せません。`)) return;
+  btn.disabled = true;
+  const res = await fetch(`/api/fetish/${fid}`, {method: 'DELETE'});
+  if (res.ok) {
+    const row = document.getElementById(`pfrow-${fid}`);
+    if (row) row.remove();
+  } else {
+    alert('削除に失敗しました');
+    btn.disabled = false;
+  }
 }
 
 async function capturepriors() {

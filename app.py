@@ -131,7 +131,7 @@ def _app_version():
     return h.hexdigest()[:8]
 
 APP_VERSION    = _app_version()
-DISPLAY_VERSION = 'v1.0.0'
+DISPLAY_VERSION = 'v1.2.0'
 engine = Engine()
 
 GUESS_THRESHOLD = 0.75
@@ -259,7 +259,10 @@ def answer():
     gap_ratio  = top_p / max(second_p, 0.001)
     early_stop = (count >= 4 and top_p >= 0.70 and gap_ratio >= 3.0) or \
                  (count >= 8 and top_p >= 0.55 and gap_ratio >= 2.5)
-    if idk_streak >= 4 or top_p >= guess_thr or count >= MAX_QUESTIONS or early_stop:
+    # 接戦（1位と2位が近い）かつ問数が少ない場合は閾値を引き上げて続行
+    effective_thr = guess_thr if (gap_ratio >= 1.8 or count >= 10) \
+                    else min(guess_thr + 0.10, 0.90)
+    if idk_streak >= 4 or top_p >= effective_thr or count >= MAX_QUESTIONS or early_stop:
         return _make_guess(answers)
 
     next_q = engine.best_question(answers, set(asked), idk_streak=idk_streak)

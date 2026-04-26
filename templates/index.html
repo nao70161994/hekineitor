@@ -619,7 +619,14 @@ function setGenieState(state) {
   }
 }
 
-function showStart() { window._excludedIds = []; show('start-screen'); setGenieState('idle'); }
+function showStart() {
+  if (window._excludedIds && window._excludedIds.length > 0) {
+    showToast(`除外リスト (${window._excludedIds.length}件) をリセットしました`, '#555', 2500);
+  }
+  window._excludedIds = [];
+  show('start-screen');
+  setGenieState('idle');
+}
 
 function showSessionExpired() {
   showToast('セッションが切れました。もう一度スタートしてください。', '#7f8c8d', 8000);

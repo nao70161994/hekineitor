@@ -994,7 +994,13 @@ class Engine:
                 q = int(q_str)
             except (ValueError, TypeError):
                 continue
-            if ans == 0 or not (0 <= q < nq):
+            if not (0 <= q < nq):
+                continue
+            if ans == 0:
+                # 「わからない」= その質問に馴染みがない → P(yes) が高い性癖を微弱に下げる
+                for f in range(nf):
+                    p = self._prob(f, q)
+                    log_p[f] -= 0.05 * abs(p - 0.5)
                 continue
             weight = abs(ans)
             for f in range(nf):
