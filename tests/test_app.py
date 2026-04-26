@@ -7,7 +7,7 @@ os.environ.setdefault('SECRET_KEY', 'test_secret_key_for_testing')
 
 from app import app
 import engine as eng_module
-from engine import PLAYER_FETISH_BASE_ID
+from engine import PLAYER_FETISH_BASE_ID, _use_db
 
 
 class TestAPI(unittest.TestCase):
@@ -335,6 +335,33 @@ class TestAPI(unittest.TestCase):
         app_engine.learn_cooccurrence(answers, 0, 0)
         # valid pair
         app_engine.learn_cooccurrence(answers, 0, 1)
+
+    # ── promote_fetish ────────────────────────────────────
+    def test_promote_fetish(self):
+        """プレイヤー追加性癖をシード格上げするとIDが10000未満になること。"""
+        from app import engine as app_engine
+        before_count = len(app_engine.fetishes)
+        name = f'格上げテスト_{before_count}'
+        res = self.client.post('/api/add_fetish',
+            json={'name': name, 'desc': 'テスト用', 'confirmed': True})
+        old_id = res.get_json()['fetish_id']
+        self.assertGreaterEqual(old_id, PLAYER_FETISH_BASE_ID)
+        new_id = None
+        try:
+            new_id = app_engine.promote_fetish(old_id)
+            self.assertIsNotNone(new_id)
+            self.assertLess(new_id, PLAYER_FETISH_BASE_ID)
+            self.assertIsNone(app_engine.index_of(old_id))
+            self.assertIsNotNone(app_engine.index_of(new_id))
+        finally:
+            cleanup_id = new_id if new_id is not None else old_id
+            idx = app_engine.index_of(cleanup_id)
+            if idx is not None:
+                app_engine.fetishes.pop(idx)
+                app_engine.matrix['yes'].pop(idx)
+                app_engine.matrix['total'].pop(idx)
+                if not _use_db():
+                    app_engine._save_fetishes_file()
 
     # ── idk posteriors ────────────────────────────────────
     def test_idk_changes_posteriors(self):

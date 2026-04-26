@@ -565,6 +565,14 @@ class Engine:
                         value TEXT NOT NULL
                     )
                 ''')
+                cur.execute('''
+                    CREATE TABLE IF NOT EXISTS stats_history (
+                        date  TEXT NOT NULL,
+                        key   TEXT NOT NULL,
+                        value INTEGER NOT NULL DEFAULT 0,
+                        PRIMARY KEY (date, key)
+                    )
+                ''')
                 # 新しい性癖を fetishes.json から差分追加（マイグレーション）
                 cur.execute('SELECT id FROM fetishes')
                 existing_ids = {r[0] for r in cur.fetchall()}
@@ -683,11 +691,39 @@ class Engine:
             s[key] = s.get(key, 0) + 1
             self._atomic_write(path, s)
 
+    def _record_daily_stat(self, key):
+        from datetime import date as _date
+        today = _date.today().isoformat()
+        if _use_db():
+            conn = _get_conn()
+            try:
+                with conn:
+                    cur = conn.cursor()
+                    cur.execute(
+                        "INSERT INTO stats_history (date, key, value) VALUES (%s, %s, 1) "
+                        "ON CONFLICT (date, key) DO UPDATE SET value = stats_history.value + 1",
+                        (today, key)
+                    )
+            finally:
+                _put_conn(conn)
+        else:
+            path = os.path.join(DATA_DIR, 'stats_history.json')
+            try:
+                with open(path, encoding='utf-8') as f:
+                    h = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                h = {}
+            day = h.setdefault(today, {})
+            day[key] = day.get(key, 0) + 1
+            self._atomic_write(path, h)
+
     def _increment_learn_count(self):
         self._increment_stat('learn_count')
+        self._record_daily_stat('learn')
 
     def increment_play_count(self):
         self._increment_stat('play_count')
+        self._record_daily_stat('play')
 
     def get_stats(self):
         keys = ('play_count', 'learn_count')
@@ -707,6 +743,34 @@ class Engine:
             except (OSError, json.JSONDecodeError):
                 result = {}
         return {k: result.get(k, 0) for k in keys}
+
+    def get_stats_history(self, days=30):
+        """過去N日間の日別プレイ・学習回数を [{date, play, learn}, ...] で返す。"""
+        from datetime import date as _date, timedelta
+        today = _date.today()
+        date_range = [(today - timedelta(days=i)).isoformat() for i in range(days - 1, -1, -1)]
+        if _use_db():
+            conn = _get_conn()
+            try:
+                cur = conn.cursor()
+                cur.execute(
+                    "SELECT date, key, value FROM stats_history WHERE date >= %s",
+                    (date_range[0],)
+                )
+                raw = {}
+                for d, k, v in cur.fetchall():
+                    raw.setdefault(d, {})[k] = v
+            finally:
+                _put_conn(conn)
+        else:
+            path = os.path.join(DATA_DIR, 'stats_history.json')
+            try:
+                with open(path, encoding='utf-8') as f:
+                    raw = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                raw = {}
+        return [{'date': d, 'play': raw.get(d, {}).get('play', 0),
+                 'learn': raw.get(d, {}).get('learn', 0)} for d in date_range]
 
     # ── 質問無効化フラグ ───────────────────────────────────
     def _load_disabled_questions(self):

@@ -319,8 +319,9 @@ TRIPLE_RATIO      = 0.45   # 3位がこの比率以上なら三重複合
 def _learn_factor(answers, total_n=1):
     """確信度スケーリング × √n 分散: 不確実なほど強く、多く選ぶほど弱く。"""
     probs  = engine.posteriors(answers)
-    top_p  = max(probs) if probs else GUESS_THRESHOLD
-    conf   = max(0.5, min(2.0, GUESS_THRESHOLD / max(top_p, 0.1)))
+    thr    = engine.config.get('guess_threshold', GUESS_THRESHOLD)
+    top_p  = max(probs) if probs else thr
+    conf   = max(0.5, min(2.0, thr / max(top_p, 0.1)))
     n_scale = 1.0 / _math.sqrt(max(total_n, 1))
     return max(0.3, min(2.0, conf * n_scale))
 
@@ -598,13 +599,15 @@ def admin():
         })
     fetish_log_rows.sort(key=lambda r: -r['guessed'])
     domain_suggestions = engine.get_top_questions_per_fetish(top_n=5)
+    stats_history = engine.get_stats_history(days=30)
     return render_template('admin.html', stats=stats, play_count=s['play_count'],
                            learn_count=s['learn_count'], player_fetishes=player_fetishes,
                            question_stats=question_stats, corr_stats=corr_stats,
                            fetish_log_rows=fetish_log_rows,
                            domain_suggestions=domain_suggestions,
                            engine_config=engine.config,
-                           config_defaults=engine._CONFIG_DEFAULTS)
+                           config_defaults=engine._CONFIG_DEFAULTS,
+                           stats_history=stats_history)
 
 
 @app.route('/api/admin/toggle_question/<int:q_id>', methods=['POST'])

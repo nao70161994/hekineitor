@@ -3,5 +3,6 @@ __pycache__/
 data/matrix.json
 data/stats.json
 data/learned_priors.json
+data/stats_history.json
 .env
 gen_icons.py
