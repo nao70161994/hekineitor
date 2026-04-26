@@ -775,6 +775,37 @@ class Engine:
                  'correct': raw.get(d, {}).get('correct', 0),
                  'wrong':   raw.get(d, {}).get('wrong',   0)} for d in date_range]
 
+    def get_fetish_history(self, fetish_db_id, days=30):
+        """指定性癖の日別正解/外れ件数を [{date, correct, wrong}, ...] で返す。"""
+        from datetime import date as _date, timedelta
+        today = _date.today()
+        date_range = [(today - timedelta(days=i)).isoformat() for i in range(days - 1, -1, -1)]
+        ck = f'f_correct_{fetish_db_id}'
+        wk = f'f_wrong_{fetish_db_id}'
+        if _use_db():
+            conn = _get_conn()
+            try:
+                cur = conn.cursor()
+                cur.execute(
+                    "SELECT date, key, value FROM stats_history WHERE date >= %s AND key IN (%s, %s)",
+                    (date_range[0], ck, wk)
+                )
+                raw = {}
+                for d, k, v in cur.fetchall():
+                    raw.setdefault(d, {})[k] = v
+            finally:
+                _put_conn(conn)
+        else:
+            path = os.path.join(DATA_DIR, 'stats_history.json')
+            try:
+                with open(path, encoding='utf-8') as f:
+                    raw = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                raw = {}
+        return [{'date': d,
+                 'correct': raw.get(d, {}).get(ck, 0),
+                 'wrong':   raw.get(d, {}).get(wk, 0)} for d in date_range]
+
     # ── 質問無効化フラグ ───────────────────────────────────
     def _load_disabled_questions(self):
         if _use_db():
@@ -855,10 +886,12 @@ class Engine:
     def log_correct(self, fetish_db_id):
         self._increment_fetish_log(fetish_db_id, 'correct')
         self._record_daily_stat('correct')
+        self._record_daily_stat(f'f_correct_{fetish_db_id}')
 
     def log_wrong(self, fetish_db_id):
         self._increment_fetish_log(fetish_db_id, 'wrong')
         self._record_daily_stat('wrong')
+        self._record_daily_stat(f'f_wrong_{fetish_db_id}')
 
     def get_fetish_log(self):
         """全性癖のログを {fetish_db_id: {guessed, correct, wrong}} で返す。"""

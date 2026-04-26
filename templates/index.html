@@ -60,9 +60,20 @@
     font-size: 1.15rem;
     line-height: 1.6;
     text-align: center;
-    margin-bottom: 28px;
+    margin-bottom: 8px;
     min-height: 60px;
   }
+  .axis-tag {
+    display: inline-block;
+    font-size: 0.68rem;
+    padding: 1px 7px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    opacity: 0.55;
+  }
+  .axis-tag.content     { background:#1a4a8a; color:#7ab3f0; }
+  .axis-tag.abstract    { background:#2d1a4a; color:#b07af0; }
+  .axis-tag.personality { background:#1a3a2a; color:#7af0a0; }
   .btn-group {
     display: flex;
     flex-direction: column;
@@ -486,6 +497,9 @@
       <button class="btn-back" id="btn-back" onclick="goBack()">← 戻る</button>
       <button class="btn-back" onclick="confirmRestart()">最初から</button>
     </div>
+    <div style="text-align:center;margin-bottom:4px;">
+      <span id="question-axis-tag" class="axis-tag" style="display:none;"></span>
+    </div>
     <div class="question-text" id="question-text">読み込み中…</div>
     <div id="question-hint" style="text-align:center;font-size:0.78rem;color:#f5a623;margin-top:6px;min-height:1em;"></div>
     <div class="btn-group">
@@ -519,6 +533,7 @@
     <button class="btn btn-idk" style="width:100%;margin-top:6px;font-size:0.82rem;" onclick="continueGame()">もう少し続ける</button>
     <button class="btn btn-idk" style="width:100%;margin-top:6px;font-size:0.82rem;" onclick="showStart()">スキップ</button>
     <button class="btn btn-idk btn-exclude" style="width:100%;margin-top:4px;font-size:0.82rem;opacity:0.75;" onclick="startExcluding()">別の性癖を探す →</button>
+    <button id="btn-quick-retry" class="btn btn-idk" style="width:100%;margin-top:4px;font-size:0.82rem;background:linear-gradient(135deg,#1a4a8a,#0f3460);display:none;" onclick="quickRetry()">⚡ すぐ再挑戦（今の診断を除外）</button>
   </div>
 
   <!-- 正解選択画面 -->
@@ -772,10 +787,19 @@ async function startGame(excludeIds) {
   }
 }
 
+const _axisLabels = {content: 'コンテンツ軸', abstract: '抽象軸', personality: 'パーソナリティ軸'};
 function showQuestion(data) {
   currentQ = data.question_id;
   document.getElementById('question-text').textContent = data.question;
   document.getElementById('question-hint').textContent = data.hint || '';
+  const axisEl = document.getElementById('question-axis-tag');
+  if (data.axis && _axisLabels[data.axis]) {
+    axisEl.textContent = _axisLabels[data.axis];
+    axisEl.className = 'axis-tag ' + data.axis;
+    axisEl.style.display = '';
+  } else {
+    axisEl.style.display = 'none';
+  }
   const pct = Math.round((data.count / data.total) * 100);
   document.getElementById('progress-fill').style.width = pct + '%';
   document.getElementById('btn-back').style.visibility = data.count > 0 ? 'visible' : 'hidden';
@@ -835,6 +859,21 @@ function showGuess(data) {
   }
   _diagnosedName = lastFetishName;
   document.getElementById('result-desc').textContent = data.fetish_desc;
+  // 自信度に応じて結果カードの枠線を変える
+  const card = document.querySelector('#result-screen .card');
+  if (card) {
+    const p = data.probability;
+    if (p >= 75) {
+      card.style.boxShadow = '0 0 24px rgba(245,166,35,0.45), 0 8px 32px rgba(0,0,0,0.4)';
+      card.style.border = '1.5px solid rgba(245,166,35,0.6)';
+    } else if (p >= 50) {
+      card.style.boxShadow = '0 0 16px rgba(233,69,96,0.25), 0 8px 32px rgba(0,0,0,0.4)';
+      card.style.border = '1.5px solid rgba(233,69,96,0.35)';
+    } else {
+      card.style.boxShadow = '0 8px 32px rgba(0,0,0,0.4)';
+      card.style.border = '1.5px solid rgba(255,255,255,0.08)';
+    }
+  }
   const probEl  = document.getElementById('result-prob');
   const target  = data.probability;
   let current   = 0;
@@ -906,7 +945,23 @@ function showGuess(data) {
     relatedSection.classList.add('hidden');
   }
 
+  // 「すぐ再挑戦」ボタン: excludedIdsが存在するか、今回の診断IDがあれば表示
+  const retryBtn = document.getElementById('btn-quick-retry');
+  const allExcluded = [...(window._excludedIds || []), data.fetish_id,
+                        ...(data.compound || []).map(c => c.fetish_id)];
+  retryBtn.style.display = allExcluded.length > 0 ? '' : 'none';
+
   show('result-screen');
+}
+
+async function quickRetry() {
+  const excludeIds = [
+    ...(window._excludedIds || []),
+    window._guessedId,
+    ...(window._compoundIds || []),
+  ].filter(id => id != null);
+  window._excludedIds = [...new Set(excludeIds)];
+  await startGame(window._excludedIds);
 }
 
 function setItemState(id, state, btn) {

@@ -248,9 +248,24 @@ renderStatsChart(30);
   {% endfor %}
 </div>
 {% endif %}
-<div style="display:flex;gap:8px;margin-bottom:8px;">
+<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
   <a href="/api/admin/export_log" class="btn-action" style="font-size:0.78rem;padding:4px 12px;text-decoration:none;">CSVエクスポート</a>
   <a href="/api/admin/export_matrix" class="btn-action" style="font-size:0.78rem;padding:4px 12px;text-decoration:none;">Matrix JSONエクスポート</a>
+</div>
+<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
+  <input id="log-search" type="text" placeholder="名前で絞り込み" oninput="filterLogTable()"
+    style="flex:1;min-width:120px;max-width:200px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:4px 10px;border-radius:6px;font-size:0.82rem;">
+  <select id="log-min-guessed" onchange="filterLogTable()" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:4px 8px;border-radius:6px;font-size:0.82rem;">
+    <option value="0">診断数 すべて</option>
+    <option value="3">3回以上</option>
+    <option value="10">10回以上</option>
+  </select>
+  <select id="log-acc-filter" onchange="filterLogTable()" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:4px 8px;border-radius:6px;font-size:0.82rem;">
+    <option value="all">正解率 すべて</option>
+    <option value="low">低い（&lt;50%）</option>
+    <option value="high">高い（≥70%）</option>
+    <option value="none">未フィードバック</option>
+  </select>
 </div>
 <table id="log-table" style="margin-top:8px;">
   <tr>
@@ -260,9 +275,11 @@ renderStatsChart(30);
     <th onclick="sortLogTable(3)" style="cursor:pointer;user-select:none;">正解 ↕</th>
     <th onclick="sortLogTable(4)" style="cursor:pointer;user-select:none;">外れ ↕</th>
     <th onclick="sortLogTable(5)" style="cursor:pointer;user-select:none;">正解率 ↕</th>
+    <th></th>
   </tr>
   {% for r in fetish_log_rows %}
-  <tr{% if r.acc is not none and r.acc < 40 and r.guessed >= 3 %} style="background:#2a1010"{% endif %}>
+  <tr id="logrow-{{ r.id }}"{% if r.acc is not none and r.acc < 40 and r.guessed >= 3 %} style="background:#2a1010"{% endif %}
+      data-name="{{ r.name }}" data-guessed="{{ r.guessed }}" data-acc="{{ r.acc if r.acc is not none else -1 }}">
     <td style="color:#666;font-size:0.75rem">{{ loop.index }}</td>
     <td style="font-size:0.82rem">{{ r.name }}{% if r.acc is not none and r.acc < 40 and r.guessed >= 3 %}<span class="tag-low" title="wrong率60%超">⚠</span>{% endif %}</td>
     <td style="color:#aaa;font-size:0.8rem" data-val="{{ r.guessed }}">{{ r.guessed }}</td>
@@ -271,6 +288,12 @@ renderStatsChart(30);
     <td style="font-size:0.8rem;{% if r.acc is not none and r.acc < 50 %}color:#e74c3c{% elif r.acc is not none %}color:#27ae60{% else %}color:#555{% endif %}"
         data-val="{{ r.acc if r.acc is not none else -1 }}">
       {% if r.acc is not none %}{{ r.acc }}%{% else %}—{% endif %}
+    </td>
+    <td><button class="btn-toggle" onclick="toggleFetishHistory({{ r.id }}, this)" style="font-size:0.72rem;padding:2px 8px;">履歴</button></td>
+  </tr>
+  <tr id="logrow-hist-{{ r.id }}" style="display:none;">
+    <td colspan="7" style="padding:8px 4px 12px;">
+      <div id="logrow-hist-content-{{ r.id }}" style="font-size:0.78rem;color:#888;"></div>
     </td>
   </tr>
   {% endfor %}
@@ -455,7 +478,7 @@ async function cleanupSessions() {
 let _logSortCol = -1, _logSortAsc = true;
 function sortLogTable(col) {
   const table = document.getElementById('log-table');
-  const rows  = Array.from(table.rows).slice(1);
+  const rows  = Array.from(table.rows).slice(1).filter(r => !r.id.includes('-hist-'));
   if (_logSortCol === col) { _logSortAsc = !_logSortAsc; } else { _logSortCol = col; _logSortAsc = false; }
   rows.sort((a, b) => {
     const av = a.cells[col].dataset.val ?? a.cells[col].textContent;
@@ -465,6 +488,53 @@ function sortLogTable(col) {
     return _logSortAsc ? cmp : -cmp;
   });
   rows.forEach((r, i) => { r.cells[0].textContent = i + 1; table.appendChild(r); });
+}
+
+function filterLogTable() {
+  const q    = document.getElementById('log-search').value.toLowerCase();
+  const minG = parseInt(document.getElementById('log-min-guessed').value) || 0;
+  const accF = document.getElementById('log-acc-filter').value;
+  const rows = document.querySelectorAll('#log-table tr[data-name]');
+  rows.forEach(row => {
+    const name    = (row.dataset.name || '').toLowerCase();
+    const guessed = parseInt(row.dataset.guessed) || 0;
+    const acc     = parseFloat(row.dataset.acc);
+    const show =
+      name.includes(q) &&
+      guessed >= minG &&
+      (accF === 'all' ||
+       (accF === 'low'  && acc >= 0 && acc < 50) ||
+       (accF === 'high' && acc >= 70) ||
+       (accF === 'none' && acc < 0));
+    row.style.display = show ? '' : 'none';
+    const histRow = document.getElementById('logrow-hist-' + row.id.replace('logrow-', ''));
+    if (histRow) histRow.style.display = 'none';
+  });
+}
+
+async function toggleFetishHistory(fid, btn) {
+  const histRow = document.getElementById(`logrow-hist-${fid}`);
+  const content = document.getElementById(`logrow-hist-content-${fid}`);
+  if (histRow.style.display !== 'none') { histRow.style.display = 'none'; return; }
+  content.textContent = '読み込み中…';
+  histRow.style.display = '';
+  const res = await adminFetch(`/api/admin/fetish_history/${fid}?days=30`, {method: 'GET'});
+  if (!res) { histRow.style.display = 'none'; return; }
+  const data = await res.json();
+  const hasSome = data.some(d => d.correct > 0 || d.wrong > 0);
+  if (!hasSome) { content.textContent = 'フィードバックデータなし（記録は今後蓄積されます）'; return; }
+  const maxV = Math.max(1, ...data.map(d => d.correct + d.wrong));
+  let html = '<div style="display:flex;align-items:flex-end;gap:2px;height:36px;overflow-x:auto;">';
+  data.forEach(d => {
+    const tot = d.correct + d.wrong;
+    const h   = Math.round(tot / maxV * 34);
+    const acc = tot > 0 ? Math.round(d.correct / tot * 100) : null;
+    const bg  = acc === null ? '#333' : acc >= 70 ? '#27ae60' : acc >= 40 ? '#f5a623' : '#e74c3c';
+    html += `<div title="${d.date}: 正解${d.correct}/外れ${d.wrong}${acc!==null?' ('+acc+'%)':''}"
+               style="flex:1;min-width:4px;height:${Math.max(h,2)}px;background:${bg};border-radius:2px 2px 0 0;"></div>`;
+  });
+  html += '</div><div style="font-size:0.72rem;color:#555;margin-top:3px;">過去30日（緑=正解多, 橙=接戦, 赤=外れ多）</div>';
+  content.innerHTML = html;
 }
 
 async function promotePlayerFetish(fid, btn) {

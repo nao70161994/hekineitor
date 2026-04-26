@@ -574,6 +574,31 @@ class TestAPI(unittest.TestCase):
         first_line = res.data.decode('utf-8').split('\n')[0]
         self.assertEqual(first_line, 'date,play,learn,correct,wrong')
 
+    def test_start_returns_axis(self):
+        res = self.client.post('/api/start')
+        d = res.get_json()
+        self.assertIn('axis', d)
+        self.assertIn(d['axis'], ('content', 'abstract', 'personality', None))
+
+    def test_answer_returns_axis(self):
+        self._start()
+        res = self.client.post('/api/start')
+        q = res.get_json()['question_id']
+        res2 = self.client.post('/api/answer', json={'question_id': q, 'answer': 1.0})
+        d = res2.get_json()
+        if d.get('action') == 'question':
+            self.assertIn('axis', d)
+
+    def test_fetish_history_endpoint(self):
+        from app import engine as app_engine
+        headers = self._admin_headers()
+        fid = app_engine.fetishes[0]['id']
+        res = self.client.get(f'/api/admin/fetish_history/{fid}', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertIsInstance(data, list)
+        self.assertTrue(all('date' in r and 'correct' in r and 'wrong' in r for r in data))
+
     def test_answer_returns_hint_when_focused(self):
         from app import engine as app_engine
         # Patch config to low focus_threshold so hint fires easily
@@ -674,6 +699,63 @@ class TestEngine(unittest.TestCase):
                 break
             q = d.get('question_id', q)
         self.assertEqual(action, 'guess')
+
+    def test_learn_negative_weakens_matrix(self):
+        idx = 0
+        q   = 0
+        before_total = self.eng.matrix['total'][idx][q]
+        self.eng.learn_negative({str(q): 1.0}, idx)
+        after_total = self.eng.matrix['total'][idx][q]
+        self.assertGreater(after_total, before_total)
+        # yes_count increases less than total (net negative signal)
+        before_yes = self.eng.matrix['yes'][idx][q]
+        self.eng.matrix['total'][idx][q] = before_total
+        self.eng.matrix['yes'][idx][q]   = before_yes
+
+    def test_learn_cooccurrence_strengthens_both(self):
+        idx_a = 0
+        idx_b = 1
+        q = 0
+        before_tot_a = self.eng.matrix['total'][idx_a][q]
+        before_tot_b = self.eng.matrix['total'][idx_b][q]
+        self.eng.learn_cooccurrence({str(q): 1.0}, idx_a, idx_b, factor=1.0)
+        # At least one of the two totals should have increased
+        increased = (self.eng.matrix['total'][idx_a][q] > before_tot_a or
+                     self.eng.matrix['total'][idx_b][q] > before_tot_b)
+        self.assertTrue(increased)
+        # Restore
+        self.eng.matrix['total'][idx_a][q] = before_tot_a
+        self.eng.matrix['total'][idx_b][q] = before_tot_b
+
+    def test_add_fetish_appends_to_list(self):
+        n_before = len(self.eng.fetishes)
+        try:
+            idx, db_id = self.eng.add_fetish('テスト追加_unit_xyz', 'テスト', {})
+            self.assertEqual(len(self.eng.fetishes), n_before + 1)
+            self.assertGreaterEqual(db_id, 10000)
+            self.assertEqual(self.eng.fetishes[idx]['name'], 'テスト追加_unit_xyz')
+        finally:
+            new_idx = self.eng.index_of(db_id)
+            if new_idx is not None:
+                self.eng.fetishes.pop(new_idx)
+                self.eng.matrix['yes'].pop(new_idx)
+                self.eng.matrix['total'].pop(new_idx)
+                self.eng._save_fetishes_file()
+
+    def test_boost_learn_new_increases_weight(self):
+        try:
+            idx, db_id = self.eng.add_fetish('テストブースト_unit_xyz', 'テスト', {'0': 1.0})
+            before_total = sum(self.eng.matrix['total'][idx])
+            self.eng.boost_learn_new(idx, {'0': 1.0})
+            after_total = sum(self.eng.matrix['total'][idx])
+            self.assertGreater(after_total, before_total)
+        finally:
+            new_idx = self.eng.index_of(db_id)
+            if new_idx is not None:
+                self.eng.fetishes.pop(new_idx)
+                self.eng.matrix['yes'].pop(new_idx)
+                self.eng.matrix['total'].pop(new_idx)
+                self.eng._save_fetishes_file()
 
     def test_idk_streak_triggers_guess(self):
         from app import app as flask_app

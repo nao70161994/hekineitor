@@ -228,6 +228,7 @@ def start():
         'question':    engine.questions[q]['text'],
         'count':       0,
         'total':       MAX_QUESTIONS,
+        'axis':        engine._question_axis(q),
     })
 
 
@@ -263,7 +264,8 @@ def resume():
         session['asked'].append(q)
         return jsonify({'action': 'question', 'question_id': q,
                         'question': engine.questions[q]['text'],
-                        'count': 0, 'total': MAX_QUESTIONS})
+                        'count': 0, 'total': MAX_QUESTIONS,
+                        'axis': engine._question_axis(q)})
     next_q = engine.best_question(answers, set(asked), idk_streak=session['idk_streak'])
     if next_q is None:
         return _make_guess(answers)
@@ -271,7 +273,8 @@ def resume():
     session['asked'] = asked
     return jsonify({'action': 'question', 'question_id': next_q,
                     'question': engine.questions[next_q]['text'],
-                    'count': len(asked) - 1, 'total': MAX_QUESTIONS})
+                    'count': len(asked) - 1, 'total': MAX_QUESTIONS,
+                    'axis': engine._question_axis(next_q)})
 
 
 @app.route('/api/continue', methods=['POST'])
@@ -292,7 +295,8 @@ def continue_game():
     session['asked'] = asked
     return jsonify({'action': 'question', 'question_id': next_q,
                     'question': engine.questions[next_q]['text'],
-                    'count': len(asked) - 1, 'total': MAX_QUESTIONS})
+                    'count': len(asked) - 1, 'total': MAX_QUESTIONS,
+                    'axis': engine._question_axis(next_q)})
 
 
 @app.route('/api/answer', methods=['POST'])
@@ -362,6 +366,7 @@ def answer():
             'question':    engine.questions[next_q]['text'],
             'count':       count,
             'total':       MAX_QUESTIONS,
+            'axis':        engine._question_axis(next_q),
         }
         if hint:
             resp['hint'] = hint
@@ -872,6 +877,14 @@ def admin_export_log():
     csv_body = '\n'.join(lines)
     return Response(csv_body, mimetype='text/csv; charset=utf-8',
                     headers={'Content-Disposition': 'attachment; filename="fetish_log.csv"'})
+
+
+@app.route('/api/admin/fetish_history/<int:fetish_id>', methods=['GET'])
+@_require_admin
+def admin_fetish_history(fetish_id):
+    days = request.args.get('days', 30, type=int)
+    history = engine.get_fetish_history(fetish_id, days=min(days, 90))
+    return jsonify(history)
 
 
 @app.route('/api/admin/export_stats_history', methods=['GET'])
