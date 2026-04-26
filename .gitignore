@@ -6,3 +6,4 @@ data/learned_priors.json
 data/stats_history.json
 .env
 gen_icons.py
+.coverage\nhtmlcov/

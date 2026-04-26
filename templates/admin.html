@@ -341,6 +341,39 @@ renderStatsChart(30);
 </details>
 
 <details style="margin-top:24px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">質問軸バランス（コンテンツ/抽象/パーソナリティ軸サマリー）</summary>
+<table style="width:100%;border-collapse:collapse;font-size:0.82rem;margin-top:8px;">
+  <tr style="color:#aaa;border-bottom:1px solid #333;">
+    <th style="text-align:left;padding:4px 8px;">軸</th>
+    <th style="padding:4px 8px;">質問数</th>
+    <th style="padding:4px 8px;">平均識別力</th>
+    <th style="padding:4px 8px;">無効化数</th>
+  </tr>
+  {% for ax in axis_stats %}
+  <tr style="border-bottom:1px solid #1a1a2e;">
+    <td style="padding:4px 8px;color:#eee;">{{ ax.name }}</td>
+    <td style="padding:4px 8px;text-align:center;color:#aaa;">{{ ax.count }}</td>
+    <td style="padding:4px 8px;text-align:center;color:{% if ax.avg_disc >= 0.15 %}#27ae60{% elif ax.avg_disc >= 0.08 %}#f5a623{% else %}#e94560{% endif %};">{{ ax.avg_disc }}</td>
+    <td style="padding:4px 8px;text-align:center;color:{% if ax.disabled > 0 %}#e94560{% else %}#555{% endif %};">{{ ax.disabled }}</td>
+  </tr>
+  {% endfor %}
+</table>
+</details>
+
+<details style="margin-top:24px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">性癖類似度チェック（2つの性癖IDを比較）</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">matrixベースのコサイン類似度と、2性癖の差異が大きい質問TOP5を表示します。</p>
+<div style="display:flex;flex-direction:column;gap:6px;max-width:420px;">
+  <div style="display:flex;gap:8px;">
+    <input id="sim-a" type="number" placeholder="性癖A のID" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <input id="sim-b" type="number" placeholder="性癖B のID" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <button class="btn-action" onclick="checkSimilarity()">比較</button>
+  </div>
+  <div id="sim-result" style="font-size:0.82rem;"></div>
+</div>
+</details>
+
+<details style="margin-top:24px;">
 <summary style="color:#888;font-size:0.85rem;cursor:pointer;">性癖を統合（2つの性癖のmatrixを合算して1つに）</summary>
 <p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">id_keep の matrix に id_remove の matrix を加算し、id_remove を削除します。取り消し不可。</p>
 <div style="display:flex;flex-direction:column;gap:6px;max-width:420px;">
@@ -566,6 +599,37 @@ async function editQuestion(qId, btn) {
     btn.textContent = '保存';
     cell.querySelector('input').focus();
   }
+}
+
+async function checkSimilarity() {
+  const id_a = parseInt(document.getElementById('sim-a').value);
+  const id_b = parseInt(document.getElementById('sim-b').value);
+  const out  = document.getElementById('sim-result');
+  if (!id_a || !id_b) { out.style.color='#e74c3c'; out.textContent='IDを両方入力してください'; return; }
+  const res  = await adminFetch('/api/admin/fetish_similarity', {method: 'POST', body: JSON.stringify({id_a, id_b})});
+  if (!res) return;
+  const d = await res.json();
+  if (!res.ok) { out.style.color='#e74c3c'; out.textContent=d.message||'エラー'; return; }
+  const pct = Math.round((d.cosine + 1) / 2 * 100);
+  const color = pct >= 70 ? '#e94560' : pct >= 40 ? '#f5a623' : '#27ae60';
+  let html = `<div style="margin-bottom:8px;">
+    <span style="color:#eee;font-weight:bold;">${d.name_a}</span>
+    <span style="color:#555;"> × </span>
+    <span style="color:#eee;font-weight:bold;">${d.name_b}</span>
+    &nbsp;&nbsp;コサイン類似度: <span style="color:${color};">${d.cosine}</span>
+  </div>
+  <div style="color:#888;margin-bottom:4px;">差異が大きい質問 TOP5:</div>
+  <table style="width:100%;border-collapse:collapse;font-size:0.78rem;">`;
+  html += `<tr><th style="color:#555;text-align:left;padding:2px 6px;">質問</th><th style="color:#555;padding:2px 6px;">${d.name_a}</th><th style="color:#555;padding:2px 6px;">${d.name_b}</th></tr>`;
+  d.top_diff.forEach(q => {
+    html += `<tr style="border-top:1px solid #1a1a2e;">
+      <td style="padding:2px 6px;color:#aaa;">${q.text}</td>
+      <td style="text-align:center;padding:2px 6px;color:#f5a623;">${q.p_a}</td>
+      <td style="text-align:center;padding:2px 6px;color:#f5a623;">${q.p_b}</td>
+    </tr>`;
+  });
+  html += '</table>';
+  out.innerHTML = html;
 }
 
 async function mergeFetishes() {

@@ -1235,6 +1235,59 @@ class Engine:
             })
         return sorted(result, key=lambda x: x['disc'])
 
+    def get_axis_stats(self):
+        """QUESTION_AXES別の質問数・平均disc・無効化数を返す。"""
+        qs = self.get_question_stats()
+        disc_map  = {s['id']: s['disc']     for s in qs}
+        disab_map = {s['id']: s['disabled'] for s in qs}
+        merged = {}
+        for axis_name, axis_range in QUESTION_AXES:
+            if axis_name not in merged:
+                merged[axis_name] = {'name': axis_name, 'ids': []}
+            for q in axis_range:
+                if q < len(self.questions):
+                    merged[axis_name]['ids'].append(q)
+        result = []
+        for axis_name, info in merged.items():
+            ids = info['ids']
+            if not ids:
+                continue
+            avg_disc  = round(sum(disc_map.get(i, 0) for i in ids) / len(ids), 3)
+            dis_count = sum(1 for i in ids if disab_map.get(i, False))
+            result.append({
+                'name':      axis_name,
+                'count':     len(ids),
+                'avg_disc':  avg_disc,
+                'disabled':  dis_count,
+            })
+        return result
+
+    def fetish_similarity(self, id_a, id_b):
+        """2つの性癖のP(yes)ベクトルのコサイン類似度と差異が大きい質問TOP5を返す。"""
+        import math
+        idx_a = self.index_of(id_a)
+        idx_b = self.index_of(id_b)
+        if idx_a is None or idx_b is None:
+            return None
+        nq = len(self.questions)
+        va = [self._prob(idx_a, q) - 0.5 for q in range(nq)]
+        vb = [self._prob(idx_b, q) - 0.5 for q in range(nq)]
+        dot = sum(a * b for a, b in zip(va, vb))
+        na  = math.sqrt(sum(x * x for x in va)) or 1e-9
+        nb  = math.sqrt(sum(x * x for x in vb)) or 1e-9
+        cos = round(dot / (na * nb), 3)
+        diffs = sorted(range(nq), key=lambda q: abs(va[q] - vb[q]), reverse=True)
+        top_diff = [{'q_id': q, 'text': self.questions[q]['text'],
+                     'p_a': round(self._prob(idx_a, q), 3),
+                     'p_b': round(self._prob(idx_b, q), 3)}
+                    for q in diffs[:5]]
+        return {
+            'cosine':   cos,
+            'name_a':   self.fetishes[idx_a]['name'],
+            'name_b':   self.fetishes[idx_b]['name'],
+            'top_diff': top_diff,
+        }
+
     def get_correlation_stats(self, top_n=30):
         """質問ベクトル間のコサイン類似度を計算し、上位ペアを返す。"""
         import math

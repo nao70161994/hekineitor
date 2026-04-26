@@ -497,6 +497,75 @@ class TestAPI(unittest.TestCase):
         finally:
             app_engine.edit_fetish(fid, name=orig_name)
 
+    def test_merge_fetishes(self):
+        from app import engine as app_engine
+        # Add two player fetishes to merge
+        import os; os.environ['ADMIN_PASS'] = 'testpass'
+        r1 = self.client.post('/api/add_fetish',
+            json={'name': 'マージテストA_xyz', 'desc': 'テストA', 'confirmed': True})
+        r2 = self.client.post('/api/add_fetish',
+            json={'name': 'マージテストB_xyz', 'desc': 'テストB', 'confirmed': True})
+        self.assertEqual(r1.status_code, 200)
+        self.assertEqual(r2.status_code, 200)
+        id_a = r1.get_json()['fetish_id']
+        id_b = r2.get_json()['fetish_id']
+        idx_a = app_engine.index_of(id_a)
+        idx_b = app_engine.index_of(id_b)
+        # Save matrix values before merge
+        nq = len(app_engine.questions)
+        yes_a = list(app_engine.matrix['yes'][idx_a])
+        yes_b = list(app_engine.matrix['yes'][idx_b])
+        try:
+            ok = app_engine.merge_fetishes(id_a, id_b, new_name='マージ済み_xyz')
+            self.assertTrue(ok)
+            # id_b should be gone
+            self.assertIsNone(app_engine.index_of(id_b))
+            # id_a should still exist with summed matrix
+            new_idx_a = app_engine.index_of(id_a)
+            self.assertIsNotNone(new_idx_a)
+            for q in range(min(5, nq)):
+                self.assertAlmostEqual(
+                    app_engine.matrix['yes'][new_idx_a][q],
+                    yes_a[q] + yes_b[q], places=5)
+            # New name applied
+            self.assertEqual(app_engine.fetishes[new_idx_a]['name'], 'マージ済み_xyz')
+        finally:
+            # Cleanup: remove remaining merged fetish
+            idx = app_engine.index_of(id_a)
+            if idx is not None:
+                app_engine.fetishes.pop(idx)
+                app_engine.matrix['yes'].pop(idx)
+                app_engine.matrix['total'].pop(idx)
+                app_engine._save_fetishes_file()
+
+    def test_fetish_similarity(self):
+        from app import engine as app_engine
+        headers = self._admin_headers()
+        id_a = app_engine.fetishes[0]['id']
+        id_b = app_engine.fetishes[1]['id']
+        res = self.client.post('/api/admin/fetish_similarity',
+            json={'id_a': id_a, 'id_b': id_b}, headers=headers)
+        self.assertEqual(res.status_code, 200)
+        d = res.get_json()
+        self.assertIn('cosine', d)
+        self.assertIn('top_diff', d)
+        self.assertEqual(len(d['top_diff']), 5)
+        self.assertGreaterEqual(d['cosine'], -1.0)
+        self.assertLessEqual(d['cosine'], 1.0)
+
+    def test_fetish_similarity_invalid_id(self):
+        headers = self._admin_headers()
+        res = self.client.post('/api/admin/fetish_similarity',
+            json={'id_a': 999999, 'id_b': 0}, headers=headers)
+        self.assertEqual(res.status_code, 404)
+
+    def test_axis_stats_in_admin(self):
+        headers = self._admin_headers()
+        res = self.client.get('/admin', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(b'content', res.data)
+        self.assertIn(b'personality', res.data)
+
 
 if __name__ == '__main__':
     unittest.main()

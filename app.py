@@ -681,6 +681,7 @@ def admin():
     domain_suggestions = engine.get_top_questions_per_fetish(top_n=5)
     stats_history  = engine.get_stats_history(days=30)
     matrix_heatmap = engine.get_matrix_heatmap(n_fetishes=20, n_questions=20)
+    axis_stats     = engine.get_axis_stats()
     return render_template('admin.html', stats=stats, play_count=s['play_count'],
                            learn_count=s['learn_count'], player_fetishes=player_fetishes,
                            question_stats=question_stats, corr_stats=corr_stats,
@@ -689,7 +690,8 @@ def admin():
                            engine_config=engine.config,
                            config_defaults=engine._CONFIG_DEFAULTS,
                            stats_history=stats_history,
-                           matrix_heatmap=matrix_heatmap)
+                           matrix_heatmap=matrix_heatmap,
+                           axis_stats=axis_stats)
 
 
 @app.route('/api/admin/toggle_question/<int:q_id>', methods=['POST'])
@@ -860,6 +862,20 @@ def admin_export_log():
     csv_body = '\n'.join(lines)
     return Response(csv_body, mimetype='text/csv; charset=utf-8',
                     headers={'Content-Disposition': 'attachment; filename="fetish_log.csv"'})
+
+
+@app.route('/api/admin/fetish_similarity', methods=['POST'])
+@_require_admin
+def admin_fetish_similarity():
+    data = request.get_json(silent=True) or {}
+    id_a = data.get('id_a')
+    id_b = data.get('id_b')
+    if id_a is None or id_b is None:
+        return jsonify({'status': 'error', 'message': 'id_a と id_b が必要です'}), 400
+    result = engine.fetish_similarity(int(id_a), int(id_b))
+    if result is None:
+        return jsonify({'status': 'error', 'message': '性癖が見つかりません'}), 404
+    return jsonify({'status': 'ok', **result})
 
 
 if __name__ == '__main__':
