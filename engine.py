@@ -519,7 +519,8 @@ class Engine:
                 cur.execute('SELECT id FROM fetishes')
                 existing_ids = {r[0] for r in cur.fetchall()}
                 if existing_ids is not None:
-                    seed = self._load_json('fetishes.json')
+                    seed = [f for f in self._load_json('fetishes.json')
+                            if f['id'] < PLAYER_FETISH_BASE_ID]
                     new_f = [f for f in seed if f['id'] not in existing_ids]
                     if new_f:
                         psycopg2.extras.execute_values(
