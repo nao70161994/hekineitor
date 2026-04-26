@@ -8,7 +8,9 @@
 - `engine.py` — ベイズ推論エンジン。情報利得で次の質問を選択
 - `templates/index.html` — シングルページUI（PWA対応）
 - `templates/admin.html` — 管理画面（学習データ量・質問無効化・診断ログ・相関分析・ヒートマップ・統合）
+- `templates/result_share.html` — OGPシェアカード（/r ルート）
 - `data/` — questions.json（93問）/ fetishes.json（99件）/ matrix.json・learned_priors.json（ローカル用・gitignore済み）
+- `run_coverage.py` — `python run_coverage.py` でカバレッジ計測（coverage.py必須）
 
 ## データ永続化
 
@@ -23,7 +25,7 @@
 - 情報利得（エントロピー削減量）が最大の質問を次に選択
 - 相関ペナルティ：中心化ベクトル（P−0.5）のコサイン類似度で既出質問との重複を最大40%割り引く
 - `AXIS_INDIRECT_BONUS`：抽象軸・パーソナリティ軸に微小ボーナス（同スコアなら間接質問を優先）
-- **終盤モード**（`FOCUS_THRESHOLD=0.40`）：1位確率が40%超で上位`FOCUS_TOP_N=6`件に絞った情報利得を計算
+- **終盤モード**（`FOCUS_THRESHOLD=0.40`）：1位確率が40%超で上位`FOCUS_TOP_N=6`件に絞った情報利得を計算。answer APIが `hint` フィールドを返す
 - **序盤ランダム化**（`EARLY_RANDOM_DEPTH=3`）：最初の3問は上位`EARLY_RANDOM_TOP_K=5`件からランダムに選択
 - **UCB探索ボーナス**（`UCB_EXPLORE_C=0.05`）：使用回数が少ない質問にボーナス。`ask_count / n_fetishes` 正規化で性癖追加時に自動復活
 - 確率が `GUESS_THRESHOLD=0.75` 超 or 質問数が `MAX_QUESTIONS=20` で診断確定
@@ -43,14 +45,19 @@
 - `promote_fetish(old_id)` でプレイヤー追加性癖（ID≥10000）をシード性癖に格上げ（次の空きIDに変更）
 - `capture_learned_priors()` で現在の P(yes) を `data/learned_priors.json` に保存。`_init_matrix_file` がこれを使ってDOMAIN_PRIORSより優先的に初期化
 - `index_of(db_id)` でDB idから配列インデックスを取得
-- `get_question_stats()` で質問ごとの識別力（disc）+ 無効化フラグ一覧を返す
+- `get_question_stats()` で質問ごとの識別力（disc）+ 無効化フラグ + UCB使用量（ask_count）を返す
+- `get_axis_stats()` で QUESTION_AXES 別の質問数・平均disc・無効化数を返す
 - `get_fetish_log()` / `log_guessed/correct/wrong()` で診断ログを管理
+- `log_correct/wrong()` は全体カウントに加えて `f_correct_{id}` / `f_wrong_{id}` も stats_history に記録（性癖別日別履歴）
+- `get_fetish_history(fetish_db_id, days)` で指定性癖の日別正解/外れ件数を返す
 - `get_correlation_stats()` で質問ペアのコサイン類似度上位30件を返す（管理画面用）
 - `get_top_questions_per_fetish()` で各性癖のP(yes)が高い/低い質問TOP5を返す（DOMAIN_PRIORS整備用）
 - `get_matrix_heatmap(n_fetishes, n_questions)` で上位N性癖×N質問の P(yes) グリッドを返す（管理画面ヒートマップ用）
+- `get_stats_history(days)` で日別プレイ・学習回数を返す（stats_historyテーブル/JSON）
 - `merge_fetishes(id_keep, id_remove)` で2性癖のmatrixを加算して統合（DB/JSON両対応）
 - `edit_fetish(fetish_id, name, desc)` で性癖の名前・説明を更新
-- `get_stats_history(days)` で日別プレイ・学習回数を返す（stats_historyテーブル/JSON）
+- `edit_question(q_idx, text)` で質問テキストをインメモリ・questions.json に反映
+- `fetish_similarity(id_a, id_b)` で2性癖のコサイン類似度と差異TOP5質問を返す
 - `idk_streak` 連続時の軸切替：直近idkが同一軸に集中していればその軸を除外、複数軸混在ならabstract/personalityへ
 
 ## 質問の設計方針
@@ -68,7 +75,7 @@
 - `COMPOUND_RATIO=0.55`：2位が1位の55%以上なら複合（例：「SM × ヤンデレ」）
 - `TRIPLE_RATIO=0.45`：3位が1位の45%以上なら三重複合
 - `PROFILE_MIN_RATIO=0.25` / `PROFILE_MIN_PROB=0.08`：それ以下は「他に該当しそうなジャンル」に表示
-- 診断結果に上位5件の確率バーグラフ（`top_chart`）を返す
+- 診断結果に上位5件の確率バーグラフ（`top_chart`）を返す。バーはアニメーションで0から伸びる
 - シェア文は常にヘキネイターが提示した性癖を使用
 
 ## 正誤フィードバックのフロー
@@ -93,10 +100,12 @@
 - DB使用時：`sessions` テーブルに JSON として保存（TTL 24時間）
 - ローカル時：`_LOCAL_SESSIONS` インメモリdict（最大2000件、古いものは自動削除）
 - セッション切れ（サーバー再起動後等）は HTTP 440 を返し、フロントが自動リスタートを促す
+- `answer()` の推論処理全体を try/except で囲み、予期しないエラーでも 440+`restart:true` を返してセッション破損を検知
 
 ## 「別の性癖を探す」モード
 
 - 結果画面・完了画面の「別の性癖を探す →」ボタンで診断済み性癖を除外してリスタート
+- 「⚡ すぐ再挑戦（今の診断を除外）」ボタン（`quickRetry()`）で今回の診断IDを即座に exclude_ids に追加してリスタート
 - `/api/start` に `exclude_ids` 配列を渡すとセッションに保存
 - `_compute_guess()` で excluded fetishes を末尾に退けて診断
 
@@ -105,7 +114,7 @@
 | メソッド | パス | 説明 |
 |---|---|---|
 | POST | /api/start | セッション開始。`exclude_ids` 配列で除外性癖を指定可 |
-| POST | /api/answer | 回答を受け取り次の質問 or 診断結果を返す |
+| POST | /api/answer | 回答を受け取り次の質問 or 診断結果を返す。質問レスポンスに `axis`・`hint` フィールドあり |
 | POST | /api/back | 直前の回答を取り消して前の質問に戻る |
 | POST | /api/confirm | 診断結果の正誤をフィードバック（correct=false時に外れリスト上位20件を返す。add_only=trueで負学習なし） |
 | POST | /api/teach | 正解の性癖を教える（学習） |
@@ -120,34 +129,53 @@
 | POST | /api/admin/capture_priors | 現在の P(yes) を learned_priors.json に保存（Basic認証必須） |
 | POST | /api/admin/promote_fetish/&lt;id&gt; | プレイヤー追加性癖をシード性癖に格上げ（Basic認証必須） |
 | POST | /api/admin/edit_fetish/&lt;id&gt; | 性癖の名前・説明を編集（Basic認証必須） |
+| POST | /api/admin/edit_question/&lt;id&gt; | 質問テキストを編集（Basic認証必須） |
 | POST | /api/admin/merge_fetishes | 2性癖のmatrixを統合（`id_keep`, `id_remove`）（Basic認証必須） |
+| POST | /api/admin/fetish_similarity | 2性癖のコサイン類似度と差異TOP5を返す（`id_a`, `id_b`）（Basic認証必須） |
+| GET  | /api/admin/fetish_history/&lt;id&gt; | 指定性癖の日別正解/外れ件数（`?days=30`）（Basic認証必須） |
 | GET  | /api/admin/export_matrix | matrix全体をJSON形式でダウンロード（Basic認証必須） |
 | GET  | /api/admin/export_log | 診断ログをCSV形式でダウンロード（Basic認証必須） |
+| GET  | /api/admin/export_stats_history | 日別統計をCSV形式でダウンロード（Basic認証必須） |
 | POST | /api/resume | localStorageに保存した回答ペアからセッションを復元 |
 | POST | /api/continue | 診断確定後に追加質問を継続（閾値+0.20で続行） |
 | GET  | /health | DB接続・性癖数・質問数を返す（Render監視用） |
+| GET  | /r | OGPシェアカードページ（`?f=名前&p=確率&d=説明`） |
 
 回答値: `1`=はい / `0.5`=どちらかといえばはい / `0`=わからない / `-0.5`=どちらかといえばいいえ / `-1`=いいえ
 
 ## 管理画面（/admin）
 
-- 学習データ量一覧（性癖別）+ 過去30日の時系列グラフ（7日/30日切替）
+- 学習データ量一覧（性癖別）+ 過去30日の時系列グラフ（7日/30日切替）+ CSVエクスポート
 - プレイヤー追加性癖一覧 + インライン編集・格上げ・削除ボタン
 - シード性癖編集フォーム（IDで指定して名前・説明変更）
-- 質問の識別力一覧 + **有効/無効トグル** + disc値でソート可
-- **診断ログ**：性癖別の診断回数・正解数・外れ数・正解率。wrong率60%超でハイライト。CSVエクスポートあり
+- **質問の識別力一覧** + 有効/無効トグル + disc値でソート + UCB使用量（ask_count）表示
+- **軸バランス表示**：コンテンツ/抽象/パーソナリティ軸別の質問数・平均disc・無効化数サマリー
+- **診断ログ**：名前検索・診断数/正解率フィルタ・ソート対応。wrong率60%超でハイライト。各行に「履歴」ボタンで過去30日の日別正解/外れミニグラフ表示。CSVエクスポートあり
+- **性癖類似度チェック**：2性癖のコサイン類似度 + 差異が大きい質問TOP5を表示（名前検索datalist付き）
 - **DOMAIN_PRIORSサジェスト**：各性癖のP(yes)が高い/低い質問TOP5（学習済みmatrixから自動生成）
 - 質問間の相関分析（コサイン類似度上位30ペア）
 - **Matrix ヒートマップ**：上位20性癖×20質問のP(yes)を色可視化
-- **性癖統合フォーム**：2性癖のmatrixを加算して1つにマージ
+- **性癖統合フォーム**：2性癖のmatrixを加算して1つにマージ（名前検索datalist付き）
 - 推論パラメータ更新 / セッションクリーンアップ / 手動性癖追加 / learned_priorsキャプチャ
 - matrix JSONエクスポート
+
+## index.html のUX
+
+- キーボードショートカット（1〜5で回答、Backspaceで戻る）
+- localStorage に `heki_draft` として回答を自動保存。セッション切れ後も「途中から再開」可能（`/api/resume`）
+- 結果画面の「もう少し続ける」ボタンで診断確定後も追加質問できる（`/api/continue`）
+- 質問ごとに軸タグ（コンテンツ軸/抽象軸/パーソナリティ軸）を薄く表示
+- 終盤モード時に「答えが見えてきました…もう少しです」ヒントを表示
+- 確率バーグラフはCSSアニメーションで0から伸びる（0.6s ease）
+- 結果カードの枠線・グロウが確率に応じて変化（75%超=ゴールド/50〜75%=赤グロウ/40〜50%=薄い枠線）
+- 「⚡ すぐ再挑戦（今の診断を除外）」ボタンで今回の診断を即除外してリスタート
+- 結果シェアボタン（Web Share API + `/r` OGPページ + Twitterインテント）
 
 ## 環境変数
 
 | 変数名 | 説明 | デフォルト |
 |---|---|---|
-| `SECRET_KEY` | Flaskセッション署名キー | ハードコード値（本番では必須） |
+| `SECRET_KEY` | Flaskセッション署名キー | ハードコード値（本番では必須・DATABASE_URL設定時は必須） |
 | `DATABASE_URL` | PostgreSQL接続URL | なし（ローカルJSON使用） |
 | `ADMIN_USER` | /admin のBasic認証ユーザー名 | `admin` |
 | `ADMIN_PASS` | /admin のBasic認証パスワード | なし（未設定時503） |
@@ -157,6 +185,12 @@
 ```bash
 # ローカル
 python app.py
+
+# テスト（75テスト）
+python tests/test_app.py
+
+# カバレッジ計測（app.py 75% / engine.py 57% / 合計 65%）
+python run_coverage.py
 
 # 本番（Render）。複数workerも可（DBの5秒TTLリロードで整合性を確保）
 gunicorn app:app --workers 2 --threads 4
@@ -171,17 +205,13 @@ gunicorn app:app --workers 2 --threads 4
 
 ## バージョン管理
 
-- `app.py` の `DISPLAY_VERSION` でタイトルに表示するバージョン番号を管理（現在 `v1.2.0`）
-- ブラウザタブに「へきネイター v1.2.0」と表示される
+- `app.py` の `DISPLAY_VERSION` でタイトルに表示するバージョン番号を管理
+- ブラウザタブに「へきネイター vX.X.X」と表示される
+- `DISPLAY_VERSION` は現在 `v1.3.0`
 
 ## 注意
 
-- `data/matrix.json`・`data/learned_priors.json` は `.gitignore` 済み（学習データをgitに含めない）
+- `data/matrix.json`・`data/learned_priors.json`・`data/stats_history.json`・`.coverage` は `.gitignore` 済み
 - Termux環境では長いコマンドはスクリプトファイルに書いて実行する
 - シードの性癖をDBに登録せずJSONで管理しているのは、JSONが「正解」でありDB側はfetish_idを参照するだけのため（シード増減もマイグレーションで自動追従）
-- テストは `python tests/test_app.py` で実行（現在49テスト）
-- `data/stats_history.json` は `.gitignore` 済み
-- `DISPLAY_VERSION` は現在 `v1.2.1`
-- index.html: キーボードショートカット（1〜5で回答、Backspaceで戻る）
-- index.html: localStorage に `heki_draft` として回答を自動保存。セッション切れ後も「途中から再開」可能
-- index.html: 結果画面の「もう少し続ける」ボタンで診断確定後も追加質問できる
+- `f_correct_{id}` / `f_wrong_{id}` の性癖別日別ログは今後のプレイから蓄積されるため、初期はデータなしが正常

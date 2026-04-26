@@ -135,7 +135,7 @@ def _app_version():
     return h.hexdigest()[:8]
 
 APP_VERSION    = _app_version()
-DISPLAY_VERSION = 'v1.2.0'
+DISPLAY_VERSION = 'v1.3.0'
 engine = Engine()
 
 GUESS_THRESHOLD = 0.75
