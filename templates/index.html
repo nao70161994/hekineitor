@@ -645,27 +645,36 @@ function doRestart() {
   showStart();
 }
 
-function showToast(msg, color) {
+function showToast(msg, color, durationMs = 3000) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.style.background = color || '#e67e22';
   t.classList.remove('hidden');
-  setTimeout(() => t.classList.add('hidden'), 3000);
+  clearTimeout(t._hideTimer);
+  t._hideTimer = setTimeout(() => t.classList.add('hidden'), durationMs);
 }
 
 let _fetching = false;
 
-async function apiFetch(url, body) {
+async function apiFetch(url, body, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res;
   try {
     res = await fetch(url, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
     });
-  } catch {
-    showToast('通信エラーが発生しました。リロードしてください。', '#c0392b');
+  } catch (e) {
+    const msg = e.name === 'AbortError'
+      ? 'サーバーへの接続がタイムアウトしました。しばらくしてから再試行してください。'
+      : '通信エラーが発生しました。リロードしてください。';
+    showToast(msg, '#c0392b');
     throw new Error('network');
+  } finally {
+    clearTimeout(timer);
   }
   if (!res.ok) {
     let msg = `サーバーエラー (${res.status})`;
@@ -681,8 +690,22 @@ function setAnswerButtons(disabled) {
 }
 
 async function startGame() {
-  const data = await apiFetch('/api/start');
-  showQuestion(data);
+  const btn = document.querySelector('.btn-start');
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '起動中...';
+  const wakeTimer = setTimeout(() => {
+    showToast('Renderが起動中です。初回は30秒ほどかかる場合があります…', '#888', 20000);
+  }, 5000);
+  try {
+    const data = await apiFetch('/api/start', undefined, 45000);
+    clearTimeout(wakeTimer);
+    showQuestion(data);
+  } catch {
+    clearTimeout(wakeTimer);
+    btn.disabled = false;
+    btn.textContent = origText;
+  }
 }
 
 function showQuestion(data) {
