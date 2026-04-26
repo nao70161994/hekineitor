@@ -175,8 +175,9 @@
     border: 1px solid #1a4a7a;
     transition: border-color 0.2s;
   }
-  .confirm-item.state-yes { border-color: #27ae60; background: #0a2e1a; }
-  .confirm-item.state-no  { border-color: #555;    background: #1a1a1a; }
+  .confirm-item.state-yes   { border-color: #27ae60; background: #0a2e1a; }
+  .confirm-item.state-maybe { border-color: #f39c12; background: #2a1e00; }
+  .confirm-item.state-no    { border-color: #555;    background: #1a1a1a; }
   .confirm-item-name {
     flex: 1;
     font-size: 0.9rem;
@@ -205,6 +206,11 @@
     background: #27ae60;
     color: #fff;
     border-color: #27ae60;
+  }
+  .confirm-toggle button.active-maybe {
+    background: #f39c12;
+    color: #fff;
+    border-color: #f39c12;
   }
   .confirm-toggle button.active-no {
     background: #555;
@@ -722,8 +728,9 @@ function showGuess(data) {
       <span class="confirm-item-name">${item.fetish_name}</span>
       <span class="confirm-item-prob">${item.probability}%</span>
       <div class="confirm-toggle">
-        <button onclick="setItemState(${item.fetish_id}, 'yes', this)">○</button>
-        <button onclick="setItemState(${item.fetish_id}, 'no',  this)">×</button>
+        <button onclick="setItemState(${item.fetish_id}, 'yes',   this)">○</button>
+        <button onclick="setItemState(${item.fetish_id}, 'maybe', this)">△</button>
+        <button onclick="setItemState(${item.fetish_id}, 'no',    this)">×</button>
       </div>
     </div>`).join('');
 
@@ -758,16 +765,19 @@ function setItemState(id, state, btn) {
   item.className = `confirm-item state-${state}`;
   const btns = item.querySelectorAll('.confirm-toggle button');
   btns.forEach(b => b.className = '');
-  btn.className = state === 'yes' ? 'active-yes' : 'active-no';
+  btn.className = state === 'yes' ? 'active-yes' : state === 'maybe' ? 'active-maybe' : 'active-no';
 }
 
 async function submitConfirm() {
   const items = document.querySelectorAll('#confirm-items .confirm-item');
   const correctIds = [];
-  const wrongCount  = [];
+  const maybeIds   = [];
+  const wrongIds   = [];
   items.forEach(item => {
-    if (item.dataset.state === 'yes') correctIds.push(parseInt(item.dataset.id));
-    else wrongCount.push(parseInt(item.dataset.id));
+    const id = parseInt(item.dataset.id);
+    if      (item.dataset.state === 'yes')   correctIds.push(id);
+    else if (item.dataset.state === 'maybe') maybeIds.push(id);
+    else if (item.dataset.state === 'no')    wrongIds.push(id);
   });
 
   // ○がついた項目を即学習（total_n で√n スケーリング）
@@ -777,8 +787,8 @@ async function submitConfirm() {
     }
   }
 
-  const missCount = wrongCount.length;
-  if (missCount === 0) {
+  const hasWrong = wrongIds.length > 0 || maybeIds.length > 0;
+  if (!hasWrong) {
     // 全部正解
     const names = correctIds.map(id => {
       const el = document.getElementById(`ci-${id}`);
@@ -790,8 +800,16 @@ async function submitConfirm() {
     return;
   }
 
-  // 外れあり → 正解を自由に選んでもらう
+  // 外れあり → wrong_db_ids をサーバーに記録
   const data = await apiFetch('/api/confirm', {correct: false, fetish_id: window._guessedId, compound_ids: window._compoundIds || []});
+
+  // △のみ（×なし）→ 選択画面をスキップして負学習だけ走らせる
+  if (wrongIds.length === 0 && maybeIds.length > 0) {
+    await apiFetch('/api/finalize_added', {items: []});
+    document.getElementById('done-msg').textContent = '外れた性癖を記録しました。';
+    show('done-screen');
+    return;
+  }
   if (!data || !data.fetishes) return;
 
   window._teachSelected = new Map(); // id → name
