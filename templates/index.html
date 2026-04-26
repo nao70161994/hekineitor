@@ -537,7 +537,7 @@
       <button class="btn btn-yes" style="width:100%;margin-bottom:8px;" onclick="addFetishMore()">もう1件追加する</button>
       <button class="btn btn-correct" style="width:100%;margin-bottom:8px;" onclick="addFetishDone()">完了</button>
     </div>
-    <button class="btn btn-retry" id="add-skip-btn" onclick="showStart()">スキップ</button>
+    <button class="btn btn-retry" id="add-skip-btn" onclick="skipTeach()">スキップ</button>
   </div>
 
   <!-- 完了メッセージ -->
@@ -616,6 +616,16 @@ function setGenieState(state) {
 }
 
 function showStart() { show('start-screen'); setGenieState('idle'); }
+
+function skipTeach() {
+  if (window._addOnlyMode) {
+    window._addOnlyMode = false;
+    document.getElementById('done-msg').textContent = window._addOnlyDoneMsg || '学習しました！';
+    show('done-screen');
+  } else {
+    showStart();
+  }
+}
 
 function confirmRestart() {
   document.getElementById('modal-restart').classList.remove('hidden');
@@ -795,8 +805,31 @@ async function submitConfirm() {
       return el ? el.querySelector('.confirm-item-name').textContent : '';
     }).filter(Boolean);
     lastFetishName = names.join(' × ');
-    document.getElementById('done-msg').textContent = `✓「${names.join('」「')}」として学習しました！`;
-    show('done-screen');
+    // 全部正解でも追加選択を許可
+    const addData = await apiFetch('/api/confirm', {correct: false, fetish_id: window._guessedId, compound_ids: window._compoundIds || [], add_only: true});
+    if (!addData || !addData.fetishes) {
+      document.getElementById('done-msg').textContent = `✓「${names.join('」「')}」として学習しました！`;
+      show('done-screen');
+      return;
+    }
+    window._teachSelected = new Map();
+    window._teachCorrectIds = correctIds;
+    window._addOnlyMode = true;
+    window._addOnlyDoneMsg = `✓「${names.join('」「')}」として学習しました！`;
+    document.getElementById('teach-label').textContent = '他に該当する性癖があれば追加できます（任意）';
+    const list = document.getElementById('fetish-list');
+    list.innerHTML = '';
+    addData.fetishes.forEach(f => {
+      const div = document.createElement('div');
+      div.className = 'fetish-item';
+      div.id = `ti-${f.id}`;
+      div.textContent = f.name;
+      div.onclick = () => toggleTeachItem(f.id, f.name, div);
+      list.appendChild(div);
+    });
+    document.getElementById('teach-submit-btn').style.display = '';
+    updateTeachSubmitBtn();
+    show('teach-screen');
     return;
   }
 
@@ -874,6 +907,7 @@ async function submitTeach() {
       ? `✓「${allNames.join('」「')}」として学習しました！`
       : '✓ 学習しました！ありがとうございます。';
     document.getElementById('done-msg').textContent = msg;
+    window._addOnlyMode = false;
     show('done-screen');
   } finally {
     _fetching = false;

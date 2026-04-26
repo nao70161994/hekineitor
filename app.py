@@ -307,8 +307,11 @@ def confirm():
             candidates.append((probs[i], f))
         candidates.sort(key=lambda t: t[0], reverse=True)
         sorted_fetishes = [f for _, f in candidates[:15]]
-        # 後でネガティブ学習できるよう外れた診断IDを保存
-        session['wrong_db_ids'] = list(excluded_db_ids)
+        # add_only=True は正解追加目的のリスト取得なので wrong_db_ids を設定しない
+        if not data.get('add_only', False):
+            session['wrong_db_ids'] = list(excluded_db_ids)
+        else:
+            session['wrong_db_ids'] = []
         return jsonify({'status': 'wrong', 'fetishes': sorted_fetishes})
 
 
