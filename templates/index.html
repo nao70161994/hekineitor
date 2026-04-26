@@ -617,10 +617,17 @@ function setGenieState(state) {
 
 function showStart() { show('start-screen'); setGenieState('idle'); }
 
-function skipTeach() {
-  if (window._addOnlyMode) {
+async function skipTeach() {
+  if (window._addOnlyMode === 'add') {
+    // 全正解スキップ → 負学習なし
     window._addOnlyMode = false;
     document.getElementById('done-msg').textContent = window._addOnlyDoneMsg || '学習しました！';
+    show('done-screen');
+  } else if (window._addOnlyMode === 'maybe') {
+    // △スキップ → 負学習だけ走らせる
+    window._addOnlyMode = false;
+    await apiFetch('/api/finalize_added', {items: []});
+    document.getElementById('done-msg').textContent = '外れた性癖を記録しました。';
     show('done-screen');
   } else {
     showStart();
@@ -814,7 +821,7 @@ async function submitConfirm() {
     }
     window._teachSelected = new Map();
     window._teachCorrectIds = correctIds;
-    window._addOnlyMode = true;
+    window._addOnlyMode = 'add';
     window._addOnlyDoneMsg = `✓「${names.join('」「')}」として学習しました！`;
     document.getElementById('teach-label').textContent = '他に該当する性癖があれば追加できます（任意）';
     const list = document.getElementById('fetish-list');
@@ -835,20 +842,19 @@ async function submitConfirm() {
 
   // 外れあり → wrong_db_ids をサーバーに記録
   const data = await apiFetch('/api/confirm', {correct: false, fetish_id: window._guessedId, compound_ids: window._compoundIds || []});
-
-  // △のみ（×なし）→ 選択画面をスキップして負学習だけ走らせる
-  if (wrongIds.length === 0 && maybeIds.length > 0) {
-    await apiFetch('/api/finalize_added', {items: []});
-    document.getElementById('done-msg').textContent = '外れた性癖を記録しました。';
-    show('done-screen');
-    return;
-  }
   if (!data || !data.fetishes) return;
 
-  window._teachSelected = new Map(); // id → name
+  window._teachSelected = new Map();
   window._teachCorrectIds = correctIds;
 
-  document.getElementById('teach-label').textContent = '正解の性癖を選んでください（複数選択可）';
+  // △のみ（×なし）→ 任意選択モード
+  if (wrongIds.length === 0 && maybeIds.length > 0) {
+    window._addOnlyMode = 'maybe';
+    document.getElementById('teach-label').textContent = '正解の性癖があれば選べます（任意）';
+  } else {
+    window._addOnlyMode = false;
+    document.getElementById('teach-label').textContent = '正解の性癖を選んでください（複数選択可）';
+  }
 
   const list = document.getElementById('fetish-list');
   list.innerHTML = '';
