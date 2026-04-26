@@ -4,9 +4,88 @@ import hmac
 import hashlib
 import functools
 import unicodedata
+import uuid
+import json as _json
+import time as _time
 from flask import Flask, render_template, request, jsonify, session, Response, send_from_directory
-from engine import Engine, PLAYER_FETISH_BASE_ID
+from flask.sessions import SessionInterface, SessionMixin
+from werkzeug.datastructures import CallbackDict
+from engine import Engine, PLAYER_FETISH_BASE_ID, _get_conn, _put_conn, _use_db
 
+# ── サーバーサイドセッション ──────────────────────────────
+_SESSION_TTL    = 86400  # 24時間
+_LOCAL_SESSIONS = {}     # ローカル用インメモリストア {sid: (data, updated_at)}
+
+def _session_load(sid):
+    if _use_db():
+        conn = _get_conn()
+        try:
+            cur = conn.cursor()
+            cur.execute('SELECT data, updated_at FROM sessions WHERE session_id = %s', (sid,))
+            row = cur.fetchone()
+            if row and _time.time() - row[1] < _SESSION_TTL:
+                return _json.loads(row[0])
+        finally:
+            _put_conn(conn)
+    else:
+        entry = _LOCAL_SESSIONS.get(sid)
+        if entry and _time.time() - entry[1] < _SESSION_TTL:
+            return dict(entry[0])
+    return None
+
+def _session_save(sid, data):
+    now = _time.time()
+    if _use_db():
+        conn = _get_conn()
+        try:
+            with conn:
+                cur = conn.cursor()
+                cur.execute('''
+                    INSERT INTO sessions (session_id, data, updated_at) VALUES (%s, %s, %s)
+                    ON CONFLICT (session_id) DO UPDATE
+                    SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at
+                ''', (sid, _json.dumps(data, ensure_ascii=False), now))
+        finally:
+            _put_conn(conn)
+    else:
+        _LOCAL_SESSIONS[sid] = (data, now)
+        if len(_LOCAL_SESSIONS) > 2000:
+            cutoff = now - _SESSION_TTL
+            for k in [k for k, v in _LOCAL_SESSIONS.items() if v[1] < cutoff]:
+                del _LOCAL_SESSIONS[k]
+
+class _ServerSession(CallbackDict, SessionMixin):
+    def __init__(self, initial=None, sid=None, is_new=False):
+        def on_update(self):
+            self.modified = True
+        super().__init__(initial or {}, on_update)
+        self.sid      = sid
+        self.is_new   = is_new
+        self.modified = False
+
+class _ServerSessionInterface(SessionInterface):
+    _cookie = 'heki_sid'
+
+    def open_session(self, app, request):
+        sid = request.cookies.get(self._cookie)
+        if sid:
+            data = _session_load(sid)
+            if data is not None:
+                return _ServerSession(data, sid=sid)
+        return _ServerSession(sid=str(uuid.uuid4()), is_new=True)
+
+    def save_session(self, app, session, response):
+        if not session.modified and not session.is_new:
+            return
+        _session_save(session.sid, dict(session))
+        secure = bool(os.environ.get('DATABASE_URL'))
+        response.set_cookie(
+            self._cookie, session.sid,
+            httponly=True, secure=secure, samesite='Lax',
+            max_age=_SESSION_TTL,
+        )
+
+# ─────────────────────────────────────────────────────────
 app = Flask(__name__)
 _secret = os.environ.get('SECRET_KEY')
 if not _secret:
@@ -16,6 +95,7 @@ if not _secret:
     warnings.warn('SECRET_KEY が未設定です。本番環境では環境変数に設定してください。', stacklevel=1)
     _secret = 'hekineitor_dev_secret_2024'
 app.secret_key = _secret
+app.session_interface = _ServerSessionInterface()
 
 def _app_version():
     h = hashlib.md5()
@@ -322,6 +402,10 @@ def confirm():
         for idx in learn_idxs:
             engine.learn(answers, idx, strength_factor=factor)
             engine.log_correct(engine.fetishes[idx]['id'])
+        # 複合正解: 共起パターンを相互強化
+        for i in range(len(learn_idxs)):
+            for j in range(i + 1, len(learn_idxs)):
+                engine.learn_cooccurrence(answers, learn_idxs[i], learn_idxs[j], factor * 0.3)
         return jsonify({'status': 'learned'})
     else:
         if not data.get('add_only', False):
@@ -418,9 +502,15 @@ def finalize_added():
             continue
         correct_db_ids.add(db_id)
         if is_new:
-            engine.boost_learn_new(idx, answers)  # boost は独自スケーリング済み
+            engine.boost_learn_new(idx, answers)
         else:
             engine.learn(answers, idx, strength_factor=factor)
+    # 複合正解の共起強化
+    correct_idxs = [engine.index_of(db_id) for db_id in correct_db_ids
+                    if engine.index_of(db_id) is not None]
+    for i in range(len(correct_idxs)):
+        for j in range(i + 1, len(correct_idxs)):
+            engine.learn_cooccurrence(answers, correct_idxs[i], correct_idxs[j], factor * 0.3)
     # 外れた診断に対するネガティブ学習（正解として選ばれなかったもののみ）
     wrong_db_ids = session.pop('wrong_db_ids', [])
     for wid in wrong_db_ids:

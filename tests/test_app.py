@@ -205,6 +205,130 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn(b'standalone', res.data)
 
+    # ── exclude_ids ────────────────────────────────────────
+    def test_start_with_exclude_ids(self):
+        res = self.client.post('/api/start', json={'exclude_ids': [0, 1]})
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertIn('question_id', data)
+
+    def test_guess_excludes_ids(self):
+        """exclude_ids に指定された性癖が1位になっていないことを診断で確認。"""
+        from app import engine as app_engine
+        excl = [app_engine.fetishes[0]['id']]
+        # exclude_ids を指定してスタート（_start() は使わず直接呼ぶ）
+        res = self.client.post('/api/start', json={'exclude_ids': excl})
+        q = res.get_json()['question_id']
+        data = None
+        for _ in range(20):
+            res = self.client.post('/api/answer',
+                json={'question_id': q, 'answer': 1.0})
+            data = res.get_json()
+            if data.get('action') == 'guess':
+                break
+            q = data.get('question_id', q)
+        if data and data.get('action') == 'guess':
+            self.assertNotIn(data.get('fetish_id'), excl)
+
+    # ── top_chart ──────────────────────────────────────────
+    def test_guess_returns_top_chart(self):
+        data = self._force_guess()
+        if data.get('action') == 'guess':
+            self.assertIn('top_chart', data)
+            self.assertIsInstance(data['top_chart'], list)
+            self.assertGreaterEqual(len(data['top_chart']), 1)
+            self.assertIn('fetish_name', data['top_chart'][0])
+            self.assertIn('probability', data['top_chart'][0])
+
+    # ── early stop ratio ──────────────────────────────────
+    def test_answer_loop_terminates(self):
+        """20問以内に必ず guess が返ること。"""
+        data = self._force_guess()
+        self.assertEqual(data.get('action'), 'guess')
+
+    # ── session expiry ────────────────────────────────────
+    def test_answer_without_start_returns_440(self):
+        """セッション未開始で answer を呼ぶと 440 が返ること。"""
+        fresh = app.test_client()  # 新しいクライアント（セッションなし）
+        res = fresh.post('/api/answer', json={'question_id': 0, 'answer': 1.0})
+        self.assertEqual(res.status_code, 440)
+
+    def test_back_without_start_returns_440(self):
+        fresh = app.test_client()
+        res = fresh.post('/api/back')
+        self.assertEqual(res.status_code, 440)
+
+    # ── question disable ──────────────────────────────────
+    def test_disabled_question_not_asked(self):
+        """無効化した質問が asked リストに含まれないこと。"""
+        from app import engine as app_engine
+        # Q0 を無効化
+        app_engine.disabled_questions.add(0)
+        try:
+            start = self._start()
+            q = start['question_id']
+            asked = [q]
+            for _ in range(10):
+                res = self.client.post('/api/answer',
+                    json={'question_id': q, 'answer': 1.0})
+                d = res.get_json()
+                if d.get('action') == 'guess':
+                    break
+                q = d.get('question_id', q)
+                asked.append(q)
+            self.assertNotIn(0, asked)
+        finally:
+            app_engine.disabled_questions.discard(0)
+
+    # ── diagnosis log ─────────────────────────────────────
+    def test_log_guessed_increments(self):
+        from app import engine as app_engine
+        log_before = app_engine.get_fetish_log()
+        data = self._force_guess()
+        if data.get('action') == 'guess':
+            fid = data['fetish_id']
+            log_after = app_engine.get_fetish_log()
+            before = log_before.get(fid, {}).get('guessed', 0)
+            after  = log_after.get(fid, {}).get('guessed', 0)
+            self.assertGreater(after, before)
+
+    def test_log_correct_increments(self):
+        from app import engine as app_engine
+        self._force_guess()
+        log_before = app_engine.get_fetish_log()
+        self.client.post('/api/confirm', json={'correct': True, 'fetish_id': 0})
+        log_after = app_engine.get_fetish_log()
+        before = log_before.get(0, {}).get('correct', 0)
+        after  = log_after.get(0, {}).get('correct', 0)
+        self.assertGreater(after, before)
+
+    # ── cooccurrence ──────────────────────────────────────
+    def test_confirm_compound_correct_learns(self):
+        """複合正解で2性癖が同時に学習されること。"""
+        res = self.client.post('/api/confirm',
+            json={'correct': True, 'fetish_id': 0, 'compound_ids': [1]})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()['status'], 'learned')
+
+    def test_cooccurrence_does_not_crash(self):
+        from app import engine as app_engine
+        answers = {'0': 1.0, '1': -1.0}
+        # same index → no-op
+        app_engine.learn_cooccurrence(answers, 0, 0)
+        # valid pair
+        app_engine.learn_cooccurrence(answers, 0, 1)
+
+    # ── server-side session ───────────────────────────────
+    def test_session_persists_across_requests(self):
+        """start → answer で answered question が引き継がれること。"""
+        start = self._start()
+        q = start['question_id']
+        res = self.client.post('/api/answer',
+            json={'question_id': q, 'answer': 1.0})
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertIn(data.get('action'), ('question', 'guess'))
+
 
 if __name__ == '__main__':
     unittest.main()

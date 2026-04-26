@@ -531,6 +531,13 @@ class Engine:
                         wrong     INTEGER NOT NULL DEFAULT 0
                     )
                 ''')
+                cur.execute('''
+                    CREATE TABLE IF NOT EXISTS sessions (
+                        session_id TEXT PRIMARY KEY,
+                        data       TEXT NOT NULL,
+                        updated_at REAL NOT NULL
+                    )
+                ''')
                 # 新しい性癖を fetishes.json から差分追加（マイグレーション）
                 cur.execute('SELECT id FROM fetishes')
                 existing_ids = {r[0] for r in cur.fetchall()}
@@ -1088,6 +1095,40 @@ class Engine:
             self._save_to_db(all_updates)
 
         self._increment_learn_count()
+
+    def learn_cooccurrence(self, answers, idx_a, idx_b, factor=0.25):
+        """共起した2性癖を互いに相手の回答パターンで弱く強化する。"""
+        nf = len(self.fetishes)
+        nq = len(self.questions)
+        if not (0 <= idx_a < nf and 0 <= idx_b < nf and idx_a != idx_b):
+            return
+        all_updates = {}
+        with self._lock:
+            for q_str, ans in answers.items():
+                try:
+                    q = int(q_str)
+                except (ValueError, TypeError):
+                    continue
+                if ans == 0 or not (0 <= q < nq):
+                    continue
+                for target, src in ((idx_a, idx_b), (idx_b, idx_a)):
+                    # target の矩陣を src のパターン方向に弱く引き寄せる
+                    p_src = self._prob(src, q)
+                    synthetic_ans = 1.0 if p_src >= 0.5 else -1.0
+                    if synthetic_ans * ans < 0:  # 方向が逆なら skip
+                        continue
+                    scale = min(1.0, PSEUDO / max(self.matrix['total'][target][q], PSEUDO))
+                    eff = abs(p_src - 0.5) * factor * scale
+                    if eff < 0.005:
+                        continue
+                    dy = eff if synthetic_ans > 0 else 0.0
+                    self.matrix['yes'][target][q]   += dy
+                    self.matrix['total'][target][q] += eff
+                    all_updates.setdefault(target, []).append((q, dy, eff))
+            if not _use_db():
+                self._save_matrix_file()
+        if _use_db():
+            self._save_to_db(all_updates)
 
     def learn_negative(self, answers, fetish_idx):
         """fetish_idx が外れだった弱いネガティブ更新。learn() の約1/5の強度。"""
