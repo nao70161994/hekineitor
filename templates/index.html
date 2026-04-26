@@ -507,6 +507,7 @@
     <div id="confirm-items"></div>
     <button class="btn btn-correct" style="width:100%;margin-top:4px;" onclick="submitConfirm()">確定して学習</button>
     <button class="btn btn-idk" style="width:100%;margin-top:6px;font-size:0.82rem;" onclick="showStart()">スキップ</button>
+    <button class="btn btn-idk" style="width:100%;margin-top:4px;font-size:0.82rem;opacity:0.75;" onclick="startExcluding()">別の性癖を探す →</button>
   </div>
 
   <!-- 正解選択画面 -->
@@ -547,6 +548,7 @@
     <br>
     <button class="btn-share" onclick="shareResult()">結果をシェア / コピー</button>
     <button class="btn btn-retry" onclick="showStart()">もう一回</button>
+    <button class="btn btn-idk" style="width:100%;margin-top:6px;font-size:0.85rem;" onclick="startExcluding()">別の性癖を探す →</button>
   </div>
 
 </div>
@@ -616,7 +618,7 @@ function setGenieState(state) {
   }
 }
 
-function showStart() { show('start-screen'); setGenieState('idle'); }
+function showStart() { window._excludedIds = []; show('start-screen'); setGenieState('idle'); }
 
 function showSessionExpired() {
   showToast('セッションが切れました。もう一度スタートしてください。', '#7f8c8d', 8000);
@@ -700,22 +702,33 @@ function setAnswerButtons(disabled) {
   document.querySelectorAll('#question-screen .btn').forEach(b => b.disabled = disabled);
 }
 
-async function startGame() {
+function startExcluding() {
+  // 現在診断済みの性癖IDを除外してゲームを再スタート
+  const excludeIds = window._excludedIds ? [...window._excludedIds] : [];
+  if (window._guessedId != null) excludeIds.push(window._guessedId);
+  (window._compoundIds || []).forEach(id => excludeIds.push(id));
+  window._excludedIds = [...new Set(excludeIds)];
+  startGame(window._excludedIds);
+}
+
+async function startGame(excludeIds) {
   const btn = document.querySelector('.btn-start');
-  const origText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = '起動中...';
+  const origText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '起動中...'; }
   const wakeTimer = setTimeout(() => {
     showToast('Renderが起動中です。初回は30秒ほどかかる場合があります…', '#888', 20000);
   }, 5000);
+  const body = excludeIds && excludeIds.length ? {exclude_ids: excludeIds} : undefined;
   try {
-    const data = await apiFetch('/api/start', undefined, 45000);
+    const data = await apiFetch('/api/start', body, 45000);
     clearTimeout(wakeTimer);
+    if (excludeIds && excludeIds.length) {
+      showToast(`${excludeIds.length}件の性癖を除外して診断します`, '#1a4a8a', 3000);
+    }
     showQuestion(data);
   } catch {
     clearTimeout(wakeTimer);
-    btn.disabled = false;
-    btn.textContent = origText;
+    if (btn) { btn.disabled = false; btn.textContent = origText; }
   }
 }
 

@@ -113,6 +113,30 @@
 </details>
 
 <details style="margin-top:24px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">性癖別・重要質問サジェスト（DOMAIN_PRIORS整備用、展開で表示）</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">現在の学習済みmatrixから P(yes) が高い/低い質問を表示。DOMAIN_PRIORS と乖離していれば更新を検討。</p>
+{% for f in domain_suggestions %}
+<details style="margin-bottom:4px;">
+  <summary style="color:#aaa;font-size:0.82rem;cursor:pointer;">{{ f.fetish_name }} (id={{ f.fetish_id }})</summary>
+  <div style="display:flex;gap:16px;margin:6px 0 8px;flex-wrap:wrap;">
+    <div>
+      <p style="color:#27ae60;font-size:0.75rem;margin-bottom:4px;">P(yes) 高い質問</p>
+      {% for q in f.high %}
+      <div style="font-size:0.75rem;color:#aaa;">Q{{ q.q_id }}: {{ q.text }} <span style="color:#27ae60">{{ q.p }}</span></div>
+      {% endfor %}
+    </div>
+    <div>
+      <p style="color:#e74c3c;font-size:0.75rem;margin-bottom:4px;">P(yes) 低い質問</p>
+      {% for q in f.low %}
+      <div style="font-size:0.75rem;color:#aaa;">Q{{ q.q_id }}: {{ q.text }} <span style="color:#e74c3c">{{ q.p }}</span></div>
+      {% endfor %}
+    </div>
+  </div>
+</details>
+{% endfor %}
+</details>
+
+<details style="margin-top:24px;">
 <summary style="color:#888;font-size:0.85rem;cursor:pointer;">質問間の相関（類似ペア上位30、展開で表示）</summary>
 <p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">コサイン類似度が高いペアは情報が重複している可能性あり。|cos|≥0.8 は要検討。</p>
 <table style="margin-top:8px;">

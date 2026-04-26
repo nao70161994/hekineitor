@@ -4,6 +4,7 @@ import os
 import random
 import tempfile
 import threading
+import time
 
 try:
     import psycopg2
@@ -409,6 +410,9 @@ def _build_initial_matrix(nf, nq):
     return yes, total
 
 
+_MATRIX_RELOAD_INTERVAL  = 5.0   # 複数worker対応: DBからmatrixをリロードする間隔(秒)
+_DYNAMIC_PRIOR_INTERVAL  = 60.0  # 動的事前確率キャッシュの更新間隔(秒)
+
 class Engine:
     def __init__(self):
         self._lock = threading.Lock()
@@ -420,7 +424,10 @@ class Engine:
         else:
             self.fetishes = self._load_json('fetishes.json')
             self.matrix   = self._load_matrix_file()
-        self.disabled_questions = self._load_disabled_questions()
+        self.disabled_questions    = self._load_disabled_questions()
+        self._matrix_last_loaded   = time.monotonic()
+        self._dynamic_prior_cache  = {}
+        self._dynamic_prior_time   = 0.0
 
     # ── JSON ローカル ──────────────────────────────────────
     def _load_json(self, fname):
@@ -794,6 +801,62 @@ class Engine:
         finally:
             _put_conn(conn)
 
+    # ── 複数Worker対応: DBからmatrixをTTLリロード ──────────
+    def _reload_matrix_if_stale(self):
+        if not _use_db():
+            return
+        now = time.monotonic()
+        if now - self._matrix_last_loaded < _MATRIX_RELOAD_INTERVAL:
+            return
+        with self._lock:
+            if time.monotonic() - self._matrix_last_loaded < _MATRIX_RELOAD_INTERVAL:
+                return
+            self.matrix = self._load_from_db()
+            self._matrix_last_loaded = time.monotonic()
+
+    # ── 動的事前確率（診断ログから自動更新） ──────────────
+    def _get_dynamic_prior_weights(self):
+        now = time.monotonic()
+        if now - self._dynamic_prior_time < _DYNAMIC_PRIOR_INTERVAL:
+            return self._dynamic_prior_cache
+        log = self.get_fetish_log()
+        if not log:
+            self._dynamic_prior_time = now
+            return self._dynamic_prior_cache
+        # correct が多いほど重みを上げる（Laplace平滑: alpha=2）
+        alpha = 2.0
+        weights = {}
+        for f in self.fetishes:
+            fid = f['id']
+            entry = log.get(fid, {})
+            correct = entry.get('correct', 0)
+            guessed = entry.get('guessed', 0)
+            # 実績重み: 正解率 + ラプラス平滑、静的重みとの幾何平均
+            empirical = (correct + alpha) / (guessed + alpha * 2)
+            static    = FETISH_PRIOR_WEIGHTS.get(fid, 1.0)
+            # 実績データが少ない間は静的重みを重視（guessed で線形ブレンド）
+            trust = min(guessed / 20.0, 1.0)
+            blended = static * (1 - trust) + static * empirical * 2 * trust
+            weights[fid] = max(blended, 0.1)
+        self._dynamic_prior_cache = weights
+        self._dynamic_prior_time  = now
+        return weights
+
+    def get_top_questions_per_fetish(self, top_n=5):
+        """各性癖について P(yes) が高い/低い質問を返す（DOMAIN_PRIORS整備の参考用）。"""
+        result = []
+        nq = len(self.questions)
+        for fi, f in enumerate(self.fetishes):
+            probs = [(q, self._prob(fi, q)) for q in range(nq)]
+            probs.sort(key=lambda x: x[1], reverse=True)
+            high = [{'q_id': q, 'text': self.questions[q]['text'], 'p': round(p, 3)}
+                    for q, p in probs[:top_n]]
+            low  = [{'q_id': q, 'text': self.questions[q]['text'], 'p': round(p, 3)}
+                    for q, p in probs[-top_n:]]
+            result.append({'fetish_id': f['id'], 'fetish_name': f['name'],
+                           'high': high, 'low': low})
+        return result
+
     # ── 推論 ───────────────────────────────────────────────
     def _prob(self, f, q):
         y = self.matrix['yes'][f][q]
@@ -803,9 +866,12 @@ class Engine:
         return max(min(y / t, 0.999), 0.001)
 
     def posteriors(self, answers):
+        self._reload_matrix_if_stale()
         nf = len(self.fetishes)
         nq = len(self.questions)
-        log_p = [math.log(FETISH_PRIOR_WEIGHTS.get(self.fetishes[f]['id'], 1.0))
+        dyn = self._get_dynamic_prior_weights()
+        log_p = [math.log(dyn.get(self.fetishes[f]['id'],
+                                  FETISH_PRIOR_WEIGHTS.get(self.fetishes[f]['id'], 1.0)))
                  for f in range(nf)]
         for q_str, ans in answers.items():
             try:

@@ -92,10 +92,18 @@ def sw():
 
 @app.route('/api/start', methods=['POST'])
 def start():
+    data = request.get_json(silent=True) or {}
+    exclude_ids = []
+    for eid in data.get('exclude_ids', []):
+        try:
+            exclude_ids.append(int(eid))
+        except (ValueError, TypeError):
+            pass
     session.clear()
-    session['answers'] = {}
-    session['asked']   = []
-    session['started'] = True
+    session['answers']     = {}
+    session['asked']       = []
+    session['started']     = True
+    session['exclude_ids'] = exclude_ids
     q = engine.best_question({}, set())
     session['asked'].append(q)
     return jsonify({
@@ -143,8 +151,10 @@ def answer():
     second_p = top2[1][1] if len(top2) > 1 else 0.0
     count = len(asked)
 
-    # 終了条件: idk連続4回 / 問題数上限 / 通常閾値 / 早期打ち切り（5問以上かつ確信度高）
-    early_stop = count >= 5 and top_p >= 0.65 and (top_p - second_p) >= 0.25
+    # 終了条件: idk連続4回 / 問題数上限 / 通常閾値 / 早期打ち切り（比率ベース）
+    gap_ratio  = top_p / max(second_p, 0.001)
+    early_stop = (count >= 4 and top_p >= 0.70 and gap_ratio >= 3.0) or \
+                 (count >= 8 and top_p >= 0.55 and gap_ratio >= 2.5)
     if idk_streak >= 4 or top_p >= GUESS_THRESHOLD or count >= MAX_QUESTIONS or early_stop:
         return _make_guess(answers)
 
@@ -212,7 +222,12 @@ def _compute_guess(answers):
     """診断結果を返す（play_count はインクリメントしない、純粋計算）。
     レスポンスの fetish_id 系は全てDB id（永続的・プレイヤー追加性癖でも安全）。"""
     probs   = engine.posteriors(answers)
+    exclude_ids = set(session.get('exclude_ids', []))
     ranked  = sorted(range(len(probs)), key=lambda i: probs[i], reverse=True)
+    # exclude_ids に該当するものを末尾に退ける（除外優先、0件なら通常通り）
+    if exclude_ids:
+        ranked = [i for i in ranked if engine.fetishes[i]['id'] not in exclude_ids] + \
+                 [i for i in ranked if engine.fetishes[i]['id'] in exclude_ids]
     best_i  = ranked[0]
     best_p  = probs[best_i]
     best_f  = engine.fetishes[best_i]
@@ -463,10 +478,12 @@ def admin():
             'guessed': guessed, 'correct': correct, 'wrong': wrong, 'acc': acc,
         })
     fetish_log_rows.sort(key=lambda r: -r['guessed'])
+    domain_suggestions = engine.get_top_questions_per_fetish(top_n=5)
     return render_template('admin.html', stats=stats, play_count=s['play_count'],
                            learn_count=s['learn_count'], player_fetishes=player_fetishes,
                            question_stats=question_stats, corr_stats=corr_stats,
-                           fetish_log_rows=fetish_log_rows)
+                           fetish_log_rows=fetish_log_rows,
+                           domain_suggestions=domain_suggestions)
 
 
 @app.route('/api/admin/toggle_question/<int:q_id>', methods=['POST'])
