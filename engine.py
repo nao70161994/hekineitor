@@ -1453,6 +1453,34 @@ class Engine:
         """DB id から配列インデックスを取得する。見つからなければ None。"""
         return next((i for i, f in enumerate(self.fetishes) if f['id'] == db_id), None)
 
+    def edit_fetish(self, fetish_id, name=None, desc=None):
+        """性癖の名前・説明文を更新する。変更したフィールドのみ渡す。"""
+        with self._lock:
+            idx = self.index_of(fetish_id)
+            if idx is None:
+                return False
+            if name is not None:
+                self.fetishes[idx]['name'] = name
+            if desc is not None:
+                self.fetishes[idx]['desc'] = desc
+            if _use_db():
+                conn = _get_conn()
+                try:
+                    with conn:
+                        cur = conn.cursor()
+                        if name is not None and desc is not None:
+                            cur.execute('UPDATE fetishes SET name=%s, "desc"=%s WHERE id=%s',
+                                        (name, desc, fetish_id))
+                        elif name is not None:
+                            cur.execute('UPDATE fetishes SET name=%s WHERE id=%s', (name, fetish_id))
+                        else:
+                            cur.execute('UPDATE fetishes SET "desc"=%s WHERE id=%s', (desc, fetish_id))
+                finally:
+                    _put_conn(conn)
+            else:
+                self._save_fetishes_file()
+        return True
+
     def delete_fetish(self, fetish_id):
         """プレイヤー追加性癖（ID >= PLAYER_FETISH_BASE_ID）を削除する。"""
         with self._lock:

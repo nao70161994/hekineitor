@@ -763,9 +763,19 @@ function showQuestion(data) {
 }
 
 async function goBack() {
-  const data = await apiFetch('/api/back');
-  if (data.status === 'no_history') return;
-  showQuestion(data);
+  if (_fetching) return;
+  _fetching = true;
+  const backBtn = document.getElementById('btn-back');
+  if (backBtn) backBtn.disabled = true;
+  try {
+    const data = await apiFetch('/api/back');
+    if (data.status === 'no_history') return;
+    showQuestion(data);
+  } finally {
+    _fetching = false;
+    if (backBtn) backBtn.disabled = false;
+    setAnswerButtons(false);
+  }
 }
 
 async function sendAnswer(ans) {

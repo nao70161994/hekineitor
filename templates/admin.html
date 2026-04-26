@@ -160,10 +160,11 @@ renderStatsChart(30);
   {% for f in player_fetishes %}
   <tr id="pfrow-{{ f.id }}">
     <td style="color:#666;font-size:0.8rem">{{ f.id }}</td>
-    <td>{{ f.name }}</td>
-    <td style="color:#888;font-size:0.82rem">{{ f.desc }}</td>
-    <td style="display:flex;gap:4px;">
+    <td id="pfname-{{ f.id }}">{{ f.name }}</td>
+    <td style="color:#888;font-size:0.82rem" id="pfdesc-{{ f.id }}">{{ f.desc }}</td>
+    <td style="display:flex;gap:4px;flex-wrap:wrap;">
       <button class="btn-toggle" onclick="promotePlayerFetish({{ f.id }}, this)" title="シード性癖に格上げ">↑格上げ</button>
+      <button class="btn-toggle" onclick="editFetish({{ f.id }}, this)">編集</button>
       <button class="btn-toggle disabled" onclick="deletePlayerFetish({{ f.id }}, this)">削除</button>
     </td>
   </tr>
@@ -172,6 +173,20 @@ renderStatsChart(30);
 {% else %}
 <p style="color:#555;font-size:0.85rem;margin-top:32px;">プレイヤーが追加した性癖はまだありません。</p>
 {% endif %}
+
+<details style="margin-top:16px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">シード性癖を編集</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">性癖IDを指定して名前・説明文を変更します。</p>
+<div style="display:flex;flex-direction:column;gap:6px;max-width:420px;">
+  <input id="ef-id" type="number" placeholder="性癖ID" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+  <input id="ef-name" type="text" placeholder="名前（変更する場合のみ）" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+  <input id="ef-desc" type="text" placeholder="説明文（変更する場合のみ）" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button class="btn-action" onclick="editFetishById()">保存</button>
+    <span id="ef-msg" style="font-size:0.8rem;"></span>
+  </div>
+</div>
+</details>
 
 <details style="margin-top:40px;">
 <summary style="color:#888;font-size:0.85rem;cursor:pointer;">質問の識別力（低い順、展開で表示）</summary>
@@ -340,6 +355,57 @@ async function promotePlayerFetish(fid, btn) {
   } else {
     alert(data.message || '格上げに失敗しました');
     btn.disabled = false;
+  }
+}
+
+async function editFetish(fid, btn) {
+  const nameEl = document.getElementById(`pfname-${fid}`);
+  const descEl = document.getElementById(`pfdesc-${fid}`);
+  if (btn.dataset.editing) {
+    const name = nameEl.querySelector('input').value.trim();
+    const desc = descEl.querySelector('input').value.trim();
+    btn.disabled = true;
+    const res  = await adminFetch(`/api/admin/edit_fetish/${fid}`, {method: 'POST', body: JSON.stringify({name, desc})});
+    btn.disabled = false;
+    if (!res) return;
+    const data = await res.json();
+    if (res.ok) {
+      nameEl.textContent = data.name;
+      descEl.textContent = data.desc;
+      delete btn.dataset.editing;
+      btn.textContent = '編集';
+    } else {
+      alert(data.message || '保存に失敗しました');
+    }
+  } else {
+    const curName = nameEl.textContent;
+    const curDesc = descEl.textContent;
+    nameEl.innerHTML = `<input value="${curName.replace(/"/g,'&quot;')}" style="background:#1a1a2e;color:#eee;border:1px solid #555;padding:2px 6px;border-radius:4px;font-size:0.82rem;width:100%">`;
+    descEl.innerHTML = `<input value="${curDesc.replace(/"/g,'&quot;')}" style="background:#1a1a2e;color:#eee;border:1px solid #555;padding:2px 6px;border-radius:4px;font-size:0.82rem;width:100%">`;
+    btn.dataset.editing = '1';
+    btn.textContent = '保存';
+  }
+}
+
+async function editFetishById() {
+  const fid  = parseInt(document.getElementById('ef-id').value);
+  const name = document.getElementById('ef-name').value.trim() || undefined;
+  const desc = document.getElementById('ef-desc').value.trim() || undefined;
+  const msg  = document.getElementById('ef-msg');
+  if (!fid) { msg.style.color = '#e74c3c'; msg.textContent = 'IDを入力してください'; return; }
+  const body = {};
+  if (name) body.name = name;
+  if (desc) body.desc = desc;
+  const res  = await adminFetch(`/api/admin/edit_fetish/${fid}`, {method: 'POST', body: JSON.stringify(body)});
+  if (!res) return;
+  const data = await res.json();
+  if (res.ok) {
+    msg.style.color = '#27ae60';
+    msg.textContent = `保存しました: ${data.name}`;
+    setTimeout(() => msg.textContent = '', 3000);
+  } else {
+    msg.style.color = '#e74c3c';
+    msg.textContent = data.message || 'エラーが発生しました';
   }
 }
 

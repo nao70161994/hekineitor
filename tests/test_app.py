@@ -399,5 +399,54 @@ class TestAPI(unittest.TestCase):
         self.assertIn(data.get('action'), ('question', 'guess'))
 
 
+    def test_health_endpoint(self):
+        res = self.client.get('/health')
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertIn('fetishes', data)
+        self.assertIn('questions', data)
+        self.assertGreater(data['fetishes'], 0)
+        self.assertGreater(data['questions'], 0)
+
+    def _admin_headers(self):
+        import base64
+        os.environ['ADMIN_PASS'] = 'testpass'
+        creds = base64.b64encode(b'admin:testpass').decode()
+        return {'Authorization': f'Basic {creds}'}
+
+    def test_export_log_returns_csv(self):
+        headers = self._admin_headers()
+        res = self.client.get('/api/admin/export_log', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('text/csv', res.content_type)
+        body = res.data.decode('utf-8')
+        self.assertTrue(body.startswith('id,name,guessed,correct,wrong,accuracy'))
+
+    def test_export_matrix_returns_json(self):
+        headers = self._admin_headers()
+        res = self.client.get('/api/admin/export_matrix', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('application/json', res.content_type)
+        data = res.get_json()
+        self.assertIn('fetishes', data)
+        self.assertIn('matrix_rows', data)
+        self.assertGreater(len(data['matrix_rows']), 0)
+
+    def test_edit_fetish(self):
+        from app import engine as app_engine
+        headers = self._admin_headers()
+        fid = app_engine.fetishes[0]['id']
+        orig_name = app_engine.fetishes[0]['name']
+        try:
+            res = self.client.post(f'/api/admin/edit_fetish/{fid}',
+                json={'name': 'テスト編集名'}, headers=headers)
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.get_json()['name'], 'テスト編集名')
+            self.assertEqual(app_engine.fetishes[0]['name'], 'テスト編集名')
+        finally:
+            app_engine.edit_fetish(fid, name=orig_name)
+
+
 if __name__ == '__main__':
     unittest.main()

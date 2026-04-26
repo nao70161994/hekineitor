@@ -678,6 +678,38 @@ def admin_promote_fetish(fetish_id):
     return jsonify({'status': 'promoted', 'old_id': fetish_id, 'new_id': new_id})
 
 
+@app.route('/api/admin/edit_fetish/<int:fetish_id>', methods=['POST'])
+@_require_admin
+def admin_edit_fetish(fetish_id):
+    data = request.get_json(silent=True) or {}
+    name = data.get('name', '').strip() or None
+    desc = data.get('desc', '').strip() if 'desc' in data else None
+    if name is not None and len(name) > 50:
+        return jsonify({'status': 'error', 'message': '名前は50文字以内'}), 400
+    ok = engine.edit_fetish(fetish_id, name=name, desc=desc)
+    if not ok:
+        return jsonify({'status': 'error', 'message': '見つかりません'}), 404
+    idx = engine.index_of(fetish_id)
+    f = engine.fetishes[idx]
+    return jsonify({'status': 'ok', 'name': f['name'], 'desc': f['desc']})
+
+
+@app.route('/health')
+def health():
+    db_ok = False
+    if _use_db():
+        try:
+            conn = _get_conn()
+            conn.cursor().execute('SELECT 1')
+            _put_conn(conn)
+            db_ok = True
+        except Exception:
+            pass
+    return jsonify({'status': 'ok', 'db': db_ok,
+                    'fetishes': len(engine.fetishes),
+                    'questions': len(engine.questions)})
+
+
 @app.route('/api/admin/export_matrix', methods=['GET'])
 @_require_admin
 def admin_export_matrix():
