@@ -114,9 +114,13 @@ _secret = os.environ.get('SECRET_KEY')
 if not _secret:
     if os.environ.get('DATABASE_URL'):
         raise RuntimeError('本番環境では SECRET_KEY 環境変数の設定が必須です')
-    import warnings
+    import sys, warnings
+    print('WARNING: SECRET_KEY が未設定です。本番環境では環境変数に設定してください。', file=sys.stderr)
     warnings.warn('SECRET_KEY が未設定です。本番環境では環境変数に設定してください。', stacklevel=1)
     _secret = 'hekineitor_dev_secret_2024'
+elif len(_secret) < 16:
+    import sys
+    print('WARNING: SECRET_KEY が短すぎます（16文字以上推奨）。', file=sys.stderr)
 app.secret_key = _secret
 app.session_interface = _ServerSessionInterface()
 
@@ -175,6 +179,16 @@ def _find_similar(name, fetishes):
 @app.route('/')
 def index():
     return render_template('index.html', display_version=DISPLAY_VERSION)
+
+
+@app.route('/r')
+def result_share():
+    name = request.args.get('f', '')[:60]
+    prob = request.args.get('p', '')[:5]
+    desc = request.args.get('d', '')[:120]
+    return render_template('result_share.html',
+                           fetish_name=name, probability=prob, desc=desc,
+                           display_version=DISPLAY_VERSION)
 
 
 @app.route('/manifest.json')

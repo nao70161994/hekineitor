@@ -89,7 +89,12 @@
 <span id="cleanup-msg" style="color:#aaa;font-size:0.8rem;margin-left:10px;"></span>
 </details>
 
-<h2 style="color:#eee;font-size:1rem;margin-bottom:6px;">学習データ量</h2>
+{% set low_count = stats | selectattr('data_weight', 'lt', 10) | list | length %}
+<h2 style="color:#eee;font-size:1rem;margin-bottom:6px;">学習データ量
+  {% if low_count > 0 %}
+  <span style="background:#e74c3c;color:#fff;border-radius:10px;font-size:0.72rem;padding:1px 8px;margin-left:8px;vertical-align:middle;">要学習 {{ low_count }}件</span>
+  {% endif %}
+</h2>
 <p class="sub" style="margin-bottom:8px;">少ない性癖ほど要プレイ。</p>
 <p style="color:#f5a623;font-size:1rem;margin-bottom:6px;">
   累計プレイ回数（最後まで）: <strong>{{ play_count }}</strong> 回

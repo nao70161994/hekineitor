@@ -457,6 +457,32 @@ class TestAPI(unittest.TestCase):
         data = res.get_json()
         self.assertIn(data.get('action'), ('question',))
 
+    def test_edit_question(self):
+        headers = self._admin_headers()
+        from app import engine as app_engine
+        orig = app_engine.questions[0]['text']
+        try:
+            res = self.client.post('/api/admin/edit_question/0',
+                json={'text': 'テスト用質問文'}, headers=headers)
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.get_json()['text'], 'テスト用質問文')
+            self.assertEqual(app_engine.questions[0]['text'], 'テスト用質問文')
+        finally:
+            app_engine.edit_question(0, orig)
+
+    def test_edit_question_empty_text_rejected(self):
+        headers = self._admin_headers()
+        res = self.client.post('/api/admin/edit_question/0',
+            json={'text': '  '}, headers=headers)
+        self.assertEqual(res.status_code, 400)
+
+    def test_result_share_page(self):
+        res = self.client.get('/r?f=NTR&p=82&d=テスト')
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        self.assertIn('NTR', body)
+        self.assertIn('82', body)
+
     def test_edit_fetish(self):
         from app import engine as app_engine
         headers = self._admin_headers()

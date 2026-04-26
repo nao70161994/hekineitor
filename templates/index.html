@@ -833,7 +833,15 @@ function showGuess(data) {
   }
   _diagnosedName = lastFetishName;
   document.getElementById('result-desc').textContent = data.fetish_desc;
-  document.getElementById('result-prob').textContent = `一致度: ${data.probability}%`;
+  const probEl  = document.getElementById('result-prob');
+  const target  = data.probability;
+  let current   = 0;
+  const step    = Math.max(1, Math.round(target / 30));
+  const timer   = setInterval(() => {
+    current = Math.min(current + step, target);
+    probEl.textContent = `一致度: ${current}%`;
+    if (current >= target) clearInterval(timer);
+  }, 30);
 
   // 確率バーグラフ（上位5件）
   const chartEl = document.getElementById('top-chart');
@@ -1175,13 +1183,21 @@ async function addFetishDone() {
 }
 
 function shareResult() {
-  const appUrl = window.location.origin;
-  const text = `へきネイターで診断したら「${_diagnosedName}」でした！\nあなたの性癖も試してみて → ${appUrl} #へきネイター`;
+  const origin  = window.location.origin;
+  const guessData = window._guessData || {};
+  const name = _diagnosedName;
+  const prob = guessData.probability || '';
+  const desc = (guessData.fetish_desc || '').slice(0, 80);
+  const shareUrl = `${origin}/r?f=${encodeURIComponent(name)}&p=${prob}&d=${encodeURIComponent(desc)}`;
+  const text = `へきネイターで診断したら「${name}」でした！（一致度${prob}%）\n${shareUrl} #へきネイター`;
+  if (navigator.share) {
+    navigator.share({title: `私の性癖は「${name}」`, text, url: shareUrl}).catch(() => {});
+    return;
+  }
   if (navigator.clipboard) {
     navigator.clipboard.writeText(text).then(() => showToast('クリップボードにコピーしました', '#27ae60'));
   }
-  const url = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text);
-  window.open(url, '_blank', 'noopener');
+  window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(text), '_blank', 'noopener');
 }
 // インストール促進
 let deferredPrompt = null;

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ fetish_name }} — へきネイター {{ display_version }}</title>
+<meta property="og:title" content="私の性癖は「{{ fetish_name }}」でした！">
+<meta property="og:description" content="一致度 {{ probability }}%{% if desc %} — {{ desc }}{% endif %} | へきネイターで診断">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="私の性癖は「{{ fetish_name }}」でした！">
+<meta name="twitter:description" content="一致度 {{ probability }}% | あなたの性癖も診断してみよう → へきネイター">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+    background: #1a1a2e; color: #eee;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 24px 16px;
+  }
+  .card {
+    background: #16213e; border-radius: 16px;
+    padding: 32px 24px; width: 100%; max-width: 400px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    text-align: center;
+  }
+  .label { color: #888; font-size: 0.85rem; margin-bottom: 8px; }
+  .name { color: #e94560; font-size: 1.6rem; font-weight: bold; margin-bottom: 8px; }
+  .prob { color: #f5a623; font-size: 1.1rem; margin-bottom: 12px; }
+  .desc { color: #aaa; font-size: 0.88rem; line-height: 1.6; margin-bottom: 24px; }
+  .btn {
+    display: inline-block; background: linear-gradient(135deg,#e94560,#f5a623);
+    color: #fff; border-radius: 10px; padding: 14px 24px;
+    font-size: 1rem; font-weight: bold; text-decoration: none;
+    width: 100%;
+  }
+  .sub { color: #555; font-size: 0.78rem; margin-top: 16px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="label">🔮 へきネイター診断結果</div>
+  {% if fetish_name %}
+  <div class="name">{{ fetish_name }}</div>
+  {% if probability %}<div class="prob">一致度 {{ probability }}%</div>{% endif %}
+  {% if desc %}<div class="desc">{{ desc }}</div>{% endif %}
+  {% else %}
+  <div class="name" style="color:#555">結果が見つかりません</div>
+  {% endif %}
+  <a class="btn" href="/">あなたの性癖を診断する →</a>
+  <div class="sub">へきネイター {{ display_version }}</div>
+</div>
+</body>
+</html>
