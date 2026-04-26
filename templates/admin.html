@@ -61,6 +61,28 @@
 </details>
 
 <details style="margin-bottom:24px;">
+<summary style="color:#888;font-size:0.9rem;cursor:pointer;">学習済みPriorsのキャプチャ</summary>
+<p style="color:#555;font-size:0.78rem;margin:8px 0;">現在の学習済みmatrixから各性癖の P(yes) を <code>learned_priors.json</code> に保存します。<br>matrix.jsonをリセットして再構築する際に DOMAIN_PRIORS の代わりに使用されます。</p>
+<button class="btn-action" onclick="capturepriors()">現在のmatrixをpriorとして保存</button>
+<span id="capture-msg" style="color:#aaa;font-size:0.8rem;margin-left:10px;"></span>
+</details>
+
+<details style="margin-bottom:24px;">
+<summary style="color:#f5a623;font-size:0.9rem;cursor:pointer;margin-bottom:8px;">性癖を手動追加</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">管理者が直接性癖を追加できます。追加後は「学習データ量」欄に新しく表示されます。</p>
+<div class="param-row">
+  <label>名前</label>
+  <input type="text" id="af-name" placeholder="例：眼鏡っ娘" style="width:180px;">
+</div>
+<div class="param-row">
+  <label>説明</label>
+  <input type="text" id="af-desc" placeholder="省略可（省略時は名前を使用）" style="width:260px;">
+</div>
+<button class="btn-save" onclick="adminAddFetish()">追加</button>
+<span id="af-msg" style="font-size:0.8rem;margin-left:10px;"></span>
+</details>
+
+<details style="margin-bottom:24px;">
 <summary style="color:#888;font-size:0.9rem;cursor:pointer;">セッション管理</summary>
 <p style="color:#555;font-size:0.78rem;margin:8px 0;">期限切れセッションはリクエスト時に自動削除（1%確率）されますが、手動で全掃除もできます。</p>
 <button class="btn-action" onclick="cleanupSessions()">期限切れセッションを削除</button>
@@ -217,6 +239,39 @@ async function cleanupSessions() {
   const res = await fetch('/api/admin/cleanup_sessions', {method: 'POST'});
   const data = await res.json();
   document.getElementById('cleanup-msg').textContent = `${data.deleted} 件削除しました`;
+}
+
+async function capturepriors() {
+  const res = await fetch('/api/admin/capture_priors', {method: 'POST'});
+  const data = await res.json();
+  const msg = document.getElementById('capture-msg');
+  msg.style.color = data.status === 'ok' ? '#27ae60' : '#e74c3c';
+  msg.textContent = data.status === 'ok' ? '保存しました' : 'エラーが発生しました';
+  setTimeout(() => msg.textContent = '', 3000);
+}
+
+async function adminAddFetish() {
+  const name = document.getElementById('af-name').value.trim();
+  const desc = document.getElementById('af-desc').value.trim();
+  const msg  = document.getElementById('af-msg');
+  if (!name) { msg.style.color = '#e74c3c'; msg.textContent = '名前を入力してください'; return; }
+  const res  = await fetch('/api/admin/add_fetish', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({name, desc})
+  });
+  const data = await res.json();
+  if (data.status === 'created') {
+    msg.style.color = '#27ae60';
+    msg.textContent = `追加しました (ID: ${data.fetish_id})`;
+    document.getElementById('af-name').value = '';
+    document.getElementById('af-desc').value = '';
+  } else if (data.status === 'exists') {
+    msg.style.color = '#f5a623';
+    msg.textContent = `既に存在します (ID: ${data.fetish_id})`;
+  } else {
+    msg.style.color = '#e74c3c';
+    msg.textContent = data.message || 'エラーが発生しました';
+  }
 }
 
 async function toggleQuestion(qId) {

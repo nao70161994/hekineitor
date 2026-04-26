@@ -172,9 +172,8 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(data['status'], 'learned')
         self.assertTrue(data['is_new'])
         self.assertGreaterEqual(data['fetish_id'], PLAYER_FETISH_BASE_ID)
-        # テスト後ロールバック
-        app_engine.fetishes = [f for f in app_engine.fetishes
-                               if f['id'] != data['fetish_id']]
+        # テスト後ロールバック（DB・JSONファイルも含む完全削除）
+        app_engine.delete_fetish(data['fetish_id'])
 
     # ── finalize_added ─────────────────────────────────────
     def test_finalize_added_existing_fetish(self):
@@ -301,6 +300,25 @@ class TestAPI(unittest.TestCase):
         before = log_before.get(0, {}).get('correct', 0)
         after  = log_after.get(0, {}).get('correct', 0)
         self.assertGreater(after, before)
+
+    # ── finalize_added cooccurrence ───────────────────────
+    def test_finalize_added_cooccurrence_learns_multiple(self):
+        """finalize_added で複数性癖を渡すと両方が学習されること。"""
+        from app import engine as app_engine
+        start = self._start()
+        q = start['question_id']
+        self.client.post('/api/answer', json={'question_id': q, 'answer': 1.0})
+        f0_id = app_engine.fetishes[0]['id']
+        f1_id = app_engine.fetishes[1]['id']
+        before0 = sum(app_engine.matrix['total'][0])
+        before1 = sum(app_engine.matrix['total'][1])
+        res = self.client.post('/api/finalize_added', json={
+            'items': [{'id': f0_id, 'is_new': False}, {'id': f1_id, 'is_new': False}]
+        })
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()['status'], 'done')
+        self.assertGreater(sum(app_engine.matrix['total'][0]), before0)
+        self.assertGreater(sum(app_engine.matrix['total'][1]), before1)
 
     # ── cooccurrence ──────────────────────────────────────
     def test_confirm_compound_correct_learns(self):

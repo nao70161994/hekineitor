@@ -449,7 +449,7 @@ def confirm():
                 continue
             candidates.append((probs[i], f))
         candidates.sort(key=lambda t: t[0], reverse=True)
-        sorted_fetishes = [f for _, f in candidates[:20]]
+        sorted_fetishes = [dict(f, prob=round(p * 100, 1)) for p, f in candidates[:20]]
         # add_only=True は正解追加目的のリスト取得なので wrong_db_ids を設定しない
         if not data.get('add_only', False):
             session['wrong_db_ids'] = list(excluded_db_ids)
@@ -633,6 +633,32 @@ def update_params():
 def admin_cleanup_sessions():
     deleted = cleanup_sessions()
     return jsonify({'status': 'ok', 'deleted': deleted})
+
+
+@app.route('/api/admin/add_fetish', methods=['POST'])
+@_require_admin
+def admin_add_fetish():
+    data = request.get_json(silent=True) or {}
+    name = data.get('name', '').strip()
+    desc = data.get('desc', '').strip()
+    if not name:
+        return jsonify({'status': 'error', 'message': '名前を入力してください'}), 400
+    if len(name) > 100:
+        return jsonify({'status': 'error', 'message': '名前は100文字以内'}), 400
+    existing = next((f for f in engine.fetishes if f['name'] == name), None)
+    if existing:
+        return jsonify({'status': 'exists', 'fetish_id': existing['id'], 'fetish_name': existing['name']})
+    if not desc:
+        desc = name
+    _, db_id = engine.add_fetish(name, desc, {})
+    return jsonify({'status': 'created', 'fetish_id': db_id, 'fetish_name': name})
+
+
+@app.route('/api/admin/capture_priors', methods=['POST'])
+@_require_admin
+def admin_capture_priors():
+    engine.capture_learned_priors()
+    return jsonify({'status': 'ok'})
 
 
 if __name__ == '__main__':

@@ -507,7 +507,7 @@
     <div id="confirm-items"></div>
     <button class="btn btn-correct" style="width:100%;margin-top:4px;" onclick="submitConfirm()">確定して学習</button>
     <button class="btn btn-idk" style="width:100%;margin-top:6px;font-size:0.82rem;" onclick="showStart()">スキップ</button>
-    <button class="btn btn-idk" style="width:100%;margin-top:4px;font-size:0.82rem;opacity:0.75;" onclick="startExcluding()">別の性癖を探す →</button>
+    <button class="btn btn-idk btn-exclude" style="width:100%;margin-top:4px;font-size:0.82rem;opacity:0.75;" onclick="startExcluding()">別の性癖を探す →</button>
   </div>
 
   <!-- 正解選択画面 -->
@@ -548,7 +548,7 @@
     <br>
     <button class="btn-share" onclick="shareResult()">結果をシェア / コピー</button>
     <button class="btn btn-retry" onclick="showStart()">もう一回</button>
-    <button class="btn btn-idk" style="width:100%;margin-top:6px;font-size:0.85rem;" onclick="startExcluding()">別の性癖を探す →</button>
+    <button class="btn btn-idk btn-exclude" style="width:100%;margin-top:6px;font-size:0.85rem;" onclick="startExcluding()">別の性癖を探す →</button>
   </div>
 
 </div>
@@ -580,6 +580,7 @@ function show(id) {
   ['start-screen','question-screen','result-screen','teach-screen','done-screen']
     .forEach(s => document.getElementById(s).classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
+  if (id === 'result-screen' || id === 'done-screen') _updateExcludeButtons();
 }
 
 function setGenieState(state) {
@@ -700,6 +701,12 @@ async function apiFetch(url, body, timeoutMs = 30000) {
 
 function setAnswerButtons(disabled) {
   document.querySelectorAll('#question-screen .btn').forEach(b => b.disabled = disabled);
+}
+
+function _updateExcludeButtons() {
+  const n = (window._excludedIds || []).length;
+  const label = n > 0 ? `別の性癖を探す (${n}件除外済み) →` : '別の性癖を探す →';
+  document.querySelectorAll('.btn-exclude').forEach(b => b.textContent = label);
 }
 
 function startExcluding() {
@@ -894,7 +901,7 @@ async function submitConfirm() {
       const div = document.createElement('div');
       div.className = 'fetish-item';
       div.id = `ti-${f.id}`;
-      div.textContent = f.name;
+      div.textContent = f.name + (f.prob != null ? ` (${f.prob}%)` : '');
       div.onclick = () => toggleTeachItem(f.id, f.name, div);
       list.appendChild(div);
     });
@@ -926,7 +933,7 @@ async function submitConfirm() {
     const div = document.createElement('div');
     div.className = 'fetish-item';
     div.id = `ti-${f.id}`;
-    div.textContent = f.name;
+    div.textContent = f.name + (f.prob != null ? ` (${f.prob}%)` : '');
     div.onclick = () => toggleTeachItem(f.id, f.name, div);
     list.appendChild(div);
   });

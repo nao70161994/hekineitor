@@ -453,6 +453,24 @@ class Engine:
         nf = len(self.fetishes)
         nq = len(self.questions)
         yes, total = _build_initial_matrix(nf, nq)
+        # キャプチャ済みの学習priorがあれば DOMAIN_PRIORS より優先して上書き
+        lp_path = os.path.join(DATA_DIR, 'learned_priors.json')
+        if os.path.exists(lp_path):
+            try:
+                with open(lp_path, encoding='utf-8') as f:
+                    learned = json.load(f)
+                id_to_idx = {fobj['id']: i for i, fobj in enumerate(self.fetishes)}
+                for fid_str, row in learned.items():
+                    fi = id_to_idx.get(int(fid_str))
+                    if fi is None:
+                        continue
+                    for q_str, p in row.items():
+                        q = int(q_str)
+                        if 0 <= q < nq:
+                            yes[fi][q]   = float(p) * PSEUDO
+                            total[fi][q] = float(PSEUDO)
+            except Exception:
+                pass
         m = {'yes': yes, 'total': total}
         self.matrix = m
         self._save_matrix_file()
@@ -1387,6 +1405,24 @@ class Engine:
                 self._save_fetishes_file()
                 self._save_matrix_file()
         return True
+
+    def capture_learned_priors(self):
+        """現在の P(yes) を learned_priors.json として保存する。
+        matrix.json を削除して再初期化する際に DOMAIN_PRIORS の代替として使用される。"""
+        nf = len(self.fetishes)
+        nq = len(self.questions)
+        snapshot = {}
+        for fi in range(nf):
+            fid = self.fetishes[fi]['id']
+            row = {}
+            for q in range(nq):
+                p = self._prob(fi, q)
+                if abs(p - 0.5) > 0.05:
+                    row[str(q)] = round(p, 4)
+            if row:
+                snapshot[str(fid)] = row
+        path = os.path.join(DATA_DIR, 'learned_priors.json')
+        self._atomic_write(path, snapshot, ensure_ascii=False)
 
     def get_related(self, fetish_id):
         related_ids = FETISH_RELATIONS.get(fetish_id, [])
