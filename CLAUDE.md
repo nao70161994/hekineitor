@@ -8,13 +8,13 @@
 - `engine.py` — ベイズ推論エンジン。情報利得で次の質問を選択
 - `templates/index.html` — シングルページUI（PWA対応）
 - `templates/admin.html` — 管理画面（学習データ量・質問無効化・診断ログ・相関分析）
-- `data/` — questions.json（93問）/ fetishes.json（99件）/ matrix.json（ローカル用・gitignore済み）
+- `data/` — questions.json（93問）/ fetishes.json（99件）/ matrix.json・learned_priors.json（ローカル用・gitignore済み）
 
 ## データ永続化
 
 - `DATABASE_URL` 環境変数があればPostgreSQL（Render）を使用
-- なければ `data/` 以下にローカル保存（matrix.json / fetish_log.json / question_flags.json）
-- DBテーブル: `fetishes`, `matrix`, `stats`, `fetish_log`, `sessions`（サーバーサイドセッション）
+- なければ `data/` 以下にローカル保存（matrix.json / fetish_log.json / question_flags.json / config.json）
+- DBテーブル: `fetishes`, `matrix`, `stats`, `fetish_log`, `sessions`, `config`（サーバーサイドセッション）
 - 起動時に fetishes.json・questions.json との差分を自動マイグレーション（新規追加のみ）
 
 ## 推論ロジック（engine.py）
@@ -28,6 +28,8 @@
 - **UCB探索ボーナス**（`UCB_EXPLORE_C=0.05`）：使用回数が少ない質問にボーナス。`ask_count / n_fetishes` 正規化で性癖追加時に自動復活
 - 確率が `GUESS_THRESHOLD=0.75` 超 or 質問数が `MAX_QUESTIONS=20` で診断確定
 - **早期打ち切り**：`gap_ratio`（1位/2位の確率比）が高い場合に早期終了（4問以上で3倍差 or 8問以上で2.5倍差）
+- **接戦抑制**：`gap_ratio < 1.8` かつ `count < 10` の場合は `effective_thr = min(guess_thr + 0.10, 0.90)` に引き上げ
+- **わからない弱推論**：`ans == 0` を完全スキップせず `−0.05 × |P(yes)−0.5|` の微弱な否定的証拠として posteriors に加算
 - わからない4連続で診断確定
 - **複数worker対応**：DB使用時に `posteriors()` が5秒TTLでmatrixをリロード（`_MATRIX_RELOAD_INTERVAL`）
 - **質問の無効化**：`disabled_questions` セットに含まれる質問は `best_question()` でスキップ。DB/JSONに永続化
@@ -38,6 +40,8 @@
 - 0.5/-0.5（どちらかといえば）の回答も強さに比例して学習
 - `add_fetish()` で新しい性癖を追加。現在の回答から事後確率が最も高い既存性癖を自動でテンプレートに使用
 - `boost_learn_new()` で新規追加性癖の初期ブースト（`_learn_silent` × 3 + `learn` × 1）
+- `promote_fetish(old_id)` でプレイヤー追加性癖（ID≥10000）をシード性癖に格上げ（次の空きIDに変更）
+- `capture_learned_priors()` で現在の P(yes) を `data/learned_priors.json` に保存。`_init_matrix_file` がこれを使ってDOMAIN_PRIORSより優先的に初期化
 - `index_of(db_id)` でDB idから配列インデックスを取得
 - `get_question_stats()` で質問ごとの識別力（disc）+ 無効化フラグ一覧を返す
 - `get_fetish_log()` / `log_guessed/correct/wrong()` で診断ログを管理
@@ -105,6 +109,11 @@
 | DELETE | /api/fetish/&lt;id&gt; | プレイヤー追加性癖を削除（ID ≥ 10000 のみ可） |
 | GET  | /admin | 管理画面（Basic認証必須） |
 | POST | /api/admin/toggle_question/&lt;id&gt; | 質問の有効/無効を切り替え（Basic認証必須） |
+| POST | /api/admin/params | 推論パラメータを更新（Basic認証必須） |
+| POST | /api/admin/cleanup_sessions | 期限切れセッションを手動削除（Basic認証必須） |
+| POST | /api/admin/add_fetish | 管理者が性癖を手動追加（Basic認証必須） |
+| POST | /api/admin/capture_priors | 現在の P(yes) を learned_priors.json に保存（Basic認証必須） |
+| POST | /api/admin/promote_fetish/&lt;id&gt; | プレイヤー追加性癖をシード性癖に格上げ（Basic認証必須） |
 
 回答値: `1`=はい / `0.5`=どちらかといえばはい / `0`=わからない / `-0.5`=どちらかといえばいいえ / `-1`=いいえ
 
@@ -141,16 +150,16 @@ gunicorn app:app --workers 2 --threads 4
 - `PLAYER_FETISH_BASE_ID = 10000`（engine.pyで定義）以上のIDがプレイヤー追加性癖
 - シードとIDが競合しない設計
 - DBの `fetishes` テーブルに永続化
-- 管理画面でプレイヤー追加分を一覧表示・削除可能
+- 管理画面でプレイヤー追加分を一覧表示・削除・シード格上げ可能
 
 ## バージョン管理
 
-- `app.py` の `DISPLAY_VERSION` でタイトルに表示するバージョン番号を管理（現在 `v1.0.0`）
-- ブラウザタブに「へきネイター v1.0.0」と表示される
+- `app.py` の `DISPLAY_VERSION` でタイトルに表示するバージョン番号を管理（現在 `v1.2.0`）
+- ブラウザタブに「へきネイター v1.2.0」と表示される
 
 ## 注意
 
-- `data/matrix.json` は `.gitignore` 済み（学習データをgitに含めない）
+- `data/matrix.json`・`data/learned_priors.json` は `.gitignore` 済み（学習データをgitに含めない）
 - Termux環境では長いコマンドはスクリプトファイルに書いて実行する
 - シードの性癖をDBに登録せずJSONで管理しているのは、JSONが「正解」でありDB側はfetish_idを参照するだけのため（シード増減もマイグレーションで自動追従）
-- テストは `python tests/test_app.py` で実行（現在38テスト）
+- テストは `python tests/test_app.py` で実行（現在41テスト）

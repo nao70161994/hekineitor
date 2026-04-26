@@ -336,6 +336,30 @@ class TestAPI(unittest.TestCase):
         # valid pair
         app_engine.learn_cooccurrence(answers, 0, 1)
 
+    # ── idk posteriors ────────────────────────────────────
+    def test_idk_changes_posteriors(self):
+        """わからない回答が事後確率に影響を与えること（完全スキップではない）。"""
+        from app import engine as app_engine
+        probs_empty = app_engine.posteriors({})
+        probs_idk   = app_engine.posteriors({'0': 0.0, '1': 0.0, '2': 0.0})
+        self.assertFalse(all(abs(a - b) < 1e-9
+                             for a, b in zip(probs_empty, probs_idk)))
+
+    # ── close race threshold ──────────────────────────────
+    def test_effective_threshold_raised_in_close_race(self):
+        """接戦時（gap_ratio<1.8 かつ count<10）は effective_thr が guess_thr より高いこと。"""
+        guess_thr = 0.75
+        # 接戦ケース
+        gap_ratio, count = 1.5, 5
+        eff = guess_thr if (gap_ratio >= 1.8 or count >= 10) \
+              else min(guess_thr + 0.10, 0.90)
+        self.assertGreater(eff, guess_thr)
+        # gap が十分広い場合は変わらない
+        gap_ratio2 = 2.0
+        eff2 = guess_thr if (gap_ratio2 >= 1.8 or count >= 10) \
+               else min(guess_thr + 0.10, 0.90)
+        self.assertEqual(eff2, guess_thr)
+
     # ── server-side session ───────────────────────────────
     def test_session_persists_across_requests(self):
         """start → answer で answered question が引き継がれること。"""

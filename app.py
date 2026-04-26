@@ -664,5 +664,16 @@ def admin_capture_priors():
     return jsonify({'status': 'ok'})
 
 
+@app.route('/api/admin/promote_fetish/<int:fetish_id>', methods=['POST'])
+@_require_admin
+def admin_promote_fetish(fetish_id):
+    if fetish_id < PLAYER_FETISH_BASE_ID:
+        return jsonify({'status': 'error', 'message': 'シード性癖は格上げ不要です'}), 400
+    new_id = engine.promote_fetish(fetish_id)
+    if new_id is None:
+        return jsonify({'status': 'error', 'message': '見つかりません'}), 404
+    return jsonify({'status': 'promoted', 'old_id': fetish_id, 'new_id': new_id})
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

@@ -1412,6 +1412,30 @@ class Engine:
                 self._save_matrix_file()
         return True
 
+    def promote_fetish(self, old_id):
+        """プレイヤー追加性癖（ID≥10000）をシード性癖に格上げ（次の空きIDを割り当て）。
+        DB・matrix・fetish_log のIDを全て更新する。返り値は新ID、失敗時None。"""
+        with self._lock:
+            idx = self.index_of(old_id)
+            if idx is None or self.fetishes[idx]['id'] < PLAYER_FETISH_BASE_ID:
+                return None
+            seed_ids = {f['id'] for f in self.fetishes if f['id'] < PLAYER_FETISH_BASE_ID}
+            new_id = next(i for i in range(PLAYER_FETISH_BASE_ID) if i not in seed_ids)
+            self.fetishes[idx]['id'] = new_id
+            if _use_db():
+                conn = _get_conn()
+                try:
+                    with conn:
+                        cur = conn.cursor()
+                        cur.execute('UPDATE fetishes  SET id = %s WHERE id = %s', (new_id, old_id))
+                        cur.execute('UPDATE matrix    SET fetish_id = %s WHERE fetish_id = %s', (new_id, old_id))
+                        cur.execute('UPDATE fetish_log SET fetish_id = %s WHERE fetish_id = %s', (new_id, old_id))
+                finally:
+                    _put_conn(conn)
+            else:
+                self._save_fetishes_file()
+        return new_id
+
     def capture_learned_priors(self):
         """現在の P(yes) を learned_priors.json として保存する。
         matrix.json を削除して再初期化する際に DOMAIN_PRIORS の代替として使用される。"""

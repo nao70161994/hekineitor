@@ -652,7 +652,12 @@ async function skipTeach() {
 }
 
 function confirmRestart() {
-  document.getElementById('modal-restart').classList.remove('hidden');
+  const n = window._excludedIds && window._excludedIds.length;
+  const modal = document.getElementById('modal-restart');
+  modal.querySelector('p').innerHTML = n > 0
+    ? `最初からやり直しますか？<br>進行状況と除外リスト（${n}件）は失われます。`
+    : '最初からやり直しますか？<br>現在の進行状況は失われます。';
+  modal.classList.remove('hidden');
 }
 function closeModal(id) {
   document.getElementById(id).classList.add('hidden');

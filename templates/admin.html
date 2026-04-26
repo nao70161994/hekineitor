@@ -123,7 +123,10 @@
     <td style="color:#666;font-size:0.8rem">{{ f.id }}</td>
     <td>{{ f.name }}</td>
     <td style="color:#888;font-size:0.82rem">{{ f.desc }}</td>
-    <td><button class="btn-toggle disabled" onclick="deletePlayerFetish({{ f.id }}, this)">削除</button></td>
+    <td style="display:flex;gap:4px;">
+      <button class="btn-toggle" onclick="promotePlayerFetish({{ f.id }}, this)" title="シード性癖に格上げ">↑格上げ</button>
+      <button class="btn-toggle disabled" onclick="deletePlayerFetish({{ f.id }}, this)">削除</button>
+    </td>
   </tr>
   {% endfor %}
 </table>
@@ -156,17 +159,25 @@
 
 <details style="margin-top:24px;">
 <summary style="color:#888;font-size:0.85rem;cursor:pointer;">診断ログ（性癖別正解率、展開で表示）</summary>
-<p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">guessed=診断回数 / correct=正解フィードバック数 / wrong=外れフィードバック数 / acc=正解率</p>
-<table style="margin-top:8px;">
-  <tr><th>#</th><th>性癖</th><th>診断</th><th>正解</th><th>外れ</th><th>正解率</th></tr>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">guessed=診断回数 / correct=正解フィードバック数 / wrong=外れフィードバック数 / acc=正解率。ヘッダークリックでソート。</p>
+<table id="log-table" style="margin-top:8px;">
+  <tr>
+    <th>#</th>
+    <th onclick="sortLogTable(1)" style="cursor:pointer;user-select:none;">性癖 ↕</th>
+    <th onclick="sortLogTable(2)" style="cursor:pointer;user-select:none;">診断 ↕</th>
+    <th onclick="sortLogTable(3)" style="cursor:pointer;user-select:none;">正解 ↕</th>
+    <th onclick="sortLogTable(4)" style="cursor:pointer;user-select:none;">外れ ↕</th>
+    <th onclick="sortLogTable(5)" style="cursor:pointer;user-select:none;">正解率 ↕</th>
+  </tr>
   {% for r in fetish_log_rows %}
   <tr>
     <td style="color:#666;font-size:0.75rem">{{ loop.index }}</td>
     <td style="font-size:0.82rem">{{ r.name }}</td>
-    <td style="color:#aaa;font-size:0.8rem">{{ r.guessed }}</td>
-    <td style="color:#27ae60;font-size:0.8rem">{{ r.correct }}</td>
-    <td style="color:#e74c3c;font-size:0.8rem">{{ r.wrong }}</td>
-    <td style="font-size:0.8rem;{% if r.acc is not none and r.acc < 50 %}color:#e74c3c{% elif r.acc is not none %}color:#27ae60{% else %}color:#555{% endif %}">
+    <td style="color:#aaa;font-size:0.8rem" data-val="{{ r.guessed }}">{{ r.guessed }}</td>
+    <td style="color:#27ae60;font-size:0.8rem" data-val="{{ r.correct }}">{{ r.correct }}</td>
+    <td style="color:#e74c3c;font-size:0.8rem" data-val="{{ r.wrong }}">{{ r.wrong }}</td>
+    <td style="font-size:0.8rem;{% if r.acc is not none and r.acc < 50 %}color:#e74c3c{% elif r.acc is not none %}color:#27ae60{% else %}color:#555{% endif %}"
+        data-val="{{ r.acc if r.acc is not none else -1 }}">
       {% if r.acc is not none %}{{ r.acc }}%{% else %}—{% endif %}
     </td>
   </tr>
@@ -240,6 +251,39 @@ async function cleanupSessions() {
   const res = await fetch('/api/admin/cleanup_sessions', {method: 'POST'});
   const data = await res.json();
   document.getElementById('cleanup-msg').textContent = `${data.deleted} 件削除しました`;
+}
+
+let _logSortCol = -1, _logSortAsc = true;
+function sortLogTable(col) {
+  const table = document.getElementById('log-table');
+  const rows  = Array.from(table.rows).slice(1);
+  if (_logSortCol === col) { _logSortAsc = !_logSortAsc; } else { _logSortCol = col; _logSortAsc = false; }
+  rows.sort((a, b) => {
+    const av = a.cells[col].dataset.val ?? a.cells[col].textContent;
+    const bv = b.cells[col].dataset.val ?? b.cells[col].textContent;
+    const an = parseFloat(av), bn = parseFloat(bv);
+    const cmp = isNaN(an) || isNaN(bn) ? av.localeCompare(bv) : an - bn;
+    return _logSortAsc ? cmp : -cmp;
+  });
+  rows.forEach((r, i) => { r.cells[0].textContent = i + 1; table.appendChild(r); });
+}
+
+async function promotePlayerFetish(fid, btn) {
+  if (!confirm(`ID ${fid} の性癖をシード性癖に格上げしますか？\nIDが変わり「プレイヤー追加」扱いではなくなります。`)) return;
+  btn.disabled = true;
+  const res = await fetch(`/api/admin/promote_fetish/${fid}`, {method: 'POST'});
+  const data = await res.json();
+  if (res.ok) {
+    const row = document.getElementById(`pfrow-${fid}`);
+    if (row) {
+      row.cells[0].textContent = data.new_id;
+      row.id = `pfrow-${data.new_id}`;
+      row.cells[3].innerHTML = `<span style="color:#27ae60;font-size:0.78rem">シード済 (ID:${data.new_id})</span>`;
+    }
+  } else {
+    alert(data.message || '格上げに失敗しました');
+    btn.disabled = false;
+  }
 }
 
 async function deletePlayerFetish(fid, btn) {
