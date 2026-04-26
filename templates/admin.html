@@ -25,11 +25,50 @@
   .btn-toggle { font-size: 0.72rem; padding: 2px 8px; border-radius: 4px; border: 1px solid #555;
                 background: #1a1a2e; color: #aaa; cursor: pointer; }
   .btn-toggle.disabled { background: #3a1a1a; color: #e74c3c; border-color: #e74c3c; }
+  .param-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+  .param-row label { color:#aaa; font-size:0.85rem; width:160px; }
+  .param-row input { background:#0f3460; border:1px solid #333; color:#eee; border-radius:4px;
+                     padding:4px 8px; font-size:0.85rem; width:90px; }
+  .btn-save { background:#e94560; color:#fff; border:none; border-radius:6px;
+              padding:6px 16px; cursor:pointer; font-size:0.85rem; margin-top:8px; }
+  .btn-action { background:#0f3460; color:#aaa; border:1px solid #333; border-radius:6px;
+                padding:5px 14px; cursor:pointer; font-size:0.82rem; }
 </style>
 </head>
 <body>
-<h1>学習データ量</h1>
-<p class="sub">少ない性癖ほど要プレイ。<a href="/">← ゲームに戻る</a></p>
+<h1>管理画面</h1>
+<p class="sub"><a href="/">← ゲームに戻る</a></p>
+
+<details style="margin-bottom:24px;">
+<summary style="color:#f5a623;font-size:0.9rem;cursor:pointer;margin-bottom:8px;">推論パラメータ設定</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">変更は即座に反映・永続化されます。デフォルト値は括弧内。</p>
+{% set param_labels = {
+  'guess_threshold': '診断確定閾値 (0.75)',
+  'compound_ratio':  '複合判定比率 (0.55)',
+  'triple_ratio':    '三重複合比率 (0.45)',
+  'ucb_explore_c':   'UCB探索係数 (0.05)',
+  'focus_threshold': '終盤モード閾値 (0.40)',
+} %}
+{% for key, label in param_labels.items() %}
+<div class="param-row">
+  <label>{{ label }}</label>
+  <input type="number" id="param-{{ key }}" step="0.01" min="0" max="1"
+         value="{{ engine_config[key] }}">
+</div>
+{% endfor %}
+<button class="btn-save" onclick="saveParams()">保存</button>
+<span id="param-msg" style="color:#27ae60;font-size:0.8rem;margin-left:10px;"></span>
+</details>
+
+<details style="margin-bottom:24px;">
+<summary style="color:#888;font-size:0.9rem;cursor:pointer;">セッション管理</summary>
+<p style="color:#555;font-size:0.78rem;margin:8px 0;">期限切れセッションはリクエスト時に自動削除（1%確率）されますが、手動で全掃除もできます。</p>
+<button class="btn-action" onclick="cleanupSessions()">期限切れセッションを削除</button>
+<span id="cleanup-msg" style="color:#aaa;font-size:0.8rem;margin-left:10px;"></span>
+</details>
+
+<h2 style="color:#eee;font-size:1rem;margin-bottom:6px;">学習データ量</h2>
+<p class="sub" style="margin-bottom:8px;">少ない性癖ほど要プレイ。</p>
 <p style="color:#f5a623;font-size:1rem;margin-bottom:6px;">
   累計プレイ回数（最後まで）: <strong>{{ play_count }}</strong> 回
 </p>
@@ -152,6 +191,34 @@
 </table>
 </details>
 <script>
+async function saveParams() {
+  const keys = ['guess_threshold','compound_ratio','triple_ratio','ucb_explore_c','focus_threshold'];
+  const body = {};
+  for (const k of keys) {
+    const v = parseFloat(document.getElementById(`param-${k}`).value);
+    if (!isNaN(v)) body[k] = v;
+  }
+  const res = await fetch('/api/admin/params', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  const msg = document.getElementById('param-msg');
+  if (data.errors && data.errors.length) {
+    msg.style.color = '#e74c3c';
+    msg.textContent = data.errors.join(', ');
+  } else {
+    msg.style.color = '#27ae60';
+    msg.textContent = '保存しました';
+    setTimeout(() => msg.textContent = '', 3000);
+  }
+}
+
+async function cleanupSessions() {
+  const res = await fetch('/api/admin/cleanup_sessions', {method: 'POST'});
+  const data = await res.json();
+  document.getElementById('cleanup-msg').textContent = `${data.deleted} 件削除しました`;
+}
+
 async function toggleQuestion(qId) {
   const res = await fetch(`/api/admin/toggle_question/${qId}`, {method: 'POST'});
   if (!res.ok) { alert('エラーが発生しました'); return; }

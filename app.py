@@ -7,6 +7,7 @@ import unicodedata
 import uuid
 import json as _json
 import time as _time
+import random as _random
 from flask import Flask, render_template, request, jsonify, session, Response, send_from_directory
 from flask.sessions import SessionInterface, SessionMixin
 from werkzeug.datastructures import CallbackDict
@@ -45,6 +46,10 @@ def _session_save(sid, data):
                     ON CONFLICT (session_id) DO UPDATE
                     SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at
                 ''', (sid, _json.dumps(data, ensure_ascii=False), now))
+                # 1%の確率で期限切れセッションを掃除
+                if _random.random() < 0.01:
+                    cur.execute('DELETE FROM sessions WHERE updated_at < %s',
+                                (now - _SESSION_TTL,))
         finally:
             _put_conn(conn)
     else:
@@ -53,6 +58,24 @@ def _session_save(sid, data):
             cutoff = now - _SESSION_TTL
             for k in [k for k, v in _LOCAL_SESSIONS.items() if v[1] < cutoff]:
                 del _LOCAL_SESSIONS[k]
+
+def cleanup_sessions():
+    """期限切れセッションを全削除（管理APIから呼び出し可）。"""
+    cutoff = _time.time() - _SESSION_TTL
+    if _use_db():
+        conn = _get_conn()
+        try:
+            with conn:
+                cur = conn.cursor()
+                cur.execute('DELETE FROM sessions WHERE updated_at < %s', (cutoff,))
+                return cur.rowcount
+        finally:
+            _put_conn(conn)
+    else:
+        old = [k for k, v in _LOCAL_SESSIONS.items() if v[1] < cutoff]
+        for k in old:
+            del _LOCAL_SESSIONS[k]
+        return len(old)
 
 class _ServerSession(CallbackDict, SessionMixin):
     def __init__(self, initial=None, sid=None, is_new=False):
@@ -232,10 +255,11 @@ def answer():
     count = len(asked)
 
     # 終了条件: idk連続4回 / 問題数上限 / 通常閾値 / 早期打ち切り（比率ベース）
+    guess_thr = engine.config.get('guess_threshold', GUESS_THRESHOLD)
     gap_ratio  = top_p / max(second_p, 0.001)
     early_stop = (count >= 4 and top_p >= 0.70 and gap_ratio >= 3.0) or \
                  (count >= 8 and top_p >= 0.55 and gap_ratio >= 2.5)
-    if idk_streak >= 4 or top_p >= GUESS_THRESHOLD or count >= MAX_QUESTIONS or early_stop:
+    if idk_streak >= 4 or top_p >= guess_thr or count >= MAX_QUESTIONS or early_stop:
         return _make_guess(answers)
 
     next_q = engine.best_question(answers, set(asked), idk_streak=idk_streak)
@@ -313,15 +337,17 @@ def _compute_guess(answers):
     best_f  = engine.fetishes[best_i]
     best_db = best_f['id']
 
+    compound_ratio = engine.config.get('compound_ratio', COMPOUND_RATIO)
+    triple_ratio   = engine.config.get('triple_ratio',   TRIPLE_RATIO)
     compound = []
     compound_db_ids = set()
-    if len(ranked) > 1 and probs[ranked[1]] >= best_p * COMPOUND_RATIO:
+    if len(ranked) > 1 and probs[ranked[1]] >= best_p * compound_ratio:
         c = engine.fetishes[ranked[1]]
         compound.append({'fetish_id': c['id'],
                          'fetish_name': c['name'],
                          'probability': round(probs[ranked[1]] * 100, 1)})
         compound_db_ids.add(c['id'])
-        if len(ranked) > 2 and probs[ranked[2]] >= best_p * TRIPLE_RATIO:
+        if len(ranked) > 2 and probs[ranked[2]] >= best_p * triple_ratio:
             c = engine.fetishes[ranked[2]]
             compound.append({'fetish_id': c['id'],
                              'fetish_name': c['name'],
@@ -573,7 +599,9 @@ def admin():
                            learn_count=s['learn_count'], player_fetishes=player_fetishes,
                            question_stats=question_stats, corr_stats=corr_stats,
                            fetish_log_rows=fetish_log_rows,
-                           domain_suggestions=domain_suggestions)
+                           domain_suggestions=domain_suggestions,
+                           engine_config=engine.config,
+                           config_defaults=engine._CONFIG_DEFAULTS)
 
 
 @app.route('/api/admin/toggle_question/<int:q_id>', methods=['POST'])
@@ -583,6 +611,28 @@ def toggle_question(q_id):
         return jsonify({'status': 'error', 'message': '不正な質問IDです'}), 400
     disabled = engine.toggle_question_disabled(q_id)
     return jsonify({'status': 'ok', 'disabled': disabled})
+
+
+@app.route('/api/admin/params', methods=['POST'])
+@_require_admin
+def update_params():
+    data = request.get_json(silent=True) or {}
+    updated = {}
+    errors  = []
+    for key, val in data.items():
+        try:
+            engine.set_config(key, val)
+            updated[key] = engine.config[key]
+        except (ValueError, KeyError) as e:
+            errors.append(str(e))
+    return jsonify({'status': 'ok', 'updated': updated, 'errors': errors})
+
+
+@app.route('/api/admin/cleanup_sessions', methods=['POST'])
+@_require_admin
+def admin_cleanup_sessions():
+    deleted = cleanup_sessions()
+    return jsonify({'status': 'ok', 'deleted': deleted})
 
 
 if __name__ == '__main__':

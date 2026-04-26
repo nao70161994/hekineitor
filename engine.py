@@ -428,6 +428,9 @@ class Engine:
         self._matrix_last_loaded   = time.monotonic()
         self._dynamic_prior_cache  = {}
         self._dynamic_prior_time   = 0.0
+        self._disc_cache           = []   # [disc_value per question]
+        self._disc_cache_time      = 0.0
+        self.config                = self._load_config()
 
     # ── JSON ローカル ──────────────────────────────────────
     def _load_json(self, fname):
@@ -536,6 +539,12 @@ class Engine:
                         session_id TEXT PRIMARY KEY,
                         data       TEXT NOT NULL,
                         updated_at REAL NOT NULL
+                    )
+                ''')
+                cur.execute('''
+                    CREATE TABLE IF NOT EXISTS config (
+                        key   TEXT PRIMARY KEY,
+                        value TEXT NOT NULL
                     )
                 ''')
                 # 新しい性癖を fetishes.json から差分追加（マイグレーション）
@@ -808,6 +817,88 @@ class Engine:
         finally:
             _put_conn(conn)
 
+    # ── パラメータ設定 ────────────────────────────────────
+    _CONFIG_DEFAULTS = {
+        'guess_threshold': 0.75,
+        'compound_ratio':  0.55,
+        'triple_ratio':    0.45,
+        'ucb_explore_c':   0.05,
+        'focus_threshold': 0.40,
+    }
+
+    def _load_config(self):
+        defaults = dict(self._CONFIG_DEFAULTS)
+        if _use_db():
+            conn = _get_conn()
+            try:
+                cur = conn.cursor()
+                cur.execute('SELECT key, value FROM config')
+                for k, v in cur.fetchall():
+                    if k in defaults:
+                        defaults[k] = float(v)
+            except Exception:
+                pass
+            finally:
+                _put_conn(conn)
+        else:
+            path = os.path.join(DATA_DIR, 'config.json')
+            try:
+                with open(path, encoding='utf-8') as f:
+                    stored = json.load(f)
+                for k, v in stored.items():
+                    if k in defaults:
+                        defaults[k] = float(v)
+            except (OSError, json.JSONDecodeError):
+                pass
+        return defaults
+
+    def set_config(self, key, value):
+        if key not in self._CONFIG_DEFAULTS:
+            raise ValueError(f'未知のパラメータ: {key}')
+        fval = float(value)
+        self.config[key] = fval
+        if _use_db():
+            conn = _get_conn()
+            try:
+                with conn:
+                    cur = conn.cursor()
+                    cur.execute(
+                        "INSERT INTO config (key, value) VALUES (%s, %s) "
+                        "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+                        (key, str(fval))
+                    )
+            finally:
+                _put_conn(conn)
+        else:
+            path = os.path.join(DATA_DIR, 'config.json')
+            try:
+                with open(path, encoding='utf-8') as f:
+                    stored = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                stored = {}
+            stored[key] = fval
+            self._atomic_write(path, stored)
+
+    # ── disc キャッシュ（学習重みスケーリング用） ──────────
+    _DISC_CACHE_TTL = 120.0  # 2分ごとに再計算
+
+    def _get_disc_scales(self):
+        now = time.monotonic()
+        if self._disc_cache and now - self._disc_cache_time < self._DISC_CACHE_TTL:
+            return self._disc_cache
+        nf = len(self.fetishes)
+        nq = len(self.questions)
+        discs = [
+            sum(abs(self._prob(f, q) - 0.5) for f in range(nf)) / max(nf, 1)
+            for q in range(nq)
+        ]
+        mean_disc = sum(discs) / max(len(discs), 1) or 1e-9
+        # 0.5〜2.0 にクランプして正規化（識別力が高い質問を最大2倍重く学習）
+        scales = [max(0.5, min(2.0, d / mean_disc)) for d in discs]
+        self._disc_cache      = scales
+        self._disc_cache_time = now
+        return scales
+
     # ── 複数Worker対応: DBからmatrixをTTLリロード ──────────
     def _reload_matrix_if_stale(self):
         if not _use_db():
@@ -908,8 +999,10 @@ class Engine:
         asked_list = list(asked)
 
         # 終盤モード: 上位 FOCUS_TOP_N 件に絞った確率で情報利得を計算
+        focus_threshold = self.config.get('focus_threshold', FOCUS_THRESHOLD)
+        ucb_c           = self.config.get('ucb_explore_c',  UCB_EXPLORE_C)
         top_p = max(probs)
-        if top_p >= FOCUS_THRESHOLD:
+        if top_p >= focus_threshold:
             ranked = sorted(range(nf), key=lambda i: probs[i], reverse=True)
             focus  = set(ranked[:FOCUS_TOP_N])
             wp     = [probs[f] if f in focus else 0.0 for f in range(nf)]
@@ -965,7 +1058,7 @@ class Engine:
                         max_sim = sim
                 score *= (1.0 - 0.4 * max_sim)
             ask_count = sum(self.matrix['total'][f][q] for f in range(nf))
-            score += UCB_EXPLORE_C / math.sqrt(ask_count / max(nf, 1) + 1)
+            score += ucb_c / math.sqrt(ask_count / max(nf, 1) + 1)
             axis_name = self._question_axis(q)
             weighted = score * AXIS_INDIRECT_BONUS.get(axis_name, 1.0)
             if axis_filter is None or axis_name in axis_filter:
@@ -1054,7 +1147,8 @@ class Engine:
 
     def learn(self, answers, fetish_idx, strength_factor=1.0):
         """strength_factor: 確信度が低いほど大きく（最大2.0）、高いほど小さく（最小0.5）。"""
-        neg_weight = 0.3
+        neg_weight  = 0.3
+        disc_scales = self._get_disc_scales()
         all_updates = {}
 
         with self._lock:
@@ -1072,7 +1166,8 @@ class Engine:
                 strength = abs(ans)
                 # 蓄積データが多いほど1セッションの影響を小さくする（汚染対策）
                 scale = min(1.0, PSEUDO / max(self.matrix['total'][fetish_idx][q], PSEUDO))
-                effective = strength * scale * strength_factor
+                # 識別力が高い質問ほど学習に重みを付ける（disc スケーリング）
+                effective = strength * scale * strength_factor * disc_scales[q]
 
                 delta_yes = effective if ans > 0 else 0.0
                 self.matrix['total'][fetish_idx][q] += effective
