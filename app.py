@@ -217,6 +217,70 @@ def start():
     })
 
 
+@app.route('/api/resume', methods=['POST'])
+def resume():
+    """localStorageに保存した回答ペアからセッションを復元して次の質問を返す。"""
+    data  = request.get_json(silent=True) or {}
+    pairs = data.get('pairs', [])
+    session.clear()
+    session['started']     = True
+    session['answers']     = {}
+    session['asked']       = []
+    session['idk_streak']  = 0
+    session['exclude_ids'] = []
+    for item in pairs:
+        try:
+            q_idx = int(item['q_id'])
+            ans   = float(item['answer'])
+        except (KeyError, ValueError, TypeError):
+            continue
+        if ans not in (1, 0.5, 0, -0.5, -1):
+            continue
+        if q_idx < 0 or q_idx >= len(engine.questions):
+            continue
+        session['answers'][str(q_idx)] = ans
+        if q_idx not in session['asked']:
+            session['asked'].append(q_idx)
+        session['idk_streak'] = session['idk_streak'] + 1 if ans == 0 else 0
+    answers = session['answers']
+    asked   = session['asked']
+    if not answers:
+        q = engine.best_question({}, set())
+        session['asked'].append(q)
+        return jsonify({'action': 'question', 'question_id': q,
+                        'question': engine.questions[q]['text'],
+                        'count': 0, 'total': MAX_QUESTIONS})
+    next_q = engine.best_question(answers, set(asked), idk_streak=session['idk_streak'])
+    if next_q is None:
+        return _make_guess(answers)
+    asked.append(next_q)
+    session['asked'] = asked
+    return jsonify({'action': 'question', 'question_id': next_q,
+                    'question': engine.questions[next_q]['text'],
+                    'count': len(asked) - 1, 'total': MAX_QUESTIONS})
+
+
+@app.route('/api/continue', methods=['POST'])
+def continue_game():
+    """診断確定後に「もう少し続ける」ボタンで追加質問を開始する。"""
+    if not session.get('started'):
+        return jsonify({'status': 'session_expired'}), 440
+    answers = session.get('answers', {})
+    asked   = session.get('asked', [])
+    top2    = engine.top_guess(answers, n=2)
+    top_p   = top2[0][1] if top2 else 0.0
+    session['continue_thr'] = min(top_p + 0.20, 0.95)
+    session['continued']    = True
+    next_q = engine.best_question(answers, set(asked), idk_streak=0)
+    if next_q is None:
+        return jsonify({'status': 'no_question'})
+    asked.append(next_q)
+    session['asked'] = asked
+    return jsonify({'action': 'question', 'question_id': next_q,
+                    'question': engine.questions[next_q]['text'],
+                    'count': len(asked) - 1, 'total': MAX_QUESTIONS})
+
+
 @app.route('/api/answer', methods=['POST'])
 def answer():
     if not session.get('started'):
@@ -256,6 +320,8 @@ def answer():
 
     # 終了条件: idk連続4回 / 問題数上限 / 通常閾値 / 早期打ち切り（比率ベース）
     guess_thr = engine.config.get('guess_threshold', GUESS_THRESHOLD)
+    if session.get('continued'):
+        guess_thr = session.get('continue_thr', min(guess_thr + 0.20, 0.95))
     gap_ratio  = top_p / max(second_p, 0.001)
     early_stop = (count >= 4 and top_p >= 0.70 and gap_ratio >= 3.0) or \
                  (count >= 8 and top_p >= 0.55 and gap_ratio >= 2.5)
@@ -599,7 +665,8 @@ def admin():
         })
     fetish_log_rows.sort(key=lambda r: -r['guessed'])
     domain_suggestions = engine.get_top_questions_per_fetish(top_n=5)
-    stats_history = engine.get_stats_history(days=30)
+    stats_history  = engine.get_stats_history(days=30)
+    matrix_heatmap = engine.get_matrix_heatmap(n_fetishes=20, n_questions=20)
     return render_template('admin.html', stats=stats, play_count=s['play_count'],
                            learn_count=s['learn_count'], player_fetishes=player_fetishes,
                            question_stats=question_stats, corr_stats=corr_stats,
@@ -607,7 +674,8 @@ def admin():
                            domain_suggestions=domain_suggestions,
                            engine_config=engine.config,
                            config_defaults=engine._CONFIG_DEFAULTS,
-                           stats_history=stats_history)
+                           stats_history=stats_history,
+                           matrix_heatmap=matrix_heatmap)
 
 
 @app.route('/api/admin/toggle_question/<int:q_id>', methods=['POST'])
@@ -708,6 +776,24 @@ def health():
     return jsonify({'status': 'ok', 'db': db_ok,
                     'fetishes': len(engine.fetishes),
                     'questions': len(engine.questions)})
+
+
+@app.route('/api/admin/merge_fetishes', methods=['POST'])
+@_require_admin
+def admin_merge_fetishes():
+    data     = request.get_json(silent=True) or {}
+    id_keep  = data.get('id_keep')
+    id_rm    = data.get('id_remove')
+    new_name = (data.get('new_name') or '').strip() or None
+    new_desc = (data.get('new_desc') or '').strip() or None
+    if id_keep is None or id_rm is None:
+        return jsonify({'status': 'error', 'message': 'id_keep と id_remove が必要です'}), 400
+    ok = engine.merge_fetishes(int(id_keep), int(id_rm), new_name=new_name, new_desc=new_desc)
+    if not ok:
+        return jsonify({'status': 'error', 'message': '性癖が見つかりません'}), 404
+    idx  = engine.index_of(int(id_keep))
+    name = engine.fetishes[idx]['name'] if idx is not None else '(unknown)'
+    return jsonify({'status': 'merged', 'id_keep': id_keep, 'name': name})
 
 
 @app.route('/api/admin/export_matrix', methods=['GET'])

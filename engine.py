@@ -1104,9 +1104,23 @@ class Engine:
         asked_axes.discard(None)
         all_axis_names = {name for name, _ in QUESTION_AXES}
 
-        # 軸フィルタリング: idk連続なら抽象/パーソナリティへ、序盤は未カバーの軸を優先
+        # 軸フィルタリング: idk連続なら直近idkが集中している軸を避ける
         if idk_streak >= 2:
-            axis_filter = {'abstract', 'personality'}
+            recent_idk_axes = []
+            for qa in reversed(asked_list):
+                a = answers.get(str(qa))
+                if a == 0:
+                    ax = self._question_axis(qa)
+                    if ax:
+                        recent_idk_axes.append(ax)
+                    if len(recent_idk_axes) >= idk_streak:
+                        break
+                else:
+                    break
+            if recent_idk_axes and len(set(recent_idk_axes)) == 1:
+                axis_filter = all_axis_names - {recent_idk_axes[0]}
+            else:
+                axis_filter = {'abstract', 'personality'}
         elif len(asked_list) < 3 and (all_axis_names - asked_axes):
             axis_filter = all_axis_names - asked_axes
         else:
@@ -1167,6 +1181,22 @@ class Engine:
 
         # 軸フィルタで該当が無ければ全体ベストにフォールバック
         return best_filtered_q if best_filtered_q is not None else best_any_q
+
+    def get_matrix_heatmap(self, n_fetishes=20, n_questions=20):
+        """上位N性癖×上位N質問の P(yes) ヒートマップデータを返す。"""
+        nf = len(self.fetishes)
+        nq = len(self.questions)
+        weights = [sum(self.matrix['total'][fi]) for fi in range(nf)]
+        top_fi = sorted(range(nf), key=lambda i: -weights[i])[:n_fetishes]
+        discs  = [sum(abs(self._prob(f, q) - 0.5) for f in range(nf)) / max(nf, 1)
+                  for q in range(nq)]
+        top_qi = sorted(sorted(range(nq), key=lambda q: -discs[q])[:n_questions])
+        rows = [{'name': self.fetishes[fi]['name'][:12], 'id': self.fetishes[fi]['id'],
+                 'cells': [round(self._prob(fi, qi), 2) for qi in top_qi]}
+                for fi in top_fi]
+        q_labels = [f"Q{qi}" for qi in top_qi]
+        q_texts  = [self.questions[qi]['text'][:18] for qi in top_qi]
+        return {'rows': rows, 'q_labels': q_labels, 'q_texts': q_texts}
 
     def get_learning_stats(self):
         nq = len(self.questions)
@@ -1452,6 +1482,73 @@ class Engine:
     def index_of(self, db_id):
         """DB id から配列インデックスを取得する。見つからなければ None。"""
         return next((i for i, f in enumerate(self.fetishes) if f['id'] == db_id), None)
+
+    def merge_fetishes(self, id_keep, id_remove, new_name=None, new_desc=None):
+        """id_remove の性癖を id_keep にマージ（matrixを加算、id_remove を削除）。"""
+        with self._lock:
+            idx_keep = self.index_of(id_keep)
+            idx_rm   = self.index_of(id_remove)
+            if idx_keep is None or idx_rm is None or id_keep == id_remove:
+                return False
+            nq = len(self.questions)
+            for q in range(nq):
+                self.matrix['yes'][idx_keep][q]   += self.matrix['yes'][idx_rm][q]
+                self.matrix['total'][idx_keep][q] += self.matrix['total'][idx_rm][q]
+            if new_name:
+                self.fetishes[idx_keep]['name'] = new_name
+            if new_desc:
+                self.fetishes[idx_keep]['desc'] = new_desc
+            self.fetishes.pop(idx_rm)
+            self.matrix['yes'].pop(idx_rm)
+            self.matrix['total'].pop(idx_rm)
+            if _use_db():
+                conn = _get_conn()
+                try:
+                    with conn:
+                        cur = conn.cursor()
+                        cur.execute('''
+                            UPDATE matrix AS m
+                            SET yes_count   = m.yes_count   + rm.yes_count,
+                                total_count = m.total_count + rm.total_count
+                            FROM matrix rm
+                            WHERE m.fetish_id = %s AND rm.fetish_id = %s
+                              AND m.question_id = rm.question_id
+                        ''', (id_keep, id_remove))
+                        cur.execute('DELETE FROM fetishes WHERE id = %s', (id_remove,))
+                        cur.execute('DELETE FROM matrix WHERE fetish_id = %s', (id_remove,))
+                        cur.execute('''
+                            INSERT INTO fetish_log (fetish_id, guessed, correct, wrong)
+                            SELECT %s, guessed, correct, wrong FROM fetish_log WHERE fetish_id = %s
+                            ON CONFLICT (fetish_id) DO UPDATE
+                            SET guessed = fetish_log.guessed + EXCLUDED.guessed,
+                                correct = fetish_log.correct + EXCLUDED.correct,
+                                wrong   = fetish_log.wrong   + EXCLUDED.wrong
+                        ''', (id_keep, id_remove))
+                        cur.execute('DELETE FROM fetish_log WHERE fetish_id = %s', (id_remove,))
+                        if new_name or new_desc:
+                            cur.execute(
+                                'UPDATE fetishes SET name=%s, "desc"=%s WHERE id=%s',
+                                (new_name or self.fetishes[idx_keep]['name'],
+                                 new_desc or self.fetishes[idx_keep]['desc'], id_keep)
+                            )
+                finally:
+                    _put_conn(conn)
+            else:
+                self._save_fetishes_file()
+                self._save_matrix_file()
+                log_path = os.path.join(DATA_DIR, 'fetish_log.json')
+                try:
+                    with open(log_path, encoding='utf-8') as f:
+                        log = json.load(f)
+                except (OSError, json.JSONDecodeError):
+                    log = {}
+                e_keep = log.get(str(id_keep), {'guessed': 0, 'correct': 0, 'wrong': 0})
+                e_rm   = log.get(str(id_remove), {'guessed': 0, 'correct': 0, 'wrong': 0})
+                log[str(id_keep)] = {k: e_keep.get(k, 0) + e_rm.get(k, 0)
+                                     for k in ('guessed', 'correct', 'wrong')}
+                log.pop(str(id_remove), None)
+                self._atomic_write(log_path, log)
+        return True
 
     def edit_fetish(self, fetish_id, name=None, desc=None):
         """性癖の名前・説明文を更新する。変更したフィールドのみ渡す。"""

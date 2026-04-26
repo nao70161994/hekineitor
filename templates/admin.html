@@ -228,9 +228,9 @@ renderStatsChart(30);
     <th onclick="sortLogTable(5)" style="cursor:pointer;user-select:none;">正解率 ↕</th>
   </tr>
   {% for r in fetish_log_rows %}
-  <tr>
+  <tr{% if r.acc is not none and r.acc < 40 and r.guessed >= 3 %} style="background:#2a1010"{% endif %}>
     <td style="color:#666;font-size:0.75rem">{{ loop.index }}</td>
-    <td style="font-size:0.82rem">{{ r.name }}</td>
+    <td style="font-size:0.82rem">{{ r.name }}{% if r.acc is not none and r.acc < 40 and r.guessed >= 3 %}<span class="tag-low" title="wrong率60%超">⚠</span>{% endif %}</td>
     <td style="color:#aaa;font-size:0.8rem" data-val="{{ r.guessed }}">{{ r.guessed }}</td>
     <td style="color:#27ae60;font-size:0.8rem" data-val="{{ r.correct }}">{{ r.correct }}</td>
     <td style="color:#e74c3c;font-size:0.8rem" data-val="{{ r.wrong }}">{{ r.wrong }}</td>
@@ -282,6 +282,47 @@ renderStatsChart(30);
   {% endfor %}
 </table>
 </details>
+
+<details style="margin-top:24px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">Matrix ヒートマップ（上位20性癖×20質問、展開で表示）</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">P(yes) の色: 青=低 / 白=0.5 / 赤=高。学習データが多い性癖ほど上に表示。</p>
+<div style="overflow-x:auto;">
+<table id="heatmap-table" style="border-collapse:collapse;font-size:0.65rem;white-space:nowrap;">
+  <tr>
+    <th style="color:#555;padding:2px 4px;min-width:80px;"></th>
+    {% for lbl in matrix_heatmap.q_labels %}
+    <th style="color:#666;padding:2px 3px;writing-mode:vertical-rl;height:60px;vertical-align:bottom;" title="{{ matrix_heatmap.q_texts[loop.index0] }}">{{ lbl }}</th>
+    {% endfor %}
+  </tr>
+  {% for row in matrix_heatmap.rows %}
+  <tr>
+    <td style="color:#aaa;padding:2px 4px;max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="{{ row.name }}">{{ row.name }}</td>
+    {% for p in row.cells %}
+    {% set r = (p * 2 - 1) if p > 0.5 else 0 %}
+    {% set b = (1 - p * 2) if p < 0.5 else 0 %}
+    <td style="background:rgb({{ (r*180)|int }},{{ (40*(1-r-b))|int }},{{ (b*180)|int }});width:18px;height:16px;text-align:center;color:{% if p < 0.25 or p > 0.75 %}#fff{% else %}#000{% endif %};font-size:0.6rem;" title="{{ p }}">{{ (p*100)|int }}</td>
+    {% endfor %}
+  </tr>
+  {% endfor %}
+</table>
+</div>
+</details>
+
+<details style="margin-top:24px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">性癖を統合（2つの性癖のmatrixを合算して1つに）</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">id_keep の matrix に id_remove の matrix を加算し、id_remove を削除します。取り消し不可。</p>
+<div style="display:flex;flex-direction:column;gap:6px;max-width:420px;">
+  <input id="mg-keep" type="number" placeholder="残す性癖のID (id_keep)" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+  <input id="mg-rm"   type="number" placeholder="削除する性癖のID (id_remove)" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+  <input id="mg-name" type="text"   placeholder="新しい名前（省略可）" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+  <input id="mg-desc" type="text"   placeholder="新しい説明文（省略可）" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button class="btn-action" onclick="mergeFetishes()">統合する</button>
+    <span id="mg-msg" style="font-size:0.8rem;"></span>
+  </div>
+</div>
+</details>
+
 <script>
 async function adminFetch(url, options = {}) {
   const res = await fetch(url, {
@@ -466,6 +507,29 @@ function sortQTable() {
     return _qSortAsc ? av - bv : bv - av;
   });
   rows.forEach((r, i) => { r.cells[0].textContent = i + 1; table.appendChild(r); });
+}
+
+async function mergeFetishes() {
+  const id_keep   = parseInt(document.getElementById('mg-keep').value);
+  const id_remove = parseInt(document.getElementById('mg-rm').value);
+  const new_name  = document.getElementById('mg-name').value.trim() || undefined;
+  const new_desc  = document.getElementById('mg-desc').value.trim() || undefined;
+  const msg = document.getElementById('mg-msg');
+  if (!id_keep || !id_remove) { msg.style.color='#e74c3c'; msg.textContent='IDを両方入力してください'; return; }
+  if (!confirm(`ID ${id_keep} に ID ${id_remove} をマージし、ID ${id_remove} を削除します。\nこの操作は取り消せません。続けますか？`)) return;
+  const body = {id_keep, id_remove};
+  if (new_name) body.new_name = new_name;
+  if (new_desc) body.new_desc = new_desc;
+  const res  = await adminFetch('/api/admin/merge_fetishes', {method: 'POST', body: JSON.stringify(body)});
+  if (!res) return;
+  const data = await res.json();
+  if (res.ok) {
+    msg.style.color = '#27ae60';
+    msg.textContent = `統合しました: ${data.name}`;
+  } else {
+    msg.style.color = '#e74c3c';
+    msg.textContent = data.message || 'エラーが発生しました';
+  }
 }
 
 async function toggleQuestion(qId) {

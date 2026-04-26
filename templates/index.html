@@ -467,6 +467,9 @@
       遊ぶほど賢くなります。
     </p>
     <button class="btn btn-start" onclick="startGame()">スタート</button>
+    <div id="resume-banner" class="hidden" style="margin-top:12px;">
+      <button class="btn btn-idk" style="width:100%;font-size:0.85rem;" onclick="resumeGame()">途中から再開する（<span id="resume-count">0</span>問回答済み）</button>
+    </div>
   </div>
 
   <!-- 質問画面 -->
@@ -507,6 +510,7 @@
     <div class="confirm-label">各項目の正解を教えてください</div>
     <div id="confirm-items"></div>
     <button class="btn btn-correct" style="width:100%;margin-top:4px;" onclick="submitConfirm()">確定して学習</button>
+    <button class="btn btn-idk" style="width:100%;margin-top:6px;font-size:0.82rem;" onclick="continueGame()">もう少し続ける</button>
     <button class="btn btn-idk" style="width:100%;margin-top:6px;font-size:0.82rem;" onclick="showStart()">スキップ</button>
     <button class="btn btn-idk btn-exclude" style="width:100%;margin-top:4px;font-size:0.82rem;opacity:0.75;" onclick="startExcluding()">別の性癖を探す →</button>
   </div>
@@ -627,6 +631,7 @@ function showStart() {
   window._excludedIds = [];
   show('start-screen');
   setGenieState('idle');
+  _checkDraft();
 }
 
 function showSessionExpired() {
@@ -732,6 +737,8 @@ function startExcluding() {
 }
 
 async function startGame(excludeIds) {
+  _clearDraft();
+  document.getElementById('resume-banner').classList.add('hidden');
   const btn = document.querySelector('.btn-start');
   const origText = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = '起動中...'; }
@@ -785,8 +792,11 @@ async function sendAnswer(ans) {
   try {
     const data = await apiFetch('/api/answer', {question_id: currentQ, answer: ans});
     if (data.action === 'question') {
+      _draftPairs.push({q_id: currentQ, answer: ans});
+      _saveDraft();
       showQuestion(data);
     } else {
+      _clearDraft();
       showGuess(data);
     }
   } finally {
@@ -1246,6 +1256,56 @@ if ('serviceWorker' in navigator) {
       });
     }).catch(() => {});
   });
+}
+
+// ── 途中保存・再開 ────────────────────────────────────
+const _DRAFT_KEY = 'heki_draft';
+let _draftPairs  = [];  // [{q_id, answer}, ...]
+
+function _saveDraft() {
+  localStorage.setItem(_DRAFT_KEY, JSON.stringify({pairs: _draftPairs, ts: Date.now()}));
+}
+function _clearDraft() {
+  _draftPairs = [];
+  localStorage.removeItem(_DRAFT_KEY);
+}
+function _checkDraft() {
+  try {
+    const raw = localStorage.getItem(_DRAFT_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    if (!d.pairs || !d.pairs.length) return;
+    if (Date.now() - d.ts > 3600 * 1000) { localStorage.removeItem(_DRAFT_KEY); return; }
+    _draftPairs = d.pairs;
+    document.getElementById('resume-count').textContent = d.pairs.length;
+    document.getElementById('resume-banner').classList.remove('hidden');
+  } catch {}
+}
+async function resumeGame() {
+  const pairs = _draftPairs;
+  _clearDraft();
+  document.getElementById('resume-banner').classList.add('hidden');
+  const data = await apiFetch('/api/resume', {pairs});
+  if (data.action === 'question') {
+    _draftPairs = pairs;
+    showQuestion(data);
+  } else {
+    showGuess(data);
+  }
+}
+async function continueGame() {
+  if (_fetching) return;
+  _fetching = true;
+  try {
+    const data = await apiFetch('/api/continue');
+    if (data.action === 'question') {
+      showQuestion(data);
+    } else {
+      showToast('これ以上質問できません', '#7f8c8d');
+    }
+  } finally {
+    _fetching = false;
+  }
 }
 
 // キーボードショートカット（質問画面表示中のみ有効）
