@@ -306,7 +306,7 @@ def confirm():
                 continue
             candidates.append((probs[i], f))
         candidates.sort(key=lambda t: t[0], reverse=True)
-        sorted_fetishes = [f for _, f in candidates[:15]]
+        sorted_fetishes = [f for _, f in candidates[:20]]
         # add_only=True は正解追加目的のリスト取得なので wrong_db_ids を設定しない
         if not data.get('add_only', False):
             session['wrong_db_ids'] = list(excluded_db_ids)

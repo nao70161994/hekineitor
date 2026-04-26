@@ -119,7 +119,7 @@ class TestAPI(unittest.TestCase):
         data = res.get_json()
         self.assertEqual(data['status'], 'wrong')
         self.assertIsInstance(data['fetishes'], list)
-        self.assertLessEqual(len(data['fetishes']), 15)
+        self.assertLessEqual(len(data['fetishes']), 20)
         ids = [f['id'] for f in data['fetishes']]
         self.assertNotIn(0, ids)  # 診断済みは除外
 
