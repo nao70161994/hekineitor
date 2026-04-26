@@ -1227,11 +1227,13 @@ class Engine:
         for q, qdata in enumerate(self.questions):
             probs = [self._prob(f, q) for f in range(nf)]
             disc  = sum(abs(p - 0.5) for p in probs) / nf  # 0〜0.5; 高いほど識別力あり
+            ask_count = sum(self.matrix['total'][f][q] for f in range(nf))
             result.append({
-                'id':      q,
-                'text':    qdata['text'],
-                'disc':    round(disc, 3),
-                'disabled': q in self.disabled_questions,
+                'id':        q,
+                'text':      qdata['text'],
+                'disc':      round(disc, 3),
+                'disabled':  q in self.disabled_questions,
+                'ask_count': round(ask_count, 1),
             })
         return sorted(result, key=lambda x: x['disc'])
 

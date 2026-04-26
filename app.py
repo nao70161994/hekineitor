@@ -11,7 +11,7 @@ import random as _random
 from flask import Flask, render_template, request, jsonify, session, Response, send_from_directory
 from flask.sessions import SessionInterface, SessionMixin
 from werkzeug.datastructures import CallbackDict
-from engine import Engine, PLAYER_FETISH_BASE_ID, _get_conn, _put_conn, _use_db
+from engine import Engine, PLAYER_FETISH_BASE_ID, _get_conn, _put_conn, _use_db, FOCUS_THRESHOLD
 
 # ── サーバーサイドセッション ──────────────────────────────
 _SESSION_TTL    = 86400  # 24時間
@@ -327,38 +327,48 @@ def answer():
     idk_streak = idk_streak + 1 if ans == 0 else 0
     session['idk_streak'] = idk_streak
 
-    top2 = engine.top_guess(answers, n=2)
-    top_p  = top2[0][1]
-    second_p = top2[1][1] if len(top2) > 1 else 0.0
-    count = len(asked)
+    try:
+        top2 = engine.top_guess(answers, n=2)
+        top_p    = top2[0][1]
+        second_p = top2[1][1] if len(top2) > 1 else 0.0
+        count = len(asked)
 
-    # 終了条件: idk連続4回 / 問題数上限 / 通常閾値 / 早期打ち切り（比率ベース）
-    guess_thr = engine.config.get('guess_threshold', GUESS_THRESHOLD)
-    if session.get('continued'):
-        guess_thr = session.get('continue_thr', min(guess_thr + 0.20, 0.95))
-    gap_ratio  = top_p / max(second_p, 0.001)
-    early_stop = (count >= 4 and top_p >= 0.70 and gap_ratio >= 3.0) or \
-                 (count >= 8 and top_p >= 0.55 and gap_ratio >= 2.5)
-    # 接戦（1位と2位が近い）かつ問数が少ない場合は閾値を引き上げて続行
-    effective_thr = guess_thr if (gap_ratio >= 1.8 or count >= 10) \
-                    else min(guess_thr + 0.10, 0.90)
-    if idk_streak >= 4 or top_p >= effective_thr or count >= MAX_QUESTIONS or early_stop:
-        return _make_guess(answers)
+        # 終了条件: idk連続4回 / 問題数上限 / 通常閾値 / 早期打ち切り（比率ベース）
+        guess_thr = engine.config.get('guess_threshold', GUESS_THRESHOLD)
+        if session.get('continued'):
+            guess_thr = session.get('continue_thr', min(guess_thr + 0.20, 0.95))
+        gap_ratio  = top_p / max(second_p, 0.001)
+        early_stop = (count >= 4 and top_p >= 0.70 and gap_ratio >= 3.0) or \
+                     (count >= 8 and top_p >= 0.55 and gap_ratio >= 2.5)
+        # 接戦（1位と2位が近い）かつ問数が少ない場合は閾値を引き上げて続行
+        effective_thr = guess_thr if (gap_ratio >= 1.8 or count >= 10) \
+                        else min(guess_thr + 0.10, 0.90)
+        if idk_streak >= 4 or top_p >= effective_thr or count >= MAX_QUESTIONS or early_stop:
+            return _make_guess(answers)
 
-    next_q = engine.best_question(answers, set(asked), idk_streak=idk_streak)
-    if next_q is None:
-        return _make_guess(answers)
+        next_q = engine.best_question(answers, set(asked), idk_streak=idk_streak)
+        if next_q is None:
+            return _make_guess(answers)
 
-    asked.append(next_q)
-    session['asked'] = asked
+        asked.append(next_q)
+        session['asked'] = asked
 
-    return jsonify({
-        'action':      'question',
-        'question_id': next_q,
-        'question':    engine.questions[next_q]['text'],
-        'count':       count,
-        'total':       MAX_QUESTIONS,
-    })
+        focus_thr = engine.config.get('focus_threshold', FOCUS_THRESHOLD)
+        hint = '答えが見えてきました…もう少しです' if top_p >= focus_thr else None
+
+        resp = {
+            'action':      'question',
+            'question_id': next_q,
+            'question':    engine.questions[next_q]['text'],
+            'count':       count,
+            'total':       MAX_QUESTIONS,
+        }
+        if hint:
+            resp['hint'] = hint
+        return jsonify(resp)
+    except Exception:
+        app.logger.exception('answer() 推論エラー')
+        return jsonify({'status': 'session_expired', 'restart': True}), 440
 
 
 @app.route('/api/back', methods=['POST'])
@@ -862,6 +872,18 @@ def admin_export_log():
     csv_body = '\n'.join(lines)
     return Response(csv_body, mimetype='text/csv; charset=utf-8',
                     headers={'Content-Disposition': 'attachment; filename="fetish_log.csv"'})
+
+
+@app.route('/api/admin/export_stats_history', methods=['GET'])
+@_require_admin
+def admin_export_stats_history():
+    history = engine.get_stats_history(days=90)
+    lines = ['date,play,learn,correct,wrong']
+    for row in history:
+        lines.append(f"{row['date']},{row.get('play',0)},{row.get('learn',0)},"
+                     f"{row.get('correct',0)},{row.get('wrong',0)}")
+    return Response('\n'.join(lines), mimetype='text/csv; charset=utf-8',
+                    headers={'Content-Disposition': 'attachment; filename="stats_history.csv"'})
 
 
 @app.route('/api/admin/fetish_similarity', methods=['POST'])

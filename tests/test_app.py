@@ -566,6 +566,128 @@ class TestAPI(unittest.TestCase):
         self.assertIn(b'content', res.data)
         self.assertIn(b'personality', res.data)
 
+    def test_export_stats_history_returns_csv(self):
+        headers = self._admin_headers()
+        res = self.client.get('/api/admin/export_stats_history', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('text/csv', res.content_type)
+        first_line = res.data.decode('utf-8').split('\n')[0]
+        self.assertEqual(first_line, 'date,play,learn,correct,wrong')
+
+    def test_answer_returns_hint_when_focused(self):
+        from app import engine as app_engine
+        # Patch config to low focus_threshold so hint fires easily
+        orig = app_engine.config.get('focus_threshold', 0.40)
+        try:
+            app_engine.config['focus_threshold'] = 0.01
+            self._start()
+            res = self.client.post('/api/start')
+            q = res.get_json()['question_id']
+            resp = self.client.post('/api/answer',
+                json={'question_id': q, 'answer': 1.0})
+            d = resp.get_json()
+            if d.get('action') == 'question':
+                self.assertIn('hint', d)
+        finally:
+            app_engine.config['focus_threshold'] = orig
+
+
+class TestEngine(unittest.TestCase):
+    """engine.py のコア推論ロジックを直接テスト。"""
+
+    def setUp(self):
+        from app import engine as app_engine
+        self.eng = app_engine
+
+    def test_posteriors_sum_to_one(self):
+        probs = self.eng.posteriors({})
+        self.assertAlmostEqual(sum(probs), 1.0, places=5)
+
+    def test_posteriors_yes_answer_increases_probability(self):
+        nq = len(self.eng.questions)
+        # Find a question with some disc (not totally flat)
+        stats = self.eng.get_question_stats()
+        high = max(stats, key=lambda s: s['disc'])
+        q_id = high['id']
+        base  = self.eng.posteriors({})
+        after = self.eng.posteriors({str(q_id): 1.0})
+        # Best-prob fetish after 'yes' answer should be >= base best-prob
+        self.assertGreaterEqual(max(after), max(base))
+
+    def test_posteriors_is_list_of_floats(self):
+        probs = self.eng.posteriors({})
+        self.assertEqual(len(probs), len(self.eng.fetishes))
+        self.assertTrue(all(isinstance(p, float) for p in probs))
+        self.assertTrue(all(0.0 <= p <= 1.0 for p in probs))
+
+    def test_learn_shifts_matrix(self):
+        nf  = len(self.eng.fetishes)
+        nq  = len(self.eng.questions)
+        idx = 0
+        q   = 0
+        before_yes   = self.eng.matrix['yes'][idx][q]
+        before_total = self.eng.matrix['total'][idx][q]
+        self.eng.learn({str(q): 1.0}, idx, strength_factor=1.0)
+        self.assertGreater(self.eng.matrix['yes'][idx][q], before_yes)
+        self.assertGreater(self.eng.matrix['total'][idx][q], before_total)
+        # Restore to avoid affecting other tests
+        self.eng.matrix['yes'][idx][q]   = before_yes
+        self.eng.matrix['total'][idx][q] = before_total
+
+    def test_best_question_not_in_asked(self):
+        asked = set(range(10))
+        q = self.eng.best_question({}, asked)
+        self.assertNotIn(q, asked)
+
+    def test_best_question_returns_none_when_all_asked(self):
+        all_q = set(range(len(self.eng.questions)))
+        q = self.eng.best_question({}, all_q)
+        self.assertIsNone(q)
+
+    def test_top_guess_returns_valid_index(self):
+        idx, prob = self.eng.top_guess({}, n=1)
+        self.assertGreaterEqual(idx, 0)
+        self.assertLess(idx, len(self.eng.fetishes))
+        self.assertGreater(prob, 0.0)
+
+    def test_get_question_stats_has_ask_count(self):
+        stats = self.eng.get_question_stats()
+        self.assertTrue(all('ask_count' in s for s in stats))
+        self.assertTrue(all(s['ask_count'] >= 0 for s in stats))
+
+    def test_early_stop_condition(self):
+        """高確率かつ大差なら early_stop が効いてアンサーが guess を返す。"""
+        from app import app as flask_app
+        client = flask_app.test_client()
+        client.post('/api/start')
+        orig_thr = self.eng.config.get('focus_threshold', 0.40)
+        # Force posteriors to be dominated by a single fetish via answers
+        # by answering all questions yes (will hit MAX_QUESTIONS or early_stop)
+        res = client.post('/api/start')
+        q = res.get_json()['question_id']
+        action = 'question'
+        for _ in range(20):
+            r = client.post('/api/answer', json={'question_id': q, 'answer': 1.0})
+            d = r.get_json()
+            action = d.get('action')
+            if action == 'guess':
+                break
+            q = d.get('question_id', q)
+        self.assertEqual(action, 'guess')
+
+    def test_idk_streak_triggers_guess(self):
+        from app import app as flask_app
+        client = flask_app.test_client()
+        res = client.post('/api/start')
+        q = res.get_json()['question_id']
+        for _ in range(4):
+            r = client.post('/api/answer', json={'question_id': q, 'answer': 0})
+            d = r.get_json()
+            if d.get('action') == 'guess':
+                break
+            q = d.get('question_id', q)
+        self.assertEqual(d.get('action'), 'guess')
+
 
 if __name__ == '__main__':
     unittest.main()

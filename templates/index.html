@@ -487,6 +487,7 @@
       <button class="btn-back" onclick="confirmRestart()">最初から</button>
     </div>
     <div class="question-text" id="question-text">読み込み中…</div>
+    <div id="question-hint" style="text-align:center;font-size:0.78rem;color:#f5a623;margin-top:6px;min-height:1em;"></div>
     <div class="btn-group">
       <button class="btn btn-yes"      onclick="sendAnswer(1)">はい</button>
       <button class="btn btn-prob-yes" onclick="sendAnswer(0.5)">どちらかといえばはい</button>
@@ -774,6 +775,7 @@ async function startGame(excludeIds) {
 function showQuestion(data) {
   currentQ = data.question_id;
   document.getElementById('question-text').textContent = data.question;
+  document.getElementById('question-hint').textContent = data.hint || '';
   const pct = Math.round((data.count / data.total) * 100);
   document.getElementById('progress-fill').style.width = pct + '%';
   document.getElementById('btn-back').style.visibility = data.count > 0 ? 'visible' : 'hidden';

@@ -109,6 +109,7 @@
     <p style="color:#888;font-size:0.8rem;flex:1;" id="chart-label">過去30日間の推移</p>
     <button onclick="renderStatsChart(7)" id="chart-btn-7" style="font-size:0.72rem;padding:2px 8px;background:#0f3460;border:1px solid #444;color:#aaa;border-radius:4px;cursor:pointer;">7日</button>
     <button onclick="renderStatsChart(30)" id="chart-btn-30" style="font-size:0.72rem;padding:2px 8px;background:#e94560;border:1px solid #e94560;color:#fff;border-radius:4px;cursor:pointer;">30日</button>
+    <a href="/api/admin/export_stats_history" class="btn-action" style="font-size:0.72rem;padding:2px 10px;text-decoration:none;">CSVエクスポート</a>
   </div>
   <div id="stats-chart" style="display:flex;align-items:flex-end;gap:2px;height:60px;background:#1a1a1a;border-radius:6px;padding:6px 8px;overflow-x:auto;"></div>
   <div style="display:flex;gap:12px;margin-top:4px;font-size:0.72rem;color:#888;flex-wrap:wrap;">
@@ -205,7 +206,7 @@ renderStatsChart(30);
 <summary style="color:#888;font-size:0.85rem;cursor:pointer;">質問の識別力（低い順、展開で表示）</summary>
 <p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">識別力 = 各性癖でP(yes)が0.5からどれだけ離れているかの平均（0〜0.5。低いほど全性癖に均等で区別しにくい）</p>
 <table id="q-table" style="margin-top:8px;">
-  <tr><th>#</th><th>質問</th><th onclick="sortQTable()" style="cursor:pointer;user-select:none;">識別力 ↕</th><th></th><th>操作</th></tr>
+  <tr><th>#</th><th>質問</th><th onclick="sortQTable()" style="cursor:pointer;user-select:none;">識別力 ↕</th><th></th><th style="color:#888;font-size:0.75rem;white-space:nowrap;" title="UCB使用回数（学習累計）">使用量</th><th>操作</th></tr>
   {% set max_d = [question_stats[-1].disc, 0.01] | max if question_stats else 0.01 %}
   {% for q in question_stats %}
   <tr id="qrow-{{ q.id }}" style="{% if q.disabled %}opacity:0.4{% endif %}">
@@ -217,6 +218,7 @@ renderStatsChart(30);
       </div>
     </td>
     <td style="color:#888;font-size:0.78rem">{{ q.disc }}</td>
+    <td style="color:#{% if q.ask_count < 10 %}e74c3c{% elif q.ask_count < 50 %}f5a623{% else %}555{% endif %};font-size:0.75rem;text-align:right;">{{ q.ask_count | int }}</td>
     <td style="display:flex;gap:4px;">
       <button class="btn-toggle {% if q.disabled %}disabled{% endif %}" id="qtoggle-{{ q.id }}"
           onclick="toggleQuestion({{ q.id }})">{% if q.disabled %}無効{% else %}有効{% endif %}</button>
@@ -360,15 +362,23 @@ renderStatsChart(30);
 </table>
 </details>
 
+<datalist id="fetish-list">
+  {% for f in stats %}<option value="{{ f.fetish_name }} ({{ f.fetish_id }})">{% endfor %}
+</datalist>
+
 <details style="margin-top:24px;">
 <summary style="color:#888;font-size:0.85rem;cursor:pointer;">性癖類似度チェック（2つの性癖IDを比較）</summary>
 <p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">matrixベースのコサイン類似度と、2性癖の差異が大きい質問TOP5を表示します。</p>
 <div style="display:flex;flex-direction:column;gap:6px;max-width:420px;">
   <div style="display:flex;gap:8px;">
-    <input id="sim-a" type="number" placeholder="性癖A のID" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
-    <input id="sim-b" type="number" placeholder="性癖B のID" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
-    <button class="btn-action" onclick="checkSimilarity()">比較</button>
+    <input list="fetish-list" id="sim-a-name" placeholder="性癖A（名前で検索）" oninput="fillId('sim-a-name','sim-a')" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <input id="sim-a" type="number" placeholder="ID" style="width:60px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 8px;border-radius:6px;font-size:0.85rem;">
   </div>
+  <div style="display:flex;gap:8px;">
+    <input list="fetish-list" id="sim-b-name" placeholder="性癖B（名前で検索）" oninput="fillId('sim-b-name','sim-b')" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <input id="sim-b" type="number" placeholder="ID" style="width:60px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 8px;border-radius:6px;font-size:0.85rem;">
+  </div>
+  <div><button class="btn-action" onclick="checkSimilarity()">比較</button></div>
   <div id="sim-result" style="font-size:0.82rem;"></div>
 </div>
 </details>
@@ -377,8 +387,14 @@ renderStatsChart(30);
 <summary style="color:#888;font-size:0.85rem;cursor:pointer;">性癖を統合（2つの性癖のmatrixを合算して1つに）</summary>
 <p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">id_keep の matrix に id_remove の matrix を加算し、id_remove を削除します。取り消し不可。</p>
 <div style="display:flex;flex-direction:column;gap:6px;max-width:420px;">
-  <input id="mg-keep" type="number" placeholder="残す性癖のID (id_keep)" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
-  <input id="mg-rm"   type="number" placeholder="削除する性癖のID (id_remove)" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+  <div style="display:flex;gap:8px;">
+    <input list="fetish-list" id="mg-keep-name" placeholder="残す性癖（名前で検索）" oninput="fillId('mg-keep-name','mg-keep')" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <input id="mg-keep" type="number" placeholder="ID" style="width:60px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 8px;border-radius:6px;font-size:0.85rem;">
+  </div>
+  <div style="display:flex;gap:8px;">
+    <input list="fetish-list" id="mg-rm-name" placeholder="削除する性癖（名前で検索）" oninput="fillId('mg-rm-name','mg-rm')" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <input id="mg-rm" type="number" placeholder="ID" style="width:60px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 8px;border-radius:6px;font-size:0.85rem;">
+  </div>
   <input id="mg-name" type="text"   placeholder="新しい名前（省略可）" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
   <input id="mg-desc" type="text"   placeholder="新しい説明文（省略可）" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
   <div style="display:flex;align-items:center;gap:8px;">
@@ -389,6 +405,12 @@ renderStatsChart(30);
 </details>
 
 <script>
+function fillId(nameInputId, idInputId) {
+  const val = document.getElementById(nameInputId).value;
+  const m = val.match(/\((\d+)\)\s*$/);
+  if (m) document.getElementById(idInputId).value = m[1];
+}
+
 async function adminFetch(url, options = {}) {
   const res = await fetch(url, {
     credentials: 'same-origin',
