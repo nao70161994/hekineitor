@@ -746,6 +746,21 @@ def admin_promote_fetish(fetish_id):
     return jsonify({'status': 'promoted', 'old_id': fetish_id, 'new_id': new_id})
 
 
+@app.route('/api/admin/edit_question/<int:q_idx>', methods=['POST'])
+@_require_admin
+def admin_edit_question(q_idx):
+    data = request.get_json(silent=True) or {}
+    text = (data.get('text') or '').strip()
+    if not text:
+        return jsonify({'status': 'error', 'message': 'text が必要です'}), 400
+    if len(text) > 120:
+        return jsonify({'status': 'error', 'message': '質問は120文字以内'}), 400
+    ok = engine.edit_question(q_idx, text)
+    if not ok:
+        return jsonify({'status': 'error', 'message': '不正なインデックスです'}), 404
+    return jsonify({'status': 'ok', 'q_idx': q_idx, 'text': text})
+
+
 @app.route('/api/admin/edit_fetish/<int:fetish_id>', methods=['POST'])
 @_require_admin
 def admin_edit_fetish(fetish_id):

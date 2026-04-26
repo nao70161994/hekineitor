@@ -1550,6 +1550,19 @@ class Engine:
                 self._atomic_write(log_path, log)
         return True
 
+    def edit_question(self, q_idx, text):
+        """質問テキストをインメモリ・questions.json に反映する。"""
+        if q_idx < 0 or q_idx >= len(self.questions):
+            return False
+        text = text.strip()
+        if not text:
+            return False
+        with self._lock:
+            self.questions[q_idx]['text'] = text
+            q_path = os.path.join(DATA_DIR, 'questions.json')
+            self._atomic_write(q_path, self.questions)
+        return True
+
     def edit_fetish(self, fetish_id, name=None, desc=None):
         """性癖の名前・説明文を更新する。変更したフィールドのみ渡す。"""
         with self._lock:

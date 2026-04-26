@@ -433,6 +433,30 @@ class TestAPI(unittest.TestCase):
         self.assertIn('matrix_rows', data)
         self.assertGreater(len(data['matrix_rows']), 0)
 
+    def test_resume_replays_answers(self):
+        start = self._start()
+        q = start['question_id']
+        self.client.post('/api/answer', json={'question_id': q, 'answer': 1.0})
+        pairs = [{'q_id': q, 'answer': 1.0}]
+        res = self.client.post('/api/resume', json={'pairs': pairs})
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertIn(data.get('action'), ('question', 'guess'))
+
+    def test_resume_empty_pairs_returns_first_question(self):
+        res = self.client.post('/api/resume', json={'pairs': []})
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data.get('action'), 'question')
+        self.assertIn('question_id', data)
+
+    def test_continue_after_guess(self):
+        self._force_guess()
+        res = self.client.post('/api/continue')
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertIn(data.get('action'), ('question',))
+
     def test_edit_fetish(self):
         from app import engine as app_engine
         headers = self._admin_headers()

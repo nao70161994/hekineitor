@@ -197,15 +197,18 @@ renderStatsChart(30);
   {% for q in question_stats %}
   <tr id="qrow-{{ q.id }}" style="{% if q.disabled %}opacity:0.4{% endif %}">
     <td style="color:#666;font-size:0.78rem">{{ q.id }}</td>
-    <td style="font-size:0.82rem;max-width:260px">{{ q.text }}{% if q.disc < 0.05 %}<span class="tag-low">低識別力</span>{% endif %}</td>
+    <td id="qtext-{{ q.id }}" style="font-size:0.82rem;max-width:260px">{{ q.text }}{% if q.disc < 0.05 %}<span class="tag-low">低識別力</span>{% endif %}</td>
     <td>
       <div class="bar-wrap" style="width:100px;">
         <div class="bar-fill" style="width: {{ [[(q.disc / max_d * 100)|int, 2]|max, 100]|min }}%;background:linear-gradient(90deg,#0f3460,#e94560);"></div>
       </div>
     </td>
     <td style="color:#888;font-size:0.78rem">{{ q.disc }}</td>
-    <td><button class="btn-toggle {% if q.disabled %}disabled{% endif %}" id="qtoggle-{{ q.id }}"
-        onclick="toggleQuestion({{ q.id }})">{% if q.disabled %}無効{% else %}有効{% endif %}</button></td>
+    <td style="display:flex;gap:4px;">
+      <button class="btn-toggle {% if q.disabled %}disabled{% endif %}" id="qtoggle-{{ q.id }}"
+          onclick="toggleQuestion({{ q.id }})">{% if q.disabled %}無効{% else %}有効{% endif %}</button>
+      <button class="btn-toggle" onclick="editQuestion({{ q.id }}, this)">編集</button>
+    </td>
   </tr>
   {% endfor %}
 </table>
@@ -213,7 +216,23 @@ renderStatsChart(30);
 
 <details style="margin-top:24px;">
 <summary style="color:#888;font-size:0.85rem;cursor:pointer;">診断ログ（性癖別正解率、展開で表示）</summary>
-<p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">guessed=診断回数 / correct=正解フィードバック数 / wrong=外れフィードバック数 / acc=正解率。ヘッダークリックでソート。</p>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">guessed=診断回数 / correct=正解フィードバック数 / wrong=外れフィードバック数 / acc=正解率。ヘッダークリックでソート。</p>
+{% set top10 = fetish_log_rows[:10] %}
+{% if top10 and top10[0].guessed > 0 %}
+<div style="margin-bottom:16px;">
+  <p style="color:#888;font-size:0.78rem;margin-bottom:6px;">人気性癖 TOP{{ top10|length }}</p>
+  {% set max_g = [top10[0].guessed, 1] | max %}
+  {% for r in top10 %}
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+    <div style="width:90px;font-size:0.72rem;color:#aaa;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ r.name }}">{{ r.name }}</div>
+    <div style="flex:1;max-width:200px;background:#0f3460;border-radius:3px;height:10px;overflow:hidden;">
+      <div style="height:100%;border-radius:3px;width:{{ [[((r.guessed / max_g) * 100)|int, 2]|max, 100]|min }}%;background:{% if loop.index == 1 %}linear-gradient(90deg,#e94560,#f5a623){% else %}#1a4a8a{% endif %};"></div>
+    </div>
+    <div style="font-size:0.72rem;color:#666;min-width:28px;">{{ r.guessed }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
 <div style="display:flex;gap:8px;margin-bottom:8px;">
   <a href="/api/admin/export_log" class="btn-action" style="font-size:0.78rem;padding:4px 12px;text-decoration:none;">CSVエクスポート</a>
   <a href="/api/admin/export_matrix" class="btn-action" style="font-size:0.78rem;padding:4px 12px;text-decoration:none;">Matrix JSONエクスポート</a>
@@ -507,6 +526,33 @@ function sortQTable() {
     return _qSortAsc ? av - bv : bv - av;
   });
   rows.forEach((r, i) => { r.cells[0].textContent = i + 1; table.appendChild(r); });
+}
+
+async function editQuestion(qId, btn) {
+  const cell = document.getElementById(`qtext-${qId}`);
+  if (btn.dataset.editing) {
+    const inp  = cell.querySelector('input');
+    const text = inp ? inp.value.trim() : '';
+    if (!text) return;
+    btn.disabled = true;
+    const res  = await adminFetch(`/api/admin/edit_question/${qId}`, {method: 'POST', body: JSON.stringify({text})});
+    btn.disabled = false;
+    if (!res) return;
+    const data = await res.json();
+    if (res.ok) {
+      cell.textContent = data.text;
+      delete btn.dataset.editing;
+      btn.textContent = '編集';
+    } else {
+      alert(data.message || '保存に失敗しました');
+    }
+  } else {
+    const cur = cell.textContent.replace(/低識別力$/, '').trim();
+    cell.innerHTML = `<input value="${cur.replace(/"/g,'&quot;')}" style="background:#1a1a2e;color:#eee;border:1px solid #555;padding:2px 6px;border-radius:4px;font-size:0.8rem;width:100%">`;
+    btn.dataset.editing = '1';
+    btn.textContent = '保存';
+    cell.querySelector('input').focus();
+  }
 }
 
 async function mergeFetishes() {

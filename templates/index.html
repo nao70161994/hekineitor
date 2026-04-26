@@ -250,6 +250,11 @@
 
   #start-screen { text-align: center; }
   .hidden { display: none !important; }
+  .screen-in { animation: screenFadeIn 0.22s ease both; }
+  @keyframes screenFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
 
   .btn-back {
     background: none; border: 1px solid #444; color: #888;
@@ -583,8 +588,15 @@ let _diagnosedName = '';
 
 function show(id) {
   ['start-screen','question-screen','result-screen','teach-screen','done-screen']
-    .forEach(s => document.getElementById(s).classList.add('hidden'));
-  document.getElementById(id).classList.remove('hidden');
+    .forEach(s => {
+      const el = document.getElementById(s);
+      el.classList.add('hidden');
+      el.classList.remove('screen-in');
+    });
+  const target = document.getElementById(id);
+  target.classList.remove('hidden');
+  void target.offsetWidth;
+  target.classList.add('screen-in');
   if (id === 'result-screen' || id === 'done-screen') _updateExcludeButtons();
 }
 
