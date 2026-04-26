@@ -769,8 +769,11 @@ class Engine:
                     raw = json.load(f)
             except (OSError, json.JSONDecodeError):
                 raw = {}
-        return [{'date': d, 'play': raw.get(d, {}).get('play', 0),
-                 'learn': raw.get(d, {}).get('learn', 0)} for d in date_range]
+        return [{'date': d,
+                 'play':    raw.get(d, {}).get('play',    0),
+                 'learn':   raw.get(d, {}).get('learn',   0),
+                 'correct': raw.get(d, {}).get('correct', 0),
+                 'wrong':   raw.get(d, {}).get('wrong',   0)} for d in date_range]
 
     # ── 質問無効化フラグ ───────────────────────────────────
     def _load_disabled_questions(self):
@@ -851,9 +854,11 @@ class Engine:
 
     def log_correct(self, fetish_db_id):
         self._increment_fetish_log(fetish_db_id, 'correct')
+        self._record_daily_stat('correct')
 
     def log_wrong(self, fetish_db_id):
         self._increment_fetish_log(fetish_db_id, 'wrong')
+        self._record_daily_stat('wrong')
 
     def get_fetish_log(self):
         """全性癖のログを {fetish_db_id: {guessed, correct, wrong}} で返す。"""

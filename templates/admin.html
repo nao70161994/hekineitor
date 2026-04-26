@@ -106,9 +106,11 @@
     <button onclick="renderStatsChart(30)" id="chart-btn-30" style="font-size:0.72rem;padding:2px 8px;background:#e94560;border:1px solid #e94560;color:#fff;border-radius:4px;cursor:pointer;">30日</button>
   </div>
   <div id="stats-chart" style="display:flex;align-items:flex-end;gap:2px;height:60px;background:#1a1a1a;border-radius:6px;padding:6px 8px;overflow-x:auto;"></div>
-  <div style="display:flex;gap:12px;margin-top:4px;font-size:0.72rem;color:#888;">
+  <div style="display:flex;gap:12px;margin-top:4px;font-size:0.72rem;color:#888;flex-wrap:wrap;">
     <span><span style="display:inline-block;width:10px;height:10px;background:#f5a623;border-radius:2px;margin-right:3px;"></span>プレイ</span>
     <span><span style="display:inline-block;width:10px;height:10px;background:#5b8dd9;border-radius:2px;margin-right:3px;"></span>学習</span>
+    <span><span style="display:inline-block;width:10px;height:10px;background:#27ae60;border-radius:2px;margin-right:3px;"></span>正解FB</span>
+    <span><span style="display:inline-block;width:10px;height:10px;background:#e74c3c;border-radius:2px;margin-right:3px;"></span>外れFB</span>
   </div>
 </div>
 <script>
@@ -124,11 +126,17 @@ function renderStatsChart(days) {
   document.getElementById('chart-btn-30').style.borderColor = days === 30 ? '#e94560' : '#444';
   document.getElementById('chart-btn-30').style.color       = days === 30 ? '#fff'    : '#aaa';
   document.getElementById('stats-chart').innerHTML = data.map(r => {
-    const ph = Math.round(r.play  / maxV * 48);
-    const lh = Math.round(r.learn / maxV * 48);
-    return `<div style="flex:1;min-width:6px;display:flex;flex-direction:column;align-items:center;gap:1px;height:100%;justify-content:flex-end;" title="${r.date}\nプレイ:${r.play} 学習:${r.learn}">
+    const ph = Math.round(r.play    / maxV * 48);
+    const lh = Math.round(r.learn   / maxV * 48);
+    const ch = Math.round(r.correct / maxV * 48);
+    const wh = Math.round(r.wrong   / maxV * 48);
+    const fb = r.correct + r.wrong;
+    const accStr = fb > 0 ? ` 正答率:${Math.round(r.correct/fb*100)}%` : '';
+    return `<div style="flex:1;min-width:7px;display:flex;flex-direction:column;align-items:center;gap:1px;height:100%;justify-content:flex-end;" title="${r.date}\nプレイ:${r.play} 学習:${r.learn}\n正解:${r.correct} 外れ:${r.wrong}${accStr}">
       <div style="width:100%;background:#f5a623;border-radius:2px 2px 0 0;height:${ph}px;"></div>
       <div style="width:100%;background:#5b8dd9;border-radius:2px 2px 0 0;height:${lh}px;"></div>
+      <div style="width:100%;background:#27ae60;border-radius:2px 2px 0 0;height:${ch}px;"></div>
+      <div style="width:100%;background:#e74c3c;border-radius:2px 2px 0 0;height:${wh}px;"></div>
     </div>`;
   }).join('');
 }

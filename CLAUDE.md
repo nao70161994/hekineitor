@@ -179,7 +179,7 @@ gunicorn app:app --workers 2 --threads 4
 - `data/matrix.json`・`data/learned_priors.json` は `.gitignore` 済み（学習データをgitに含めない）
 - Termux環境では長いコマンドはスクリプトファイルに書いて実行する
 - シードの性癖をDBに登録せずJSONで管理しているのは、JSONが「正解」でありDB側はfetish_idを参照するだけのため（シード増減もマイグレーションで自動追従）
-- テストは `python tests/test_app.py` で実行（現在46テスト）
+- テストは `python tests/test_app.py` で実行（現在49テスト）
 - `data/stats_history.json` は `.gitignore` 済み
 - `DISPLAY_VERSION` は現在 `v1.2.1`
 - index.html: キーボードショートカット（1〜5で回答、Backspaceで戻る）
