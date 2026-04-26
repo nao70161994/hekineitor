@@ -617,6 +617,12 @@ function setGenieState(state) {
 
 function showStart() { show('start-screen'); setGenieState('idle'); }
 
+function showSessionExpired() {
+  showToast('セッションが切れました。もう一度スタートしてください。', '#7f8c8d', 8000);
+  show('start-screen');
+  setGenieState('idle');
+}
+
 async function skipTeach() {
   if (window._addOnlyMode === 'add') {
     // 全正解スキップ → 負学習なし
@@ -675,6 +681,10 @@ async function apiFetch(url, body, timeoutMs = 30000) {
     throw new Error('network');
   } finally {
     clearTimeout(timer);
+  }
+  if (res.status === 440) {
+    showSessionExpired();
+    throw new Error('session_expired');
   }
   if (!res.ok) {
     let msg = `サーバーエラー (${res.status})`;

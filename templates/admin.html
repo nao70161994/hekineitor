@@ -86,5 +86,21 @@
   {% endfor %}
 </table>
 </details>
+
+<details style="margin-top:24px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">質問間の相関（類似ペア上位30、展開で表示）</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">コサイン類似度が高いペアは情報が重複している可能性あり。|cos|≥0.8 は要検討。</p>
+<table style="margin-top:8px;">
+  <tr><th>#</th><th>Q1</th><th>Q2</th><th>cos</th></tr>
+  {% for p in corr_stats %}
+  <tr style="{% if p.cos|abs >= 0.8 %}color:#e74c3c{% elif p.cos|abs >= 0.6 %}color:#f5a623{% else %}color:#aaa{% endif %}">
+    <td style="font-size:0.75rem;color:#555">{{ loop.index }}</td>
+    <td style="font-size:0.78rem;max-width:220px">Q{{ p.q1_id }}: {{ p.q1_text }}</td>
+    <td style="font-size:0.78rem;max-width:220px">Q{{ p.q2_id }}: {{ p.q2_text }}</td>
+    <td style="font-size:0.8rem;min-width:48px">{{ p.cos }}</td>
+  </tr>
+  {% endfor %}
+</table>
+</details>
 </body>
 </html>

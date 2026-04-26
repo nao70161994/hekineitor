@@ -95,6 +95,7 @@ def start():
     session.clear()
     session['answers'] = {}
     session['asked']   = []
+    session['started'] = True
     q = engine.best_question({}, set())
     session['asked'].append(q)
     return jsonify({
@@ -107,6 +108,8 @@ def start():
 
 @app.route('/api/answer', methods=['POST'])
 def answer():
+    if not session.get('started'):
+        return jsonify({'status': 'session_expired'}), 440
     data = request.get_json(silent=True) or {}
     if 'question_id' not in data or 'answer' not in data:
         return jsonify({'status': 'error', 'message': 'question_id と answer が必要です'}), 400
@@ -163,6 +166,8 @@ def answer():
 
 @app.route('/api/back', methods=['POST'])
 def back():
+    if not session.get('started'):
+        return jsonify({'status': 'session_expired'}), 440
     asked   = session.get('asked', [])
     answers = session.get('answers', {})
 
@@ -430,10 +435,11 @@ def admin():
     stats = engine.get_learning_stats()
     s = engine.get_stats()
     player_fetishes = [f for f in engine.fetishes if f['id'] >= PLAYER_FETISH_BASE_ID]
-    question_stats  = engine.get_question_stats()
+    question_stats   = engine.get_question_stats()
+    corr_stats       = engine.get_correlation_stats(top_n=30)
     return render_template('admin.html', stats=stats, play_count=s['play_count'],
                            learn_count=s['learn_count'], player_fetishes=player_fetishes,
-                           question_stats=question_stats)
+                           question_stats=question_stats, corr_stats=corr_stats)
 
 
 if __name__ == '__main__':

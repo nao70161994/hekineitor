@@ -833,6 +833,31 @@ class Engine:
             })
         return sorted(result, key=lambda x: x['disc'])
 
+    def get_correlation_stats(self, top_n=30):
+        """質問ベクトル間のコサイン類似度を計算し、上位ペアを返す。"""
+        import math
+        nf = len(self.fetishes)
+        nq = len(self.questions)
+        vecs = []
+        for q in range(nq):
+            v = [self._prob(f, q) - 0.5 for f in range(nf)]
+            norm = math.sqrt(sum(x*x for x in v)) or 1e-9
+            vecs.append((v, norm))
+
+        pairs = []
+        for i in range(nq):
+            for j in range(i+1, nq):
+                vi, ni = vecs[i]
+                vj, nj = vecs[j]
+                cos = sum(a*b for a, b in zip(vi, vj)) / (ni * nj)
+                pairs.append({
+                    'q1_id': i, 'q1_text': self.questions[i]['text'],
+                    'q2_id': j, 'q2_text': self.questions[j]['text'],
+                    'cos': round(cos, 3),
+                })
+        pairs.sort(key=lambda x: -abs(x['cos']))
+        return pairs[:top_n]
+
     def top_guess(self, answers, n=1):
         probs   = self.posteriors(answers)
         ranked  = sorted(range(len(probs)), key=lambda i: probs[i], reverse=True)
