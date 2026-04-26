@@ -678,5 +678,42 @@ def admin_promote_fetish(fetish_id):
     return jsonify({'status': 'promoted', 'old_id': fetish_id, 'new_id': new_id})
 
 
+@app.route('/api/admin/export_matrix', methods=['GET'])
+@_require_admin
+def admin_export_matrix():
+    fetishes  = engine.fetishes
+    questions = engine.questions
+    rows = []
+    for fi, f in enumerate(fetishes):
+        for qi, q in enumerate(questions):
+            y = engine.matrix['yes'][fi][qi]
+            t = engine.matrix['total'][fi][qi]
+            rows.append({'fetish_id': f['id'], 'fetish_name': f['name'],
+                         'question_id': qi, 'question_text': q['text'],
+                         'yes': round(y, 4), 'total': round(t, 4)})
+    payload = _json.dumps({'fetishes': fetishes, 'matrix_rows': rows}, ensure_ascii=False, indent=2)
+    return Response(payload, mimetype='application/json',
+                    headers={'Content-Disposition': 'attachment; filename="matrix_export.json"'})
+
+
+@app.route('/api/admin/export_log', methods=['GET'])
+@_require_admin
+def admin_export_log():
+    log = engine.get_fetish_log()
+    fetish_map = {f['id']: f['name'] for f in engine.fetishes}
+    lines = ['id,name,guessed,correct,wrong,accuracy']
+    for fid, entry in sorted(log.items(), key=lambda kv: -kv[1].get('guessed', 0)):
+        name    = fetish_map.get(fid, str(fid))
+        guessed = entry.get('guessed', 0)
+        correct = entry.get('correct', 0)
+        wrong   = entry.get('wrong', 0)
+        acc     = f"{round(correct/guessed*100,1)}" if guessed else ''
+        name_esc = '"' + name.replace('"', '""') + '"'
+        lines.append(f'{fid},{name_esc},{guessed},{correct},{wrong},{acc}')
+    csv_body = '\n'.join(lines)
+    return Response(csv_body, mimetype='text/csv; charset=utf-8',
+                    headers={'Content-Disposition': 'attachment; filename="fetish_log.csv"'})
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

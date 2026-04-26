@@ -100,25 +100,40 @@
 
 {% if stats_history %}
 <div style="margin-bottom:24px;">
-  <p style="color:#888;font-size:0.8rem;margin-bottom:6px;">過去30日間の推移</p>
-  {% set max_val = namespace(v=1) %}
-  {% for row in stats_history %}
-    {% if row.play > max_val.v %}{% set max_val.v = row.play %}{% endif %}
-    {% if row.learn > max_val.v %}{% set max_val.v = row.learn %}{% endif %}
-  {% endfor %}
-  <div style="display:flex;align-items:flex-end;gap:2px;height:60px;background:#1a1a1a;border-radius:6px;padding:6px 8px;overflow-x:auto;">
-    {% for row in stats_history %}
-    <div style="flex:1;min-width:6px;display:flex;flex-direction:column;align-items:center;gap:1px;height:100%;justify-content:flex-end;" title="{{ row.date }}&#10;プレイ:{{ row.play }} 学習:{{ row.learn }}">
-      <div style="width:100%;background:#f5a623;border-radius:2px 2px 0 0;height:{{ [[((row.play / max_val.v) * 48)|int, 0]|max, 48]|min }}px;"></div>
-      <div style="width:100%;background:#5b8dd9;border-radius:2px 2px 0 0;height:{{ [[((row.learn / max_val.v) * 48)|int, 0]|max, 48]|min }}px;"></div>
-    </div>
-    {% endfor %}
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+    <p style="color:#888;font-size:0.8rem;flex:1;" id="chart-label">過去30日間の推移</p>
+    <button onclick="renderStatsChart(7)" id="chart-btn-7" style="font-size:0.72rem;padding:2px 8px;background:#0f3460;border:1px solid #444;color:#aaa;border-radius:4px;cursor:pointer;">7日</button>
+    <button onclick="renderStatsChart(30)" id="chart-btn-30" style="font-size:0.72rem;padding:2px 8px;background:#e94560;border:1px solid #e94560;color:#fff;border-radius:4px;cursor:pointer;">30日</button>
   </div>
+  <div id="stats-chart" style="display:flex;align-items:flex-end;gap:2px;height:60px;background:#1a1a1a;border-radius:6px;padding:6px 8px;overflow-x:auto;"></div>
   <div style="display:flex;gap:12px;margin-top:4px;font-size:0.72rem;color:#888;">
     <span><span style="display:inline-block;width:10px;height:10px;background:#f5a623;border-radius:2px;margin-right:3px;"></span>プレイ</span>
     <span><span style="display:inline-block;width:10px;height:10px;background:#5b8dd9;border-radius:2px;margin-right:3px;"></span>学習</span>
   </div>
 </div>
+<script>
+const _statsHistory = {{ stats_history | tojson }};
+function renderStatsChart(days) {
+  const data = _statsHistory.slice(-days);
+  const maxV = Math.max(1, ...data.map(r => Math.max(r.play, r.learn)));
+  document.getElementById('chart-label').textContent = `過去${days}日間の推移`;
+  document.getElementById('chart-btn-7').style.background  = days === 7  ? '#e94560' : '#0f3460';
+  document.getElementById('chart-btn-7').style.borderColor = days === 7  ? '#e94560' : '#444';
+  document.getElementById('chart-btn-7').style.color       = days === 7  ? '#fff'    : '#aaa';
+  document.getElementById('chart-btn-30').style.background  = days === 30 ? '#e94560' : '#0f3460';
+  document.getElementById('chart-btn-30').style.borderColor = days === 30 ? '#e94560' : '#444';
+  document.getElementById('chart-btn-30').style.color       = days === 30 ? '#fff'    : '#aaa';
+  document.getElementById('stats-chart').innerHTML = data.map(r => {
+    const ph = Math.round(r.play  / maxV * 48);
+    const lh = Math.round(r.learn / maxV * 48);
+    return `<div style="flex:1;min-width:6px;display:flex;flex-direction:column;align-items:center;gap:1px;height:100%;justify-content:flex-end;" title="${r.date}\nプレイ:${r.play} 学習:${r.learn}">
+      <div style="width:100%;background:#f5a623;border-radius:2px 2px 0 0;height:${ph}px;"></div>
+      <div style="width:100%;background:#5b8dd9;border-radius:2px 2px 0 0;height:${lh}px;"></div>
+    </div>`;
+  }).join('');
+}
+renderStatsChart(30);
+</script>
 {% endif %}
 
 <table>
@@ -161,8 +176,8 @@
 <details style="margin-top:40px;">
 <summary style="color:#888;font-size:0.85rem;cursor:pointer;">質問の識別力（低い順、展開で表示）</summary>
 <p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">識別力 = 各性癖でP(yes)が0.5からどれだけ離れているかの平均（0〜0.5。低いほど全性癖に均等で区別しにくい）</p>
-<table style="margin-top:8px;">
-  <tr><th>#</th><th>質問</th><th>識別力</th><th></th><th>操作</th></tr>
+<table id="q-table" style="margin-top:8px;">
+  <tr><th>#</th><th>質問</th><th onclick="sortQTable()" style="cursor:pointer;user-select:none;">識別力 ↕</th><th></th><th>操作</th></tr>
   {% set max_d = [question_stats[-1].disc, 0.01] | max if question_stats else 0.01 %}
   {% for q in question_stats %}
   <tr id="qrow-{{ q.id }}" style="{% if q.disabled %}opacity:0.4{% endif %}">
@@ -184,6 +199,10 @@
 <details style="margin-top:24px;">
 <summary style="color:#888;font-size:0.85rem;cursor:pointer;">診断ログ（性癖別正解率、展開で表示）</summary>
 <p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">guessed=診断回数 / correct=正解フィードバック数 / wrong=外れフィードバック数 / acc=正解率。ヘッダークリックでソート。</p>
+<div style="display:flex;gap:8px;margin-bottom:8px;">
+  <a href="/api/admin/export_log" class="btn-action" style="font-size:0.78rem;padding:4px 12px;text-decoration:none;">CSVエクスポート</a>
+  <a href="/api/admin/export_matrix" class="btn-action" style="font-size:0.78rem;padding:4px 12px;text-decoration:none;">Matrix JSONエクスポート</a>
+</div>
 <table id="log-table" style="margin-top:8px;">
   <tr>
     <th>#</th>
@@ -368,6 +387,19 @@ async function adminAddFetish() {
     msg.style.color = '#e74c3c';
     msg.textContent = data.message || 'エラーが発生しました';
   }
+}
+
+let _qSortAsc = true;
+function sortQTable() {
+  const table = document.getElementById('q-table');
+  const rows  = Array.from(table.rows).slice(1);
+  _qSortAsc = !_qSortAsc;
+  rows.sort((a, b) => {
+    const av = parseFloat(a.cells[3].textContent);
+    const bv = parseFloat(b.cells[3].textContent);
+    return _qSortAsc ? av - bv : bv - av;
+  });
+  rows.forEach((r, i) => { r.cells[0].textContent = i + 1; table.appendChild(r); });
 }
 
 async function toggleQuestion(qId) {

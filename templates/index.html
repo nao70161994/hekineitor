@@ -1237,6 +1237,20 @@ if ('serviceWorker' in navigator) {
     }).catch(() => {});
   });
 }
+
+// キーボードショートカット（質問画面表示中のみ有効）
+document.addEventListener('keydown', e => {
+  if (document.getElementById('question-screen').classList.contains('hidden')) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const map = {'1': 1, '2': 0.5, '3': 0, '4': -0.5, '5': -1};
+  if (map[e.key] !== undefined) {
+    e.preventDefault();
+    sendAnswer(map[e.key]);
+  } else if (e.key === 'Backspace') {
+    e.preventDefault();
+    goBack();
+  }
+});
 </script>
 </body>
 </html>
