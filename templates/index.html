@@ -494,6 +494,7 @@
     <div class="result-desc" id="result-desc"></div>
     <div class="result-prob" id="result-prob"></div>
     <div class="result-prob-note">※ モデルの推定一致度です（実際の正解率とは異なります）</div>
+    <div id="top-chart" style="margin:10px 0 4px;"></div>
     <div class="profile-section hidden" id="profile-section">
       <div class="profile-label">他に該当しそうなジャンル</div>
       <div id="profile-list"></div>
@@ -768,6 +769,23 @@ function showGuess(data) {
   _diagnosedName = lastFetishName;
   document.getElementById('result-desc').textContent = data.fetish_desc;
   document.getElementById('result-prob').textContent = `一致度: ${data.probability}%`;
+
+  // 確率バーグラフ（上位5件）
+  const chartEl = document.getElementById('top-chart');
+  if (data.top_chart && data.top_chart.length > 1) {
+    const maxP = data.top_chart[0].probability;
+    chartEl.innerHTML = data.top_chart.map((item, i) =>
+      `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+        <div style="width:90px;font-size:0.72rem;color:${i===0?'#e94560':'#888'};text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.fetish_name}</div>
+        <div style="flex:1;background:#0f3460;border-radius:3px;height:10px;overflow:hidden;">
+          <div style="height:100%;border-radius:3px;width:${Math.round(item.probability/maxP*100)}%;background:${i===0?'linear-gradient(90deg,#e94560,#f5a623)':'#1a4a8a'};"></div>
+        </div>
+        <div style="width:38px;font-size:0.72rem;color:#aaa;">${item.probability}%</div>
+      </div>`
+    ).join('');
+  } else {
+    chartEl.innerHTML = '';
+  }
 
   // 項目ごとの正誤ボタンを生成
   const items = [{fetish_id: data.fetish_id, fetish_name: data.fetish_name, probability: data.probability}];

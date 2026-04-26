@@ -420,6 +420,7 @@ class Engine:
         else:
             self.fetishes = self._load_json('fetishes.json')
             self.matrix   = self._load_matrix_file()
+        self.disabled_questions = self._load_disabled_questions()
 
     # ── JSON ローカル ──────────────────────────────────────
     def _load_json(self, fname):
@@ -515,6 +516,14 @@ class Engine:
                     cur.execute(
                         "INSERT INTO stats (key, value) VALUES (%s, 0) ON CONFLICT DO NOTHING", (k,)
                     )
+                cur.execute('''
+                    CREATE TABLE IF NOT EXISTS fetish_log (
+                        fetish_id INTEGER PRIMARY KEY,
+                        guessed   INTEGER NOT NULL DEFAULT 0,
+                        correct   INTEGER NOT NULL DEFAULT 0,
+                        wrong     INTEGER NOT NULL DEFAULT 0
+                    )
+                ''')
                 # 新しい性癖を fetishes.json から差分追加（マイグレーション）
                 cur.execute('SELECT id FROM fetishes')
                 existing_ids = {r[0] for r in cur.fetchall()}
@@ -658,6 +667,110 @@ class Engine:
                 result = {}
         return {k: result.get(k, 0) for k in keys}
 
+    # ── 質問無効化フラグ ───────────────────────────────────
+    def _load_disabled_questions(self):
+        if _use_db():
+            conn = _get_conn()
+            try:
+                cur = conn.cursor()
+                cur.execute("SELECT key FROM stats WHERE key LIKE 'disabled_q_%'")
+                return {int(r[0][len('disabled_q_'):]) for r in cur.fetchall()}
+            finally:
+                _put_conn(conn)
+        else:
+            path = os.path.join(DATA_DIR, 'question_flags.json')
+            try:
+                with open(path, encoding='utf-8') as f:
+                    return set(json.load(f).get('disabled', []))
+            except (OSError, json.JSONDecodeError):
+                return set()
+
+    def _save_disabled_questions(self):
+        if _use_db():
+            conn = _get_conn()
+            try:
+                with conn:
+                    cur = conn.cursor()
+                    cur.execute("DELETE FROM stats WHERE key LIKE 'disabled_q_%'")
+                    for q_id in self.disabled_questions:
+                        cur.execute(
+                            "INSERT INTO stats (key, value) VALUES (%s, 1) ON CONFLICT (key) DO UPDATE SET value=1",
+                            (f'disabled_q_{q_id}',)
+                        )
+            finally:
+                _put_conn(conn)
+        else:
+            path = os.path.join(DATA_DIR, 'question_flags.json')
+            self._atomic_write(path, {'disabled': sorted(self.disabled_questions)})
+
+    def toggle_question_disabled(self, q_id):
+        """無効化/有効化を切り替え。True=無効化後の状態を返す。"""
+        with self._lock:
+            if q_id in self.disabled_questions:
+                self.disabled_questions.discard(q_id)
+                result = False
+            else:
+                self.disabled_questions.add(q_id)
+                result = True
+        self._save_disabled_questions()
+        return result
+
+    # ── 診断ログ ──────────────────────────────────────────
+    def _increment_fetish_log(self, fetish_db_id, col):
+        if _use_db():
+            conn = _get_conn()
+            try:
+                with conn:
+                    cur = conn.cursor()
+                    cur.execute(f'''
+                        INSERT INTO fetish_log (fetish_id, {col}) VALUES (%s, 1)
+                        ON CONFLICT (fetish_id) DO UPDATE SET {col} = fetish_log.{col} + 1
+                    ''', (fetish_db_id,))
+            finally:
+                _put_conn(conn)
+        else:
+            path = os.path.join(DATA_DIR, 'fetish_log.json')
+            try:
+                with open(path, encoding='utf-8') as f:
+                    data = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                data = {}
+            key = str(fetish_db_id)
+            entry = data.get(key, {'guessed': 0, 'correct': 0, 'wrong': 0})
+            entry[col] = entry.get(col, 0) + 1
+            data[key] = entry
+            self._atomic_write(path, data)
+
+    def log_guessed(self, fetish_db_id):
+        self._increment_fetish_log(fetish_db_id, 'guessed')
+
+    def log_correct(self, fetish_db_id):
+        self._increment_fetish_log(fetish_db_id, 'correct')
+
+    def log_wrong(self, fetish_db_id):
+        self._increment_fetish_log(fetish_db_id, 'wrong')
+
+    def get_fetish_log(self):
+        """全性癖のログを {fetish_db_id: {guessed, correct, wrong}} で返す。"""
+        if _use_db():
+            conn = _get_conn()
+            try:
+                cur = conn.cursor()
+                cur.execute('SELECT fetish_id, guessed, correct, wrong FROM fetish_log')
+                return {r[0]: {'guessed': r[1], 'correct': r[2], 'wrong': r[3]}
+                        for r in cur.fetchall()}
+            finally:
+                _put_conn(conn)
+        else:
+            path = os.path.join(DATA_DIR, 'fetish_log.json')
+            try:
+                with open(path, encoding='utf-8') as f:
+                    raw = json.load(f)
+                return {int(k): v for k, v in raw.items()}
+            except (OSError, json.JSONDecodeError):
+                return {}
+
+
     def _save_to_db(self, all_updates):
         if not all_updates:
             return
@@ -746,16 +859,19 @@ class Engine:
             axis_filter = None
 
         early_game = len(asked_list) < EARLY_RANDOM_DEPTH
+        # 相関ペナルティ用: 中心化ベクトル (P - 0.5) を使用
         q_vecs = {}
         for qa in asked_list:
-            q_vecs[qa] = [self._prob(f, qa) for f in range(nf)]
+            v = [self._prob(f, qa) - 0.5 for f in range(nf)]
+            n = math.sqrt(sum(a**2 for a in v)) or 1e-9
+            q_vecs[qa] = (v, n)
 
         best_filtered_q, best_filtered_s = None, -1.0
         best_any_q,      best_any_s      = None, -1.0
         early_cands = []  # (weighted_score, q) — 序盤ランダム用
 
         for q in range(len(self.questions)):
-            if q in asked:
+            if q in asked or q in self.disabled_questions:
                 continue
             p_yes = sum(wp[f] * self._prob(f, q) for f in range(nf))
             p_no  = 1.0 - p_yes
@@ -767,15 +883,11 @@ class Engine:
             sn = sum(pn); pn = [v / sn for v in pn]
             score = h0 - (p_yes * self._entropy(py) + p_no * self._entropy(pn))
             if asked_list:
-                v_q = [self._prob(f, q) for f in range(nf)]
-                n_q = math.sqrt(sum(a**2 for a in v_q))
+                v_q = [self._prob(f, q) - 0.5 for f in range(nf)]
+                n_q = math.sqrt(sum(a**2 for a in v_q)) or 1e-9
                 max_sim = 0.0
-                for qa, v_qa in q_vecs.items():
-                    if n_q == 0:
-                        sim = 0.0
-                    else:
-                        n_qa = math.sqrt(sum(a**2 for a in v_qa))
-                        sim = sum(a * b for a, b in zip(v_q, v_qa)) / (n_q * n_qa) if n_qa else 0.0
+                for v_qa, n_qa in q_vecs.values():
+                    sim = sum(a * b for a, b in zip(v_q, v_qa)) / (n_q * n_qa)
                     if sim > max_sim:
                         max_sim = sim
                 score *= (1.0 - 0.4 * max_sim)
@@ -827,9 +939,10 @@ class Engine:
             probs = [self._prob(f, q) for f in range(nf)]
             disc  = sum(abs(p - 0.5) for p in probs) / nf  # 0〜0.5; 高いほど識別力あり
             result.append({
-                'id':   q,
-                'text': qdata['text'],
-                'disc': round(disc, 3),
+                'id':      q,
+                'text':    qdata['text'],
+                'disc':    round(disc, 3),
+                'disabled': q in self.disabled_questions,
             })
         return sorted(result, key=lambda x: x['disc'])
 

@@ -253,6 +253,12 @@ def _compute_guess(answers):
                 related.append(r)
                 related_seen.add(r['fetish_id'])
 
+    # 上位5件の確率バー用
+    top_chart = []
+    for fi in ranked[:5]:
+        f_dict = engine.fetishes[fi]
+        top_chart.append({'fetish_name': f_dict['name'], 'probability': round(probs[fi] * 100, 1)})
+
     return {
         'action':      'guess',
         'fetish_id':   best_db,
@@ -262,12 +268,15 @@ def _compute_guess(answers):
         'compound':    compound,
         'profile':     profile,
         'related':     related,
+        'top_chart':   top_chart,
     }
 
 
 def _make_guess(answers):
     engine.increment_play_count()
-    return jsonify(_compute_guess(answers))
+    result = _compute_guess(answers)
+    engine.log_guessed(result['fetish_id'])
+    return jsonify(result)
 
 
 @app.route('/api/confirm', methods=['POST'])
@@ -297,8 +306,11 @@ def confirm():
         factor = _learn_factor(answers, total_n=len(learn_idxs))
         for idx in learn_idxs:
             engine.learn(answers, idx, strength_factor=factor)
+            engine.log_correct(engine.fetishes[idx]['id'])
         return jsonify({'status': 'learned'})
     else:
+        if not data.get('add_only', False):
+            engine.log_wrong(f_db_id)
         probs = engine.posteriors(answers)
         excluded_db_ids = {f_db_id}
         for cid in data.get('compound_ids', []):
@@ -336,6 +348,7 @@ def teach():
     answers  = session.get('answers', {})
     total_n  = max(1, int(data.get('total_n', 1)))
     engine.learn(answers, f_idx, strength_factor=_learn_factor(answers, total_n))
+    engine.log_correct(engine.fetishes[f_idx]['id'])
     return jsonify({'status': 'learned', 'fetish_name': engine.fetishes[f_idx]['name']})
 
 
@@ -437,9 +450,32 @@ def admin():
     player_fetishes = [f for f in engine.fetishes if f['id'] >= PLAYER_FETISH_BASE_ID]
     question_stats   = engine.get_question_stats()
     corr_stats       = engine.get_correlation_stats(top_n=30)
+    fetish_log       = engine.get_fetish_log()
+    fetish_log_rows  = []
+    for f in engine.fetishes:
+        lg = fetish_log.get(f['id'], {'guessed': 0, 'correct': 0, 'wrong': 0})
+        guessed = lg['guessed']
+        correct = lg['correct']
+        wrong   = lg['wrong']
+        acc = round(correct / guessed * 100) if guessed else None
+        fetish_log_rows.append({
+            'id': f['id'], 'name': f['name'],
+            'guessed': guessed, 'correct': correct, 'wrong': wrong, 'acc': acc,
+        })
+    fetish_log_rows.sort(key=lambda r: -r['guessed'])
     return render_template('admin.html', stats=stats, play_count=s['play_count'],
                            learn_count=s['learn_count'], player_fetishes=player_fetishes,
-                           question_stats=question_stats, corr_stats=corr_stats)
+                           question_stats=question_stats, corr_stats=corr_stats,
+                           fetish_log_rows=fetish_log_rows)
+
+
+@app.route('/api/admin/toggle_question/<int:q_id>', methods=['POST'])
+@_require_admin
+def toggle_question(q_id):
+    if q_id < 0 or q_id >= len(engine.questions):
+        return jsonify({'status': 'error', 'message': '不正な質問IDです'}), 400
+    disabled = engine.toggle_question_disabled(q_id)
+    return jsonify({'status': 'ok', 'disabled': disabled})
 
 
 if __name__ == '__main__':

@@ -22,6 +22,9 @@
                background: linear-gradient(90deg, #e94560, #f5a623); }
   .tag-low  { color: #e74c3c; font-size: 0.75rem; margin-left: 6px; }
   a { color: #e94560; font-size: 0.85rem; }
+  .btn-toggle { font-size: 0.72rem; padding: 2px 8px; border-radius: 4px; border: 1px solid #555;
+                background: #1a1a2e; color: #aaa; cursor: pointer; }
+  .btn-toggle.disabled { background: #3a1a1a; color: #e74c3c; border-color: #e74c3c; }
 </style>
 </head>
 <body>
@@ -70,18 +73,40 @@
 <summary style="color:#888;font-size:0.85rem;cursor:pointer;">質問の識別力（低い順、展開で表示）</summary>
 <p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">識別力 = 各性癖でP(yes)が0.5からどれだけ離れているかの平均（0〜0.5。低いほど全性癖に均等で区別しにくい）</p>
 <table style="margin-top:8px;">
-  <tr><th>#</th><th>質問</th><th>識別力</th><th></th></tr>
+  <tr><th>#</th><th>質問</th><th>識別力</th><th></th><th>操作</th></tr>
   {% set max_d = [question_stats[-1].disc, 0.01] | max if question_stats else 0.01 %}
   {% for q in question_stats %}
-  <tr>
+  <tr id="qrow-{{ q.id }}" style="{% if q.disabled %}opacity:0.4{% endif %}">
     <td style="color:#666;font-size:0.78rem">{{ q.id }}</td>
-    <td style="font-size:0.82rem;max-width:320px">{{ q.text }}{% if q.disc < 0.05 %}<span class="tag-low">低識別力</span>{% endif %}</td>
+    <td style="font-size:0.82rem;max-width:260px">{{ q.text }}{% if q.disc < 0.05 %}<span class="tag-low">低識別力</span>{% endif %}</td>
     <td>
-      <div class="bar-wrap" style="width:120px;">
+      <div class="bar-wrap" style="width:100px;">
         <div class="bar-fill" style="width: {{ [[(q.disc / max_d * 100)|int, 2]|max, 100]|min }}%;background:linear-gradient(90deg,#0f3460,#e94560);"></div>
       </div>
     </td>
     <td style="color:#888;font-size:0.78rem">{{ q.disc }}</td>
+    <td><button class="btn-toggle {% if q.disabled %}disabled{% endif %}" id="qtoggle-{{ q.id }}"
+        onclick="toggleQuestion({{ q.id }})">{% if q.disabled %}無効{% else %}有効{% endif %}</button></td>
+  </tr>
+  {% endfor %}
+</table>
+</details>
+
+<details style="margin-top:24px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">診断ログ（性癖別正解率、展開で表示）</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">guessed=診断回数 / correct=正解フィードバック数 / wrong=外れフィードバック数 / acc=正解率</p>
+<table style="margin-top:8px;">
+  <tr><th>#</th><th>性癖</th><th>診断</th><th>正解</th><th>外れ</th><th>正解率</th></tr>
+  {% for r in fetish_log_rows %}
+  <tr>
+    <td style="color:#666;font-size:0.75rem">{{ loop.index }}</td>
+    <td style="font-size:0.82rem">{{ r.name }}</td>
+    <td style="color:#aaa;font-size:0.8rem">{{ r.guessed }}</td>
+    <td style="color:#27ae60;font-size:0.8rem">{{ r.correct }}</td>
+    <td style="color:#e74c3c;font-size:0.8rem">{{ r.wrong }}</td>
+    <td style="font-size:0.8rem;{% if r.acc is not none and r.acc < 50 %}color:#e74c3c{% elif r.acc is not none %}color:#27ae60{% else %}color:#555{% endif %}">
+      {% if r.acc is not none %}{{ r.acc }}%{% else %}—{% endif %}
+    </td>
   </tr>
   {% endfor %}
 </table>
@@ -102,5 +127,23 @@
   {% endfor %}
 </table>
 </details>
+<script>
+async function toggleQuestion(qId) {
+  const res = await fetch(`/api/admin/toggle_question/${qId}`, {method: 'POST'});
+  if (!res.ok) { alert('エラーが発生しました'); return; }
+  const data = await res.json();
+  const row  = document.getElementById(`qrow-${qId}`);
+  const btn  = document.getElementById(`qtoggle-${qId}`);
+  if (data.disabled) {
+    row.style.opacity = '0.4';
+    btn.textContent = '無効';
+    btn.classList.add('disabled');
+  } else {
+    row.style.opacity = '';
+    btn.textContent = '有効';
+    btn.classList.remove('disabled');
+  }
+}
+</script>
 </body>
 </html>
