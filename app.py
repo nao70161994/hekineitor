@@ -137,8 +137,9 @@ def _app_version():
             pass
     return h.hexdigest()[:8]
 
-APP_VERSION    = _app_version()
-DISPLAY_VERSION = 'v1.3.0'
+APP_VERSION       = _app_version()
+DISPLAY_VERSION   = 'v1.3.0'
+AMAZON_ASSOCIATE_ID = os.environ.get('AMAZON_ASSOCIATE_ID', '')
 engine = Engine()
 
 GUESS_THRESHOLD = 0.75
@@ -181,7 +182,9 @@ def _find_similar(name, fetishes):
 
 @app.route('/')
 def index():
-    return render_template('index.html', display_version=DISPLAY_VERSION)
+    return render_template('index.html',
+                           display_version=DISPLAY_VERSION,
+                           amazon_associate_id=AMAZON_ASSOCIATE_ID)
 
 
 @app.route('/r')

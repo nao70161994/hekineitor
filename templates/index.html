@@ -635,6 +635,7 @@
 </div>
 
 <script>
+const AMAZON_ASSOCIATE_ID = {{ amazon_associate_id | tojson }};
 let currentQ = null;
 let lastFetishName = '';
 let _diagnosedName = '';
@@ -1021,8 +1022,12 @@ function showGuess(data) {
 
   function renderWorkTag(w, extraClass = '') {
     const title = (typeof w === 'object' && w !== null) ? w.title : w;
-    const url   = (typeof w === 'object' && w !== null && w.url) ? w.url : null;
-    const cls   = ['works-tag', extraClass, url ? 'link' : ''].filter(Boolean).join(' ');
+    let url = (typeof w === 'object' && w !== null && w.url) ? w.url : null;
+    // URLが未設定でもAMAZON_ASSOCIATE_IDがあれば検索URLを自動生成
+    if (!url && AMAZON_ASSOCIATE_ID) {
+      url = `https://www.amazon.co.jp/s?k=${encodeURIComponent(title)}&tag=${encodeURIComponent(AMAZON_ASSOCIATE_ID)}`;
+    }
+    const cls = ['works-tag', extraClass, url ? 'link' : ''].filter(Boolean).join(' ');
     if (url) {
       return `<a href="${url}" target="_blank" rel="noopener sponsored" class="${cls}">${title}</a>`;
     }
