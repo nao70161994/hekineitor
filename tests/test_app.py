@@ -910,16 +910,21 @@ class TestCompoundWorks(unittest.TestCase):
         self.assertEqual(eng.fetishes[idx]['works'], ['テスト作品1', 'テスト作品2'])
 
     def test_admin_api_edit_fetish_works(self):
-        """APIからworks編集ができる"""
+        """APIからworks編集ができる（テスト後に元に戻す）"""
         from app import engine as app_engine
         headers = self._admin_headers()
         fid = app_engine.fetishes[0]['id']
-        res = self.client.post(f'/api/admin/edit_fetish/{fid}',
-            json={'works': ['API作品A', 'API作品B']},
-            headers=headers)
-        self.assertEqual(res.status_code, 200)
-        data = res.get_json()
-        self.assertIn('API作品A', data['works'])
+        idx = app_engine.index_of(fid)
+        original_works = list(app_engine.fetishes[idx].get('works', []))
+        try:
+            res = self.client.post(f'/api/admin/edit_fetish/{fid}',
+                json={'works': ['API作品A', 'API作品B']},
+                headers=headers)
+            self.assertEqual(res.status_code, 200)
+            data = res.get_json()
+            self.assertIn('API作品A', data['works'])
+        finally:
+            app_engine.edit_fetish(fid, works=original_works)
 
 
 if __name__ == '__main__':
