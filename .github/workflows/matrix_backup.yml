@@ -40,6 +40,7 @@ jobs:
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_POSTGRES_ID: ${{ secrets.RENDER_POSTGRES_ID }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
@@ -81,7 +82,7 @@ jobs:
                   f'3. サービスを再デプロイ\n'
                   f'4. GitHubActions「Restore Matrix」を手動実行して学習データを復元\n'
               )
-              # 同じタイトルのIssueが既にopenでなければ作成
+              # GitHub Issue（重複防止）
               result = subprocess.run(
                   ['gh', 'issue', 'list', '--repo', repo, '--state', 'open', '--search', title, '--json', 'number'],
                   capture_output=True, text=True
@@ -95,4 +96,23 @@ jobs:
                   print('GitHub Issueを作成しました')
               else:
                   print('既存のIssueあり。スキップ')
+
+              # ntfy.sh プッシュ通知
+              ntfy_topic = os.environ.get('NTFY_TOPIC', '')
+              if ntfy_topic:
+                  msg = f'RenderのDBが{days_left}日後に期限切れになります。Renderで新DBを作成してください。'
+                  req2 = urllib.request.Request(
+                      f'https://ntfy.sh/{ntfy_topic}',
+                      data=msg.encode(),
+                      headers={
+                          'Title': 'へきネイター DB期限警告',
+                          'Priority': 'high',
+                          'Tags': 'warning,database',
+                      },
+                      method='POST'
+                  )
+                  with urllib.request.urlopen(req2) as r:
+                      print(f'ntfy送信完了: {r.status}')
+              else:
+                  print('NTFY_TOPIC 未設定のためプッシュ通知スキップ')
           EOF
