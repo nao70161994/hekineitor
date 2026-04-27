@@ -606,6 +606,14 @@ class Engine:
     def _save_matrix_file(self):
         self._atomic_write(os.path.join(DATA_DIR, 'matrix.json'), self.matrix)
 
+    def _save_async(self, all_updates, idx_to_db_id):
+        """バックグラウンドスレッドで matrix 保存を行う（レスポンスをブロックしない）。"""
+        if _use_db():
+            t = threading.Thread(target=self._save_to_db, args=(all_updates, idx_to_db_id), daemon=True)
+        else:
+            t = threading.Thread(target=self._save_matrix_file, daemon=True)
+        t.start()
+
     def _save_fetishes_file(self):
         self._atomic_write(
             os.path.join(DATA_DIR, 'fetishes.json'),
@@ -1581,12 +1589,8 @@ class Engine:
                     all_updates.setdefault(f, []).append((q, neg_yes, w))
 
             idx_to_db_id = {i: f['id'] for i, f in enumerate(self.fetishes)}
-            if not _use_db():
-                self._save_matrix_file()
 
-        if _use_db():
-            self._save_to_db(all_updates, idx_to_db_id)
-
+        self._save_async(all_updates, idx_to_db_id)
         self._increment_learn_count()
 
     def learn_cooccurrence(self, answers, idx_a, idx_b, factor=0.25):
@@ -1620,10 +1624,8 @@ class Engine:
                     self.matrix['total'][target][q] += eff
                     all_updates.setdefault(target, []).append((q, dy, eff))
             idx_to_db_id = {i: f['id'] for i, f in enumerate(self.fetishes)}
-            if not _use_db():
-                self._save_matrix_file()
-        if _use_db():
-            self._save_to_db(all_updates, idx_to_db_id)
+
+        self._save_async(all_updates, idx_to_db_id)
 
     def learn_negative(self, answers, fetish_idx):
         """fetish_idx が外れだった弱いネガティブ更新。learn() の約1/5の強度。"""
@@ -1652,10 +1654,8 @@ class Engine:
                 self.matrix['total'][fetish_idx][q] += effective
                 all_updates.setdefault(fetish_idx, []).append((q, dy, effective))
             idx_to_db_id = {i: f['id'] for i, f in enumerate(self.fetishes)}
-            if not _use_db():
-                self._save_matrix_file()
-        if _use_db():
-            self._save_to_db(all_updates, idx_to_db_id)
+
+        self._save_async(all_updates, idx_to_db_id)
 
     def _learn_silent(self, answers, fetish_idx, cold_start=False):
         """learn() without incrementing learn_count (used for initial boost).
@@ -1698,11 +1698,8 @@ class Engine:
                     all_updates.setdefault(f, []).append((q, neg_yes, w))
 
             idx_to_db_id = {i: f['id'] for i, f in enumerate(self.fetishes)}
-            if not _use_db():
-                self._save_matrix_file()
 
-        if _use_db():
-            self._save_to_db(all_updates, idx_to_db_id)
+        self._save_async(all_updates, idx_to_db_id)
 
     def add_fetish(self, name, desc, answers):
         """新しい性癖をDBに登録する（学習はしない）。返り値は (array_idx, db_id)。
