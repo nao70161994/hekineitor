@@ -143,6 +143,7 @@
 | POST | /api/admin/compound_works | 複合ペア専用作品を追加・更新（`id_a`, `id_b`, `works`）（Basic認証必須） |
 | DELETE | /api/admin/compound_works/&lt;key&gt; | 複合ペア専用作品を削除（Basic認証必須） |
 | GET  | /api/admin/export_matrix | matrix全体をJSON形式でダウンロード（Basic認証必須） |
+| POST | /api/admin/import_matrix | matrix_rowsでmatrixを上書き復元（Basic認証必須） |
 | GET  | /api/admin/export_log | 診断ログをCSV形式でダウンロード（Basic認証必須） |
 | GET  | /api/admin/export_stats_history | 日別統計をCSV形式でダウンロード（Basic認証必須） |
 | POST | /api/resume | localStorageに保存した回答ペアからセッションを復元 |
@@ -222,6 +223,37 @@ gunicorn app:app --workers 2 --threads 4
 - `app.py` の `DISPLAY_VERSION` でタイトルに表示するバージョン番号を管理
 - ブラウザタブに「へきネイター vX.X.X」と表示される
 - `DISPLAY_VERSION` は現在 `v1.5.0`
+
+## GitHub Actions 自動化
+
+`.github/workflows/` に以下のワークフローがある：
+
+| ファイル | トリガー | 内容 |
+|---|---|---|
+| `matrix_backup.yml` | 毎日JST11時 / 手動 | matrixバックアップ・DB期限チェック・プッシュ通知 |
+| `restore_matrix.yml` | 手動（`restore`入力必須） | `matrix_backup.json` を本番DBに復元 |
+
+### DB期限切れ対応フロー（Render無料PostgreSQL・90日で削除）
+
+1. 残り10日以内になるとntfy.sh（スマホ）+ GitHub Issueで自動通知
+2. Renderダッシュボードで新しいPostgreSQLを手動作成
+3. `DATABASE_URL` 環境変数を更新 → サービス再デプロイ
+4. Actions「Restore Matrix」を手動実行 → 学習データ復元
+
+### 必要なGitHub Secrets
+
+| シークレット名 | 用途 |
+|---|---|
+| `APP_URL` | RenderのサービスURL |
+| `ADMIN_USER` | Basic認証ユーザー名 |
+| `ADMIN_PASS` | Basic認証パスワード |
+| `RENDER_API_KEY` | Render APIキー（DB期限チェック用） |
+| `RENDER_POSTGRES_ID` | PostgreSQLインスタンスID（`dpg-xxx`） |
+| `NTFY_TOPIC` | ntfy.shトピック名（プッシュ通知用） |
+
+### restore_matrix.py
+
+`python restore_matrix.py` で `data/matrix_backup.json` から `data/learned_priors.json` を生成（ローカル復元用）。
 
 ## 注意
 
