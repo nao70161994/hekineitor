@@ -390,6 +390,8 @@
   .works-label { color:#666; font-size:0.75rem; text-align:center; margin-bottom:6px; }
   .works-tags { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
   .works-tag { background:#1a3a1a; color:#7af0a0; font-size:0.73rem; padding:4px 10px; border-radius:12px; }
+  .works-cross-label { color:#888; font-size:0.68rem; text-align:center; margin:6px 0 4px; letter-spacing:0.03em; }
+  .works-tag.cross { background:#2a2a1a; color:#f0d06a; border:1px solid rgba(240,208,106,0.3); }
 </style>
 </head>
 <body>
@@ -555,6 +557,7 @@
     </div>
     <div class="works-section hidden" id="works-section">
       <div class="works-label" id="works-label">この性癖が好きな方へ</div>
+      <div class="works-tags" id="cross-works-tags" style="margin-bottom:6px;"></div>
       <div class="works-tags" id="works-tags"></div>
     </div>
     <div class="confirm-label">各項目の正解を教えてください</div>
@@ -1004,13 +1007,30 @@ function showGuess(data) {
     reasonsSec.classList.add('hidden');
   }
 
-  // 機能7: 作品レコメンド（複合診断時は全作品をまとめて表示）
-  const worksSec  = document.getElementById('works-section');
+  // 機能7: 作品レコメンド（複合診断時は複合特化作品を優先表示）
+  const worksSec   = document.getElementById('works-section');
   const worksLabel = document.getElementById('works-label');
-  if (data.works && data.works.length) {
-    const isCompound = data.compound && data.compound.length > 0;
+  const crossTagsEl = document.getElementById('cross-works-tags');
+  const isCompound = data.compound && data.compound.length > 0;
+  const hasCross   = data.cross_works && data.cross_works.length > 0;
+  const hasWorks   = data.works && data.works.length > 0;
+
+  if (hasCross || hasWorks) {
     worksLabel.textContent = isCompound ? 'これらの性癖が好きな方へ' : 'この性癖が好きな方へ';
-    document.getElementById('works-tags').innerHTML = data.works.map(w => `<span class="works-tag">${w}</span>`).join('');
+
+    if (hasCross) {
+      crossTagsEl.innerHTML =
+        `<div class="works-cross-label">▶ 両方の要素を持つ作品</div>` +
+        data.cross_works.map(w => `<span class="works-tag cross">${w}</span>`).join('');
+    } else {
+      crossTagsEl.innerHTML = '';
+    }
+
+    document.getElementById('works-tags').innerHTML = hasWorks
+      ? (hasCross ? '<div class="works-cross-label">▶ それぞれの関連作品</div>' : '') +
+        data.works.map(w => `<span class="works-tag">${w}</span>`).join('')
+      : '';
+
     worksSec.classList.remove('hidden');
   } else {
     worksSec.classList.add('hidden');

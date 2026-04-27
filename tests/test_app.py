@@ -715,7 +715,8 @@ class TestEngine(unittest.TestCase):
     def test_learn_cooccurrence_strengthens_both(self):
         idx_a = 0
         idx_b = 1
-        q = 0
+        # q=9 は NTR・百合ともP(yes)>0.5 なので ans=1.0 で確実に eff が発生する
+        q = 9
         before_tot_a = self.eng.matrix['total'][idx_a][q]
         before_tot_b = self.eng.matrix['total'][idx_b][q]
         self.eng.learn_cooccurrence({str(q): 1.0}, idx_a, idx_b, factor=1.0)

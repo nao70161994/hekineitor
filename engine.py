@@ -393,6 +393,26 @@ def _use_db():
     return bool(DATABASE_URL) and HAS_PSYCOPG2
 
 
+_COMPOUND_WORKS: dict = {}
+_compound_works_loaded = False
+
+def _load_compound_works():
+    global _COMPOUND_WORKS, _compound_works_loaded
+    if _compound_works_loaded:
+        return
+    path = os.path.join(DATA_DIR, 'compound_works.json')
+    if os.path.exists(path):
+        with open(path, encoding='utf-8') as f:
+            _COMPOUND_WORKS = json.load(f)
+    _compound_works_loaded = True
+
+def get_compound_works(id_a: int, id_b: int) -> list:
+    """2つの性癖IDペアに特化した作品リストを返す。なければ空リスト。"""
+    _load_compound_works()
+    key = f"{min(id_a, id_b)},{max(id_a, id_b)}"
+    return list(_COMPOUND_WORKS.get(key, []))
+
+
 def _get_conn():
     return _get_pool().getconn()
 

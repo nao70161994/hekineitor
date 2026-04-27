@@ -11,7 +11,7 @@ import random as _random
 from flask import Flask, render_template, request, jsonify, session, Response, send_from_directory
 from flask.sessions import SessionInterface, SessionMixin
 from werkzeug.datastructures import CallbackDict
-from engine import Engine, PLAYER_FETISH_BASE_ID, _get_conn, _put_conn, _use_db, FOCUS_THRESHOLD
+from engine import Engine, PLAYER_FETISH_BASE_ID, _get_conn, _put_conn, _use_db, FOCUS_THRESHOLD, get_compound_works
 
 # ── サーバーサイドセッション ──────────────────────────────
 _SESSION_TTL    = 86400  # 24時間
@@ -516,9 +516,26 @@ def _compute_guess(answers):
 
     reasons = engine.get_answer_contributions(answers, best_i)
 
-    # 作品レコメンド: 主診断 + 複合診断のworksをまとめて重複排除
-    seen_works = set()
-    merged_works = []
+    # 作品レコメンド: 複合特化作品を優先し、その後各性癖の個別作品をマージ
+    seen_works: set = set()
+    cross_works: list = []   # 複合に特化した作品（複数性癖の要素を兼ね備えた作品）
+    merged_works: list = []  # 個別作品のマージ
+
+    if compound:
+        for c in compound:
+            for w in get_compound_works(best_db, c['fetish_id']):
+                if w not in seen_works:
+                    cross_works.append(w)
+                    seen_works.add(w)
+        # 三重複合の場合、compound同士のペアも確認
+        c_ids = [c['fetish_id'] for c in compound]
+        for i in range(len(c_ids)):
+            for j in range(i + 1, len(c_ids)):
+                for w in get_compound_works(c_ids[i], c_ids[j]):
+                    if w not in seen_works:
+                        cross_works.append(w)
+                        seen_works.add(w)
+
     for w in best_f.get('works', []):
         if w not in seen_works:
             merged_works.append(w)
@@ -532,17 +549,18 @@ def _compute_guess(answers):
                     seen_works.add(w)
 
     return {
-        'action':      'guess',
-        'fetish_id':   best_db,
-        'fetish_name': best_f['name'],
-        'fetish_desc': best_f['desc'],
-        'probability': round(best_p * 100, 1),
-        'compound':    compound,
-        'profile':     profile,
-        'related':     related,
-        'top_chart':   top_chart,
-        'reasons':     reasons,
-        'works':       merged_works,
+        'action':       'guess',
+        'fetish_id':    best_db,
+        'fetish_name':  best_f['name'],
+        'fetish_desc':  best_f['desc'],
+        'probability':  round(best_p * 100, 1),
+        'compound':     compound,
+        'profile':      profile,
+        'related':      related,
+        'top_chart':    top_chart,
+        'reasons':      reasons,
+        'works':        merged_works,
+        'cross_works':  cross_works,
     }
 
 
