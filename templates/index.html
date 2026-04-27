@@ -379,11 +379,15 @@
   .reason-item .ans-badge { font-size:0.7rem; padding:1px 6px; border-radius:6px; background:#1a4a8a; color:#7ab3f0; white-space:nowrap; margin-left:6px; }
 
   /* 機能3: 診断履歴 */
-  .history-btn { background:none; border:1px solid #333; color:#666; font-size:0.75rem; padding:5px 12px; border-radius:8px; cursor:pointer; margin-top:8px; }
+  .history-btn { background:none; border:1px solid #333; color:#666; font-size:0.75rem; padding:5px 12px; border-radius:8px; cursor:pointer; margin-top:8px; position:relative; }
   .history-btn:hover { border-color:#888; color:#aaa; }
+  .history-badge { position:absolute; top:-6px; right:-6px; background:#e94560; color:#fff; font-size:0.6rem; border-radius:99px; padding:1px 5px; min-width:16px; text-align:center; }
   .history-panel { margin-top:12px; border-top:1px solid #222; padding-top:10px; }
-  .history-item { display:flex; justify-content:space-between; font-size:0.82rem; color:#888; padding:3px 0; }
-  .history-item strong { color:#eee; }
+  .history-item { display:flex; align-items:center; justify-content:space-between; font-size:0.82rem; color:#888; padding:4px 0; border-bottom:1px solid #1a1a1a; gap:6px; }
+  .history-item strong { color:#eee; flex:1; }
+  .history-item .h-meta { font-size:0.75rem; white-space:nowrap; }
+  .history-item .h-retry { font-size:0.7rem; background:none; border:1px solid #333; color:#666; border-radius:6px; padding:2px 7px; cursor:pointer; white-space:nowrap; }
+  .history-item .h-retry:hover { border-color:#e94560; color:#e94560; }
 
   /* 機能7: 作品レコメンド */
   .works-section { margin-bottom:16px; border-top:1px solid #333; padding-top:10px; }
@@ -508,7 +512,7 @@
       遊ぶほど賢くなります。
     </p>
     <button class="btn btn-start" onclick="startGame()">スタート</button>
-    <button class="history-btn" onclick="toggleHistory()">📜 診断履歴</button>
+    <button class="history-btn" id="history-btn" onclick="toggleHistory()">📜 診断履歴<span id="history-badge" class="history-badge hidden"></span></button>
     <div id="history-panel" class="history-panel hidden"></div>
     <div id="resume-banner" class="hidden" style="margin-top:12px;">
       <button class="btn btn-idk" style="width:100%;font-size:0.85rem;" onclick="resumeGame()">途中から再開する（<span id="resume-count">0</span>問回答済み）</button>
@@ -1055,7 +1059,7 @@ function showGuess(data) {
   }
 
   // 機能3: 診断履歴に保存
-  saveHistory(data.fetish_name, data.probability);
+  saveHistory(data.fetish_name, data.probability, data.fetish_id);
 
   show('result-screen');
 }
@@ -1507,21 +1511,47 @@ async function continueGame() {
 }
 
 // 機能3: 診断履歴
-function saveHistory(name, prob) {
+function saveHistory(name, prob, fetish_id) {
   const h = JSON.parse(localStorage.getItem('heki_history') || '[]');
-  h.unshift({name, prob, date: new Date().toLocaleDateString('ja-JP')});
+  h.unshift({name, prob, date: new Date().toLocaleDateString('ja-JP'), fetish_id: fetish_id || null});
   if (h.length > 20) h.pop();
   localStorage.setItem('heki_history', JSON.stringify(h));
+  _updateHistoryBadge();
+}
+function _updateHistoryBadge() {
+  const h = JSON.parse(localStorage.getItem('heki_history') || '[]');
+  const badge = document.getElementById('history-badge');
+  if (!badge) return;
+  if (h.length > 0) {
+    badge.textContent = h.length;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
 }
 function toggleHistory() {
   const panel = document.getElementById('history-panel');
   if (!panel.classList.contains('hidden')) { panel.classList.add('hidden'); return; }
   const h = JSON.parse(localStorage.getItem('heki_history') || '[]');
-  if (!h.length) { panel.innerHTML = '<p style="color:#666;font-size:0.8rem;text-align:center;">まだ診断履歴がありません</p>'; }
-  else {
-    panel.innerHTML = h.map(e => `<div class="history-item"><strong>${e.name}</strong><span>${e.prob}% · ${e.date}</span></div>`).join('');
+  if (!h.length) {
+    panel.innerHTML = '<p style="color:#666;font-size:0.8rem;text-align:center;">まだ診断履歴がありません</p>';
+  } else {
+    panel.innerHTML = h.map((e, i) => `
+      <div class="history-item">
+        <strong>${e.name}</strong>
+        <span class="h-meta">${e.prob}% · ${e.date}</span>
+        <button class="h-retry" onclick="retryExcluding(${i})" title="この診断を除外して再診断">再診断</button>
+      </div>`).join('');
   }
   panel.classList.remove('hidden');
+}
+function retryExcluding(historyIndex) {
+  const h = JSON.parse(localStorage.getItem('heki_history') || '[]');
+  const entry = h[historyIndex];
+  if (!entry || !entry.fetish_id) { startGame(); return; }
+  const excludeIds = [...(window._excludedIds || []), entry.fetish_id];
+  startGameWithExcludes(excludeIds);
+  document.getElementById('history-panel').classList.add('hidden');
 }
 
 // キーボードショートカット（質問画面表示中のみ有効）
@@ -1539,7 +1569,7 @@ document.addEventListener('keydown', e => {
 });
 
 // ページロード時にdraftチェック
-document.addEventListener('DOMContentLoaded', _checkDraft);
+document.addEventListener('DOMContentLoaded', () => { _checkDraft(); _updateHistoryBadge(); });
 </script>
 </body>
 </html>
