@@ -1,15 +1,16 @@
-name: Matrix Backup
+name: Matrix Backup & DB Expiry Check
 
 on:
   schedule:
-    - cron: '0 2 * * 0'  # 毎週日曜 AM2時(UTC) = 日曜11時(JST)
-  workflow_dispatch:      # 手動実行も可
+    - cron: '0 2 * * *'   # 毎日 AM2時(UTC) = 11時(JST)
+  workflow_dispatch:
 
 jobs:
-  backup:
+  backup-and-check:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
 
     steps:
       - uses: actions/checkout@v4
@@ -33,4 +34,63 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/matrix_backup.json
           git diff --cached --quiet && echo "No changes" || \
-            git commit -m "auto: matrix backup $(date -u '+%Y-%m-%d')" && git push
+            (git commit -m "auto: matrix backup $(date -u '+%Y-%m-%d')" && git push)
+
+      - name: Check DB expiry via Render API
+        if: ${{ secrets.RENDER_API_KEY != '' && secrets.RENDER_POSTGRES_ID != '' }}
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_POSTGRES_ID: ${{ secrets.RENDER_POSTGRES_ID }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 - <<'EOF'
+          import os, json, subprocess
+          from datetime import datetime, timezone, timedelta
+          import urllib.request
+
+          api_key = os.environ['RENDER_API_KEY']
+          pg_id   = os.environ['RENDER_POSTGRES_ID']
+
+          req = urllib.request.Request(
+              f'https://api.render.com/v1/postgres/{pg_id}',
+              headers={'Authorization': f'Bearer {api_key}', 'Accept': 'application/json'}
+          )
+          with urllib.request.urlopen(req) as resp:
+              data = json.load(resp)
+
+          created_str = data.get('createdAt', '')
+          created = datetime.fromisoformat(created_str.replace('Z', '+00:00'))
+          now = datetime.now(timezone.utc)
+          days_old = (now - created).days
+          days_left = 90 - days_old
+          print(f"DB作成日: {created.date()} / 経過: {days_old}日 / 残り: {days_left}日")
+
+          if days_left <= 10:
+              repo  = os.environ['REPO']
+              title = f'⚠️ RenderのDBが{days_left}日後に期限切れになります'
+              body  = (
+                  f'## Render PostgreSQL 期限切れ警告\n\n'
+                  f'- **作成日**: {created.date()}\n'
+                  f'- **期限切れまで**: {days_left}日\n\n'
+                  f'## 対応手順\n'
+                  f'1. [Renderダッシュボード](https://dashboard.render.com)で新しいPostgreSQLを作成\n'
+                  f'2. RenderサービスのEnvironmentで`DATABASE_URL`を新しい接続文字列に更新\n'
+                  f'3. サービスを再デプロイ\n'
+                  f'4. GitHubActions「Restore Matrix」を手動実行して学習データを復元\n'
+              )
+              # 同じタイトルのIssueが既にopenでなければ作成
+              result = subprocess.run(
+                  ['gh', 'issue', 'list', '--repo', repo, '--state', 'open', '--search', title, '--json', 'number'],
+                  capture_output=True, text=True
+              )
+              existing = json.loads(result.stdout or '[]')
+              if not existing:
+                  subprocess.run(
+                      ['gh', 'issue', 'create', '--repo', repo, '--title', title, '--body', body],
+                      check=True
+                  )
+                  print('GitHub Issueを作成しました')
+              else:
+                  print('既存のIssueあり。スキップ')
+          EOF

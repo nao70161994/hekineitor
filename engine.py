@@ -1856,6 +1856,55 @@ class Engine:
             self._atomic_write(q_path, self.questions)
         return True
 
+    def import_matrix(self, matrix_rows: list) -> int:
+        """matrix_rows（export_matrixと同形式）でmatrixを上書き復元する。返り値は反映行数。"""
+        idx_map = {f['id']: i for i, f in enumerate(self.fetishes)}
+        nq = len(self.questions)
+        updates: dict = {}
+        with self._lock:
+            for row in matrix_rows:
+                fid = row.get('fetish_id')
+                qi  = row.get('question_id')
+                y   = row.get('yes', 0.0)
+                t   = row.get('total', 0.0)
+                fi  = idx_map.get(fid)
+                if fi is None or not (0 <= qi < nq):
+                    continue
+                self.matrix['yes'][fi][qi]   = y
+                self.matrix['total'][fi][qi] = t
+                updates.setdefault(fi, []).append((qi, y, t))
+        if _use_db() and updates:
+            self._import_to_db(updates, idx_map)
+        elif not _use_db():
+            self._save_matrix_file()
+        return sum(len(v) for v in updates.values())
+
+    def _import_to_db(self, updates: dict, idx_map: dict):
+        """import_matrix 専用: yes/total を加算ではなく上書きでDB保存。"""
+        id_map = {i: fid for fid, i in idx_map.items()}
+        rows = []
+        for fi, qs in updates.items():
+            db_id = id_map.get(fi)
+            if db_id is None:
+                continue
+            for qi, y, t in qs:
+                rows.append((db_id, qi, y, t))
+        if not rows:
+            return
+        conn = _get_conn()
+        try:
+            with conn:
+                cur = conn.cursor()
+                psycopg2.extras.execute_values(cur, '''
+                    INSERT INTO matrix (fetish_id, question_id, yes_count, total_count)
+                    VALUES %s
+                    ON CONFLICT (fetish_id, question_id) DO UPDATE
+                        SET yes_count   = EXCLUDED.yes_count,
+                            total_count = EXCLUDED.total_count
+                ''', rows)
+        finally:
+            _put_conn(conn)
+
     def edit_fetish(self, fetish_id, name=None, desc=None, works=None):
         """性癖の名前・説明文・作品リストを更新する。変更したフィールドのみ渡す。"""
         with self._lock:

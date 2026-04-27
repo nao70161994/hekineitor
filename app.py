@@ -1010,6 +1010,17 @@ def admin_export_matrix():
                     headers={'Content-Disposition': 'attachment; filename="matrix_export.json"'})
 
 
+@app.route('/api/admin/import_matrix', methods=['POST'])
+@_require_admin
+def admin_import_matrix():
+    data = request.get_json(force=True) or {}
+    rows = data.get('matrix_rows', [])
+    if not rows:
+        return jsonify({'status': 'error', 'message': 'matrix_rows が空です'}), 400
+    count = engine.import_matrix(rows)
+    return jsonify({'status': 'ok', 'imported_rows': count})
+
+
 @app.route('/api/admin/export_log', methods=['GET'])
 @_require_admin
 def admin_export_log():

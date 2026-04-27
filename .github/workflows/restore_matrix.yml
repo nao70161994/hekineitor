@@ -1,0 +1,40 @@
+name: Restore Matrix
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: '「restore」と入力して実行確認'
+        required: true
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.confirm == 'restore' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check backup exists
+        run: |
+          if [ ! -f data/matrix_backup.json ]; then
+            echo "data/matrix_backup.json が見つかりません"
+            exit 1
+          fi
+          echo "バックアップサイズ: $(wc -c < data/matrix_backup.json) bytes"
+
+      - name: Import matrix to Render
+        run: |
+          HTTP=$(curl -s -w "%{http_code}" -o /tmp/restore_result.json \
+            -X POST \
+            -u "${{ secrets.ADMIN_USER }}:${{ secrets.ADMIN_PASS }}" \
+            -H "Content-Type: application/json" \
+            -d @data/matrix_backup.json \
+            "${{ secrets.APP_URL }}/api/admin/import_matrix")
+          echo "HTTP status: $HTTP"
+          cat /tmp/restore_result.json
+          if [ "$HTTP" != "200" ]; then
+            echo "Restore failed"
+            exit 1
+          fi
+          echo "復元完了"
