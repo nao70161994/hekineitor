@@ -1024,8 +1024,10 @@ function showGuess(data) {
     const title = (typeof w === 'object' && w !== null) ? w.title : w;
     let url = (typeof w === 'object' && w !== null && w.url) ? w.url : null;
     // URLが未設定でもAMAZON_ASSOCIATE_IDがあれば検索URLを自動生成
+    // 検索キーワードは括弧（補足メモ）を除去してタイトルのみにする
     if (!url && AMAZON_ASSOCIATE_ID) {
-      url = `https://www.amazon.co.jp/s?k=${encodeURIComponent(title)}&tag=${encodeURIComponent(AMAZON_ASSOCIATE_ID)}`;
+      const searchTitle = title.replace(/[（(][^）)]*[）)]/g, '').trim();
+      url = `https://www.amazon.co.jp/s?k=${encodeURIComponent(searchTitle)}&tag=${encodeURIComponent(AMAZON_ASSOCIATE_ID)}`;
     }
     const cls = ['works-tag', extraClass, url ? 'link' : ''].filter(Boolean).join(' ');
     if (url) {
