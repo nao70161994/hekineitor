@@ -9,7 +9,7 @@
 - `templates/index.html` — シングルページUI（PWA対応）
 - `templates/admin.html` — 管理画面（学習データ量・質問無効化・診断ログ・相関分析・ヒートマップ・統合）
 - `templates/result_share.html` — OGPシェアカード（/r ルート）
-- `data/` — questions.json（93問）/ fetishes.json（99件）/ matrix.json・learned_priors.json（ローカル用・gitignore済み）
+- `data/` — questions.json（93問）/ fetishes.json（99件）/ compound_works.json（複合作品28ペア）/ matrix.json・learned_priors.json（ローカル用・gitignore済み）
 - `run_coverage.py` — `python run_coverage.py` でカバレッジ計測（coverage.py必須）
 
 ## データ永続化
@@ -55,7 +55,11 @@
 - `get_matrix_heatmap(n_fetishes, n_questions)` で上位N性癖×N質問の P(yes) グリッドを返す（管理画面ヒートマップ用）
 - `get_stats_history(days)` で日別プレイ・学習回数を返す（stats_historyテーブル/JSON）
 - `merge_fetishes(id_keep, id_remove)` で2性癖のmatrixを加算して統合（DB/JSON両対応）
-- `edit_fetish(fetish_id, name, desc)` で性癖の名前・説明を更新
+- `edit_fetish(fetish_id, name, desc, works)` で性癖の名前・説明・推薦作品を更新
+- `parse_work_item(raw)` / `parse_works_list(raw_list)` / `work_title(w)` — works の文字列・dict混在形式をパース/タイトル取得するヘルパー
+- `get_compound_works(id_a, id_b)` / `set_compound_works(id_a, id_b, works)` / `delete_compound_works(id_a, id_b)` — 複合性癖ペア専用作品の管理（`data/compound_works.json`）
+- `list_compound_works()` — 全ペア一覧を返す
+- `_save_async(all_updates, idx_to_db_id)` — matrix 保存をバックグラウンドスレッドで実行（学習ボタン後のレスポンスをブロックしない）
 - `edit_question(q_idx, text)` で質問テキストをインメモリ・questions.json に反映
 - `fetish_similarity(id_a, id_b)` で2性癖のコサイン類似度と差異TOP5質問を返す
 - `idk_streak` 連続時の軸切替：直近idkが同一軸に集中していればその軸を除外、複数軸混在ならabstract/personalityへ
@@ -77,6 +81,8 @@
 - `PROFILE_MIN_RATIO=0.25` / `PROFILE_MIN_PROB=0.08`：それ以下は「他に該当しそうなジャンル」に表示
 - 診断結果に上位5件の確率バーグラフ（`top_chart`）を返す。バーはアニメーションで0から伸びる
 - シェア文は常にヘキネイターが提示した性癖を使用
+- `_compute_guess()` は `works`（個別作品マージ）と `cross_works`（複合ペア専用作品）を返す
+- works の各要素は文字列 or `{"title":..., "url":...}` dict の混在。タイトル文字列でdedup管理
 
 ## 正誤フィードバックのフロー
 
@@ -133,6 +139,9 @@
 | POST | /api/admin/merge_fetishes | 2性癖のmatrixを統合（`id_keep`, `id_remove`）（Basic認証必須） |
 | POST | /api/admin/fetish_similarity | 2性癖のコサイン類似度と差異TOP5を返す（`id_a`, `id_b`）（Basic認証必須） |
 | GET  | /api/admin/fetish_history/&lt;id&gt; | 指定性癖の日別正解/外れ件数（`?days=30`）（Basic認証必須） |
+| GET  | /api/admin/compound_works | 複合ペア専用作品の一覧（Basic認証必須） |
+| POST | /api/admin/compound_works | 複合ペア専用作品を追加・更新（`id_a`, `id_b`, `works`）（Basic認証必須） |
+| DELETE | /api/admin/compound_works/&lt;key&gt; | 複合ペア専用作品を削除（Basic認証必須） |
 | GET  | /api/admin/export_matrix | matrix全体をJSON形式でダウンロード（Basic認証必須） |
 | GET  | /api/admin/export_log | 診断ログをCSV形式でダウンロード（Basic認証必須） |
 | GET  | /api/admin/export_stats_history | 日別統計をCSV形式でダウンロード（Basic認証必須） |
@@ -158,6 +167,8 @@
 - **性癖統合フォーム**：2性癖のmatrixを加算して1つにマージ（名前検索datalist付き）
 - 推論パラメータ更新 / セッションクリーンアップ / 手動性癖追加 / learned_priorsキャプチャ
 - matrix JSONエクスポート
+- **複合ペア専用作品管理**：性癖ペアに特有の推薦作品を追加・削除（`compound_works.json`）
+- **性癖ごとの推薦作品編集**：作品名またはリンク付き作品（`title|url` 形式）をインライン編集
 
 ## index.html のUX
 
@@ -170,6 +181,8 @@
 - 結果カードの枠線・グロウが確率に応じて変化（75%超=ゴールド/50〜75%=赤グロウ/40〜50%=薄い枠線）
 - 「⚡ すぐ再挑戦（今の診断を除外）」ボタンで今回の診断を即除外してリスタート
 - 結果シェアボタン（Web Share API + `/r` OGPページ + Twitterインテント）
+- 診断結果に推薦作品タグを表示。複合時は「▶ 両方の要素を持つ作品」（金色タグ）と「▶ それぞれの関連作品」（緑タグ）を分けて表示
+- `AMAZON_ASSOCIATE_ID` が設定されていれば全作品タグをAmazon検索アフィリエイトリンク（`https://www.amazon.co.jp/s?k=タイトル&tag=ID`）に自動変換
 
 ## 環境変数
 
@@ -179,6 +192,7 @@
 | `DATABASE_URL` | PostgreSQL接続URL | なし（ローカルJSON使用） |
 | `ADMIN_USER` | /admin のBasic認証ユーザー名 | `admin` |
 | `ADMIN_PASS` | /admin のBasic認証パスワード | なし（未設定時503） |
+| `AMAZON_ASSOCIATE_ID` | AmazonアソシエイトトラッキングID | なし（未設定時リンクなし）|
 
 ## 実行
 
@@ -186,7 +200,7 @@
 # ローカル
 python app.py
 
-# テスト（75テスト）
+# テスト（89テスト）
 python tests/test_app.py
 
 # カバレッジ計測（app.py 75% / engine.py 57% / 合計 65%）
@@ -207,11 +221,14 @@ gunicorn app:app --workers 2 --threads 4
 
 - `app.py` の `DISPLAY_VERSION` でタイトルに表示するバージョン番号を管理
 - ブラウザタブに「へきネイター vX.X.X」と表示される
-- `DISPLAY_VERSION` は現在 `v1.3.0`
+- `DISPLAY_VERSION` は現在 `v1.5.0`
 
 ## 注意
 
 - `data/matrix.json`・`data/learned_priors.json`・`data/stats_history.json`・`.coverage` は `.gitignore` 済み
+- `data/compound_works.json` は git 管理対象（性癖ペア専用作品定義）
+- works の dedup は `seen_works` セット（dict非対応）ではなく `work_title()` によるタイトル文字列で行う（dict要素を含む場合のTypeError対策）
+- learn 系メソッド（`learn` / `learn_negative` / `learn_cooccurrence` / `_learn_silent`）は `_save_async()` でバックグラウンド保存。`add_fetish` / `promote_fetish` は同期保存（稀な操作のため）
 - Termux環境では長いコマンドはスクリプトファイルに書いて実行する
 - シードの性癖をDBに登録せずJSONで管理しているのは、JSONが「正解」でありDB側はfetish_idを参照するだけのため（シード増減もマイグレーションで自動追従）
 - `f_correct_{id}` / `f_wrong_{id}` の性癖別日別ログは今後のプレイから蓄積されるため、初期はデータなしが正常
