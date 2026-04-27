@@ -138,7 +138,7 @@ def _app_version():
     return h.hexdigest()[:8]
 
 APP_VERSION       = _app_version()
-DISPLAY_VERSION   = 'v1.3.0'
+DISPLAY_VERSION   = 'v1.5.0'
 AMAZON_ASSOCIATE_ID = os.environ.get('AMAZON_ASSOCIATE_ID', '')
 engine = Engine()
 
