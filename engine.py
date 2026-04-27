@@ -1752,8 +1752,8 @@ class Engine:
             self._atomic_write(q_path, self.questions)
         return True
 
-    def edit_fetish(self, fetish_id, name=None, desc=None):
-        """性癖の名前・説明文を更新する。変更したフィールドのみ渡す。"""
+    def edit_fetish(self, fetish_id, name=None, desc=None, works=None):
+        """性癖の名前・説明文・作品リストを更新する。変更したフィールドのみ渡す。"""
         with self._lock:
             idx = self.index_of(fetish_id)
             if idx is None:
@@ -1762,18 +1762,24 @@ class Engine:
                 self.fetishes[idx]['name'] = name
             if desc is not None:
                 self.fetishes[idx]['desc'] = desc
+            if works is not None:
+                self.fetishes[idx]['works'] = works
             if _use_db():
                 conn = _get_conn()
                 try:
                     with conn:
                         cur = conn.cursor()
-                        if name is not None and desc is not None:
-                            cur.execute('UPDATE fetishes SET name=%s, "desc"=%s WHERE id=%s',
-                                        (name, desc, fetish_id))
-                        elif name is not None:
-                            cur.execute('UPDATE fetishes SET name=%s WHERE id=%s', (name, fetish_id))
-                        else:
-                            cur.execute('UPDATE fetishes SET "desc"=%s WHERE id=%s', (desc, fetish_id))
+                        updates = []
+                        params = []
+                        if name is not None:
+                            updates.append('name=%s')
+                            params.append(name)
+                        if desc is not None:
+                            updates.append('"desc"=%s')
+                            params.append(desc)
+                        if updates:
+                            params.append(fetish_id)
+                            cur.execute(f'UPDATE fetishes SET {", ".join(updates)} WHERE id=%s', params)
                 finally:
                     _put_conn(conn)
             else:

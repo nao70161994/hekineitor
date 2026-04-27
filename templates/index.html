@@ -554,7 +554,7 @@
       <div class="related-tags" id="related-tags"></div>
     </div>
     <div class="works-section hidden" id="works-section">
-      <div class="works-label">この性癖が好きな方へ</div>
+      <div class="works-label" id="works-label">この性癖が好きな方へ</div>
       <div class="works-tags" id="works-tags"></div>
     </div>
     <div class="confirm-label">各項目の正解を教えてください</div>
@@ -1004,9 +1004,12 @@ function showGuess(data) {
     reasonsSec.classList.add('hidden');
   }
 
-  // 機能7: 作品レコメンド
-  const worksSec = document.getElementById('works-section');
+  // 機能7: 作品レコメンド（複合診断時は全作品をまとめて表示）
+  const worksSec  = document.getElementById('works-section');
+  const worksLabel = document.getElementById('works-label');
   if (data.works && data.works.length) {
+    const isCompound = data.compound && data.compound.length > 0;
+    worksLabel.textContent = isCompound ? 'これらの性癖が好きな方へ' : 'この性癖が好きな方へ';
     document.getElementById('works-tags').innerHTML = data.works.map(w => `<span class="works-tag">${w}</span>`).join('');
     worksSec.classList.remove('hidden');
   } else {

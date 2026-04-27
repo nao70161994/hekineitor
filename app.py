@@ -515,7 +515,21 @@ def _compute_guess(answers):
         top_chart.append({'fetish_name': f_dict['name'], 'probability': round(probs[fi] * 100, 1)})
 
     reasons = engine.get_answer_contributions(answers, best_i)
-    works = best_f.get('works', [])
+
+    # 作品レコメンド: 主診断 + 複合診断のworksをまとめて重複排除
+    seen_works = set()
+    merged_works = []
+    for w in best_f.get('works', []):
+        if w not in seen_works:
+            merged_works.append(w)
+            seen_works.add(w)
+    for c in compound:
+        ci = engine.index_of(c['fetish_id'])
+        if ci is not None:
+            for w in engine.fetishes[ci].get('works', []):
+                if w not in seen_works:
+                    merged_works.append(w)
+                    seen_works.add(w)
 
     return {
         'action':      'guess',
@@ -528,7 +542,7 @@ def _compute_guess(answers):
         'related':     related,
         'top_chart':   top_chart,
         'reasons':     reasons,
-        'works':       works,
+        'works':       merged_works,
     }
 
 
@@ -845,14 +859,23 @@ def admin_edit_fetish(fetish_id):
     data = request.get_json(silent=True) or {}
     name = data.get('name', '').strip() or None
     desc = data.get('desc', '').strip() if 'desc' in data else None
+    works = None
+    if 'works' in data:
+        raw = data['works']
+        if isinstance(raw, list):
+            works = [str(w).strip() for w in raw if str(w).strip()]
+        else:
+            works = [w.strip() for w in str(raw).split(',') if w.strip()]
     if name is not None and len(name) > 50:
         return jsonify({'status': 'error', 'message': '名前は50文字以内'}), 400
-    ok = engine.edit_fetish(fetish_id, name=name, desc=desc)
+    if works is not None and len(works) > 10:
+        return jsonify({'status': 'error', 'message': '作品は10件以内'}), 400
+    ok = engine.edit_fetish(fetish_id, name=name, desc=desc, works=works)
     if not ok:
         return jsonify({'status': 'error', 'message': '見つかりません'}), 404
     idx = engine.index_of(fetish_id)
     f = engine.fetishes[idx]
-    return jsonify({'status': 'ok', 'name': f['name'], 'desc': f['desc']})
+    return jsonify({'status': 'ok', 'name': f['name'], 'desc': f['desc'], 'works': f.get('works', [])})
 
 
 @app.route('/health')
