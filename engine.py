@@ -393,6 +393,44 @@ def _use_db():
     return bool(DATABASE_URL) and HAS_PSYCOPG2
 
 
+def parse_work_item(raw) -> 'str | dict':
+    """works項目を正規化する。
+    - dict {"title":..., "url":...} → そのまま返す
+    - "タイトル|https://..." → {"title":..., "url":...}
+    - "タイトル" → str のまま返す
+    """
+    if isinstance(raw, dict):
+        title = str(raw.get('title', '')).strip()
+        url   = str(raw.get('url', '')).strip()
+        if not title:
+            return ''
+        return {'title': title, 'url': url} if url else title
+    s = str(raw).strip()
+    if '|' in s:
+        title, _, url = s.partition('|')
+        title = title.strip()
+        url   = url.strip()
+        if title and url:
+            return {'title': title, 'url': url}
+        return title
+    return s
+
+
+def parse_works_list(raw_list: list) -> list:
+    """worksリスト全体を正規化（空文字は除外）。"""
+    result = []
+    for item in raw_list:
+        parsed = parse_work_item(item)
+        if parsed:
+            result.append(parsed)
+    return result
+
+
+def work_title(w) -> str:
+    """works項目からタイトル文字列を取得。"""
+    return w['title'] if isinstance(w, dict) else str(w)
+
+
 _COMPOUND_WORKS: dict = {}
 _compound_works_loaded = False
 _COMPOUND_WORKS_PATH = os.path.join(DATA_DIR, 'compound_works.json')

@@ -13,7 +13,8 @@ from flask.sessions import SessionInterface, SessionMixin
 from werkzeug.datastructures import CallbackDict
 from engine import (Engine, PLAYER_FETISH_BASE_ID, _get_conn, _put_conn, _use_db,
                     FOCUS_THRESHOLD, get_compound_works,
-                    list_compound_works, set_compound_works, delete_compound_works)
+                    list_compound_works, set_compound_works, delete_compound_works,
+                    parse_works_list)
 
 # ── サーバーサイドセッション ──────────────────────────────
 _SESSION_TTL    = 86400  # 24時間
@@ -882,10 +883,9 @@ def admin_edit_fetish(fetish_id):
     works = None
     if 'works' in data:
         raw = data['works']
-        if isinstance(raw, list):
-            works = [str(w).strip() for w in raw if str(w).strip()]
-        else:
-            works = [w.strip() for w in str(raw).split(',') if w.strip()]
+        if isinstance(raw, str):
+            raw = [w.strip() for w in raw.split(',') if w.strip()]
+        works = parse_works_list(raw)
     if name is not None and len(name) > 50:
         return jsonify({'status': 'error', 'message': '名前は50文字以内'}), 400
     if works is not None and len(works) > 10:
@@ -926,9 +926,8 @@ def admin_set_compound_works():
         return jsonify({'status': 'error', 'message': '同じIDは指定できません'}), 400
     raw = data.get('works', [])
     if isinstance(raw, str):
-        works = [w.strip() for w in raw.split(',') if w.strip()]
-    else:
-        works = [str(w).strip() for w in raw if str(w).strip()]
+        raw = [w.strip() for w in raw.split(',') if w.strip()]
+    works = parse_works_list(raw)
     if not works:
         return jsonify({'status': 'error', 'message': '作品を1件以上入力してください'}), 400
     if len(works) > 10:

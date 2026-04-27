@@ -390,8 +390,12 @@
   .works-label { color:#666; font-size:0.75rem; text-align:center; margin-bottom:6px; }
   .works-tags { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
   .works-tag { background:#1a3a1a; color:#7af0a0; font-size:0.73rem; padding:4px 10px; border-radius:12px; }
+  .works-tag.link { text-decoration:none; cursor:pointer; transition:background 0.15s, box-shadow 0.15s; }
+  .works-tag.link:hover { background:#2a5a2a; box-shadow:0 0 6px rgba(122,240,160,0.3); }
+  .works-tag.link::after { content:'↗'; font-size:0.6rem; margin-left:4px; opacity:0.6; }
   .works-cross-label { color:#888; font-size:0.68rem; text-align:center; margin:6px 0 4px; letter-spacing:0.03em; }
   .works-tag.cross { background:#2a2a1a; color:#f0d06a; border:1px solid rgba(240,208,106,0.3); }
+  .works-tag.cross.link:hover { background:#3a3a1a; box-shadow:0 0 6px rgba(240,208,106,0.3); }
 </style>
 </head>
 <body>
@@ -1007,7 +1011,7 @@ function showGuess(data) {
     reasonsSec.classList.add('hidden');
   }
 
-  // 機能7: 作品レコメンド（複合診断時は複合特化作品を優先表示）
+  // 機能7: 作品レコメンド（複合診断時は複合特化作品を優先表示、URLありはリンク）
   const worksSec   = document.getElementById('works-section');
   const worksLabel = document.getElementById('works-label');
   const crossTagsEl = document.getElementById('cross-works-tags');
@@ -1015,20 +1019,27 @@ function showGuess(data) {
   const hasCross   = data.cross_works && data.cross_works.length > 0;
   const hasWorks   = data.works && data.works.length > 0;
 
+  function renderWorkTag(w, extraClass = '') {
+    const title = (typeof w === 'object' && w !== null) ? w.title : w;
+    const url   = (typeof w === 'object' && w !== null && w.url) ? w.url : null;
+    const cls   = ['works-tag', extraClass, url ? 'link' : ''].filter(Boolean).join(' ');
+    if (url) {
+      return `<a href="${url}" target="_blank" rel="noopener sponsored" class="${cls}">${title}</a>`;
+    }
+    return `<span class="${cls}">${title}</span>`;
+  }
+
   if (hasCross || hasWorks) {
     worksLabel.textContent = isCompound ? 'これらの性癖が好きな方へ' : 'この性癖が好きな方へ';
 
-    if (hasCross) {
-      crossTagsEl.innerHTML =
-        `<div class="works-cross-label">▶ 両方の要素を持つ作品</div>` +
-        data.cross_works.map(w => `<span class="works-tag cross">${w}</span>`).join('');
-    } else {
-      crossTagsEl.innerHTML = '';
-    }
+    crossTagsEl.innerHTML = hasCross
+      ? `<div class="works-cross-label">▶ 両方の要素を持つ作品</div>` +
+        data.cross_works.map(w => renderWorkTag(w, 'cross')).join('')
+      : '';
 
     document.getElementById('works-tags').innerHTML = hasWorks
       ? (hasCross ? '<div class="works-cross-label">▶ それぞれの関連作品</div>' : '') +
-        data.works.map(w => `<span class="works-tag">${w}</span>`).join('')
+        data.works.map(w => renderWorkTag(w)).join('')
       : '';
 
     worksSec.classList.remove('hidden');
