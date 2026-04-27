@@ -992,6 +992,46 @@ def admin_merge_fetishes():
     return jsonify({'status': 'merged', 'id_keep': id_keep, 'name': name})
 
 
+@app.route('/api/admin/works_review', methods=['GET'])
+@_require_admin
+def admin_works_review():
+    import re as _re
+    rows = []
+    for fe in engine.fetishes:
+        for w in fe.get('works', []):
+            title = w['title'] if isinstance(w, dict) else w
+            url   = w.get('url', '') if isinstance(w, dict) else ''
+            asin  = ''
+            if url:
+                m = _re.search(r'/dp/([A-Z0-9]{10})', url)
+                asin = m.group(1) if m else ''
+            rows.append((fe['name'], title, asin, url))
+    html = '''<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
+<title>作品リンク確認</title>
+<style>
+body{font-family:sans-serif;font-size:13px;background:#111;color:#ddd;padding:16px;}
+table{border-collapse:collapse;width:100%;}
+th{background:#222;padding:6px 10px;text-align:left;position:sticky;top:0;z-index:1;}
+td{padding:5px 10px;border-bottom:1px solid #222;vertical-align:top;}
+tr:hover td{background:#1a1a1a;}
+a{color:#7af0a0;}
+.no-url{color:#e94560;}
+input{background:#222;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:4px;margin-bottom:10px;width:300px;}
+</style></head><body>
+<h2>作品リンク確認（''' + str(len(rows)) + '''件）</h2>
+<input type="text" id="q" placeholder="性癖名や作品名で絞り込み..." oninput="filter()">
+<table id="tbl">
+<tr><th>性癖</th><th>作品タイトル</th><th>ASIN</th><th>リンク</th></tr>'''
+    for fetish_name, title, asin, url in rows:
+        link = f'<a href="{url}" target="_blank">Kindle</a>' if url else '<span class="no-url">URLなし</span>'
+        html += f'<tr><td>{fetish_name}</td><td>{title}</td><td>{asin}</td><td>{link}</td></tr>'
+    html += '''</table>
+<script>function filter(){const q=document.getElementById("q").value.toLowerCase();
+document.querySelectorAll("#tbl tr:not(:first-child)").forEach(tr=>{tr.style.display=tr.textContent.toLowerCase().includes(q)?"":"none";});}</script>
+</body></html>'''
+    return Response(html, mimetype='text/html')
+
+
 @app.route('/api/admin/export_matrix', methods=['GET'])
 @_require_admin
 def admin_export_matrix():
