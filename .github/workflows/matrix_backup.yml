@@ -37,7 +37,6 @@ jobs:
             (git commit -m "auto: matrix backup $(date -u '+%Y-%m-%d')" && git push)
 
       - name: Check DB expiry via Render API
-        if: ${{ secrets.RENDER_API_KEY != '' && secrets.RENDER_POSTGRES_ID != '' }}
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_POSTGRES_ID: ${{ secrets.RENDER_POSTGRES_ID }}
@@ -49,8 +48,11 @@ jobs:
           from datetime import datetime, timezone, timedelta
           import urllib.request
 
-          api_key = os.environ['RENDER_API_KEY']
-          pg_id   = os.environ['RENDER_POSTGRES_ID']
+          api_key = os.environ.get('RENDER_API_KEY', '')
+          pg_id   = os.environ.get('RENDER_POSTGRES_ID', '')
+          if not api_key or not pg_id:
+              print('RENDER_API_KEY / RENDER_POSTGRES_ID 未設定のためスキップ')
+              raise SystemExit(0)
 
           req = urllib.request.Request(
               f'https://api.render.com/v1/postgres/{pg_id}',
