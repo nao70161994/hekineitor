@@ -523,36 +523,36 @@ def _compute_guess(answers):
     reasons = engine.get_answer_contributions(answers, best_i)
 
     # 作品レコメンド: 複合特化作品を優先し、その後各性癖の個別作品をマージ
-    seen_works: set = set()
+    # works は文字列 or dict の混在があるため、タイトル文字列でdedup管理
+    from engine import work_title
+    seen_titles: set = set()
     cross_works: list = []   # 複合に特化した作品（複数性癖の要素を兼ね備えた作品）
     merged_works: list = []  # 個別作品のマージ
+
+    def _add_work(w, target):
+        t = work_title(w)
+        if t and t not in seen_titles:
+            seen_titles.add(t)
+            target.append(w)
 
     if compound:
         for c in compound:
             for w in get_compound_works(best_db, c['fetish_id']):
-                if w not in seen_works:
-                    cross_works.append(w)
-                    seen_works.add(w)
+                _add_work(w, cross_works)
         # 三重複合の場合、compound同士のペアも確認
         c_ids = [c['fetish_id'] for c in compound]
         for i in range(len(c_ids)):
             for j in range(i + 1, len(c_ids)):
                 for w in get_compound_works(c_ids[i], c_ids[j]):
-                    if w not in seen_works:
-                        cross_works.append(w)
-                        seen_works.add(w)
+                    _add_work(w, cross_works)
 
     for w in best_f.get('works', []):
-        if w not in seen_works:
-            merged_works.append(w)
-            seen_works.add(w)
+        _add_work(w, merged_works)
     for c in compound:
         ci = engine.index_of(c['fetish_id'])
         if ci is not None:
             for w in engine.fetishes[ci].get('works', []):
-                if w not in seen_works:
-                    merged_works.append(w)
-                    seen_works.add(w)
+                _add_work(w, merged_works)
 
     return {
         'action':       'guess',
