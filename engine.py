@@ -754,9 +754,17 @@ class Engine:
         try:
             cur = conn.cursor()
             cur.execute('SELECT id, name, "desc" FROM fetishes ORDER BY id')
-            return [{'id': r[0], 'name': r[1], 'desc': r[2]} for r in cur.fetchall()]
+            rows = [{'id': r[0], 'name': r[1], 'desc': r[2]} for r in cur.fetchall()]
         finally:
             _put_conn(conn)
+        # works はDBに持たないので fetishes.json からマージ
+        try:
+            seed = {f['id']: f.get('works', []) for f in self._load_json('fetishes.json')}
+            for f in rows:
+                f['works'] = seed.get(f['id'], [])
+        except Exception:
+            pass
+        return rows
 
     def _seed_db(self, cur, fetishes=None):
         if fetishes is None:
