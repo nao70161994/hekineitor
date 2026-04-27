@@ -1,0 +1,36 @@
+name: Matrix Backup
+
+on:
+  schedule:
+    - cron: '0 2 * * 0'  # 毎週日曜 AM2時(UTC) = 日曜11時(JST)
+  workflow_dispatch:      # 手動実行も可
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Export matrix from Render
+        run: |
+          HTTP=$(curl -s -w "%{http_code}" -o data/matrix_backup.json \
+            -u "${{ secrets.ADMIN_USER }}:${{ secrets.ADMIN_PASS }}" \
+            "${{ secrets.APP_URL }}/api/admin/export_matrix")
+          echo "HTTP status: $HTTP"
+          if [ "$HTTP" != "200" ]; then
+            echo "Export failed"
+            cat data/matrix_backup.json
+            exit 1
+          fi
+          echo "Backup size: $(wc -c < data/matrix_backup.json) bytes"
+
+      - name: Commit backup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/matrix_backup.json
+          git diff --cached --quiet && echo "No changes" || \
+            git commit -m "auto: matrix backup $(date -u '+%Y-%m-%d')" && git push
