@@ -5,8 +5,14 @@
     "desc": "大切な人が別の誰かに奪われる背徳感・嫉妬・喪失の痛みが混ざり合う展開",
     "works": [
       "NTRエロゲの金字塔・君が望む永遠",
-      "ネトラレーゼ（成人向け漫画）",
-      "ヤキモチの行方（同人誌）"
+      {
+        "title": "ネトラレーゼ（成人向け漫画）",
+        "url": "https://www.amazon.co.jp/dp/B07WRK3MF8?tag=hekinator-22"
+      },
+      {
+        "title": "ヤキモチの行方（同人誌）",
+        "url": "https://www.amazon.co.jp/dp/B0DR2QTKHX?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -14,9 +20,18 @@
     "name": "百合",
     "desc": "女性同士にしか通じない繊細な感情・視線・触れ合いが積み重なる愛の物語",
     "works": [
-      "やがて君になる",
-      "citrus",
-      "私の百合はお仕事です！"
+      {
+        "title": "やがて君になる",
+        "url": "https://www.amazon.co.jp/dp/B081D6RYP8?tag=hekinator-22"
+      },
+      {
+        "title": "citrus",
+        "url": "https://www.amazon.co.jp/dp/B00JB92F0Y?tag=hekinator-22"
+      },
+      {
+        "title": "私の百合はお仕事です！",
+        "url": "https://www.amazon.co.jp/dp/B0G2264V2F?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -24,9 +39,18 @@
     "name": "BL（ボーイズラブ）",
     "desc": "男性同士の禁断の感情・葛藤と情熱が絡み合い越えてはいけない一線を超える世界",
     "works": [
-      "Given",
-      "たとえとどかぬ想いでも",
-      "囀る鳥は羽ばたかない"
+      {
+        "title": "Given",
+        "url": "https://www.amazon.co.jp/dp/B0FRQBMCNK?tag=hekinator-22"
+      },
+      {
+        "title": "たとえとどかぬ想いでも",
+        "url": "https://www.amazon.co.jp/dp/B08SWP8TJF?tag=hekinator-22"
+      },
+      {
+        "title": "囀る鳥は羽ばたかない",
+        "url": "https://www.amazon.co.jp/dp/B0772T5BVS?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -34,9 +58,18 @@
     "name": "SM・支配被支配",
     "desc": "支配する者とされる者の明確な力関係・痛みと快感と信頼が一体になった関係",
     "works": [
-      "アトラク=ナクア（エルフ社）",
-      "監獄学園（プリズンスクール）",
-      "Bible Black（C:drive.）"
+      {
+        "title": "アトラク=ナクア（エルフ社）",
+        "url": "https://www.amazon.co.jp/dp/B00008HUMF?tag=hekinator-22"
+      },
+      {
+        "title": "監獄学園（プリズンスクール）",
+        "url": "https://www.amazon.co.jp/dp/B00BB1ZTBM?tag=hekinator-22"
+      },
+      {
+        "title": "Bible Black（C:drive.）",
+        "url": "https://www.amazon.co.jp/dp/B07539K353?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -44,9 +77,18 @@
     "name": "ケモノ・獣人",
     "desc": "獣の本能と人の感情が交差する異種族の愛・獣耳・獣化・フルファーの世界",
     "works": [
-      "モンスター娘のいる日常",
-      "彼女、お借りします（ルカ）",
-      "狼と香辛料"
+      {
+        "title": "モンスター娘のいる日常",
+        "url": "https://www.amazon.co.jp/dp/B0GQGRJF76?tag=hekinator-22"
+      },
+      {
+        "title": "彼女、お借りします（ルカ）",
+        "url": "https://www.amazon.co.jp/dp/B0GHMGHSR9?tag=hekinator-22"
+      },
+      {
+        "title": "狼と香辛料",
+        "url": "https://www.amazon.co.jp/dp/B00GOO64FG?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -54,9 +96,18 @@
     "name": "触手",
     "desc": "逃げられない触手に絡みつかれ翻弄される・抵抗できない状況の官能的な展開",
     "works": [
-      "Tentacle and Witches（SQUEEZ）",
-      "ベルセルク（蝕のシーン）",
-      "Bible Black（C:drive.）"
+      {
+        "title": "Tentacle and Witches（SQUEEZ）",
+        "url": "https://www.amazon.co.jp/dp/B07FSJT2BL?tag=hekinator-22"
+      },
+      {
+        "title": "ベルセルク（蝕のシーン）",
+        "url": "https://www.amazon.co.jp/dp/B00DMUL9GO?tag=hekinator-22"
+      },
+      {
+        "title": "Bible Black（C:drive.）",
+        "url": "https://www.amazon.co.jp/dp/B07539K353?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -64,9 +115,18 @@
     "name": "年の差（年上攻め）",
     "desc": "経験豊かで包容力のある年上が圧倒的な余裕とリードで相手を包み込む関係",
     "works": [
-      "純情ロマンチカ",
-      "先輩がうざい後輩の話",
-      "私の少年（漫画）"
+      {
+        "title": "純情ロマンチカ",
+        "url": "https://www.amazon.co.jp/dp/B07PSFPMR4?tag=hekinator-22"
+      },
+      {
+        "title": "先輩がうざい後輩の話",
+        "url": "https://www.amazon.co.jp/dp/B07BK19YRB?tag=hekinator-22"
+      },
+      {
+        "title": "私の少年（漫画）",
+        "url": "https://www.amazon.co.jp/dp/B07DC3VQMR?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -74,9 +134,18 @@
     "name": "年の差（年下攻め）",
     "desc": "年下の情熱・強引さ・純粋な欲望で年上が押し切られる甘い逆転の関係",
     "works": [
-      "恋は雨上がりのように",
-      "年下の男の子",
-      "アオハライド"
+      {
+        "title": "恋は雨上がりのように",
+        "url": "https://www.amazon.co.jp/dp/B0DYPHB5ST?tag=hekinator-22"
+      },
+      {
+        "title": "年下の男の子",
+        "url": "https://www.amazon.co.jp/dp/B081MQJM11?tag=hekinator-22"
+      },
+      {
+        "title": "アオハライド",
+        "url": "https://www.amazon.co.jp/dp/B00AMCJ10Q?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -84,9 +153,18 @@
     "name": "義兄妹・疑似近親",
     "desc": "血は繋がらないのに家族と呼ぶ関係で育まれる越えてはいけない禁断の感情",
     "works": [
-      "義妹生活",
-      "新妹魔王の契約者",
-      "妹さえいればいい。"
+      {
+        "title": "義妹生活",
+        "url": "https://www.amazon.co.jp/dp/B0BP6BXH3B?tag=hekinator-22"
+      },
+      {
+        "title": "新妹魔王の契約者",
+        "url": "https://www.amazon.co.jp/dp/B08Z6Z91ZD?tag=hekinator-22"
+      },
+      {
+        "title": "妹さえいればいい。",
+        "url": "https://www.amazon.co.jp/dp/B00UWUE0YA?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -94,9 +172,18 @@
     "name": "師弟・教師×生徒",
     "desc": "教え導く者と学ぶ者の立場差の中でじわじわと育つ許されない愛の感情",
     "works": [
-      "ピアノの森",
-      "3月のライオン",
-      "坂道のアポロン"
+      {
+        "title": "ピアノの森",
+        "url": "https://www.amazon.co.jp/dp/B009KWUCLG?tag=hekinator-22"
+      },
+      {
+        "title": "3月のライオン",
+        "url": "https://www.amazon.co.jp/dp/B0FMXK6CYZ?tag=hekinator-22"
+      },
+      {
+        "title": "坂道のアポロン",
+        "url": "https://www.amazon.co.jp/dp/B009SHW4EQ?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -104,9 +191,18 @@
     "name": "ヤンデレ",
     "desc": "愛が狂気に変わる瞬間・誰にも渡さないという絶対の執着と壊れた献身",
     "works": [
-      "Future Diary",
-      "Yandere Simulator（参考）",
-      "ヤンデレ彼女"
+      {
+        "title": "Future Diary",
+        "url": "https://www.amazon.co.jp/dp/B00K6THSBE?tag=hekinator-22"
+      },
+      {
+        "title": "Yandere Simulator（参考）",
+        "url": "https://www.amazon.co.jp/dp/B0GRCMSKG4?tag=hekinator-22"
+      },
+      {
+        "title": "ヤンデレ彼女",
+        "url": "https://www.amazon.co.jp/dp/B0G7V2MM7M?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -114,9 +210,18 @@
     "name": "TSF・性転換",
     "desc": "性別が変わることで気づく自分と相手への新しい感情・アイデンティティの揺らぎ",
     "works": [
-      "お兄ちゃんはおしまい！",
-      "転生したら第七王子だったので",
-      "TS少女ハルキくん（漫画）"
+      {
+        "title": "お兄ちゃんはおしまい！",
+        "url": "https://www.amazon.co.jp/dp/B0FJLHPSHP?tag=hekinator-22"
+      },
+      {
+        "title": "転生したら第七王子だったので",
+        "url": "https://www.amazon.co.jp/dp/B0GXTJWDM2?tag=hekinator-22"
+      },
+      {
+        "title": "TS少女ハルキくん（漫画）",
+        "url": "https://www.amazon.co.jp/dp/B0G5DQH76D?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -124,9 +229,18 @@
     "name": "ハーレム",
     "desc": "複数のヒロインが一人の主人公に惹かれ競い合う・選ばれる側の甘い独占感",
     "works": [
-      "HighSchool DxD",
-      "To LOVEる",
-      "魔法老師ネギま！"
+      {
+        "title": "HighSchool DxD",
+        "url": "https://www.amazon.co.jp/dp/B0GHMVQV3G?tag=hekinator-22"
+      },
+      {
+        "title": "To LOVEる",
+        "url": "https://www.amazon.co.jp/dp/B00ATLLX24?tag=hekinator-22"
+      },
+      {
+        "title": "魔法老師ネギま！",
+        "url": "https://www.amazon.co.jp/dp/B009KYC9P6?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -134,9 +248,18 @@
     "name": "逆ハーレム",
     "desc": "個性豊かな複数の男性に囲まれ特別扱いされる女主人公の華やかな愛の物語",
     "works": [
-      "暁のヨナ",
-      "ブラック・クローバー（ノエル）",
-      "乙女ゲーム転生もの（アンジェリーク）"
+      {
+        "title": "暁のヨナ",
+        "url": "https://www.amazon.co.jp/dp/B0FD2S31CP?tag=hekinator-22"
+      },
+      {
+        "title": "ブラック・クローバー（ノエル）",
+        "url": "https://www.amazon.co.jp/dp/B0FKR67ZJH?tag=hekinator-22"
+      },
+      {
+        "title": "乙女ゲーム転生もの（アンジェリーク）",
+        "url": "https://www.amazon.co.jp/dp/B0FYCVC6BF?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -144,9 +267,18 @@
     "name": "モンスター娘",
     "desc": "蛇・蜘蛛・竜など異形の身体に宿る人の感情・異種族ならではの独特な愛の形",
     "works": [
-      "モンスター娘のいる日常",
-      "モン娘クエスト！",
-      "迷宮ブラックカンパニー"
+      {
+        "title": "モンスター娘のいる日常",
+        "url": "https://www.amazon.co.jp/dp/B0GQGRJF76?tag=hekinator-22"
+      },
+      {
+        "title": "モン娘クエスト！",
+        "url": "https://www.amazon.co.jp/dp/B08QW1T5FC?tag=hekinator-22"
+      },
+      {
+        "title": "迷宮ブラックカンパニー",
+        "url": "https://www.amazon.co.jp/dp/B0GP95QXZR?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -154,9 +286,18 @@
     "name": "吸血鬼・ヴァンパイア",
     "desc": "永遠の命を持つ者が数百年越しに選んだただ一人への渇愛と血の繋がり",
     "works": [
-      "ヴァンパイア騎士",
-      "Vampire Hunter D",
-      "コードギアス（シャーリー編）"
+      {
+        "title": "ヴァンパイア騎士",
+        "url": "https://www.amazon.co.jp/dp/B00HE5PAW2?tag=hekinator-22"
+      },
+      {
+        "title": "Vampire Hunter D",
+        "url": "https://www.amazon.co.jp/dp/B009AAG474?tag=hekinator-22"
+      },
+      {
+        "title": "コードギアス（シャーリー編）",
+        "url": "https://www.amazon.co.jp/dp/B0G3YRBQJM?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -164,9 +305,18 @@
     "name": "幼馴染",
     "desc": "当たり前すぎて気づけなかった・ずっとそこにあった宝物に気づく遅い恋",
     "works": [
-      "君の名は。",
-      "とらドラ！",
-      "幼なじみが絶対に負けないラブコメ"
+      {
+        "title": "君の名は。",
+        "url": "https://www.amazon.co.jp/dp/B01KJ5Y0JC?tag=hekinator-22"
+      },
+      {
+        "title": "とらドラ！",
+        "url": "https://www.amazon.co.jp/dp/B0GWYSNXKB?tag=hekinator-22"
+      },
+      {
+        "title": "幼なじみが絶対に負けないラブコメ",
+        "url": "https://www.amazon.co.jp/dp/B0DV52Q98W?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -174,9 +324,18 @@
     "name": "溺愛・独占欲（甘々）",
     "desc": "世界中から君だけを守ると誓う圧倒的な溺愛と独占・甘さが重くなる関係",
     "works": [
-      "オオカミ殿下の溺愛番",
-      "君に捧げる嘘",
-      "花嫁の父"
+      {
+        "title": "オオカミ殿下の溺愛番",
+        "url": "https://www.amazon.co.jp/dp/B0GSY48TQZ?tag=hekinator-22"
+      },
+      {
+        "title": "君に捧げる嘘",
+        "url": "https://www.amazon.co.jp/dp/B0D1TK521V?tag=hekinator-22"
+      },
+      {
+        "title": "花嫁の父",
+        "url": "https://www.amazon.co.jp/dp/B00JK8L8JU?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -184,9 +343,18 @@
     "name": "調教・洗脳・精神支配",
     "desc": "意思と価値観を少しずつ塗り替えられ新しい自分に生まれ変わる精神的支配",
     "works": [
-      "奴隷区 僕と彼女の絶対時間",
-      "監獄学園（プリズンスクール）",
-      "School Days（参考）"
+      {
+        "title": "奴隷区 僕と彼女の絶対時間",
+        "url": "https://www.amazon.co.jp/dp/B00E9K5EW6?tag=hekinator-22"
+      },
+      {
+        "title": "監獄学園（プリズンスクール）",
+        "url": "https://www.amazon.co.jp/dp/B00BB1ZTBM?tag=hekinator-22"
+      },
+      {
+        "title": "School Days（参考）",
+        "url": "https://www.amazon.co.jp/dp/B07YKHDK28?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -194,9 +362,18 @@
     "name": "女装・男の娘",
     "desc": "少女のような装いの男の子がもたらす甘い困惑・性別の境界線が溶ける感覚",
     "works": [
-      "お兄ちゃんはおしまい！",
-      "天使な小生意気（漫画）",
-      "俺、ツインテールになります。"
+      {
+        "title": "お兄ちゃんはおしまい！",
+        "url": "https://www.amazon.co.jp/dp/B0FJLHPSHP?tag=hekinator-22"
+      },
+      {
+        "title": "天使な小生意気（漫画）",
+        "url": "https://www.amazon.co.jp/dp/B00LUUZG6W?tag=hekinator-22"
+      },
+      {
+        "title": "俺、ツインテールになります。",
+        "url": "https://www.amazon.co.jp/dp/B00ABGOABS?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -204,9 +381,18 @@
     "name": "百合NTR",
     "desc": "女性同士の特別な絆が第三者に引き裂かれる嫉妬と喪失の痛みが深い展開",
     "works": [
-      "citrus（NTR展開同人）",
-      "やがて君になる（ファンアート系）",
-      "百合NTR倶楽部（同人誌）"
+      {
+        "title": "citrus（NTR展開同人）",
+        "url": "https://www.amazon.co.jp/dp/B00JB92F0Y?tag=hekinator-22"
+      },
+      {
+        "title": "やがて君になる（ファンアート系）",
+        "url": "https://www.amazon.co.jp/dp/B081D6RYP8?tag=hekinator-22"
+      },
+      {
+        "title": "百合NTR倶楽部（同人誌）",
+        "url": "https://www.amazon.co.jp/dp/B0FBXGKBL8?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -214,9 +400,18 @@
     "name": "異世界転生チート",
     "desc": "異世界で規格外の力を持つ主人公が無双する・努力が不要な快感と爽快感",
     "works": [
-      "Re:ゼロから始める異世界生活",
-      "転生したらスライムだった件",
-      "この素晴らしい世界に祝福を！"
+      {
+        "title": "Re:ゼロから始める異世界生活",
+        "url": "https://www.amazon.co.jp/dp/B09N91MJLZ?tag=hekinator-22"
+      },
+      {
+        "title": "転生したらスライムだった件",
+        "url": "https://www.amazon.co.jp/dp/B0GJZLBGMD?tag=hekinator-22"
+      },
+      {
+        "title": "この素晴らしい世界に祝福を！",
+        "url": "https://www.amazon.co.jp/dp/B0GJQVHPPQ?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -224,9 +419,18 @@
     "name": "復讐・ざまぁ",
     "desc": "かつて虐げられた主人公が圧倒的な逆転でかつての敵を追い詰める痛快さ",
     "works": [
-      "転生令嬢と天才悪女",
-      "無職転生",
-      "俺だけレベルアップな件"
+      {
+        "title": "転生令嬢と天才悪女",
+        "url": "https://www.amazon.co.jp/dp/B0GMPL4VN9?tag=hekinator-22"
+      },
+      {
+        "title": "無職転生",
+        "url": "https://www.amazon.co.jp/dp/B0GLWJ4TMM?tag=hekinator-22"
+      },
+      {
+        "title": "俺だけレベルアップな件",
+        "url": "https://www.amazon.co.jp/dp/B0GSVDV4NH?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -234,9 +438,18 @@
     "name": "ツンデレ",
     "desc": "素直になれない不器用な態度が少しずつほぐれ本音が漏れ出す瞬間のときめき",
     "works": [
-      "灼眼のシャナ（シャナ）",
-      "釘宮理恵出演作（ゼロの使い魔・ルイズ）",
-      "俺の妹がこんなに可愛いわけがない"
+      {
+        "title": "灼眼のシャナ（シャナ）",
+        "url": "https://www.amazon.co.jp/dp/B07J26ZXDD?tag=hekinator-22"
+      },
+      {
+        "title": "釘宮理恵出演作（ゼロの使い魔・ルイズ）",
+        "url": "https://www.amazon.co.jp/dp/B0CVLHHDD3?tag=hekinator-22"
+      },
+      {
+        "title": "俺の妹がこんなに可愛いわけがない",
+        "url": "https://www.amazon.co.jp/dp/B017JQOID2?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -244,9 +457,18 @@
     "name": "お姉さん",
     "desc": "包み込む包容力と大人の色気・頼れる年上の余裕が心地よい甘い庇護の関係",
     "works": [
-      "お姉さんは女子小学生に興味があります？",
-      "ヲタクに恋は難しい（桃恵）",
-      "ちょびっツ"
+      {
+        "title": "お姉さんは女子小学生に興味があります？",
+        "url": "https://www.amazon.co.jp/dp/B079DLX4WQ?tag=hekinator-22"
+      },
+      {
+        "title": "ヲタクに恋は難しい（桃恵）",
+        "url": "https://www.amazon.co.jp/dp/B00WGA6W7C?tag=hekinator-22"
+      },
+      {
+        "title": "ちょびっツ",
+        "url": "https://www.amazon.co.jp/dp/B00LY57K0I?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -254,9 +476,18 @@
     "name": "ロリ・幼女",
     "desc": "無邪気でか弱い小さな存在の純粋さがもたらす特別な感情と保護欲",
     "works": [
-      "幼女戦記（ターニャ）",
-      "Re:ゼロ（ベアトリス）",
-      "うちの師匠はしっぽがない（まめだ）"
+      {
+        "title": "幼女戦記（ターニャ）",
+        "url": "https://www.amazon.co.jp/dp/B0GS7HZ27H?tag=hekinator-22"
+      },
+      {
+        "title": "Re:ゼロ（ベアトリス）",
+        "url": "https://www.amazon.co.jp/dp/B0DMXFD75H?tag=hekinator-22"
+      },
+      {
+        "title": "うちの師匠はしっぽがない（まめだ）",
+        "url": "https://www.amazon.co.jp/dp/B07WPTFJ1H?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -264,9 +495,18 @@
     "name": "身長差・体格差",
     "desc": "抱きしめると頭が胸に埋もれる圧倒的な体格差が生む安心感と力関係",
     "works": [
-      "僕の心のヤバイやつ（山田×市川）",
-      "古見さんはコミュ症です。",
-      "スキップとローファー"
+      {
+        "title": "僕の心のヤバイやつ（山田×市川）",
+        "url": "https://www.amazon.co.jp/dp/B0FTZ443M6?tag=hekinator-22"
+      },
+      {
+        "title": "古見さんはコミュ症です。",
+        "url": "https://www.amazon.co.jp/dp/B01M0RDBS5?tag=hekinator-22"
+      },
+      {
+        "title": "スキップとローファー",
+        "url": "https://www.amazon.co.jp/dp/B0DPMT3VW4?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -274,9 +514,18 @@
     "name": "メイド・主従関係",
     "desc": "主人のためだけに存在する完全な献身・従順の美学と主従の甘い緊張感",
     "works": [
-      "ゼロの使い魔",
-      "ネコぱら",
-      "ハヤテのごとく！"
+      {
+        "title": "ゼロの使い魔",
+        "url": "https://www.amazon.co.jp/dp/B079PHTTBK?tag=hekinator-22"
+      },
+      {
+        "title": "ネコぱら",
+        "url": "https://www.amazon.co.jp/dp/B0DRFM637X?tag=hekinator-22"
+      },
+      {
+        "title": "ハヤテのごとく！",
+        "url": "https://www.amazon.co.jp/dp/B0GV3FCPC2?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -284,9 +533,18 @@
     "name": "アンドロイド・ロボ娘",
     "desc": "感情のない機械が愛を覚える瞬間の切なさ・人工知能が人に恋する神秘",
     "works": [
-      "ちょびっツ",
-      "プラスティック・メモリーズ",
-      "Vivy -Fluorite Eye's Song-"
+      {
+        "title": "ちょびっツ",
+        "url": "https://www.amazon.co.jp/dp/B00LY57K0I?tag=hekinator-22"
+      },
+      {
+        "title": "プラスティック・メモリーズ",
+        "url": "https://www.amazon.co.jp/dp/B00WHITA4A?tag=hekinator-22"
+      },
+      {
+        "title": "Vivy -Fluorite Eye's Song-",
+        "url": "https://www.amazon.co.jp/dp/B09BDYND7N?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -294,9 +552,18 @@
     "name": "エルフ・ファンタジー種族",
     "desc": "長命・神秘的な異種族との人間の時間を超えた縁・耳の長さが醸す高貴さ",
     "works": [
-      "エルフさんは痩せられない",
-      "ゴブリンスレイヤー（ハイエルフ）",
-      "Dungeon Meshi（マルシル）"
+      {
+        "title": "エルフさんは痩せられない",
+        "url": "https://www.amazon.co.jp/dp/B0GMH3N3RC?tag=hekinator-22"
+      },
+      {
+        "title": "ゴブリンスレイヤー（ハイエルフ）",
+        "url": "https://www.amazon.co.jp/dp/B0FY61KV74?tag=hekinator-22"
+      },
+      {
+        "title": "Dungeon Meshi（マルシル）",
+        "url": "https://www.amazon.co.jp/dp/B0CTM99YRQ?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -304,9 +571,18 @@
     "name": "近親相姦",
     "desc": "最も近くて最も遠い・血の繋がりがあるからこそ越えられない禁断の感情",
     "works": [
-      "OniAi（お兄ちゃんだけど愛さえあれば）",
-      "新妹魔王の契約者（亦那√）",
-      "螺旋回廊2（エルフ社）"
+      {
+        "title": "OniAi（お兄ちゃんだけど愛さえあれば）",
+        "url": "https://www.amazon.co.jp/dp/B0GXWPY275?tag=hekinator-22"
+      },
+      {
+        "title": "新妹魔王の契約者（亦那√）",
+        "url": "https://www.amazon.co.jp/dp/B08Z6Z91ZD?tag=hekinator-22"
+      },
+      {
+        "title": "螺旋回廊2（エルフ社）",
+        "url": "https://www.amazon.co.jp/dp/B0F388MGPF?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -314,9 +590,18 @@
     "name": "クーデレ",
     "desc": "無表情・無口な仮面の奥に隠された感情が自分にだけ向く特別感と優越感",
     "works": [
-      "やはり俺の青春ラブコメはまちがっている。（雪ノ下）",
-      "Charlotte（乙坂）",
-      "氷菓（千反田）"
+      {
+        "title": "やはり俺の青春ラブコメはまちがっている。（雪ノ下）",
+        "url": "https://www.amazon.co.jp/dp/B00A20SDQQ?tag=hekinator-22"
+      },
+      {
+        "title": "Charlotte（乙坂）",
+        "url": "https://www.amazon.co.jp/dp/B07MCGX4YF?tag=hekinator-22"
+      },
+      {
+        "title": "氷菓（千反田）",
+        "url": "https://www.amazon.co.jp/dp/B0GS3NTD6R?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -324,9 +609,18 @@
     "name": "感覚遮断落とし穴",
     "desc": "視覚・行動を制限された状況で研ぎ澄まされる感覚・依存と翻弄の展開",
     "works": [
-      "監獄学園（プリズンスクール）",
-      "奴隷区 僕と彼女の絶対時間",
-      "アトラク=ナクア（エルフ社）"
+      {
+        "title": "監獄学園（プリズンスクール）",
+        "url": "https://www.amazon.co.jp/dp/B00BB1ZTBM?tag=hekinator-22"
+      },
+      {
+        "title": "奴隷区 僕と彼女の絶対時間",
+        "url": "https://www.amazon.co.jp/dp/B00E9K5EW6?tag=hekinator-22"
+      },
+      {
+        "title": "アトラク=ナクア（エルフ社）",
+        "url": "https://www.amazon.co.jp/dp/B00008HUMF?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -334,9 +628,18 @@
     "name": "人格支配・器化",
     "desc": "精神や人格そのものを乗っ取られ自分が自分でなくなる恐怖と甘美な解放感",
     "works": [
-      "寄生獣",
-      "東京喰種（参考）",
-      "Another（参考）"
+      {
+        "title": "寄生獣",
+        "url": "https://www.amazon.co.jp/dp/B009KWUID8?tag=hekinator-22"
+      },
+      {
+        "title": "東京喰種（参考）",
+        "url": "https://www.amazon.co.jp/dp/B00E5T9RLU?tag=hekinator-22"
+      },
+      {
+        "title": "Another（参考）",
+        "url": "https://www.amazon.co.jp/dp/B09KBL9QNF?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -344,9 +647,18 @@
     "name": "催眠術・トランス",
     "desc": "意識の深層に直接触れる催眠による完全な支配・理性が消える解放の展開",
     "works": [
-      "催眠マイク（世界観）",
-      "ジョジョの奇妙な冒険（ダービー弟戦）",
-      "Discipline（C:drive.）"
+      {
+        "title": "催眠マイク（世界観）",
+        "url": "https://www.amazon.co.jp/dp/B0D9NJ1S26?tag=hekinator-22"
+      },
+      {
+        "title": "ジョジョの奇妙な冒険（ダービー弟戦）",
+        "url": "https://www.amazon.co.jp/dp/B009LHC7A4?tag=hekinator-22"
+      },
+      {
+        "title": "Discipline（C:drive.）",
+        "url": "https://www.amazon.co.jp/dp/B086RZNHCS?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -354,9 +666,18 @@
     "name": "オメガバース",
     "desc": "α/β/Ωの第二性別と番の本能に抗えない・宿命に選ばれた生物学的な愛",
     "works": [
-      "発情αに愛されすぎて困ってます（BL漫画）",
-      "ヒトリジメ×Boyfriend（BL）",
-      "ウルフ×ラム（オメガバースBL）"
+      {
+        "title": "発情αに愛されすぎて困ってます（BL漫画）",
+        "url": "https://www.amazon.co.jp/dp/B07VQWLVNV?tag=hekinator-22"
+      },
+      {
+        "title": "ヒトリジメ×Boyfriend（BL）",
+        "url": "https://www.amazon.co.jp/dp/B0F3HV1RXD?tag=hekinator-22"
+      },
+      {
+        "title": "ウルフ×ラム（オメガバースBL）",
+        "url": "https://www.amazon.co.jp/dp/B07JCT2KV7?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -364,8 +685,14 @@
     "name": "悪役令嬢",
     "desc": "乙女ゲームの断罪される悪役に転生した主人公が知恵と行動で破滅を回避する",
     "works": [
-      "乙女ゲームの破滅フラグしかない悪役令嬢に転生してしまった…",
-      "悪役令嬢レベル99"
+      {
+        "title": "乙女ゲームの破滅フラグしかない悪役令嬢に転生してしまった…",
+        "url": "https://www.amazon.co.jp/dp/B0FNQQCQ29?tag=hekinator-22"
+      },
+      {
+        "title": "悪役令嬢レベル99",
+        "url": "https://www.amazon.co.jp/dp/B0FHVLMGJ3?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -373,9 +700,18 @@
     "name": "女騎士・女戦士",
     "desc": "剣を持つ凛々しい女性の強さと内に秘めた柔らかさ・鎧の下に宿る人間らしさ",
     "works": [
-      "Fate/stay night（セイバー）",
-      "ゴブリンスレイヤー（剣の乙女）",
-      "ベルセルク（ファルネーゼ）"
+      {
+        "title": "Fate/stay night（セイバー）",
+        "url": "https://www.amazon.co.jp/dp/B0GS7MVDXD?tag=hekinator-22"
+      },
+      {
+        "title": "ゴブリンスレイヤー（剣の乙女）",
+        "url": "https://www.amazon.co.jp/dp/B0FY61KV74?tag=hekinator-22"
+      },
+      {
+        "title": "ベルセルク（ファルネーゼ）",
+        "url": "https://www.amazon.co.jp/dp/B0FHYR6VMF?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -383,9 +719,18 @@
     "name": "孕ませ・子作り",
     "desc": "子孫を残すという原始的な本能に従う深い繋がり・命を生む行為の重さと愛",
     "works": [
-      "To Heart 2（孕ませ√）",
-      "孕ませ学園（エロゲ）",
-      "大家さんは思春期！（参考）"
+      {
+        "title": "To Heart 2（孕ませ√）",
+        "url": "https://www.amazon.co.jp/dp/B00JDX5LK4?tag=hekinator-22"
+      },
+      {
+        "title": "孕ませ学園（エロゲ）",
+        "url": "https://www.amazon.co.jp/dp/B0C9HT5QGK?tag=hekinator-22"
+      },
+      {
+        "title": "大家さんは思春期！（参考）",
+        "url": "https://www.amazon.co.jp/dp/B0G1SCKH4Q?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -393,9 +738,18 @@
     "name": "後輩×先輩",
     "desc": "距離感のある関係がじわじわと縮まる・先輩後輩の縦の関係から生まれる恋",
     "works": [
-      "かぐや様は告らせたい",
-      "ヲタクに恋は難しい",
-      "俺ガイル（比企谷×由比ヶ浜）"
+      {
+        "title": "かぐや様は告らせたい",
+        "url": "https://www.amazon.co.jp/dp/B01C3ZR3X6?tag=hekinator-22"
+      },
+      {
+        "title": "ヲタクに恋は難しい",
+        "url": "https://www.amazon.co.jp/dp/B00WGA6W7C?tag=hekinator-22"
+      },
+      {
+        "title": "俺ガイル（比企谷×由比ヶ浜）",
+        "url": "https://www.amazon.co.jp/dp/B00A20SDQQ?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -403,9 +757,18 @@
     "name": "メスガキ・小悪魔",
     "desc": "年下なのに上から目線で煽り翻弄してくる小悪魔・主人公が振り回される逆転感",
     "works": [
-      "イジらないで、長瀞さん",
-      "カノジョも彼女（直子）",
-      "小林さんちのメイドラゴン（カンナ）"
+      {
+        "title": "イジらないで、長瀞さん",
+        "url": "https://www.amazon.co.jp/dp/B0DB7BGGRV?tag=hekinator-22"
+      },
+      {
+        "title": "カノジョも彼女（直子）",
+        "url": "https://www.amazon.co.jp/dp/B089NC55KC?tag=hekinator-22"
+      },
+      {
+        "title": "小林さんちのメイドラゴン（カンナ）",
+        "url": "https://www.amazon.co.jp/dp/B0FB8B6ZMD?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -413,9 +776,18 @@
     "name": "強引な女性・逆押し",
     "desc": "女性が積極的に押し倒し奪う側に回る大胆な逆転・受け身の主人公が引っ張られる",
     "works": [
-      "俺を好きなのはお前だけかよ",
-      "トニカクカワイイ（司）",
-      "カノジョも彼女（渚）"
+      {
+        "title": "俺を好きなのはお前だけかよ",
+        "url": "https://www.amazon.co.jp/dp/B01CC9U8D0?tag=hekinator-22"
+      },
+      {
+        "title": "トニカクカワイイ（司）",
+        "url": "https://www.amazon.co.jp/dp/B0GQ9XKV42?tag=hekinator-22"
+      },
+      {
+        "title": "カノジョも彼女（渚）",
+        "url": "https://www.amazon.co.jp/dp/B089NC55KC?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -423,9 +795,18 @@
     "name": "職場・社内恋愛",
     "desc": "バレたら終わる秘密を守りながら積み重ねる禁断のオフィスラブの緊張感",
     "works": [
-      "ヲタクに恋は難しい",
-      "重版出来！",
-      "凪のお暇"
+      {
+        "title": "ヲタクに恋は難しい",
+        "url": "https://www.amazon.co.jp/dp/B00WGA6W7C?tag=hekinator-22"
+      },
+      {
+        "title": "重版出来！",
+        "url": "https://www.amazon.co.jp/dp/B00G9S9IV4?tag=hekinator-22"
+      },
+      {
+        "title": "凪のお暇",
+        "url": "https://www.amazon.co.jp/dp/B0F47J2YZ1?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -433,9 +814,18 @@
     "name": "魔法少女",
     "desc": "正義のために変身し戦う少女が闇に染まり堕ちていく壮絶な堕落と穢れのドラマ",
     "works": [
-      "魔法少女まどか☆マギカ",
-      "魔法少女サイト",
-      "魔法少女育成計画"
+      {
+        "title": "魔法少女まどか☆マギカ",
+        "url": "https://www.amazon.co.jp/dp/B09K7G1BKM?tag=hekinator-22"
+      },
+      {
+        "title": "魔法少女サイト",
+        "url": "https://www.amazon.co.jp/dp/B00IRU3WI2?tag=hekinator-22"
+      },
+      {
+        "title": "魔法少女育成計画",
+        "url": "https://www.amazon.co.jp/dp/B07VNQXQYF?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -443,9 +833,18 @@
     "name": "聖女・清楚ヒロイン",
     "desc": "清らかで献身的な聖女が汚されるか永遠に守られるか・純白が際立つ対比の美学",
     "works": [
-      "Re:ゼロから始める異世界生活（エミリア）",
-      "Fate/stay night（セイバー）",
-      "転スラ（シズ）"
+      {
+        "title": "Re:ゼロから始める異世界生活（エミリア）",
+        "url": "https://www.amazon.co.jp/dp/B09N91MJLZ?tag=hekinator-22"
+      },
+      {
+        "title": "Fate/stay night（セイバー）",
+        "url": "https://www.amazon.co.jp/dp/B0GS7MVDXD?tag=hekinator-22"
+      },
+      {
+        "title": "転スラ（シズ）",
+        "url": "https://www.amazon.co.jp/dp/B0FB3CT8VW?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -453,9 +852,18 @@
     "name": "乱交・多人数プレイ",
     "desc": "3人以上が同時に絡む混沌とした状況・複数の視線と手に翻弄される展開",
     "works": [
-      "Discipline（C:drive.）",
-      "Bible Black（C:drive.）",
-      "螺旋回廊2（エルフ社）"
+      {
+        "title": "Discipline（C:drive.）",
+        "url": "https://www.amazon.co.jp/dp/B086RZNHCS?tag=hekinator-22"
+      },
+      {
+        "title": "Bible Black（C:drive.）",
+        "url": "https://www.amazon.co.jp/dp/B07539K353?tag=hekinator-22"
+      },
+      {
+        "title": "螺旋回廊2（エルフ社）",
+        "url": "https://www.amazon.co.jp/dp/B0F388MGPF?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -463,9 +871,18 @@
     "name": "ショタ・幼い男の子",
     "desc": "幼い・小柄な少年の無邪気さと秘めた感情・守りたくなる小さな存在との関係",
     "works": [
-      "少年メイド（漫画）",
-      "小林さんちのメイドラゴン（翔太）",
-      "放課後ていぼう日誌（弟キャラ）"
+      {
+        "title": "少年メイド（漫画）",
+        "url": "https://www.amazon.co.jp/dp/B009727QE0?tag=hekinator-22"
+      },
+      {
+        "title": "小林さんちのメイドラゴン（翔太）",
+        "url": "https://www.amazon.co.jp/dp/B0GQHCPTX4?tag=hekinator-22"
+      },
+      {
+        "title": "放課後ていぼう日誌（弟キャラ）",
+        "url": "https://www.amazon.co.jp/dp/B0G5182TKJ?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -473,9 +890,18 @@
     "name": "獣耳メイド・ケモミミ",
     "desc": "猫耳・犬耳のかわいらしさと献身的な奉仕が一体になったケモミミの奉仕キャラ",
     "works": [
-      "ネコぱら（ショコラ＆バニラ）",
-      "モンスター娘のいる日常（スウ）",
-      "きつねさんご夫妻。（漫画）"
+      {
+        "title": "ネコぱら（ショコラ＆バニラ）",
+        "url": "https://www.amazon.co.jp/dp/B0DRFM637X?tag=hekinator-22"
+      },
+      {
+        "title": "モンスター娘のいる日常（スウ）",
+        "url": "https://www.amazon.co.jp/dp/B0GQGRJF76?tag=hekinator-22"
+      },
+      {
+        "title": "きつねさんご夫妻。（漫画）",
+        "url": "https://www.amazon.co.jp/dp/B08CV481JP?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -483,9 +909,18 @@
     "name": "堕天使・悪魔っ娘",
     "desc": "神聖と邪悪の狭間に立つ翼を持つ禁断の存在との甘く危険な誘惑の関係",
     "works": [
-      "デビルマン",
-      "青の祓魔師",
-      "葬送のフリーレン（アウラ）"
+      {
+        "title": "デビルマン",
+        "url": "https://www.amazon.co.jp/dp/B07XK8V4XC?tag=hekinator-22"
+      },
+      {
+        "title": "青の祓魔師",
+        "url": "https://www.amazon.co.jp/dp/B0G1GV71PM?tag=hekinator-22"
+      },
+      {
+        "title": "葬送のフリーレン（アウラ）",
+        "url": "https://www.amazon.co.jp/dp/B0G4CT7JWF?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -493,9 +928,18 @@
     "name": "ゾンビ・アンデッド",
     "desc": "腐敗と死の中に宿る歪んだ愛・死を超えても消えない執着と絆の切なさ",
     "works": [
-      "ゾンビランドサガ",
-      "学校ぐらし！",
-      "アイアムアヒーロー（参考）"
+      {
+        "title": "ゾンビランドサガ",
+        "url": "https://www.amazon.co.jp/dp/B0GLFFG3K5?tag=hekinator-22"
+      },
+      {
+        "title": "学校ぐらし！",
+        "url": "https://www.amazon.co.jp/dp/B00V2W3SB8?tag=hekinator-22"
+      },
+      {
+        "title": "アイアムアヒーロー（参考）",
+        "url": "https://www.amazon.co.jp/dp/B09NCY6787?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -503,9 +947,18 @@
     "name": "人魚・水棲系",
     "desc": "海と陸の境界に生きる異種族との会えない切なさと宿命の恋",
     "works": [
-      "リトルマーメイド",
-      "人魚の森（高橋留美子）",
-      "魔法使いの嫁（水棲精霊）"
+      {
+        "title": "リトルマーメイド",
+        "url": "https://www.amazon.co.jp/dp/B08T9KCJTJ?tag=hekinator-22"
+      },
+      {
+        "title": "人魚の森（高橋留美子）",
+        "url": "https://www.amazon.co.jp/dp/B06XKR7P2W?tag=hekinator-22"
+      },
+      {
+        "title": "魔法使いの嫁（水棲精霊）",
+        "url": "https://www.amazon.co.jp/dp/B0FPFRSXVL?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -513,9 +966,18 @@
     "name": "幼なじみNTR",
     "desc": "共に育った大切な存在が失われていく過程の喪失感・嫉妬・そして取り戻せない痛み",
     "works": [
-      "君が望む永遠（NTR√）",
-      "School Days（参考）",
-      "NTR同人誌（燃堂力作品）"
+      {
+        "title": "君が望む永遠（NTR√）",
+        "url": "https://www.amazon.co.jp/dp/B0FNDBR1YM?tag=hekinator-22"
+      },
+      {
+        "title": "School Days（参考）",
+        "url": "https://www.amazon.co.jp/dp/B07YKHDK28?tag=hekinator-22"
+      },
+      {
+        "title": "NTR同人誌（燃堂力作品）",
+        "url": "https://www.amazon.co.jp/dp/B07DFY8ZX1?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -523,9 +985,18 @@
     "name": "寝取らせ（差し出す側）",
     "desc": "自ら大切な相手を他者に差し出す・または見せる背徳と興奮の複雑な快感",
     "works": [
-      "夫婦契約（エロゲ）",
-      "妻みぐい（エロゲ）",
-      "School Days（参考）"
+      {
+        "title": "夫婦契約（エロゲ）",
+        "url": "https://www.amazon.co.jp/dp/B0GRXC45DN?tag=hekinator-22"
+      },
+      {
+        "title": "妻みぐい（エロゲ）",
+        "url": "https://www.amazon.co.jp/dp/B0CSS5JF64?tag=hekinator-22"
+      },
+      {
+        "title": "School Days（参考）",
+        "url": "https://www.amazon.co.jp/dp/B07YKHDK28?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -533,9 +1004,18 @@
     "name": "友人の彼女・人妻",
     "desc": "絶対に手を出してはいけない相手への禁断の感情・一線を越える罪悪感と快感",
     "works": [
-      "君が望む永遠（遥√）",
-      "School Days（参考）",
-      "Overflow（エロゲシリーズ）"
+      {
+        "title": "君が望む永遠（遥√）",
+        "url": "https://www.amazon.co.jp/dp/B0FNDBR1YM?tag=hekinator-22"
+      },
+      {
+        "title": "School Days（参考）",
+        "url": "https://www.amazon.co.jp/dp/B07YKHDK28?tag=hekinator-22"
+      },
+      {
+        "title": "Overflow（エロゲシリーズ）",
+        "url": "https://www.amazon.co.jp/dp/B076HBF2LG?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -543,9 +1023,18 @@
     "name": "双子・クローン",
     "desc": "同じ顔が複数存在する混乱と欲望・どちらが本物かわからなくなる独占欲の展開",
     "works": [
-      "からくりサーカス（アルルカン）",
-      "賭ケグルイ（双生姉妹・夢子×桃喰）",
-      "屍鬼（双子設定）"
+      {
+        "title": "からくりサーカス（アルルカン）",
+        "url": "https://www.amazon.co.jp/dp/B00BH95ATY?tag=hekinator-22"
+      },
+      {
+        "title": "賭ケグルイ（双生姉妹・夢子×桃喰）",
+        "url": "https://www.amazon.co.jp/dp/B0GK75492K?tag=hekinator-22"
+      },
+      {
+        "title": "屍鬼（双子設定）",
+        "url": "https://www.amazon.co.jp/dp/B009PL8124?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -553,9 +1042,18 @@
     "name": "公開羞恥・露出",
     "desc": "人目がある場所での恥ずかしい行為・見られることの羞恥心と解放感が混じる興奮",
     "works": [
-      "Discipline（C:drive.）",
-      "露出少女日記（成人向け漫画）",
-      "監獄学園（プリズンスクール）"
+      {
+        "title": "Discipline（C:drive.）",
+        "url": "https://www.amazon.co.jp/dp/B086RZNHCS?tag=hekinator-22"
+      },
+      {
+        "title": "露出少女日記（成人向け漫画）",
+        "url": "https://www.amazon.co.jp/dp/B097ZSFLYR?tag=hekinator-22"
+      },
+      {
+        "title": "監獄学園（プリズンスクール）",
+        "url": "https://www.amazon.co.jp/dp/B00BB1ZTBM?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -563,9 +1061,18 @@
     "name": "媚薬・薬物",
     "desc": "薬によって理性が溶け本能だけが残る状態・普段は見せない本音が暴かれる展開",
     "works": [
-      "姫騎士アンジェリカ（エロゲ）",
-      "Discipline（C:drive.）",
-      "セキレイ（参考）"
+      {
+        "title": "姫騎士アンジェリカ（エロゲ）",
+        "url": "https://www.amazon.co.jp/dp/B0C1NTXB4R?tag=hekinator-22"
+      },
+      {
+        "title": "Discipline（C:drive.）",
+        "url": "https://www.amazon.co.jp/dp/B086RZNHCS?tag=hekinator-22"
+      },
+      {
+        "title": "セキレイ（参考）",
+        "url": "https://www.amazon.co.jp/dp/B00KT5JODA?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -573,9 +1080,18 @@
     "name": "夢・異空間",
     "desc": "現実のルールが通じない夢や異空間での特別な体験・現実に影響が及ぶ不思議",
     "works": [
-      "夢使い",
-      "Boogiepop Phantom",
-      "空の境界"
+      {
+        "title": "夢使い",
+        "url": "https://www.amazon.co.jp/dp/B00A2MD7K6?tag=hekinator-22"
+      },
+      {
+        "title": "Boogiepop Phantom",
+        "url": "https://www.amazon.co.jp/dp/B07KY9TVJT?tag=hekinator-22"
+      },
+      {
+        "title": "空の境界",
+        "url": "https://www.amazon.co.jp/dp/B00RGM0BY0?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -583,9 +1099,18 @@
     "name": "前世・輪廻転生",
     "desc": "生まれ変わっても繰り返す宿命の赤い糸・前世の記憶と縁が現在の愛を動かす",
     "works": [
-      "前世彼女",
-      "マンガでわかる私がモテないのはどう考えてもお前らが悪い！",
-      "orange"
+      {
+        "title": "前世彼女",
+        "url": "https://www.amazon.co.jp/dp/B09SYKMLGL?tag=hekinator-22"
+      },
+      {
+        "title": "マンガでわかる私がモテないのはどう考えてもお前らが悪い！",
+        "url": "https://www.amazon.co.jp/dp/B0GK5ZK97N?tag=hekinator-22"
+      },
+      {
+        "title": "orange",
+        "url": "https://www.amazon.co.jp/dp/B00JD349L6?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -593,9 +1118,18 @@
     "name": "牢獄・監禁",
     "desc": "逃げ場のない密室・閉じた空間でしか育たない歪んだ共依存と深まる感情",
     "works": [
-      "ゆれる（映画・西川美和）",
-      "Black Lagoon（監禁シーン）",
-      "ストックホルム（映画）"
+      {
+        "title": "ゆれる（映画・西川美和）",
+        "url": "https://www.amazon.co.jp/dp/B0C7BMBF9C?tag=hekinator-22"
+      },
+      {
+        "title": "Black Lagoon（監禁シーン）",
+        "url": "https://www.amazon.co.jp/dp/B009JZH8R0?tag=hekinator-22"
+      },
+      {
+        "title": "ストックホルム（映画）",
+        "url": "https://www.amazon.co.jp/dp/B0DBHB59Y2?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -603,9 +1137,18 @@
     "name": "時間停止",
     "desc": "時が止まった世界での一方的な支配・動けない相手への完全なる弄びの展開",
     "works": [
-      "ジョジョの奇妙な冒険（ザ・ワールド）",
-      "まどか☆マギカ（ほむらの時間操作）",
-      "Discipline（C:drive.）"
+      {
+        "title": "ジョジョの奇妙な冒険（ザ・ワールド）",
+        "url": "https://www.amazon.co.jp/dp/B009LHC7A4?tag=hekinator-22"
+      },
+      {
+        "title": "まどか☆マギカ（ほむらの時間操作）",
+        "url": "https://www.amazon.co.jp/dp/B09K7G1BKM?tag=hekinator-22"
+      },
+      {
+        "title": "Discipline（C:drive.）",
+        "url": "https://www.amazon.co.jp/dp/B086RZNHCS?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -613,9 +1156,18 @@
     "name": "縮小・巨大化",
     "desc": "極端なサイズ差が生み出す圧倒的な力の非対称・手のひらの上の小さな存在の可愛さ",
     "works": [
-      "借りぐらしのアリエッティ",
-      "ドラえもん（ちいさくなれる道具）",
-      "Honey I Shrunk the Kids（映画・参考）"
+      {
+        "title": "借りぐらしのアリエッティ",
+        "url": "https://www.amazon.co.jp/dp/B07KS7VH16?tag=hekinator-22"
+      },
+      {
+        "title": "ドラえもん（ちいさくなれる道具）",
+        "url": "https://www.amazon.co.jp/dp/B0114L5LLG?tag=hekinator-22"
+      },
+      {
+        "title": "Honey I Shrunk the Kids（映画・参考）",
+        "url": "https://www.amazon.co.jp/dp/B00006FI51?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -623,9 +1175,18 @@
     "name": "分身・複数存在",
     "desc": "同一人物が複数いることで生まれる独占欲と混乱・本物を巡る争いの展開",
     "works": [
-      "シュタインズ・ゲート（並行世界の自分）",
-      "賭ケグルイ（双生姉妹）",
-      "僕だけがいない街（参考）"
+      {
+        "title": "シュタインズ・ゲート（並行世界の自分）",
+        "url": "https://www.amazon.co.jp/dp/B00JRU5LFS?tag=hekinator-22"
+      },
+      {
+        "title": "賭ケグルイ（双生姉妹）",
+        "url": "https://www.amazon.co.jp/dp/B0GK75492K?tag=hekinator-22"
+      },
+      {
+        "title": "僕だけがいない街（参考）",
+        "url": "https://www.amazon.co.jp/dp/B00CM0F5PQ?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -633,9 +1194,18 @@
     "name": "ゲーム世界転移（SAO系）",
     "desc": "ゲームの世界に入り込み命がけになる没入感・仮想と現実の境界が溶ける恋",
     "works": [
-      "ソードアート・オンライン",
-      "ログ・ホライズン",
-      ".hack//SIGN"
+      {
+        "title": "ソードアート・オンライン",
+        "url": "https://www.amazon.co.jp/dp/B0GHSGJC24?tag=hekinator-22"
+      },
+      {
+        "title": "ログ・ホライズン",
+        "url": "https://www.amazon.co.jp/dp/B07BGYXVZ9?tag=hekinator-22"
+      },
+      {
+        "title": ".hack//SIGN",
+        "url": "https://www.amazon.co.jp/dp/B0GTLVS5TR?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -643,9 +1213,18 @@
     "name": "熟女",
     "desc": "円熟した大人の女性が持つ独特の色気と包容力・経験がにじみ出る余裕の関係",
     "works": [
-      "昼下がりの情事（映画・オードリー）",
-      "夜明け前より瑠璃色な（熟女√）",
-      "人妻ゆうわく日記（成人向け漫画）"
+      {
+        "title": "昼下がりの情事（映画・オードリー）",
+        "url": "https://www.amazon.co.jp/dp/B0FY3YF8HP?tag=hekinator-22"
+      },
+      {
+        "title": "夜明け前より瑠璃色な（熟女√）",
+        "url": "https://www.amazon.co.jp/dp/B0GQDPF6V5?tag=hekinator-22"
+      },
+      {
+        "title": "人妻ゆうわく日記（成人向け漫画）",
+        "url": "https://www.amazon.co.jp/dp/B07PVX5CFT?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -653,9 +1232,18 @@
     "name": "同棲・ルームシェア",
     "desc": "一つ屋根の下で暮らすことで生まれる距離の変化・日常の中に芽生える特別な感情",
     "works": [
-      "ヲタクに恋は難しい",
-      "今夜は月が綺麗ですが、とにかく帰ってください（漫画）",
-      "かぐや様は告らせたい"
+      {
+        "title": "ヲタクに恋は難しい",
+        "url": "https://www.amazon.co.jp/dp/B00WGA6W7C?tag=hekinator-22"
+      },
+      {
+        "title": "今夜は月が綺麗ですが、とにかく帰ってください（漫画）",
+        "url": "https://www.amazon.co.jp/dp/B01DVPBW84?tag=hekinator-22"
+      },
+      {
+        "title": "かぐや様は告らせたい",
+        "url": "https://www.amazon.co.jp/dp/B01C3ZR3X6?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -663,9 +1251,18 @@
     "name": "記憶喪失",
     "desc": "過去を失った相手と一から築く関係・記憶が戻る瞬間に変わる感情の衝撃",
     "works": [
-      "秒速5センチメートル",
-      "orange",
-      "君の膵臓をたべたい"
+      {
+        "title": "秒速5センチメートル",
+        "url": "https://www.amazon.co.jp/dp/B01BW9F6BU?tag=hekinator-22"
+      },
+      {
+        "title": "orange",
+        "url": "https://www.amazon.co.jp/dp/B00JD349L6?tag=hekinator-22"
+      },
+      {
+        "title": "君の膵臓をたべたい",
+        "url": "https://www.amazon.co.jp/dp/B071RFTDZG?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -673,9 +1270,18 @@
     "name": "入れ替わり（体の交換）",
     "desc": "相手の体で生きることで初めて分かる気持ち・視点が変わることで深まる理解",
     "works": [
-      "君の名は。",
-      "転生したら剣でした",
-      "ノーゲーム・ノーライフ"
+      {
+        "title": "君の名は。",
+        "url": "https://www.amazon.co.jp/dp/B01KJ5Y0JC?tag=hekinator-22"
+      },
+      {
+        "title": "転生したら剣でした",
+        "url": "https://www.amazon.co.jp/dp/B0GQ9MTFRP?tag=hekinator-22"
+      },
+      {
+        "title": "ノーゲーム・ノーライフ",
+        "url": "https://www.amazon.co.jp/dp/B01KSTEV7K?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -683,9 +1289,15 @@
     "name": "格差婚・シンデレラ",
     "desc": "圧倒的な身分や財力の差を超えて選ばれる奇跡のような愛・逆転のロマンス",
     "works": [
-      "シンデレラ（Disney）",
+      {
+        "title": "シンデレラ（Disney）",
+        "url": "https://www.amazon.co.jp/dp/B0GKZCJF71?tag=hekinator-22"
+      },
       "灰かぶり姫の幸運",
-      "出来損ないと呼ばれた元英雄"
+      {
+        "title": "出来損ないと呼ばれた元英雄",
+        "url": "https://www.amazon.co.jp/dp/B07SNP8FQQ?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -693,9 +1305,18 @@
     "name": "魔王×勇者",
     "desc": "倒すはずの相手に気づけば惹かれている・敵同士の宿命的な引力と禁断の関係",
     "works": [
-      "まおゆう魔王勇者",
-      "この素晴らしい世界に祝福を！",
-      "魔王城でおやすみ"
+      {
+        "title": "まおゆう魔王勇者",
+        "url": "https://www.amazon.co.jp/dp/B0093GA7XC?tag=hekinator-22"
+      },
+      {
+        "title": "この素晴らしい世界に祝福を！",
+        "url": "https://www.amazon.co.jp/dp/B0GJQVHPPQ?tag=hekinator-22"
+      },
+      {
+        "title": "魔王城でおやすみ",
+        "url": "https://www.amazon.co.jp/dp/B0GC4Q89S5?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -703,9 +1324,18 @@
     "name": "王族・貴族",
     "desc": "高貴な身分と厳格なしきたりの中で燃え上がる秘密の恋・宮廷ドラマの緊張感",
     "works": [
-      "赤髪の白雪姫",
-      "暁のヨナ",
-      "天は赤い河のほとり"
+      {
+        "title": "赤髪の白雪姫",
+        "url": "https://www.amazon.co.jp/dp/B0F532L2XS?tag=hekinator-22"
+      },
+      {
+        "title": "暁のヨナ",
+        "url": "https://www.amazon.co.jp/dp/B0FD2S31CP?tag=hekinator-22"
+      },
+      {
+        "title": "天は赤い河のほとり",
+        "url": "https://www.amazon.co.jp/dp/B009JZHQB8?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -713,9 +1343,18 @@
     "name": "お嬢様・令嬢",
     "desc": "箱入りで世間知らずの令嬢が初めて知る外の世界・恋による変化と成長の物語",
     "works": [
-      "ご注文はうさぎですか？",
-      "魔入りました！入間くん",
-      "乙女ゲーム転生もの（悪役令嬢系）"
+      {
+        "title": "ご注文はうさぎですか？",
+        "url": "https://www.amazon.co.jp/dp/B0FD3J9P82?tag=hekinator-22"
+      },
+      {
+        "title": "魔入りました！入間くん",
+        "url": "https://www.amazon.co.jp/dp/B0BZRDSTQP?tag=hekinator-22"
+      },
+      {
+        "title": "乙女ゲーム転生もの（悪役令嬢系）",
+        "url": "https://www.amazon.co.jp/dp/B0FYCVC6BF?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -723,9 +1362,18 @@
     "name": "巫女・神社",
     "desc": "神に仕える清廉な巫女が人に恋することの罪深さと純粋な感情の葛藤",
     "works": [
-      "夏目友人帳（笹田）",
-      "犬夜叉（桔梗・かごめ）",
-      "結城友奈は勇者である"
+      {
+        "title": "夏目友人帳（笹田）",
+        "url": "https://www.amazon.co.jp/dp/B0F1DRYQ8J?tag=hekinator-22"
+      },
+      {
+        "title": "犬夜叉（桔梗・かごめ）",
+        "url": "https://www.amazon.co.jp/dp/B06XKSDMC9?tag=hekinator-22"
+      },
+      {
+        "title": "結城友奈は勇者である",
+        "url": "https://www.amazon.co.jp/dp/B00TPCZLXA?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -733,9 +1381,18 @@
     "name": "ギャル",
     "desc": "元気で裏表のないギャルが見せる意外な一面・明るさの奥に宿る意外な真剣さ",
     "works": [
-      "ギャルと恐竜",
-      "お兄さんはもうダメ！（漫画）",
-      "ドメスティックな彼女（参考）"
+      {
+        "title": "ギャルと恐竜",
+        "url": "https://www.amazon.co.jp/dp/B07Q5XMW5B?tag=hekinator-22"
+      },
+      {
+        "title": "お兄さんはもうダメ！（漫画）",
+        "url": "https://www.amazon.co.jp/dp/B0B8MXZDZX?tag=hekinator-22"
+      },
+      {
+        "title": "ドメスティックな彼女（参考）",
+        "url": "https://www.amazon.co.jp/dp/B00LNTCUS2?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -743,9 +1400,18 @@
     "name": "アイドル・推し活",
     "desc": "届かないはずのスクリーン越しの距離が縮まる・推しとファンの禁断の恋",
     "works": [
-      "推しの子",
-      "ラブライブ！",
-      "アイドルマスター"
+      {
+        "title": "推しの子",
+        "url": "https://www.amazon.co.jp/dp/B0DLDNYMVK?tag=hekinator-22"
+      },
+      {
+        "title": "ラブライブ！",
+        "url": "https://www.amazon.co.jp/dp/B0GR3ZF523?tag=hekinator-22"
+      },
+      {
+        "title": "アイドルマスター",
+        "url": "https://www.amazon.co.jp/dp/B00BQTCQ24?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -753,9 +1419,18 @@
     "name": "陰キャ・オタク男子",
     "desc": "内向きで不器用な主人公が恋愛を通じて変わっていく等身大の成長と共感",
     "works": [
-      "やはり俺の青春ラブコメはまちがっている。",
-      "冴えない彼女の育てかた",
-      "ネト充のススメ"
+      {
+        "title": "やはり俺の青春ラブコメはまちがっている。",
+        "url": "https://www.amazon.co.jp/dp/B00A20SDQQ?tag=hekinator-22"
+      },
+      {
+        "title": "冴えない彼女の育てかた",
+        "url": "https://www.amazon.co.jp/dp/B009HPDI30?tag=hekinator-22"
+      },
+      {
+        "title": "ネト充のススメ",
+        "url": "https://www.amazon.co.jp/dp/B09RMQ8TGT?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -763,9 +1438,18 @@
     "name": "天使",
     "desc": "穢れを知らない純白の存在が人間に恋する神聖な罪・堕天使とは別の清純な愛",
     "works": [
-      "プラチナエンド",
-      "Angel Beats!",
-      "Haibane Renmei"
+      {
+        "title": "プラチナエンド",
+        "url": "https://www.amazon.co.jp/dp/B01AJGIG50?tag=hekinator-22"
+      },
+      {
+        "title": "Angel Beats!",
+        "url": "https://www.amazon.co.jp/dp/B009GYTPXE?tag=hekinator-22"
+      },
+      {
+        "title": "Haibane Renmei",
+        "url": "https://www.amazon.co.jp/dp/B0043R4DYA?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -773,9 +1457,18 @@
     "name": "竜・ドラゴン",
     "desc": "圧倒的な力と威厳を持つ竜がただ一人に見せる柔らかな一面と独占欲の深さ",
     "works": [
-      "小林さんちのメイドラゴン（トール）",
-      "ドラゴンボール（参考）",
-      "転生したら竜の卵でした"
+      {
+        "title": "小林さんちのメイドラゴン（トール）",
+        "url": "https://www.amazon.co.jp/dp/B0GQHCPTX4?tag=hekinator-22"
+      },
+      {
+        "title": "ドラゴンボール（参考）",
+        "url": "https://www.amazon.co.jp/dp/B00A47VS5A?tag=hekinator-22"
+      },
+      {
+        "title": "転生したら竜の卵でした",
+        "url": "https://www.amazon.co.jp/dp/B07DL4HWPJ?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -783,9 +1476,18 @@
     "name": "妖怪・物の怪",
     "desc": "人の世と異なる価値観を持つ妖怪との怪しくも温かい縁・和の情緒が漂う関係",
     "works": [
-      "夏目友人帳",
-      "ぬらりひょんの孫",
-      "モノノ怪"
+      {
+        "title": "夏目友人帳",
+        "url": "https://www.amazon.co.jp/dp/B0F1DRYQ8J?tag=hekinator-22"
+      },
+      {
+        "title": "ぬらりひょんの孫",
+        "url": "https://www.amazon.co.jp/dp/B009GZJVDW?tag=hekinator-22"
+      },
+      {
+        "title": "モノノ怪",
+        "url": "https://www.amazon.co.jp/dp/B0GWZ9GWXV?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -793,9 +1495,18 @@
     "name": "フタナリ・両性具有",
     "desc": "男女の境界が溶けた存在がもたらす独特の関係性・性の二重性が生む新しい愛",
     "works": [
-      "バイナリポット（TinkerBell）",
-      "変成島（TinkerBell）",
-      "扶他的恋愛（BL漫画）"
+      {
+        "title": "バイナリポット（TinkerBell）",
+        "url": "https://www.amazon.co.jp/dp/B0001ENW64?tag=hekinator-22"
+      },
+      {
+        "title": "変成島（TinkerBell）",
+        "url": "https://www.amazon.co.jp/dp/B0DB5TZ33Y?tag=hekinator-22"
+      },
+      {
+        "title": "扶他的恋愛（BL漫画）",
+        "url": "https://www.amazon.co.jp/dp/4866801719?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -803,9 +1514,18 @@
     "name": "呪い・祟り",
     "desc": "呪いで繋がれた二人が憎しみと愛の狭間で揺れる・因縁を解くために深まる絆",
     "works": [
-      "地縛少年花子くん",
-      "陰陽師（安倍晴明シリーズ）",
-      "犬夜叉"
+      {
+        "title": "地縛少年花子くん",
+        "url": "https://www.amazon.co.jp/dp/B0FNW89CHN?tag=hekinator-22"
+      },
+      {
+        "title": "陰陽師（安倍晴明シリーズ）",
+        "url": "https://www.amazon.co.jp/dp/B0GR36VXBK?tag=hekinator-22"
+      },
+      {
+        "title": "犬夜叉",
+        "url": "https://www.amazon.co.jp/dp/B06XKSDMC9?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -813,9 +1533,18 @@
     "name": "武道・格闘",
     "desc": "体で語り拳で理解し合う中に生まれる魂の絆・鍛錬を共にする者同士の特別な信頼",
     "works": [
-      "灼熱の卓球娘",
-      "ハイキュー！！（スポ根BL）",
-      "DAYS"
+      {
+        "title": "灼熱の卓球娘",
+        "url": "https://www.amazon.co.jp/dp/B0DQCN3S9H?tag=hekinator-22"
+      },
+      {
+        "title": "ハイキュー！！（スポ根BL）",
+        "url": "https://www.amazon.co.jp/dp/B009GZJYW0?tag=hekinator-22"
+      },
+      {
+        "title": "DAYS",
+        "url": "https://www.amazon.co.jp/dp/B00HJYUJ6K?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -823,9 +1552,18 @@
     "name": "VTuber・配信者",
     "desc": "スクリーン越しの存在が現実に交差するデジタルと感情の衝突・推しの実在感",
     "works": [
-      "推しの子",
-      "現実で30歳独身・無職、仮想現実でリア充（参考）",
-      "電脳コイル"
+      {
+        "title": "推しの子",
+        "url": "https://www.amazon.co.jp/dp/B0DLDNYMVK?tag=hekinator-22"
+      },
+      {
+        "title": "現実で30歳独身・無職、仮想現実でリア充（参考）",
+        "url": "https://www.amazon.co.jp/dp/B0DMVGGD35?tag=hekinator-22"
+      },
+      {
+        "title": "電脳コイル",
+        "url": "https://www.amazon.co.jp/dp/B0BXX617SC?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -833,9 +1571,18 @@
     "name": "御曹司・CEO",
     "desc": "超エリートが自分だけを特別扱いする圧倒的な溺愛の格差恋愛・囲い込みの甘さ",
     "works": [
-      "花より男子",
-      "私が恋人になれるわけないじゃないですか！",
-      "スキップ・ビート！（蓮）"
+      {
+        "title": "花より男子",
+        "url": "https://www.amazon.co.jp/dp/B00ANYH1S2?tag=hekinator-22"
+      },
+      {
+        "title": "私が恋人になれるわけないじゃないですか！",
+        "url": "https://www.amazon.co.jp/dp/B0GNS5XKBM?tag=hekinator-22"
+      },
+      {
+        "title": "スキップ・ビート！（蓮）",
+        "url": "https://www.amazon.co.jp/dp/B0FMXTJ5QC?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -843,9 +1590,18 @@
     "name": "ライバル・犬猿の仲",
     "desc": "競い合う宿敵との対立と引力・敵だからこそ分かり合える深さが恋に変わる瞬間",
     "works": [
-      "エヴァンゲリオン（シンジ×カヲル）",
-      "幽遊白書（飛影×蔵馬）",
-      "鋼の錬金術師"
+      {
+        "title": "エヴァンゲリオン（シンジ×カヲル）",
+        "url": "https://www.amazon.co.jp/dp/B00NPWMDD2?tag=hekinator-22"
+      },
+      {
+        "title": "幽遊白書（飛影×蔵馬）",
+        "url": "https://www.amazon.co.jp/dp/B00KCC0YKC?tag=hekinator-22"
+      },
+      {
+        "title": "鋼の錬金術師",
+        "url": "https://www.amazon.co.jp/dp/B009T8RYF8?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -853,9 +1609,18 @@
     "name": "腹黒・二面性",
     "desc": "完璧な仮面の裏で暴走する執着と独占欲・二面性が暴かれる瞬間の背筋が凍る快感",
     "works": [
-      "コードギアス（ルルーシュ）",
-      "賭ケグルイ（蛇喰夢子）",
-      "乙女ゲームの破滅フラグ（カタリナ腹黒説）"
+      {
+        "title": "コードギアス（ルルーシュ）",
+        "url": "https://www.amazon.co.jp/dp/B0G3YRBQJM?tag=hekinator-22"
+      },
+      {
+        "title": "賭ケグルイ（蛇喰夢子）",
+        "url": "https://www.amazon.co.jp/dp/B0GK75492K?tag=hekinator-22"
+      },
+      {
+        "title": "乙女ゲームの破滅フラグ（カタリナ腹黒説）",
+        "url": "https://www.amazon.co.jp/dp/B0FNQQCQ29?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -863,9 +1628,18 @@
     "name": "執事・従者（男性）",
     "desc": "主人のためだけに生きる忠実な男性執事が秘める禁断の感情と誠実さの葛藤",
     "works": [
-      "黒執事",
-      "ハヤテのごとく！",
-      "テイルズシリーズ（執事キャラ）"
+      {
+        "title": "黒執事",
+        "url": "https://www.amazon.co.jp/dp/B0FSTK3QF8?tag=hekinator-22"
+      },
+      {
+        "title": "ハヤテのごとく！",
+        "url": "https://www.amazon.co.jp/dp/B0GV3FCPC2?tag=hekinator-22"
+      },
+      {
+        "title": "テイルズシリーズ（執事キャラ）",
+        "url": "https://www.amazon.co.jp/dp/B07N19VKLX?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -873,9 +1647,18 @@
     "name": "軍人・騎士",
     "desc": "命をかけて守護する軍人・騎士との強さと献身の護衛愛・守られる安心感の絶対性",
     "works": [
-      "進撃の巨人",
-      "マテリアル・パズル",
-      "銀英伝"
+      {
+        "title": "進撃の巨人",
+        "url": "https://www.amazon.co.jp/dp/B009KYC6S6?tag=hekinator-22"
+      },
+      {
+        "title": "マテリアル・パズル",
+        "url": "https://www.amazon.co.jp/dp/B07918MQPH?tag=hekinator-22"
+      },
+      {
+        "title": "銀英伝",
+        "url": "https://www.amazon.co.jp/dp/B0GKZCQBLC?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -883,9 +1666,18 @@
     "name": "男装・男役",
     "desc": "女性が男として生きる凛々しさと正体が露わになる瞬間の緊張・宝塚的な美の世界",
     "works": [
-      "ベルサイユのばら",
-      "天は赤い河のほとり",
-      "少女革命ウテナ"
+      {
+        "title": "ベルサイユのばら",
+        "url": "https://www.amazon.co.jp/dp/B00FJ1DWJ6?tag=hekinator-22"
+      },
+      {
+        "title": "天は赤い河のほとり",
+        "url": "https://www.amazon.co.jp/dp/B009JZHQB8?tag=hekinator-22"
+      },
+      {
+        "title": "少女革命ウテナ",
+        "url": "https://www.amazon.co.jp/dp/B00BEPF5OQ?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -893,9 +1685,18 @@
     "name": "体育会系・スポーツ",
     "desc": "汗と根性と仲間との絆から生まれる直球な恋愛・スポーツが結ぶ青春とスポ根BL",
     "works": [
-      "ハイキュー！！",
-      "黒子のバスケ",
-      "ユーリ!!! on ICE"
+      {
+        "title": "ハイキュー！！",
+        "url": "https://www.amazon.co.jp/dp/B009GZJYW0?tag=hekinator-22"
+      },
+      {
+        "title": "黒子のバスケ",
+        "url": "https://www.amazon.co.jp/dp/B009GB6TOA?tag=hekinator-22"
+      },
+      {
+        "title": "ユーリ!!! on ICE",
+        "url": "https://www.amazon.co.jp/dp/B0CW1BTK3J?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -903,9 +1704,18 @@
     "name": "幽霊・死者との恋",
     "desc": "この世に留まる想いと生きる者との生死を超えた純愛・会えない切なさと永遠の愛",
     "works": [
-      "あの日見た花の名前を僕達はまだ知らない。",
-      "君の名は。",
-      "千と千尋の神隠し（ハク）"
+      {
+        "title": "あの日見た花の名前を僕達はまだ知らない。",
+        "url": "https://www.amazon.co.jp/dp/B00IMWMS3U?tag=hekinator-22"
+      },
+      {
+        "title": "君の名は。",
+        "url": "https://www.amazon.co.jp/dp/B01KJ5Y0JC?tag=hekinator-22"
+      },
+      {
+        "title": "千と千尋の神隠し（ハク）",
+        "url": "https://www.amazon.co.jp/dp/B07NBHT6JB?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -913,9 +1723,18 @@
     "name": "過保護・甘やかし",
     "desc": "先回りして守り何でも与える過剰な愛情の重さと温かさ・溺愛より能動的な庇護",
     "works": [
-      "過保護のカホコ",
-      "鬼滅の刃（きょうだい愛）",
-      "クラナド（渚との関係）"
+      {
+        "title": "過保護のカホコ",
+        "url": "https://www.amazon.co.jp/dp/B073WLZXTT?tag=hekinator-22"
+      },
+      {
+        "title": "鬼滅の刃（きょうだい愛）",
+        "url": "https://www.amazon.co.jp/dp/B01EJ7AK5O?tag=hekinator-22"
+      },
+      {
+        "title": "クラナド（渚との関係）",
+        "url": "https://www.amazon.co.jp/dp/B00G6E99WE?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -923,9 +1742,18 @@
     "name": "秘密の関係・不倫",
     "desc": "公にできない事情があるからこそ燃え上がる禁断の関係・バレる恐怖と逃避行の甘さ",
     "works": [
-      "昼顔（TBSドラマ）",
-      "東京タラレバ娘",
-      "失恋ショコラティエ（参考）"
+      {
+        "title": "昼顔（TBSドラマ）",
+        "url": "https://www.amazon.co.jp/dp/B00QLG0TUS?tag=hekinator-22"
+      },
+      {
+        "title": "東京タラレバ娘",
+        "url": "https://www.amazon.co.jp/dp/B00NOTKFBS?tag=hekinator-22"
+      },
+      {
+        "title": "失恋ショコラティエ（参考）",
+        "url": "https://www.amazon.co.jp/dp/B00BHTTD9W?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -933,8 +1761,14 @@
     "name": "幼馴染BL",
     "desc": "子供の頃からの親友が気づけば特別な存在になっていたBLの王道・近すぎた距離の恋",
     "works": [
-      "ギヴン",
-      "同級生（中村明日美子）"
+      {
+        "title": "ギヴン",
+        "url": "https://www.amazon.co.jp/dp/B00Y2HY0DU?tag=hekinator-22"
+      },
+      {
+        "title": "同級生（中村明日美子）",
+        "url": "https://www.amazon.co.jp/dp/B074CF91MQ?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -942,9 +1776,18 @@
     "name": "転生悪役令嬢BL",
     "desc": "BL乙女ゲームの悪役男性に転生した主人公が攻略対象に囲まれる逆転劇",
     "works": [
-      "悪役男爵に転生した件（なろう小説）",
-      "異世界BLの悪役に転生したが無敗だった件（BL）",
-      "悪役令嬢転生おじさん（BL派生）"
+      {
+        "title": "悪役男爵に転生した件（なろう小説）",
+        "url": "https://www.amazon.co.jp/dp/B0BXKRTMDM?tag=hekinator-22"
+      },
+      {
+        "title": "異世界BLの悪役に転生したが無敗だった件（BL）",
+        "url": "https://www.amazon.co.jp/dp/B093K68SSH?tag=hekinator-22"
+      },
+      {
+        "title": "悪役令嬢転生おじさん（BL派生）",
+        "url": "https://www.amazon.co.jp/dp/B0D7DPXQT8?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -952,9 +1795,18 @@
     "name": "年下男子・俺様系",
     "desc": "年下なのに俺様口調で強引に迫り主導権を握る・力関係が逆転した甘い支配",
     "works": [
-      "薄桜鬼（土方歳三√）",
-      "危険なビーナス",
-      "花嫁は逃亡中"
+      {
+        "title": "薄桜鬼（土方歳三√）",
+        "url": "https://www.amazon.co.jp/dp/B06Y1FT9RQ?tag=hekinator-22"
+      },
+      {
+        "title": "危険なビーナス",
+        "url": "https://www.amazon.co.jp/dp/B08253CXKK?tag=hekinator-22"
+      },
+      {
+        "title": "花嫁は逃亡中",
+        "url": "https://www.amazon.co.jp/dp/B07F1QJS55?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -962,9 +1814,18 @@
     "name": "囚われ×救出",
     "desc": "窮地の相手を救い出す・または共に逃げる命がけの状況で深まる絆と信頼",
     "works": [
-      "Fate/stay night",
-      "ゼロの使い魔",
-      "進撃の巨人（エレンとミカサ）"
+      {
+        "title": "Fate/stay night",
+        "url": "https://www.amazon.co.jp/dp/B0GS7MVDXD?tag=hekinator-22"
+      },
+      {
+        "title": "ゼロの使い魔",
+        "url": "https://www.amazon.co.jp/dp/B079PHTTBK?tag=hekinator-22"
+      },
+      {
+        "title": "進撃の巨人（エレンとミカサ）",
+        "url": "https://www.amazon.co.jp/dp/B009KYC6S6?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -973,8 +1834,14 @@
     "desc": "愛のない婚姻から始まり同居を経て本物の愛が育つ・距離が縮まる逆転のロマンス",
     "works": [
       "私の夫は冷酷帝",
-      "アンジェリーク（コーエーテクモ）",
-      "なぜ僕の世界をだれも覚えていないのか？"
+      {
+        "title": "アンジェリーク（コーエーテクモ）",
+        "url": "https://www.amazon.co.jp/dp/B011KZQVH4?tag=hekinator-22"
+      },
+      {
+        "title": "なぜ僕の世界をだれも覚えていないのか？",
+        "url": "https://www.amazon.co.jp/dp/B0G1B12J5X?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -982,9 +1849,18 @@
     "name": "天才・変人",
     "desc": "常識の外を生きる天才・変人に振り回されながら惹かれる・予測不能な関係の面白さ",
     "works": [
-      "シュタインズ・ゲート（岡部倫太郎）",
-      "さよならの朝に約束の花をかざろう",
-      "天才王子の赤字国家再生術"
+      {
+        "title": "シュタインズ・ゲート（岡部倫太郎）",
+        "url": "https://www.amazon.co.jp/dp/B00JRU5LFS?tag=hekinator-22"
+      },
+      {
+        "title": "さよならの朝に約束の花をかざろう",
+        "url": "https://www.amazon.co.jp/dp/B08G4WFLPC?tag=hekinator-22"
+      },
+      {
+        "title": "天才王子の赤字国家再生術",
+        "url": "https://www.amazon.co.jp/dp/B07CNXXYWT?tag=hekinator-22"
+      }
     ]
   },
   {
