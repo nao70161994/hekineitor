@@ -395,22 +395,63 @@ def _use_db():
 
 _COMPOUND_WORKS: dict = {}
 _compound_works_loaded = False
+_COMPOUND_WORKS_PATH = os.path.join(DATA_DIR, 'compound_works.json')
 
 def _load_compound_works():
     global _COMPOUND_WORKS, _compound_works_loaded
     if _compound_works_loaded:
         return
-    path = os.path.join(DATA_DIR, 'compound_works.json')
-    if os.path.exists(path):
-        with open(path, encoding='utf-8') as f:
+    if os.path.exists(_COMPOUND_WORKS_PATH):
+        with open(_COMPOUND_WORKS_PATH, encoding='utf-8') as f:
             _COMPOUND_WORKS = json.load(f)
     _compound_works_loaded = True
+
+def _save_compound_works():
+    fd, tmp = tempfile.mkstemp(dir=DATA_DIR, suffix='.tmp')
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            json.dump(_COMPOUND_WORKS, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, _COMPOUND_WORKS_PATH)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 def get_compound_works(id_a: int, id_b: int) -> list:
     """2つの性癖IDペアに特化した作品リストを返す。なければ空リスト。"""
     _load_compound_works()
     key = f"{min(id_a, id_b)},{max(id_a, id_b)}"
     return list(_COMPOUND_WORKS.get(key, []))
+
+def list_compound_works() -> list:
+    """全ペアをリスト形式で返す。[{key, id_a, id_b, works}, ...]"""
+    _load_compound_works()
+    result = []
+    for key, works in sorted(_COMPOUND_WORKS.items()):
+        parts = key.split(',')
+        if len(parts) == 2:
+            result.append({'key': key, 'id_a': int(parts[0]), 'id_b': int(parts[1]), 'works': works})
+    return result
+
+def set_compound_works(id_a: int, id_b: int, works: list) -> str:
+    """ペアの作品リストを追加・更新する。キーを返す。"""
+    _load_compound_works()
+    key = f"{min(id_a, id_b)},{max(id_a, id_b)}"
+    _COMPOUND_WORKS[key] = works
+    _save_compound_works()
+    return key
+
+def delete_compound_works(id_a: int, id_b: int) -> bool:
+    """ペアを削除する。存在しなければFalse。"""
+    _load_compound_works()
+    key = f"{min(id_a, id_b)},{max(id_a, id_b)}"
+    if key not in _COMPOUND_WORKS:
+        return False
+    del _COMPOUND_WORKS[key]
+    _save_compound_works()
+    return True
 
 
 def _get_conn():

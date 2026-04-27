@@ -406,6 +406,27 @@ renderStatsChart(30);
   {% for f in stats %}<option value="{{ f.fetish_name }} ({{ f.fetish_id }})">{% endfor %}
 </datalist>
 
+<details style="margin-top:24px;" id="compound-works-section">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;" onclick="loadCompoundWorks()">複合診断の特化作品（展開で表示・編集）</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">2つの性癖IDペアに両方の要素を持つ作品を登録します。複合診断時に金色タグで優先表示されます。</p>
+<div style="display:flex;flex-direction:column;gap:6px;max-width:520px;margin-bottom:12px;">
+  <div style="display:flex;gap:8px;">
+    <input list="fetish-list" id="cw-a-name" placeholder="性癖A（名前で検索）" oninput="fillId('cw-a-name','cw-a')" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <input id="cw-a" type="number" placeholder="ID" style="width:60px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 8px;border-radius:6px;font-size:0.85rem;">
+  </div>
+  <div style="display:flex;gap:8px;">
+    <input list="fetish-list" id="cw-b-name" placeholder="性癖B（名前で検索）" oninput="fillId('cw-b-name','cw-b')" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <input id="cw-b" type="number" placeholder="ID" style="width:60px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 8px;border-radius:6px;font-size:0.85rem;">
+  </div>
+  <input id="cw-works" type="text" placeholder="作品（カンマ区切りで複数可）" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button class="btn-action" onclick="saveCompoundWorks()">追加・更新</button>
+    <span id="cw-msg" style="font-size:0.8rem;"></span>
+  </div>
+</div>
+<div id="cw-list" style="font-size:0.82rem;"></div>
+</details>
+
 <details style="margin-top:24px;">
 <summary style="color:#888;font-size:0.85rem;cursor:pointer;">性癖類似度チェック（2つの性癖IDを比較）</summary>
 <p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">matrixベースのコサイン類似度と、2性癖の差異が大きい質問TOP5を表示します。</p>
@@ -774,6 +795,62 @@ async function mergeFetishes() {
     msg.style.color = '#e74c3c';
     msg.textContent = data.message || 'エラーが発生しました';
   }
+}
+
+let _cwLoaded = false;
+async function loadCompoundWorks() {
+  if (_cwLoaded) return;
+  _cwLoaded = true;
+  const res = await adminFetch('/api/admin/compound_works', {method: 'GET', headers: {}});
+  if (!res || !res.ok) return;
+  const items = await res.json();
+  renderCompoundWorks(items);
+}
+
+function renderCompoundWorks(items) {
+  const el = document.getElementById('cw-list');
+  if (!items.length) { el.innerHTML = '<p style="color:#555;font-size:0.82rem;">登録なし</p>'; return; }
+  el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:4px;">
+    <tr><th style="text-align:left;color:#888;padding:4px 8px;">ペア</th><th style="text-align:left;color:#888;padding:4px 8px;">作品</th><th></th></tr>
+    ${items.map(it => `
+    <tr id="cwrow-${it.key.replace(',','-')}" style="border-top:1px solid #222;">
+      <td style="padding:4px 8px;color:#ccc;white-space:nowrap;">${it.name_a}<br><span style="color:#888;">× ${it.name_b}</span></td>
+      <td style="padding:4px 8px;color:#f0d06a;">${it.works.join('、')}</td>
+      <td style="padding:4px 8px;"><button class="btn-toggle disabled" onclick="deleteCompoundWorks('${it.key}',${it.id_a},${it.id_b})">削除</button></td>
+    </tr>`).join('')}
+  </table>`;
+}
+
+async function saveCompoundWorks() {
+  const id_a = parseInt(document.getElementById('cw-a').value);
+  const id_b = parseInt(document.getElementById('cw-b').value);
+  const worksRaw = document.getElementById('cw-works').value.trim();
+  const msg = document.getElementById('cw-msg');
+  if (!id_a || !id_b) { msg.style.color='#e74c3c'; msg.textContent='IDを両方入力してください'; return; }
+  if (!worksRaw) { msg.style.color='#e74c3c'; msg.textContent='作品を入力してください'; return; }
+  const works = worksRaw.split(',').map(s => s.trim()).filter(Boolean);
+  const res = await adminFetch('/api/admin/compound_works', {method: 'POST', body: JSON.stringify({id_a, id_b, works})});
+  if (!res) return;
+  const data = await res.json();
+  if (res.ok) {
+    msg.style.color = '#27ae60';
+    msg.textContent = `保存しました（${data.works.length}件）`;
+    setTimeout(() => msg.textContent = '', 3000);
+    document.getElementById('cw-works').value = '';
+    _cwLoaded = false;
+    loadCompoundWorks();
+  } else {
+    msg.style.color = '#e74c3c';
+    msg.textContent = data.message || 'エラーが発生しました';
+  }
+}
+
+async function deleteCompoundWorks(key, id_a, id_b) {
+  if (!confirm(`ペア (${id_a}, ${id_b}) の複合作品を削除しますか？`)) return;
+  const res = await adminFetch(`/api/admin/compound_works/${key}`, {method: 'DELETE', headers: {}});
+  if (!res || !res.ok) { alert('削除に失敗しました'); return; }
+  const row = document.getElementById(`cwrow-${key.replace(',','-')}`);
+  if (row) row.remove();
 }
 
 async function toggleQuestion(qId) {

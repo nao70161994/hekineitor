@@ -11,7 +11,9 @@ import random as _random
 from flask import Flask, render_template, request, jsonify, session, Response, send_from_directory
 from flask.sessions import SessionInterface, SessionMixin
 from werkzeug.datastructures import CallbackDict
-from engine import Engine, PLAYER_FETISH_BASE_ID, _get_conn, _put_conn, _use_db, FOCUS_THRESHOLD, get_compound_works
+from engine import (Engine, PLAYER_FETISH_BASE_ID, _get_conn, _put_conn, _use_db,
+                    FOCUS_THRESHOLD, get_compound_works,
+                    list_compound_works, set_compound_works, delete_compound_works)
 
 # ── サーバーサイドセッション ──────────────────────────────
 _SESSION_TTL    = 86400  # 24時間
@@ -894,6 +896,61 @@ def admin_edit_fetish(fetish_id):
     idx = engine.index_of(fetish_id)
     f = engine.fetishes[idx]
     return jsonify({'status': 'ok', 'name': f['name'], 'desc': f['desc'], 'works': f.get('works', [])})
+
+
+@app.route('/api/admin/compound_works', methods=['GET'])
+@_require_admin
+def admin_list_compound_works():
+    items = list_compound_works()
+    # 各ペアに性癖名を付与
+    result = []
+    for item in items:
+        ia = engine.index_of(item['id_a'])
+        ib = engine.index_of(item['id_b'])
+        name_a = engine.fetishes[ia]['name'] if ia is not None else f"id={item['id_a']}"
+        name_b = engine.fetishes[ib]['name'] if ib is not None else f"id={item['id_b']}"
+        result.append({**item, 'name_a': name_a, 'name_b': name_b})
+    return jsonify(result)
+
+
+@app.route('/api/admin/compound_works', methods=['POST'])
+@_require_admin
+def admin_set_compound_works():
+    data = request.get_json(silent=True) or {}
+    try:
+        id_a = int(data['id_a'])
+        id_b = int(data['id_b'])
+    except (KeyError, ValueError, TypeError):
+        return jsonify({'status': 'error', 'message': 'id_a と id_b が必要です'}), 400
+    if id_a == id_b:
+        return jsonify({'status': 'error', 'message': '同じIDは指定できません'}), 400
+    raw = data.get('works', [])
+    if isinstance(raw, str):
+        works = [w.strip() for w in raw.split(',') if w.strip()]
+    else:
+        works = [str(w).strip() for w in raw if str(w).strip()]
+    if not works:
+        return jsonify({'status': 'error', 'message': '作品を1件以上入力してください'}), 400
+    if len(works) > 10:
+        return jsonify({'status': 'error', 'message': '作品は10件以内'}), 400
+    key = set_compound_works(id_a, id_b, works)
+    return jsonify({'status': 'ok', 'key': key, 'works': works})
+
+
+@app.route('/api/admin/compound_works/<path:key>', methods=['DELETE'])
+@_require_admin
+def admin_delete_compound_works(key):
+    parts = key.split(',')
+    if len(parts) != 2:
+        return jsonify({'status': 'error', 'message': '不正なキーです'}), 400
+    try:
+        id_a, id_b = int(parts[0]), int(parts[1])
+    except ValueError:
+        return jsonify({'status': 'error', 'message': '不正なキーです'}), 400
+    ok = delete_compound_works(id_a, id_b)
+    if not ok:
+        return jsonify({'status': 'error', 'message': '見つかりません'}), 404
+    return jsonify({'status': 'deleted', 'key': key})
 
 
 @app.route('/health')
