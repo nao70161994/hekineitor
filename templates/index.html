@@ -371,6 +371,25 @@
     0%,100% { opacity: 0.6; r: 8; }
     50%      { opacity: 1.0; r: 10; }
   }
+
+  /* 機能1: なぜこの結果に？ */
+  .reasons-section { margin-bottom:14px; border-top:1px solid #333; padding-top:10px; }
+  .reasons-label { color:#666; font-size:0.75rem; text-align:center; margin-bottom:6px; }
+  .reason-item { display:flex; justify-content:space-between; font-size:0.8rem; color:#999; padding:3px 4px; }
+  .reason-item .ans-badge { font-size:0.7rem; padding:1px 6px; border-radius:6px; background:#1a4a8a; color:#7ab3f0; white-space:nowrap; margin-left:6px; }
+
+  /* 機能3: 診断履歴 */
+  .history-btn { background:none; border:1px solid #333; color:#666; font-size:0.75rem; padding:5px 12px; border-radius:8px; cursor:pointer; margin-top:8px; }
+  .history-btn:hover { border-color:#888; color:#aaa; }
+  .history-panel { margin-top:12px; border-top:1px solid #222; padding-top:10px; }
+  .history-item { display:flex; justify-content:space-between; font-size:0.82rem; color:#888; padding:3px 0; }
+  .history-item strong { color:#eee; }
+
+  /* 機能7: 作品レコメンド */
+  .works-section { margin-bottom:16px; border-top:1px solid #333; padding-top:10px; }
+  .works-label { color:#666; font-size:0.75rem; text-align:center; margin-bottom:6px; }
+  .works-tags { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
+  .works-tag { background:#1a3a1a; color:#7af0a0; font-size:0.73rem; padding:4px 10px; border-radius:12px; }
 </style>
 </head>
 <body>
@@ -483,6 +502,8 @@
       遊ぶほど賢くなります。
     </p>
     <button class="btn btn-start" onclick="startGame()">スタート</button>
+    <button class="history-btn" onclick="toggleHistory()">📜 診断履歴</button>
+    <div id="history-panel" class="history-panel hidden"></div>
     <div id="resume-banner" class="hidden" style="margin-top:12px;">
       <button class="btn btn-idk" style="width:100%;font-size:0.85rem;" onclick="resumeGame()">途中から再開する（<span id="resume-count">0</span>問回答済み）</button>
     </div>
@@ -502,6 +523,7 @@
     </div>
     <div class="question-text" id="question-text">読み込み中…</div>
     <div id="question-hint" style="text-align:center;font-size:0.78rem;color:#f5a623;margin-top:6px;min-height:1em;"></div>
+    <div id="contradiction-hint" class="hidden" style="font-size:0.72rem;color:#e67e22;margin-top:4px;text-align:center;padding:4px 8px;border-radius:6px;background:rgba(230,126,34,0.1);"></div>
     <div class="btn-group">
       <button class="btn btn-yes"      onclick="sendAnswer(1)">はい</button>
       <button class="btn btn-prob-yes" onclick="sendAnswer(0.5)">どちらかといえばはい</button>
@@ -518,6 +540,10 @@
     <div class="result-desc" id="result-desc"></div>
     <div class="result-prob" id="result-prob"></div>
     <div class="result-prob-note">※ モデルの推定一致度です（実際の正解率とは異なります）</div>
+    <div class="reasons-section hidden" id="reasons-section">
+      <div class="reasons-label">決め手になった回答</div>
+      <div id="reasons-list"></div>
+    </div>
     <div id="top-chart" style="margin:10px 0 4px;"></div>
     <div class="profile-section hidden" id="profile-section">
       <div class="profile-label">他に該当しそうなジャンル</div>
@@ -526,6 +552,10 @@
     <div class="related-section hidden" id="related-section">
       <div class="related-label">関連ジャンル</div>
       <div class="related-tags" id="related-tags"></div>
+    </div>
+    <div class="works-section hidden" id="works-section">
+      <div class="works-label">この性癖が好きな方へ</div>
+      <div class="works-tags" id="works-tags"></div>
     </div>
     <div class="confirm-label">各項目の正解を教えてください</div>
     <div id="confirm-items"></div>
@@ -791,7 +821,9 @@ const _axisLabels = {content: 'コンテンツ軸', abstract: '抽象軸', perso
 function showQuestion(data) {
   currentQ = data.question_id;
   document.getElementById('question-text').textContent = data.question;
-  document.getElementById('question-hint').textContent = data.hint || '';
+  const focusHint = data.hint || '';
+  const qHint = data.q_hint || '';
+  document.getElementById('question-hint').textContent = focusHint || qHint;
   const axisEl = document.getElementById('question-axis-tag');
   if (data.axis && _axisLabels[data.axis]) {
     axisEl.textContent = _axisLabels[data.axis];
@@ -805,6 +837,15 @@ function showQuestion(data) {
   document.getElementById('btn-back').style.visibility = data.count > 0 ? 'visible' : 'hidden';
   show('question-screen');
   setGenieState('thinking');
+  const contEl = document.getElementById('contradiction-hint');
+  if (data.contradictions && data.contradictions.length) {
+    const c = data.contradictions[0];
+    const ansTxt = {1:'はい', 0.5:'どちらかといえばはい', '-0.5':'どちらかといえばいいえ', '-1':'いいえ'};
+    contEl.textContent = `💡「${c.q1}→${ansTxt[c.a1]}」と「${c.q2}→${ansTxt[c.a2]}」は矛盾しているかもしれません`;
+    contEl.classList.remove('hidden');
+  } else {
+    contEl.classList.add('hidden');
+  }
 }
 
 async function goBack() {
@@ -950,6 +991,30 @@ function showGuess(data) {
   const allExcluded = [...(window._excludedIds || []), data.fetish_id,
                         ...(data.compound || []).map(c => c.fetish_id)];
   retryBtn.style.display = allExcluded.length > 0 ? '' : 'none';
+
+  // 機能1: なぜこの結果に？
+  const reasonsSec = document.getElementById('reasons-section');
+  if (data.reasons && data.reasons.length) {
+    const ansTxt = {1:'はい', 0.5:'どちらかといえばはい', '-0.5':'どちらかといえばいいえ', '-1':'いいえ'};
+    document.getElementById('reasons-list').innerHTML = data.reasons.map(r =>
+      `<div class="reason-item"><span>${r.text}</span><span class="ans-badge">${ansTxt[r.ans] || r.ans}</span></div>`
+    ).join('');
+    reasonsSec.classList.remove('hidden');
+  } else {
+    reasonsSec.classList.add('hidden');
+  }
+
+  // 機能7: 作品レコメンド
+  const worksSec = document.getElementById('works-section');
+  if (data.works && data.works.length) {
+    document.getElementById('works-tags').innerHTML = data.works.map(w => `<span class="works-tag">${w}</span>`).join('');
+    worksSec.classList.remove('hidden');
+  } else {
+    worksSec.classList.add('hidden');
+  }
+
+  // 機能3: 診断履歴に保存
+  saveHistory(data.fetish_name, data.probability);
 
   show('result-screen');
 }
@@ -1398,6 +1463,24 @@ async function continueGame() {
   } finally {
     _fetching = false;
   }
+}
+
+// 機能3: 診断履歴
+function saveHistory(name, prob) {
+  const h = JSON.parse(localStorage.getItem('heki_history') || '[]');
+  h.unshift({name, prob, date: new Date().toLocaleDateString('ja-JP')});
+  if (h.length > 20) h.pop();
+  localStorage.setItem('heki_history', JSON.stringify(h));
+}
+function toggleHistory() {
+  const panel = document.getElementById('history-panel');
+  if (!panel.classList.contains('hidden')) { panel.classList.add('hidden'); return; }
+  const h = JSON.parse(localStorage.getItem('heki_history') || '[]');
+  if (!h.length) { panel.innerHTML = '<p style="color:#666;font-size:0.8rem;text-align:center;">まだ診断履歴がありません</p>'; }
+  else {
+    panel.innerHTML = h.map(e => `<div class="history-item"><strong>${e.name}</strong><span>${e.prob}% · ${e.date}</span></div>`).join('');
+  }
+  panel.classList.remove('hidden');
 }
 
 // キーボードショートカット（質問画面表示中のみ有効）

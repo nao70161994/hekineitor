@@ -430,6 +430,8 @@ class Engine:
         self._dynamic_prior_time   = 0.0
         self._disc_cache           = []   # [disc_value per question]
         self._disc_cache_time      = 0.0
+        self._corr_cache           = []   # get_correlation_stats のキャッシュ
+        self._corr_cache_time      = 0.0
         self.config                = self._load_config()
 
     # ── JSON ローカル ──────────────────────────────────────
@@ -446,6 +448,18 @@ class Engine:
             nq = len(self.questions)
             if len(m.get('yes', [])) == nf and nf > 0 and len(m['yes'][0]) == nq:
                 return m
+            # サイズ不整合: 削除前にバックアップを作成
+            backup = path + '.bak'
+            try:
+                import shutil
+                shutil.copy2(path, backup)
+            except OSError:
+                pass
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                'matrix.json のサイズ不整合 (fetishes=%d, questions=%d) — 再初期化します。バックアップ: %s',
+                nf, nq, backup
+            )
             os.remove(path)
         return self._init_matrix_file()
 
@@ -576,34 +590,36 @@ class Engine:
                 # 新しい性癖を fetishes.json から差分追加（マイグレーション）
                 cur.execute('SELECT id FROM fetishes')
                 existing_ids = {r[0] for r in cur.fetchall()}
-                if existing_ids is not None:
-                    seed = [f for f in self._load_json('fetishes.json')
-                            if f['id'] < PLAYER_FETISH_BASE_ID]
-                    new_f = [f for f in seed if f['id'] not in existing_ids]
-                    if new_f:
-                        psycopg2.extras.execute_values(
-                            cur,
-                            'INSERT INTO fetishes (id, name, "desc") VALUES %s ON CONFLICT DO NOTHING',
-                            [(f['id'], f['name'], f['desc']) for f in new_f]
-                        )
-                        nq = len(self.questions)
-                        nf_total = len(seed)
-                        full_yes, full_total = _build_initial_matrix(nf_total, nq)
-                        new_rows = [
-                            (f['id'], q, full_yes[f['id']][q], full_total[f['id']][q])
-                            for f in new_f for q in range(nq)
-                        ]
-                        psycopg2.extras.execute_values(
-                            cur,
-                            'INSERT INTO matrix (fetish_id, question_id, yes_count, total_count) VALUES %s ON CONFLICT DO NOTHING',
-                            new_rows
-                        )
-                    # 既存性癖の名前・説明を fetishes.json と同期
-                    for f in seed:
-                        cur.execute(
-                            'UPDATE fetishes SET name=%s, "desc"=%s WHERE id=%s',
-                            (f['name'], f['desc'], f['id'])
-                        )
+                seed = [f for f in self._load_json('fetishes.json')
+                        if f['id'] < PLAYER_FETISH_BASE_ID]
+                new_f = [f for f in seed if f['id'] not in existing_ids]
+                if new_f:
+                    psycopg2.extras.execute_values(
+                        cur,
+                        'INSERT INTO fetishes (id, name, "desc") VALUES %s ON CONFLICT DO NOTHING',
+                        [(f['id'], f['name'], f['desc']) for f in new_f]
+                    )
+                    nq = len(self.questions)
+                    nf_total = len(seed)
+                    full_yes, full_total = _build_initial_matrix(nf_total, nq)
+                    seed_id_to_idx = {f['id']: i for i, f in enumerate(seed)}
+                    new_rows = [
+                        (f['id'], q,
+                         full_yes[seed_id_to_idx[f['id']]][q],
+                         full_total[seed_id_to_idx[f['id']]][q])
+                        for f in new_f for q in range(nq)
+                    ]
+                    psycopg2.extras.execute_values(
+                        cur,
+                        'INSERT INTO matrix (fetish_id, question_id, yes_count, total_count) VALUES %s ON CONFLICT DO NOTHING',
+                        new_rows
+                    )
+                # 既存性癖の名前・説明を fetishes.json と同期
+                for f in seed:
+                    cur.execute(
+                        'UPDATE fetishes SET name=%s, "desc"=%s WHERE id=%s',
+                        (f['name'], f['desc'], f['id'])
+                    )
                 # 新しい質問を matrix に差分追加
                 nq = len(self.questions)
                 cur.execute('SELECT MAX(question_id) FROM matrix')
@@ -856,6 +872,8 @@ class Engine:
 
     # ── 診断ログ ──────────────────────────────────────────
     def _increment_fetish_log(self, fetish_db_id, col):
+        if col not in ('guessed', 'correct', 'wrong'):
+            raise ValueError(f'不正な列名: {col}')
         if _use_db():
             conn = _get_conn()
             try:
@@ -914,15 +932,23 @@ class Engine:
                 return {}
 
 
-    def _save_to_db(self, all_updates):
+    def _save_to_db(self, all_updates, idx_to_db_id=None):
         if not all_updates:
             return
-        rows = [
-            (self.fetishes[fetish_idx]['id'], q_idx, delta_yes, delta_total)
-            for fetish_idx, updates in all_updates.items()
-            for q_idx, delta_yes, delta_total in updates
-            if fetish_idx < len(self.fetishes)
-        ]
+        # idx_to_db_id はロック内で取得したスナップショット。
+        # None の場合は呼び出し元が古い方式なのでフォールバック（ロック外アクセス）。
+        rows = []
+        for fetish_idx, updates in all_updates.items():
+            if idx_to_db_id is not None:
+                db_id = idx_to_db_id.get(fetish_idx)
+            elif fetish_idx < len(self.fetishes):
+                db_id = self.fetishes[fetish_idx]['id']
+            else:
+                db_id = None
+            if db_id is None:
+                continue
+            for q_idx, delta_yes, delta_total in updates:
+                rows.append((db_id, q_idx, delta_yes, delta_total))
         conn = _get_conn()
         try:
             with conn:
@@ -1054,7 +1080,7 @@ class Engine:
             static    = FETISH_PRIOR_WEIGHTS.get(fid, 1.0)
             # 実績データが少ない間は静的重みを重視（guessed で線形ブレンド）
             trust = min(guessed / 20.0, 1.0)
-            blended = static * (1 - trust) + static * empirical * 2 * trust
+            blended = static * (1 - trust) + empirical * trust
             weights[fid] = max(blended, 0.1)
         self._dynamic_prior_cache = weights
         self._dynamic_prior_time  = now
@@ -1088,8 +1114,9 @@ class Engine:
         nf = len(self.fetishes)
         nq = len(self.questions)
         dyn = self._get_dynamic_prior_weights()
-        log_p = [math.log(dyn.get(self.fetishes[f]['id'],
-                                  FETISH_PRIOR_WEIGHTS.get(self.fetishes[f]['id'], 1.0)))
+        log_p = [math.log(max(dyn.get(self.fetishes[f]['id'],
+                                    FETISH_PRIOR_WEIGHTS.get(self.fetishes[f]['id'], 1.0)),
+                              1e-9))
                  for f in range(nf)]
         for q_str, ans in answers.items():
             try:
@@ -1224,6 +1251,8 @@ class Engine:
         """上位N性癖×上位N質問の P(yes) ヒートマップデータを返す。"""
         nf = len(self.fetishes)
         nq = len(self.questions)
+        n_fetishes  = min(n_fetishes,  nf)
+        n_questions = min(n_questions, nq)
         weights = [sum(self.matrix['total'][fi]) for fi in range(nf)]
         top_fi = sorted(range(nf), key=lambda i: -weights[i])[:n_fetishes]
         discs  = [sum(abs(self._prob(f, q) - 0.5) for f in range(nf)) / max(nf, 1)
@@ -1262,11 +1291,12 @@ class Engine:
             disc  = sum(abs(p - 0.5) for p in probs) / nf  # 0〜0.5; 高いほど識別力あり
             ask_count = sum(self.matrix['total'][f][q] for f in range(nf))
             result.append({
-                'id':        q,
-                'text':      qdata['text'],
-                'disc':      round(disc, 3),
-                'disabled':  q in self.disabled_questions,
-                'ask_count': round(ask_count, 1),
+                'id':            q,
+                'text':          qdata['text'],
+                'disc':          round(disc, 3),
+                'disabled':      q in self.disabled_questions,
+                'ask_count':     round(ask_count, 1),
+                'variants_count': len(qdata.get('variants', [])),
             })
         return sorted(result, key=lambda x: x['disc'])
 
@@ -1308,9 +1338,12 @@ class Engine:
         va = [self._prob(idx_a, q) - 0.5 for q in range(nq)]
         vb = [self._prob(idx_b, q) - 0.5 for q in range(nq)]
         dot = sum(a * b for a, b in zip(va, vb))
-        na  = math.sqrt(sum(x * x for x in va)) or 1e-9
-        nb  = math.sqrt(sum(x * x for x in vb)) or 1e-9
-        cos = round(dot / (na * nb), 3)
+        na  = math.sqrt(sum(x * x for x in va))
+        nb  = math.sqrt(sum(x * x for x in vb))
+        if na < 1e-9 or nb < 1e-9:
+            cos = 0.0
+        else:
+            cos = round(dot / (na * nb), 3)
         diffs = sorted(range(nq), key=lambda q: abs(va[q] - vb[q]), reverse=True)
         top_diff = [{'q_id': q, 'text': self.questions[q]['text'],
                      'p_a': round(self._prob(idx_a, q), 3),
@@ -1323,9 +1356,14 @@ class Engine:
             'top_diff': top_diff,
         }
 
+    _CORR_CACHE_TTL = 300.0  # 相関キャッシュ有効期間（秒）
+
     def get_correlation_stats(self, top_n=30):
-        """質問ベクトル間のコサイン類似度を計算し、上位ペアを返す。"""
+        """質問ベクトル間のコサイン類似度を計算し、上位ペアを返す（5分TTLキャッシュ）。"""
         import math
+        now = time.monotonic()
+        if self._corr_cache and now - self._corr_cache_time < self._CORR_CACHE_TTL:
+            return self._corr_cache[:top_n]
         nf = len(self.fetishes)
         nq = len(self.questions)
         vecs = []
@@ -1346,6 +1384,8 @@ class Engine:
                     'cos': round(cos, 3),
                 })
         pairs.sort(key=lambda x: -abs(x['cos']))
+        self._corr_cache      = pairs
+        self._corr_cache_time = now
         return pairs[:top_n]
 
     def top_guess(self, answers, n=1):
@@ -1356,12 +1396,59 @@ class Engine:
             return top[0], probs[top[0]]
         return [(f, probs[f]) for f in top]
 
+    def get_answer_contributions(self, answers, fetish_idx, top_n=3):
+        """その性癖への寄与度が高かった回答をtop_n件返す。"""
+        nq = len(self.questions)
+        contribs = []
+        for q_str, ans in answers.items():
+            try:
+                q = int(q_str)
+            except (ValueError, TypeError):
+                continue
+            if ans == 0 or not (0 <= q < nq):
+                continue
+            p = self._prob(fetish_idx, q)
+            weight = abs(ans)
+            log_c = weight * (math.log(max(p, 0.001)) if ans > 0 else math.log(max(1 - p, 0.001)))
+            contribs.append({'q_id': q, 'text': self.questions[q]['text'], 'ans': ans, 'contrib': log_c})
+        contribs.sort(key=lambda x: x['contrib'], reverse=True)
+        return [{'q_id': c['q_id'], 'text': c['text'], 'ans': c['ans']} for c in contribs[:top_n]]
+
+    def detect_contradictions(self, answers):
+        """高相関な質問ペアで逆方向の回答があれば最大2件返す。"""
+        nq = len(self.questions)
+        answered = {}
+        for q_str, ans in answers.items():
+            try:
+                q = int(q_str)
+            except (ValueError, TypeError):
+                continue
+            if ans != 0 and 0 <= q < nq:
+                answered[q] = ans
+        result = []
+        for pair in self.get_correlation_stats(top_n=60):
+            if abs(pair['cos']) < 0.75:
+                break
+            q1, q2 = pair['q1_id'], pair['q2_id']
+            if q1 in answered and q2 in answered:
+                a1, a2 = answered[q1], answered[q2]
+                # 正の相関なのに符号が逆 → 矛盾
+                if pair['cos'] > 0.75 and a1 * a2 < 0:
+                    result.append({
+                        'q1': self.questions[q1]['text'], 'a1': a1,
+                        'q2': self.questions[q2]['text'], 'a2': a2,
+                    })
+                    if len(result) >= 2:
+                        break
+        return result
+
     def learn(self, answers, fetish_idx, strength_factor=1.0):
         """strength_factor: 確信度が低いほど大きく（最大2.0）、高いほど小さく（最小0.5）。"""
         neg_weight  = 0.3
         disc_scales = self._get_disc_scales()
         all_updates = {}
 
+        idx_to_db_id = {}
         with self._lock:
             nf = len(self.fetishes)
             nq = len(self.questions)
@@ -1394,11 +1481,12 @@ class Engine:
                     self.matrix['yes'][f][q]   += neg_yes
                     all_updates.setdefault(f, []).append((q, neg_yes, w))
 
+            idx_to_db_id = {i: f['id'] for i, f in enumerate(self.fetishes)}
             if not _use_db():
                 self._save_matrix_file()
 
         if _use_db():
-            self._save_to_db(all_updates)
+            self._save_to_db(all_updates, idx_to_db_id)
 
         self._increment_learn_count()
 
@@ -1408,7 +1496,8 @@ class Engine:
         nq = len(self.questions)
         if not (0 <= idx_a < nf and 0 <= idx_b < nf and idx_a != idx_b):
             return
-        all_updates = {}
+        all_updates  = {}
+        idx_to_db_id = {}
         with self._lock:
             for q_str, ans in answers.items():
                 try:
@@ -1431,15 +1520,17 @@ class Engine:
                     self.matrix['yes'][target][q]   += dy
                     self.matrix['total'][target][q] += eff
                     all_updates.setdefault(target, []).append((q, dy, eff))
+            idx_to_db_id = {i: f['id'] for i, f in enumerate(self.fetishes)}
             if not _use_db():
                 self._save_matrix_file()
         if _use_db():
-            self._save_to_db(all_updates)
+            self._save_to_db(all_updates, idx_to_db_id)
 
     def learn_negative(self, answers, fetish_idx):
         """fetish_idx が外れだった弱いネガティブ更新。learn() の約1/5の強度。"""
-        neg_str = 0.2
-        all_updates = {}
+        neg_str      = 0.2
+        all_updates  = {}
+        idx_to_db_id = {}
         with self._lock:
             nf = len(self.fetishes)
             nq = len(self.questions)
@@ -1461,16 +1552,18 @@ class Engine:
                 self.matrix['yes'][fetish_idx][q]   += dy
                 self.matrix['total'][fetish_idx][q] += effective
                 all_updates.setdefault(fetish_idx, []).append((q, dy, effective))
+            idx_to_db_id = {i: f['id'] for i, f in enumerate(self.fetishes)}
             if not _use_db():
                 self._save_matrix_file()
         if _use_db():
-            self._save_to_db(all_updates)
+            self._save_to_db(all_updates, idx_to_db_id)
 
     def _learn_silent(self, answers, fetish_idx, cold_start=False):
         """learn() without incrementing learn_count (used for initial boost).
         cold_start=True で蓄積データによる減衰を無効化（新規追加性癖の cold start 対応）。"""
-        neg_weight = 0.3
-        all_updates = {}
+        neg_weight   = 0.3
+        all_updates  = {}
+        idx_to_db_id = {}
 
         with self._lock:
             nf = len(self.fetishes)
@@ -1505,11 +1598,12 @@ class Engine:
                     self.matrix['yes'][f][q]   += neg_yes
                     all_updates.setdefault(f, []).append((q, neg_yes, w))
 
+            idx_to_db_id = {i: f['id'] for i, f in enumerate(self.fetishes)}
             if not _use_db():
                 self._save_matrix_file()
 
         if _use_db():
-            self._save_to_db(all_updates)
+            self._save_to_db(all_updates, idx_to_db_id)
 
     def add_fetish(self, name, desc, answers):
         """新しい性癖をDBに登録する（学習はしない）。返り値は (array_idx, db_id)。
@@ -1591,6 +1685,9 @@ class Engine:
                 self.fetishes[idx_keep]['name'] = new_name
             if new_desc:
                 self.fetishes[idx_keep]['desc'] = new_desc
+            # pop 前に name/desc を確保（idx_rm < idx_keep の場合、pop 後にインデックスがズレるため）
+            keep_name = self.fetishes[idx_keep]['name']
+            keep_desc = self.fetishes[idx_keep]['desc']
             self.fetishes.pop(idx_rm)
             self.matrix['yes'].pop(idx_rm)
             self.matrix['total'].pop(idx_rm)
@@ -1621,8 +1718,7 @@ class Engine:
                         if new_name or new_desc:
                             cur.execute(
                                 'UPDATE fetishes SET name=%s, "desc"=%s WHERE id=%s',
-                                (new_name or self.fetishes[idx_keep]['name'],
-                                 new_desc or self.fetishes[idx_keep]['desc'], id_keep)
+                                (new_name or keep_name, new_desc or keep_desc, id_keep)
                             )
                 finally:
                     _put_conn(conn)
@@ -1715,7 +1811,9 @@ class Engine:
             if idx is None or self.fetishes[idx]['id'] < PLAYER_FETISH_BASE_ID:
                 return None
             seed_ids = {f['id'] for f in self.fetishes if f['id'] < PLAYER_FETISH_BASE_ID}
-            new_id = next(i for i in range(PLAYER_FETISH_BASE_ID) if i not in seed_ids)
+            new_id = next((i for i in range(PLAYER_FETISH_BASE_ID) if i not in seed_ids), None)
+            if new_id is None:
+                return None
             self.fetishes[idx]['id'] = new_id
             if _use_db():
                 conn = _get_conn()

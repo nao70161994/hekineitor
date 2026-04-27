@@ -223,12 +223,16 @@ def start():
     session['exclude_ids'] = exclude_ids
     q = engine.best_question({}, set())
     session['asked'].append(q)
+    q_data = engine.questions[q]
+    q_variants = q_data.get('variants', [])
+    q_text = _random.choice([q_data['text']] + q_variants) if q_variants else q_data['text']
     return jsonify({
         'question_id': q,
-        'question':    engine.questions[q]['text'],
+        'question':    q_text,
         'count':       0,
         'total':       MAX_QUESTIONS,
         'axis':        engine._question_axis(q),
+        'q_hint':      q_data.get('hint', ''),
     })
 
 
@@ -237,12 +241,18 @@ def resume():
     """localStorageに保存した回答ペアからセッションを復元して次の質問を返す。"""
     data  = request.get_json(silent=True) or {}
     pairs = data.get('pairs', [])
+    exclude_ids = []
+    for eid in data.get('exclude_ids', []):
+        try:
+            exclude_ids.append(int(eid))
+        except (ValueError, TypeError):
+            pass
     session.clear()
     session['started']     = True
     session['answers']     = {}
     session['asked']       = []
     session['idk_streak']  = 0
-    session['exclude_ids'] = []
+    session['exclude_ids'] = exclude_ids
     for item in pairs:
         try:
             q_idx = int(item['q_id'])
@@ -262,19 +272,27 @@ def resume():
     if not answers:
         q = engine.best_question({}, set())
         session['asked'].append(q)
+        q_data = engine.questions[q]
+        q_variants = q_data.get('variants', [])
+        q_text = _random.choice([q_data['text']] + q_variants) if q_variants else q_data['text']
         return jsonify({'action': 'question', 'question_id': q,
-                        'question': engine.questions[q]['text'],
+                        'question': q_text,
                         'count': 0, 'total': MAX_QUESTIONS,
-                        'axis': engine._question_axis(q)})
+                        'axis': engine._question_axis(q),
+                        'q_hint': q_data.get('hint', '')})
     next_q = engine.best_question(answers, set(asked), idk_streak=session['idk_streak'])
     if next_q is None:
         return _make_guess(answers)
     asked.append(next_q)
     session['asked'] = asked
+    nq_data = engine.questions[next_q]
+    nq_variants = nq_data.get('variants', [])
+    nq_text = _random.choice([nq_data['text']] + nq_variants) if nq_variants else nq_data['text']
     return jsonify({'action': 'question', 'question_id': next_q,
-                    'question': engine.questions[next_q]['text'],
+                    'question': nq_text,
                     'count': len(asked) - 1, 'total': MAX_QUESTIONS,
-                    'axis': engine._question_axis(next_q)})
+                    'axis': engine._question_axis(next_q),
+                    'q_hint': nq_data.get('hint', '')})
 
 
 @app.route('/api/continue', methods=['POST'])
@@ -293,10 +311,14 @@ def continue_game():
         return jsonify({'status': 'no_question'})
     asked.append(next_q)
     session['asked'] = asked
+    cq_data = engine.questions[next_q]
+    cq_variants = cq_data.get('variants', [])
+    cq_text = _random.choice([cq_data['text']] + cq_variants) if cq_variants else cq_data['text']
     return jsonify({'action': 'question', 'question_id': next_q,
-                    'question': engine.questions[next_q]['text'],
+                    'question': cq_text,
                     'count': len(asked) - 1, 'total': MAX_QUESTIONS,
-                    'axis': engine._question_axis(next_q)})
+                    'axis': engine._question_axis(next_q),
+                    'q_hint': cq_data.get('hint', '')})
 
 
 @app.route('/api/answer', methods=['POST'])
@@ -360,16 +382,24 @@ def answer():
         focus_thr = engine.config.get('focus_threshold', FOCUS_THRESHOLD)
         hint = '答えが見えてきました…もう少しです' if top_p >= focus_thr else None
 
+        aq_data = engine.questions[next_q]
+        aq_variants = aq_data.get('variants', [])
+        aq_text = _random.choice([aq_data['text']] + aq_variants) if aq_variants else aq_data['text']
+
         resp = {
             'action':      'question',
             'question_id': next_q,
-            'question':    engine.questions[next_q]['text'],
+            'question':    aq_text,
             'count':       count,
             'total':       MAX_QUESTIONS,
             'axis':        engine._question_axis(next_q),
+            'q_hint':      aq_data.get('hint', ''),
         }
         if hint:
             resp['hint'] = hint
+        contradictions = engine.detect_contradictions(answers)
+        if contradictions:
+            resp['contradictions'] = contradictions
         return jsonify(resp)
     except Exception:
         app.logger.exception('answer() 推論エラー')
@@ -416,7 +446,12 @@ def _learn_factor(answers, total_n=1):
     probs  = engine.posteriors(answers)
     thr    = engine.config.get('guess_threshold', GUESS_THRESHOLD)
     top_p  = max(probs) if probs else thr
-    conf   = max(0.5, min(2.0, thr / max(top_p, 0.1)))
+    if top_p >= thr:
+        # 診断閾値以上: top_p=thr→1.0、top_p=1.0→0.5 に線形マッピング
+        conf = max(0.5, 1.0 - 0.5 * (top_p - thr) / max(1.0 - thr, 1e-9))
+    else:
+        # 閾値未満（max_questions 到達など）: 不確実なほど強く（最大2.0）
+        conf = min(2.0, thr / max(top_p, 0.1))
     n_scale = 1.0 / _math.sqrt(max(total_n, 1))
     return max(0.3, min(2.0, conf * n_scale))
 
@@ -479,6 +514,9 @@ def _compute_guess(answers):
         f_dict = engine.fetishes[fi]
         top_chart.append({'fetish_name': f_dict['name'], 'probability': round(probs[fi] * 100, 1)})
 
+    reasons = engine.get_answer_contributions(answers, best_i)
+    works = best_f.get('works', [])
+
     return {
         'action':      'guess',
         'fetish_id':   best_db,
@@ -489,6 +527,8 @@ def _compute_guess(answers):
         'profile':     profile,
         'related':     related,
         'top_chart':   top_chart,
+        'reasons':     reasons,
+        'works':       works,
     }
 
 
@@ -570,7 +610,10 @@ def teach():
     if f_idx is None:
         return jsonify({'status': 'error', 'message': '存在しない fetish_id です'}), 400
     answers  = session.get('answers', {})
-    total_n  = max(1, int(data.get('total_n', 1)))
+    try:
+        total_n = max(1, int(data.get('total_n', 1)))
+    except (ValueError, TypeError):
+        return jsonify({'status': 'error', 'message': '不正な total_n です'}), 400
     engine.learn(answers, f_idx, strength_factor=_learn_factor(answers, total_n))
     engine.log_correct(engine.fetishes[f_idx]['id'])
     return jsonify({'status': 'learned', 'fetish_name': engine.fetishes[f_idx]['name']})
@@ -587,6 +630,8 @@ def add_fetish():
         return jsonify({'status': 'error', 'message': '名前を入力してください'}), 400
     if len(name) > 100:
         return jsonify({'status': 'error', 'message': '名前は100文字以内で入力してください'}), 400
+    if len(desc) > 500:
+        return jsonify({'status': 'error', 'message': '説明は500文字以内で入力してください'}), 400
     existing = next((f for f in engine.fetishes if f['name'] == name), None)
     if existing:
         # 学習は /api/finalize_added にまとめる（完了ボタン押下時）
@@ -750,6 +795,8 @@ def admin_add_fetish():
         return jsonify({'status': 'error', 'message': '名前を入力してください'}), 400
     if len(name) > 100:
         return jsonify({'status': 'error', 'message': '名前は100文字以内'}), 400
+    if len(desc) > 500:
+        return jsonify({'status': 'error', 'message': '説明は500文字以内'}), 400
     existing = next((f for f in engine.fetishes if f['name'] == name), None)
     if existing:
         return jsonify({'status': 'exists', 'fetish_id': existing['id'], 'fetish_name': existing['name']})
@@ -812,13 +859,16 @@ def admin_edit_fetish(fetish_id):
 def health():
     db_ok = False
     if _use_db():
+        conn = None
         try:
             conn = _get_conn()
             conn.cursor().execute('SELECT 1')
-            _put_conn(conn)
             db_ok = True
         except Exception:
             pass
+        finally:
+            if conn is not None:
+                _put_conn(conn)
     return jsonify({'status': 'ok', 'db': db_ok,
                     'fetishes': len(engine.fetishes),
                     'questions': len(engine.questions)})

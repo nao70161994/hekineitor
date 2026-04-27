@@ -89,6 +89,20 @@
 <span id="cleanup-msg" style="color:#aaa;font-size:0.8rem;margin-left:10px;"></span>
 </details>
 
+{% set alert_fetishes = fetish_log_rows | selectattr('guessed', 'ge', 10) | selectattr('acc', 'ne', None) | selectattr('acc', 'lt', 40) | list %}
+{% if alert_fetishes %}
+<div style="background:#2a0a0a;border:1px solid #e74c3c;border-radius:10px;padding:14px 16px;margin-bottom:20px;">
+  <strong style="color:#e74c3c;">⚠️ 要確認: 正解率が低い性癖</strong>
+  <p style="color:#aaa;font-size:0.82rem;margin:6px 0 10px;">正解率40%未満・診断数10件以上。DOMAIN_PRIORSや性癖の説明を見直してください。</p>
+  {% for f in alert_fetishes %}
+  <div style="display:flex;justify-content:space-between;font-size:0.85rem;padding:3px 0;border-bottom:1px solid #3a1515;">
+    <span style="color:#eee;">{{ f.name }}</span>
+    <span style="color:#e74c3c;">正解率 {{ f.acc }}%（{{ f.guessed }}件）</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% set low_count = stats | selectattr('data_weight', 'lt', 10) | list | length %}
 <h2 style="color:#eee;font-size:1rem;margin-bottom:6px;">学習データ量
   {% if low_count > 0 %}
@@ -206,7 +220,7 @@ renderStatsChart(30);
 <summary style="color:#888;font-size:0.85rem;cursor:pointer;">質問の識別力（低い順、展開で表示）</summary>
 <p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">識別力 = 各性癖でP(yes)が0.5からどれだけ離れているかの平均（0〜0.5。低いほど全性癖に均等で区別しにくい）</p>
 <table id="q-table" style="margin-top:8px;">
-  <tr><th>#</th><th>質問</th><th onclick="sortQTable()" style="cursor:pointer;user-select:none;">識別力 ↕</th><th></th><th style="color:#888;font-size:0.75rem;white-space:nowrap;" title="UCB使用回数（学習累計）">使用量</th><th>操作</th></tr>
+  <tr><th>#</th><th>質問</th><th onclick="sortQTable()" style="cursor:pointer;user-select:none;">識別力 ↕</th><th></th><th style="color:#888;font-size:0.75rem;white-space:nowrap;" title="UCB使用回数（学習累計）">使用量</th><th style="color:#888;font-size:0.75rem;white-space:nowrap;" title="バリアント（別表現）の数">Var</th><th>操作</th></tr>
   {% set max_d = [question_stats[-1].disc, 0.01] | max if question_stats else 0.01 %}
   {% for q in question_stats %}
   <tr id="qrow-{{ q.id }}" style="{% if q.disabled %}opacity:0.4{% endif %}">
@@ -219,6 +233,7 @@ renderStatsChart(30);
     </td>
     <td style="color:#888;font-size:0.78rem">{{ q.disc }}</td>
     <td style="color:#{% if q.ask_count < 10 %}e74c3c{% elif q.ask_count < 50 %}f5a623{% else %}555{% endif %};font-size:0.75rem;text-align:right;">{{ q.ask_count | int }}</td>
+    <td style="color:#{% if q.variants_count > 0 %}7af0a0{% else %}555{% endif %};font-size:0.75rem;text-align:center;">{{ q.variants_count }}</td>
     <td style="display:flex;gap:4px;">
       <button class="btn-toggle {% if q.disabled %}disabled{% endif %}" id="qtoggle-{{ q.id }}"
           onclick="toggleQuestion({{ q.id }})">{% if q.disabled %}無効{% else %}有効{% endif %}</button>
