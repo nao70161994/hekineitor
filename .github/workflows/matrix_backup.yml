@@ -36,6 +36,23 @@ jobs:
           git diff --cached --quiet && echo "No changes" || \
             (git commit -m "auto: matrix backup $(date -u '+%Y-%m-%d')" && git push)
 
+      - name: Send test notification (manual run only)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          if [ -z "$NTFY_TOPIC" ]; then
+            echo "NTFY_TOPIC 未設定のためスキップ"
+          else
+            curl -s -o /dev/null -w "%{http_code}" \
+              -H "Title: へきネイター テスト通知" \
+              -H "Priority: default" \
+              -H "Tags: white_check_mark" \
+              -d "バックアップとDB監視が正常に動作しています" \
+              "https://ntfy.sh/$NTFY_TOPIC"
+            echo " ntfy送信完了"
+          fi
+
       - name: Check DB expiry via Render API
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
