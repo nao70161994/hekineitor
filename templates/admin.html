@@ -261,14 +261,36 @@ renderStatsChart(30);
 </div>
 </details>
 
-<details style="margin-top:40px;">
+<details style="margin-top:40px;" id="q-section">
 <summary style="color:#888;font-size:0.85rem;cursor:pointer;">質問の識別力（低い順、展開で表示）</summary>
-<p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">識別力 = 各性癖でP(yes)が0.5からどれだけ離れているかの平均（0〜0.5。低いほど全性癖に均等で区別しにくい）</p>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">識別力 = 各性癖でP(yes)が0.5からどれだけ離れているかの平均（0〜0.5。低いほど全性癖に均等で区別しにくい）</p>
+
+{# ── 問題質問サマリー ───────────────────────── #}
+{% set avg_ask = (question_stats | sum(attribute='ask_count') / [question_stats|length,1]|max) | round(1) %}
+{% set low_disc_qs  = question_stats | selectattr('disc','lt',0.03) | selectattr('disabled','eq',false) | list %}
+{% set unused_qs    = question_stats | selectattr('ask_count','lt',[avg_ask*0.25,0.5]|max) | selectattr('disabled','eq',false) | list %}
+{% set overused_qs  = question_stats | selectattr('ask_count','gt',avg_ask*4.0) | list %}
+{% if low_disc_qs or unused_qs or overused_qs %}
+<div style="background:#1a0d0d;border-radius:8px;padding:10px 14px;margin-bottom:12px;border:1px solid #3a1515;">
+  <div style="font-size:0.8rem;color:#e74c3c;margin-bottom:6px;">⚠ 要確認の質問</div>
+  {% if low_disc_qs %}
+  <div style="font-size:0.75rem;color:#c0392b;margin-bottom:4px;">識別力 &lt;0.03（無効化を検討）: {{ low_disc_qs|map(attribute='id')|list|join(', ') }}</div>
+  {% endif %}
+  {% if unused_qs %}
+  <div style="font-size:0.75rem;color:#8b6914;margin-bottom:4px;">使用量が平均の25%未満（UCBが機能しているか確認）: {{ unused_qs|map(attribute='id')|list|join(', ') }}</div>
+  {% endif %}
+  {% if overused_qs %}
+  <div style="font-size:0.75rem;color:#8b6914;margin-bottom:0;">使用量が平均の4倍超（特定質問に偏りあり）: {{ overused_qs|map(attribute='id')|list|join(', ') }}</div>
+  {% endif %}
+</div>
+{% else %}
+<div style="background:#0d2010;border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:0.78rem;color:#27ae60;border:1px solid #1a4a1a;">✓ 問題のある質問なし（avg_ask={{ avg_ask }}）</div>
+{% endif %}
 <table id="q-table" style="margin-top:8px;">
   <tr><th>#</th><th>質問</th><th onclick="sortQTable()" style="cursor:pointer;user-select:none;">識別力 ↕</th><th></th><th style="color:#888;font-size:0.75rem;white-space:nowrap;" title="UCB使用回数（学習累計）">使用量</th><th style="color:#888;font-size:0.75rem;white-space:nowrap;" title="バリアント（別表現）の数">Var</th><th>操作</th></tr>
   {% set max_d = [question_stats[-1].disc, 0.01] | max if question_stats else 0.01 %}
   {% for q in question_stats %}
-  <tr id="qrow-{{ q.id }}" style="{% if q.disabled %}opacity:0.4{% endif %}">
+  <tr id="qrow-{{ q.id }}" style="{% if q.disabled %}opacity:0.4{% elif q.disc < 0.03 %}background:#1a0a0a{% elif q.ask_count < avg_ask*0.25 and avg_ask > 1 %}background:#1a1500{% endif %}">
     <td style="color:#666;font-size:0.78rem">{{ q.id }}</td>
     <td id="qtext-{{ q.id }}" style="font-size:0.82rem;max-width:260px">{{ q.text }}{% if q.disc < 0.05 %}<span class="tag-low">低識別力</span>{% endif %}</td>
     <td>

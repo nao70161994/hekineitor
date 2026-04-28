@@ -139,7 +139,7 @@ def _app_version():
     return h.hexdigest()[:8]
 
 APP_VERSION       = _app_version()
-DISPLAY_VERSION   = 'v1.8.0'
+DISPLAY_VERSION   = 'v1.9.0'
 AMAZON_ASSOCIATE_ID = os.environ.get('AMAZON_ASSOCIATE_ID', '')
 engine = Engine()
 
@@ -203,38 +203,57 @@ def result_share():
 
 @app.route('/ogp')
 def ogp_image():
-    """診断結果のOGP画像をSVGで動的生成する。"""
+    """診断結果のOGP画像をSVGで動的生成する（1200×630 Twitter推奨サイズ）。"""
     name = request.args.get('f', '???')[:30]
     prob = request.args.get('p', '')[:5]
-    bar_w = max(4, min(int(float(prob) * 2.4), 240)) if prob else 0
-    # 長い名前は折り返し（15文字で改行）
-    if len(name) > 15:
-        line1 = name[:15]
-        line2 = name[15:30]
+    try:
+        bar_w = max(8, min(int(float(prob) * 5.6), 560)) if prob else 0
+        prob_val = float(prob) if prob else 0
+    except ValueError:
+        bar_w = 0
+        prob_val = 0
+    # 名前の折り返し（12文字で改行）
+    if len(name) > 12:
+        line1, line2 = name[:12], name[12:24]
+        if len(name) > 24:
+            line2 = name[12:23] + '…'
     else:
-        line1 = name
-        line2 = ''
-    y_name = 110 if line2 else 120
-    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="480" height="252" viewBox="0 0 480 252">
+        line1, line2 = name, ''
+    fs_name = 72 if len(line1) <= 8 else 60
+    y1 = 260 if line2 else 290
+    y2 = y1 + fs_name + 12
+    bar_color = '#f5a623' if prob_val >= 75 else ('#e94560' if prob_val >= 50 else '#5b8dd9')
+    svg = f'''<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#0a0a1a"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0%" stop-color="#0d1b2a"/>
       <stop offset="100%" stop-color="#16213e"/>
     </linearGradient>
     <linearGradient id="bar" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0%" stop-color="#e94560"/>
       <stop offset="100%" stop-color="#f5a623"/>
     </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#e94560" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#f5a623" stop-opacity="0.05"/>
+    </linearGradient>
   </defs>
-  <rect width="480" height="252" fill="url(#bg)"/>
-  <rect x="0" y="0" width="480" height="4" fill="url(#bar)"/>
-  <text x="240" y="44" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#888">🔮 へきネイター診断結果</text>
-  <text x="240" y="{y_name}" text-anchor="middle" font-family="sans-serif" font-size="32" font-weight="bold" fill="#e94560">{line1}</text>
-  {'<text x="240" y="' + str(y_name+38) + '" text-anchor="middle" font-family="sans-serif" font-size="32" font-weight="bold" fill="#e94560">' + line2 + '</text>' if line2 else ''}
-  <text x="240" y="172" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#f5a623">一致度 {prob}%</text>
-  <rect x="120" y="188" width="240" height="8" rx="4" fill="#1a1a3e"/>
-  <rect x="120" y="188" width="{bar_w}" height="8" rx="4" fill="url(#bar)"/>
-  <text x="240" y="228" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#555">あなたの性癖を診断 → hekineitor.onrender.com</text>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1200" height="8" fill="url(#bar)"/>
+  <rect x="60" y="60" width="580" height="510" rx="20" fill="url(#accent)"/>
+  <rect x="60" y="60" width="580" height="510" rx="20" fill="none" stroke="#e94560" stroke-width="1" stroke-opacity="0.3"/>
+  <text x="350" y="130" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#888">🔮 へきネイター診断結果</text>
+  <text x="350" y="{y1}" text-anchor="middle" font-family="sans-serif" font-size="{fs_name}" font-weight="bold" fill="#e94560">{line1}</text>
+  {'<text x="350" y="' + str(y2) + '" text-anchor="middle" font-family="sans-serif" font-size="' + str(fs_name) + '" font-weight="bold" fill="#e94560">' + line2 + '</text>' if line2 else ''}
+  {'<text x="350" y="' + str((y2 if line2 else y1)+70) + '" text-anchor="middle" font-family="sans-serif" font-size="36" fill="' + bar_color + '">一致度 ' + prob + '%</text>' if prob else ''}
+  <rect x="130" y="490" width="440" height="12" rx="6" fill="#1a1a3e"/>
+  <rect x="130" y="490" width="{bar_w}" height="12" rx="6" fill="url(#bar)"/>
+  <rect x="680" y="60" width="460" height="510" rx="20" fill="#0a0f1e" fill-opacity="0.6"/>
+  <text x="910" y="160" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#555">あなたの性癖は？</text>
+  <text x="910" y="320" text-anchor="middle" font-family="sans-serif" font-size="80" fill="#e94560" opacity="0.15">?</text>
+  <text x="910" y="440" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#444">hekineitor.onrender.com</text>
+  <text x="910" y="480" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#333">質問に答えるだけで診断</text>
 </svg>'''
     return Response(svg, mimetype='image/svg+xml',
                     headers={'Cache-Control': 'public, max-age=3600'})
@@ -285,14 +304,68 @@ def fetish_detail(fetish_id):
         if url and AMAZON_ASSOCIATE_ID and 'tag=' not in url:
             url = url + f'&tag={AMAZON_ASSOCIATE_ID}'
         works.append({'title': title, 'url': url})
+    # 特徴的な質問 TOP5（P(yes)が高い質問）
+    nq = len(engine.questions)
+    char_qs = []
+    if idx < len(engine.matrix['yes']):
+        row_yes = engine.matrix['yes'][idx]
+        row_tot = engine.matrix['total'][idx]
+        scores = []
+        for qi in range(nq):
+            p = row_yes[qi] / row_tot[qi] if row_tot[qi] > 0 else 0.5
+            if abs(p - 0.5) > 0.08:
+                scores.append((p, qi))
+        scores.sort(reverse=True)
+        for p, qi in scores[:5]:
+            char_qs.append({'text': engine.questions[qi]['text'], 'p': round(p * 100)})
+    # 診断実績
+    fetish_log = engine.get_fetish_log()
+    lg = fetish_log.get(fetish_id, {'guessed': 0, 'correct': 0, 'wrong': 0})
+    acc = round(lg['correct'] / lg['guessed'] * 100) if lg['guessed'] else None
     base_url = request.host_url.rstrip('/')
     og_image = f"{base_url}/ogp?f={urllib.parse.quote(f['name'])}&p=90"
     return render_template('fetish.html',
         fetish=f,
         works=works,
         related=related,
+        char_qs=char_qs,
+        log=lg,
+        acc=acc,
         display_version=DISPLAY_VERSION,
         og_image=og_image,
+        base_url=base_url,
+    )
+
+
+@app.route('/stats')
+def stats_page():
+    fetish_log = engine.get_fetish_log()
+    s = engine.get_stats()
+    rows = []
+    for f in engine.fetishes:
+        if f['id'] >= PLAYER_FETISH_BASE_ID:
+            continue
+        lg = fetish_log.get(f['id'], {'guessed': 0, 'correct': 0, 'wrong': 0})
+        g, c, w = lg['guessed'], lg['correct'], lg['wrong']
+        acc = round(c / g * 100) if g else None
+        rows.append({'id': f['id'], 'name': f['name'], 'guessed': g, 'correct': c, 'wrong': w, 'acc': acc})
+    rows.sort(key=lambda r: -r['guessed'])
+    top10 = [r for r in rows if r['guessed'] > 0][:10]
+    total_guessed = sum(r['guessed'] for r in rows)
+    total_correct = sum(r['correct'] for r in rows)
+    overall_acc = round(total_correct / total_guessed * 100) if total_guessed else None
+    ranked = [r for r in rows if r['guessed'] >= 3 and r['acc'] is not None]
+    top_acc = sorted(ranked, key=lambda r: -r['acc'])[:5]
+    base_url = request.host_url.rstrip('/')
+    return render_template('stats.html',
+        top10=top10,
+        play_count=s['play_count'],
+        learn_count=s['learn_count'],
+        total_guessed=total_guessed,
+        overall_acc=overall_acc,
+        top_acc=top_acc,
+        total_fetishes=len([f for f in engine.fetishes if f['id'] < PLAYER_FETISH_BASE_ID]),
+        display_version=DISPLAY_VERSION,
         base_url=base_url,
     )
 

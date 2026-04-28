@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>診断統計 — へきネイター {{ display_version }}</title>
+<meta name="description" content="へきネイターの診断統計。最も多く診断された性癖ランキングや全体の正解率を公開しています。">
+<meta property="og:title" content="へきネイター 診断統計">
+<meta property="og:description" content="みんながどんな性癖と診断されたか？{{ total_fetishes }}種類の性癖の診断データを公開中。">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Hiragino Sans','Noto Sans JP',sans-serif; background:#0a0a1a; color:#eee; min-height:100vh; padding:24px 16px; }
+.wrap { max-width:520px; margin:0 auto; }
+.back { color:#555; font-size:0.8rem; text-decoration:none; display:block; margin-bottom:20px; }
+.back:hover { color:#888; }
+h1 { color:#e94560; font-size:1.3rem; margin-bottom:4px; }
+.sub { color:#555; font-size:0.8rem; margin-bottom:24px; }
+.stats-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:28px; }
+.stat-card { background:#16213e; border-radius:12px; padding:14px 10px; text-align:center; }
+.stat-val { font-size:1.6rem; font-weight:bold; color:#f5a623; }
+.stat-label { font-size:0.68rem; color:#666; margin-top:3px; }
+.section { margin-bottom:28px; }
+.section-title { color:#888; font-size:0.8rem; margin-bottom:10px; letter-spacing:0.04em; }
+.rank-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.rank-num { width:22px; font-size:0.72rem; color:#555; text-align:right; flex-shrink:0; }
+.rank-name { width:100px; font-size:0.78rem; color:#ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex-shrink:0; }
+.rank-bar-wrap { flex:1; background:#0f1a2e; border-radius:3px; height:12px; overflow:hidden; }
+.rank-bar { height:100%; border-radius:3px; }
+.rank-count { font-size:0.72rem; color:#555; min-width:28px; text-align:right; flex-shrink:0; }
+.rank-acc { font-size:0.7rem; min-width:36px; text-align:right; flex-shrink:0; }
+.acc-item { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.acc-name { flex:1; font-size:0.82rem; color:#ccc; }
+.acc-bar-wrap { width:120px; background:#0f1a2e; border-radius:3px; height:8px; overflow:hidden; flex-shrink:0; }
+.acc-bar { height:100%; border-radius:3px; background:#27ae60; }
+.acc-pct { font-size:0.78rem; color:#27ae60; min-width:40px; text-align:right; flex-shrink:0; }
+.btn-start { display:block; background:linear-gradient(135deg,#e94560,#f5a623); color:#fff; border-radius:12px; padding:14px; font-size:1rem; font-weight:bold; text-align:center; text-decoration:none; margin-top:8px; }
+.btn-start:hover { opacity:0.88; }
+.note { color:#444; font-size:0.72rem; margin-top:20px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/">← 診断に戻る</a>
+  <h1>📊 診断統計</h1>
+  <div class="sub">{{ total_fetishes }}種類の性癖 / 累計データ</div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-val">{{ play_count }}</div>
+      <div class="stat-label">総プレイ数</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">{{ total_guessed }}</div>
+      <div class="stat-label">フィードバック数</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">{% if overall_acc %}{{ overall_acc }}%{% else %}—{% endif %}</div>
+      <div class="stat-label">全体正解率</div>
+    </div>
+  </div>
+
+  {% if top10 %}
+  <div class="section">
+    <div class="section-title">🏆 最も多く診断された性癖 TOP{{ top10|length }}</div>
+    {% set max_g = [top10[0].guessed, 1]|max %}
+    {% for r in top10 %}
+    <a href="/fetish/{{ r.id }}" style="text-decoration:none;">
+    <div class="rank-row">
+      <div class="rank-num">{{ loop.index }}</div>
+      <div class="rank-name" title="{{ r.name }}">{{ r.name }}</div>
+      <div class="rank-bar-wrap">
+        <div class="rank-bar" style="width:{{ [[((r.guessed/max_g)*100)|int,2]|max,100]|min }}%;background:{% if loop.index==1 %}linear-gradient(90deg,#e94560,#f5a623){% elif loop.index<=3 %}#e94560{% else %}#1a4a8a{% endif %};"></div>
+      </div>
+      <div class="rank-count">{{ r.guessed }}</div>
+      <div class="rank-acc" style="color:{% if r.acc is not none and r.acc>=60 %}#27ae60{% elif r.acc is not none %}#e74c3c{% else %}#444{% endif %};">{% if r.acc is not none %}{{ r.acc }}%{% else %}—{% endif %}</div>
+    </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if top_acc %}
+  <div class="section">
+    <div class="section-title">✓ 正解率が高い性癖 TOP{{ top_acc|length }}（3回以上の診断）</div>
+    {% for r in top_acc %}
+    <a href="/fetish/{{ r.id }}" style="text-decoration:none;">
+    <div class="acc-item">
+      <div class="acc-name">{{ r.name }}</div>
+      <div class="acc-bar-wrap"><div class="acc-bar" style="width:{{ r.acc }}%;"></div></div>
+      <div class="acc-pct">{{ r.acc }}%</div>
+    </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <a class="btn-start" href="/">自分の性癖を診断する →</a>
+  <div class="note">へきネイター {{ display_version }} / データはフィードバックが蓄積されるにつれ精度が上がります</div>
+</div>
+</body>
+</html>

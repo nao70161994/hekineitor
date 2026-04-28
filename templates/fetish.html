@@ -87,6 +87,39 @@ body {
   </div>
   {% endif %}
 
+  {% if char_qs %}
+  <div class="section-title">🎯 この性癖で重要な質問</div>
+  <div style="margin-bottom:20px;">
+    {% for q in char_qs %}
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <div style="flex:1;font-size:0.8rem;color:#aaa;">{{ q.text }}</div>
+      <div style="width:80px;background:#0f1a2e;border-radius:3px;height:8px;overflow:hidden;flex-shrink:0;">
+        <div style="height:100%;border-radius:3px;background:linear-gradient(90deg,#e94560,#f5a623);width:{{ q.p }}%;"></div>
+      </div>
+      <div style="font-size:0.7rem;color:#f5a623;min-width:34px;text-align:right;">{{ q.p }}%</div>
+    </div>
+    {% endfor %}
+    <div style="font-size:0.68rem;color:#444;margin-top:4px;">P(はい) = この性癖でその質問に「はい」と答える推定確率</div>
+  </div>
+  {% endif %}
+
+  {% if log and log.guessed > 0 %}
+  <div style="display:flex;gap:12px;margin-bottom:20px;padding:10px 14px;background:#0d1b2a;border-radius:8px;">
+    <div style="text-align:center;flex:1;">
+      <div style="font-size:1.1rem;font-weight:bold;color:#aaa;">{{ log.guessed }}</div>
+      <div style="font-size:0.65rem;color:#555;">診断回数</div>
+    </div>
+    <div style="text-align:center;flex:1;">
+      <div style="font-size:1.1rem;font-weight:bold;color:#27ae60;">{{ log.correct }}</div>
+      <div style="font-size:0.65rem;color:#555;">正解FB</div>
+    </div>
+    <div style="text-align:center;flex:1;">
+      <div style="font-size:1.1rem;font-weight:bold;color:{% if acc and acc>=60 %}#27ae60{% elif acc %}#e74c3c{% else %}#aaa{% endif %};">{% if acc %}{{ acc }}%{% else %}—{% endif %}</div>
+      <div style="font-size:0.65rem;color:#555;">正解率</div>
+    </div>
+  </div>
+  {% endif %}
+
   {% if related %}
   <div class="section-title">🔗 関連する性癖</div>
   <div class="related-list">

@@ -9,7 +9,7 @@
 - `templates/index.html` — シングルページUI（PWA対応）
 - `templates/admin.html` — 管理画面（学習データ量・質問無効化・診断ログ・相関分析・ヒートマップ・統合）
 - `templates/result_share.html` — OGPシェアカード（/r ルート）
-- `data/` — questions.json（102問）/ fetishes.json（108件シード）/ compound_works.json（複合作品54ペア）/ matrix.json・learned_priors.json（ローカル用・gitignore済み）
+- `data/` — questions.json（105問）/ fetishes.json（111件シード）/ compound_works.json（複合作品54ペア）/ matrix.json・learned_priors.json（ローカル用・gitignore済み）
 - `templates/offline.html` — PWAオフラインフォールバックページ（/offline ルート）
 - `run_coverage.py` — `python run_coverage.py` でカバレッジ計測（coverage.py必須）
 
@@ -223,7 +223,7 @@ gunicorn app:app --workers 2 --threads 4
 
 - `app.py` の `DISPLAY_VERSION` でタイトルに表示するバージョン番号を管理
 - ブラウザタブに「へきネイター vX.X.X」と表示される
-- `DISPLAY_VERSION` は現在 `v1.8.0`
+- `DISPLAY_VERSION` は現在 `v1.9.0`
 
 ## GitHub Actions 自動化
 
