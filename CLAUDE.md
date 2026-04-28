@@ -223,7 +223,7 @@ gunicorn app:app --workers 2 --threads 4
 
 - `app.py` の `DISPLAY_VERSION` でタイトルに表示するバージョン番号を管理
 - ブラウザタブに「へきネイター vX.X.X」と表示される
-- `DISPLAY_VERSION` は現在 `v1.6.0`
+- `DISPLAY_VERSION` は現在 `v1.7.0`
 
 ## GitHub Actions 自動化
 
