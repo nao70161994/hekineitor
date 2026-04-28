@@ -139,7 +139,7 @@ def _app_version():
     return h.hexdigest()[:8]
 
 APP_VERSION       = _app_version()
-DISPLAY_VERSION   = 'v1.7.0'
+DISPLAY_VERSION   = 'v1.8.0'
 AMAZON_ASSOCIATE_ID = os.environ.get('AMAZON_ASSOCIATE_ID', '')
 engine = Engine()
 
@@ -259,6 +259,69 @@ def sw():
 @app.route('/offline')
 def offline():
     return render_template('offline.html')
+
+
+@app.route('/fetish/<int:fetish_id>')
+def fetish_detail(fetish_id):
+    idx = engine.index_of(fetish_id)
+    if idx is None:
+        return _ERROR_PAGE.format(
+            title='見つかりません', emoji='🔍', code='404',
+            message='その性癖は存在しないか、削除されました。'
+        ), 404
+    f = engine.fetishes[idx]
+    # 関連性癖
+    from engine import FETISH_RELATIONS, work_title
+    related = []
+    for rid in FETISH_RELATIONS.get(fetish_id, []):
+        ri = engine.index_of(rid)
+        if ri is not None:
+            related.append({'id': rid, 'name': engine.fetishes[ri]['name']})
+    # 作品リスト（アフィリエイトリンク付き）
+    works = []
+    for w in f.get('works', []):
+        title = work_title(w)
+        url = w.get('url', '') if isinstance(w, dict) else ''
+        if url and AMAZON_ASSOCIATE_ID and 'tag=' not in url:
+            url = url + f'&tag={AMAZON_ASSOCIATE_ID}'
+        works.append({'title': title, 'url': url})
+    base_url = request.host_url.rstrip('/')
+    og_image = f"{base_url}/ogp?f={urllib.parse.quote(f['name'])}&p=90"
+    return render_template('fetish.html',
+        fetish=f,
+        works=works,
+        related=related,
+        display_version=DISPLAY_VERSION,
+        og_image=og_image,
+        base_url=base_url,
+    )
+
+
+@app.route('/robots.txt')
+def robots_txt():
+    host = request.host_url.rstrip('/')
+    txt = f"""User-agent: *
+Disallow: /admin
+Disallow: /api/
+Allow: /
+Sitemap: {host}/sitemap.xml
+"""
+    return Response(txt, mimetype='text/plain')
+
+
+@app.route('/sitemap.xml')
+def sitemap_xml():
+    host = request.host_url.rstrip('/')
+    urls = [host + '/', host + '/r']
+    for f in engine.fetishes:
+        if f['id'] < 10000:
+            urls.append(f"{host}/fetish/{f['id']}")
+    lines = ['<?xml version="1.0" encoding="UTF-8"?>',
+             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for u in urls:
+        lines.append(f'  <url><loc>{u}</loc></url>')
+    lines.append('</urlset>')
+    return Response('\n'.join(lines), mimetype='application/xml')
 
 
 @app.route('/api/start', methods=['POST'])
@@ -1134,6 +1197,15 @@ def admin_fetish_history(fetish_id):
     days = request.args.get('days', 30, type=int)
     history = engine.get_fetish_history(fetish_id, days=min(days, 90))
     return jsonify(history)
+
+
+@app.route('/api/admin/recent_fetish_ranking', methods=['GET'])
+@_require_admin
+def admin_recent_fetish_ranking():
+    days = int(request.args.get('days', 7))
+    top_n = int(request.args.get('top_n', 10))
+    ranking = engine.get_recent_fetish_ranking(days=days, top_n=top_n)
+    return jsonify({'ranking': ranking, 'days': days})
 
 
 @app.route('/api/admin/export_stats_history', methods=['GET'])

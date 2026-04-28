@@ -133,6 +133,48 @@
     <span><span style="display:inline-block;width:10px;height:10px;background:#e74c3c;border-radius:2px;margin-right:3px;"></span>外れFB</span>
   </div>
 </div>
+
+<div style="margin-bottom:24px;">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+    <p style="color:#888;font-size:0.8rem;flex:1;" id="recent-rank-label">最近の性癖ランキング（7日）</p>
+    <button onclick="loadRecentRanking(7)"  id="rank-btn-7"  style="font-size:0.72rem;padding:2px 8px;background:#e94560;border:1px solid #e94560;color:#fff;border-radius:4px;cursor:pointer;">7日</button>
+    <button onclick="loadRecentRanking(30)" id="rank-btn-30" style="font-size:0.72rem;padding:2px 8px;background:#0f3460;border:1px solid #444;color:#aaa;border-radius:4px;cursor:pointer;">30日</button>
+  </div>
+  <div id="recent-rank-chart" style="min-height:24px;"></div>
+</div>
+<script>
+async function loadRecentRanking(days) {
+  document.getElementById('rank-btn-7').style.background  = days===7  ? '#e94560' : '#0f3460';
+  document.getElementById('rank-btn-7').style.borderColor = days===7  ? '#e94560' : '#444';
+  document.getElementById('rank-btn-7').style.color       = days===7  ? '#fff'    : '#aaa';
+  document.getElementById('rank-btn-30').style.background  = days===30 ? '#e94560' : '#0f3460';
+  document.getElementById('rank-btn-30').style.borderColor = days===30 ? '#e94560' : '#444';
+  document.getElementById('rank-btn-30').style.color       = days===30 ? '#fff'    : '#aaa';
+  document.getElementById('recent-rank-label').textContent = `最近の性癖ランキング（${days}日）`;
+  const resp = await fetch(`/api/admin/recent_fetish_ranking?days=${days}&top_n=10`);
+  const json = await resp.json();
+  const el = document.getElementById('recent-rank-chart');
+  const rows = json.ranking || [];
+  if (!rows.length) { el.innerHTML = '<p style="color:#555;font-size:0.78rem;">データなし（フィードバックが蓄積されると表示されます）</p>'; return; }
+  const maxT = Math.max(...rows.map(r => r.total), 1);
+  el.innerHTML = rows.map(r => {
+    const acc = r.acc != null ? r.acc : null;
+    const accStr = acc != null ? `<span style="color:${acc>=60?'#27ae60':'#e74c3c'};min-width:34px;text-align:right;">${acc}%</span>` : '<span style="color:#555;min-width:34px;text-align:right;">—</span>';
+    const cw = Math.max(Math.round(r.correct / maxT * 160), 2);
+    const ww = Math.max(Math.round(r.wrong   / maxT * 160), r.wrong > 0 ? 2 : 0);
+    return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+      <div style="width:90px;font-size:0.72rem;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;" title="${r.fetish_name}">${r.fetish_name}</div>
+      <div style="display:flex;height:10px;border-radius:3px;overflow:hidden;flex:1;max-width:200px;background:#111;">
+        <div style="width:${cw}px;background:#27ae60;"></div>
+        <div style="width:${ww}px;background:#e74c3c;"></div>
+      </div>
+      <div style="font-size:0.7rem;color:#666;min-width:22px;">${r.total}</div>
+      ${accStr}
+    </div>`;
+  }).join('');
+}
+loadRecentRanking(7);
+</script>
 <script>
 const _statsHistory = {{ stats_history | tojson }};
 function renderStatsChart(days) {

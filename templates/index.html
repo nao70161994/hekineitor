@@ -9,7 +9,14 @@
 <meta name="apple-mobile-web-app-title" content="へきネイター">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/static/icon-192.png">
-<title>へきネイター {{ display_version }}</title>
+<title>へきネイター {{ display_version }} — 性癖診断</title>
+<meta name="description" content="質問に答えるだけであなたの性癖を当てる！Akinator風の性癖診断アプリ「へきネイター」。108種類の性癖から最もマッチするものを推定します。">
+<meta property="og:title" content="へきネイター — 性癖診断">
+<meta property="og:description" content="質問に答えるだけであなたの性癖を当てる！108種類の性癖から最もマッチするものを推定します。">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="へきネイター — 性癖診断">
+<meta name="twitter:description" content="質問に答えるだけであなたの性癖を当てるAkinator風診断アプリ。">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -168,7 +175,15 @@
     font-size: 0.75rem;
     padding: 4px 10px;
     border-radius: 12px;
+    text-decoration: none;
+    display: inline-block;
   }
+  .related-tag:hover { background: #1a4a8a; color: #eee; }
+  .fetish-detail-link {
+    display: inline-block; font-size: 0.72rem; color: #555;
+    text-decoration: none; margin-top: 4px;
+  }
+  .fetish-detail-link:hover { color: #888; }
   .confirm-label {
     text-align: center;
     font-size: 0.95rem;
@@ -912,6 +927,18 @@ function showGuess(data) {
   }
   _diagnosedName = lastFetishName;
   document.getElementById('result-desc').textContent = data.fetish_desc;
+  // 詳細ページリンク
+  const existingLink = document.getElementById('fetish-detail-link');
+  if (existingLink) existingLink.remove();
+  if (data.fetish_id != null) {
+    const dl = document.createElement('a');
+    dl.id = 'fetish-detail-link';
+    dl.className = 'fetish-detail-link';
+    dl.href = `/fetish/${data.fetish_id}`;
+    dl.target = '_blank';
+    dl.textContent = '📖 この性癖の詳細ページ';
+    document.getElementById('result-desc').after(dl);
+  }
   // 自信度に応じて結果カードの枠線を変える
   const card = document.querySelector('#result-screen .card');
   if (card) {
@@ -991,7 +1018,7 @@ function showGuess(data) {
   const relatedTags    = document.getElementById('related-tags');
   if (data.related && data.related.length > 0) {
     relatedTags.innerHTML = data.related.map(r =>
-      `<span class="related-tag">${r.fetish_name}</span>`
+      `<a class="related-tag" href="/fetish/${r.fetish_id}" target="_blank">${r.fetish_name}</a>`
     ).join('');
     relatedSection.classList.remove('hidden');
   } else {

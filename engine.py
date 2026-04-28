@@ -25,6 +25,7 @@ QUESTION_AXES = [
     ('personality', range(63, 87)),   # 63-86: パーソナリティ軸（24問）
     ('abstract',    range(87, 93)),   # 87-92: 追加抽象軸（6問）
     ('content',     range(93, 98)),   # 93-97: 追加コンテンツ軸（5問）
+    ('content',     range(98, 102)),  # 98-101: 追加コンテンツ軸（4問）
 ]
 
 _conn_pool      = None
@@ -284,6 +285,25 @@ DOMAIN_PRIORS = [
     (102,5,0.7),(102,36,0.75),(102,80,0.8),(102,0,0.6),(102,61,0.6),
     # スパイ・諜報(103): 秘密・力関係・命がけ・禁断・対立から
     (103,37,0.9),(103,0,0.7),(103,58,0.75),(103,1,0.65),(103,20,0.45),
+
+    # ── 追加コンテンツ軸（Q98-101）の事前確率 ───────────────────────────────
+    # Q98「偽装・契約恋愛」
+    (104,98,0.95),(97,98,0.6),(65,98,0.5),(68,98,0.45),
+    # Q99「謎解き・ミステリー」
+    (105,99,0.95),(85,99,0.5),(103,99,0.45),(37,99,0.4),
+    # Q100「外見ギャップ・不良」
+    (106,100,0.95),(23,100,0.6),(95,100,0.55),(84,100,0.5),
+    # Q101「社畜・仕事人間」
+    (107,101,0.95),(42,101,0.65),(83,101,0.55),(98,101,0.5),
+
+    # 偽装恋人・契約婚(104): 秘密・禁断・甘い・精神的繋がり・日常
+    (104,1,0.75),(104,37,0.8),(104,5,0.7),(104,61,0.75),(104,18,0.7),(104,63,0.7),
+    # 探偵・謎解き恋愛(105): 秘密・精神的繋がり・命がけ・対立から・禁断
+    (105,37,0.8),(105,61,0.75),(105,58,0.6),(105,20,0.55),(105,1,0.55),
+    # ヤンキー・不良(106): 対立から・力関係・甘い・日常・格好いい
+    (106,20,0.8),(106,0,0.65),(106,5,0.65),(106,18,0.7),(106,68,0.75),(106,35,0.6),
+    # 社畜・仕事人間(107): 日常・精神的繋がり・甘い・甘えさせる・格好いい
+    (107,18,0.85),(107,61,0.7),(107,5,0.6),(107,84,0.75),(107,68,0.7),
 ]
 
 PSEUDO = 20
@@ -383,6 +403,10 @@ FETISH_RELATIONS = {
     101: [60, 58, 66], # タイムループ → 時間停止・前世・記憶喪失
     102: [91, 17, 87], # 拾われ・保護者恋愛 → 過保護・溺愛・軍人騎士
     103: [85, 37, 92], # スパイ・諜報 → 腹黒・秘密・不倫
+    104: [97, 65, 68], # 偽装恋人・契約婚 → 政略結婚・同棲・格差婚
+    105: [85, 103, 37], # 探偵・謎解き → 腹黒・スパイ・秘密
+    106: [23, 95, 84], # ヤンキー・不良 → ツンデレ・年下俺様・ライバル
+    107: [42, 83, 65], # 社畜・仕事人間 → 職場恋愛・御曹司・同棲
 }
 
 # 各性癖の相対的な出現頻度（事前確率の重み）。未登録は 1.0
@@ -401,8 +425,9 @@ FETISH_PRIOR_WEIGHTS = {
     # 女性向け新規（83-98）
     83: 2.0, 84: 1.8, 85: 2.0, 86: 1.5, 87: 1.5, 88: 1.3, 89: 1.5, 90: 1.3,
     91: 1.8, 92: 1.5, 93: 2.0, 94: 1.5, 95: 1.8, 96: 1.3, 97: 1.8, 98: 1.5,
-    # 新規追加（99-103）
+    # 新規追加（99-107）
     99: 2.0, 100: 1.8, 101: 1.5, 102: 1.5, 103: 1.5,
+    104: 2.0, 105: 1.5, 106: 1.8, 107: 1.5,
 }
 
 # 質問軸ごとの間接性ボーナス（情報利得が同程度なら間接的な軸を優先）
@@ -936,6 +961,62 @@ class Engine:
                  'learn':   raw.get(d, {}).get('learn',   0),
                  'correct': raw.get(d, {}).get('correct', 0),
                  'wrong':   raw.get(d, {}).get('wrong',   0)} for d in date_range]
+
+    def get_recent_fetish_ranking(self, days=7, top_n=10):
+        """過去N日間に正解/外れフィードバックが多かった性癖TOP n件を返す。"""
+        from datetime import date as _date, timedelta
+        today = _date.today()
+        since = (today - timedelta(days=days - 1)).isoformat()
+        totals = {}  # fetish_id -> {'correct': int, 'wrong': int}
+        if _use_db():
+            conn = _get_conn()
+            try:
+                cur = conn.cursor()
+                cur.execute(
+                    "SELECT key, SUM(value) FROM stats_history WHERE date >= %s AND (key LIKE 'f_correct_%%' OR key LIKE 'f_wrong_%%') GROUP BY key",
+                    (since,)
+                )
+                for key, val in cur.fetchall():
+                    if key.startswith('f_correct_'):
+                        fid = int(key[len('f_correct_'):])
+                        totals.setdefault(fid, {'correct': 0, 'wrong': 0})['correct'] += int(val or 0)
+                    elif key.startswith('f_wrong_'):
+                        fid = int(key[len('f_wrong_'):])
+                        totals.setdefault(fid, {'correct': 0, 'wrong': 0})['wrong'] += int(val or 0)
+            finally:
+                _put_conn(conn)
+        else:
+            path = os.path.join(DATA_DIR, 'stats_history.json')
+            try:
+                with open(path, encoding='utf-8') as f:
+                    raw = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                raw = {}
+            date_range = [(today - timedelta(days=i)).isoformat() for i in range(days - 1, -1, -1)]
+            for d in date_range:
+                for key, val in raw.get(d, {}).items():
+                    if key.startswith('f_correct_'):
+                        fid = int(key[len('f_correct_'):])
+                        totals.setdefault(fid, {'correct': 0, 'wrong': 0})['correct'] += int(val or 0)
+                    elif key.startswith('f_wrong_'):
+                        fid = int(key[len('f_wrong_'):])
+                        totals.setdefault(fid, {'correct': 0, 'wrong': 0})['wrong'] += int(val or 0)
+        id_to_name = {f['id']: f['name'] for f in self.fetishes}
+        results = []
+        for fid, counts in totals.items():
+            total = counts['correct'] + counts['wrong']
+            if total == 0:
+                continue
+            results.append({
+                'fetish_id': fid,
+                'fetish_name': id_to_name.get(fid, f'ID {fid}'),
+                'correct': counts['correct'],
+                'wrong': counts['wrong'],
+                'total': total,
+                'acc': round(counts['correct'] / total * 100) if total > 0 else None,
+            })
+        results.sort(key=lambda x: x['total'], reverse=True)
+        return results[:top_n]
 
     def get_fetish_history(self, fetish_db_id, days=30):
         """指定性癖の日別正解/外れ件数を [{date, correct, wrong}, ...] で返す。"""
