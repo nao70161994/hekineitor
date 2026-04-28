@@ -1,5 +1,5 @@
 const CACHE = 'hekineitor-{{ version }}';
-const STATIC = ['/', '/manifest.json', '/static/icon-192.png', '/static/icon-512.png'];
+const STATIC = ['/', '/manifest.json', '/static/icon-192.png', '/static/icon-512.png', '/offline'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
@@ -29,7 +29,7 @@ self.addEventListener('fetch', e => {
         const clone = res.clone();
         caches.open(CACHE).then(c => c.put(e.request, clone));
         return res;
-      }).catch(() => caches.match('/'));
+      }).catch(() => caches.match('/offline'));
     })
   );
 });

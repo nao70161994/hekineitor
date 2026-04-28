@@ -1,6 +1,7 @@
 import os
 import re
 import hmac
+import urllib.parse
 import hashlib
 import functools
 import unicodedata
@@ -138,7 +139,7 @@ def _app_version():
     return h.hexdigest()[:8]
 
 APP_VERSION       = _app_version()
-DISPLAY_VERSION   = 'v1.5.0'
+DISPLAY_VERSION   = 'v1.6.0'
 AMAZON_ASSOCIATE_ID = os.environ.get('AMAZON_ASSOCIATE_ID', '')
 engine = Engine()
 
@@ -192,9 +193,51 @@ def result_share():
     name = request.args.get('f', '')[:60]
     prob = request.args.get('p', '')[:5]
     desc = request.args.get('d', '')[:120]
+    base_url = request.host_url.rstrip('/')
+    og_image = f"{base_url}/ogp?f={urllib.parse.quote(name)}&p={prob}"
     return render_template('result_share.html',
                            fetish_name=name, probability=prob, desc=desc,
-                           display_version=DISPLAY_VERSION)
+                           display_version=DISPLAY_VERSION,
+                           og_image=og_image)
+
+
+@app.route('/ogp')
+def ogp_image():
+    """診断結果のOGP画像をSVGで動的生成する。"""
+    name = request.args.get('f', '???')[:30]
+    prob = request.args.get('p', '')[:5]
+    bar_w = max(4, min(int(float(prob) * 2.4), 240)) if prob else 0
+    # 長い名前は折り返し（15文字で改行）
+    if len(name) > 15:
+        line1 = name[:15]
+        line2 = name[15:30]
+    else:
+        line1 = name
+        line2 = ''
+    y_name = 110 if line2 else 120
+    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="480" height="252" viewBox="0 0 480 252">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0a0a1a"/>
+      <stop offset="100%" stop-color="#16213e"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#e94560"/>
+      <stop offset="100%" stop-color="#f5a623"/>
+    </linearGradient>
+  </defs>
+  <rect width="480" height="252" fill="url(#bg)"/>
+  <rect x="0" y="0" width="480" height="4" fill="url(#bar)"/>
+  <text x="240" y="44" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#888">🔮 へきネイター診断結果</text>
+  <text x="240" y="{y_name}" text-anchor="middle" font-family="sans-serif" font-size="32" font-weight="bold" fill="#e94560">{line1}</text>
+  {'<text x="240" y="' + str(y_name+38) + '" text-anchor="middle" font-family="sans-serif" font-size="32" font-weight="bold" fill="#e94560">' + line2 + '</text>' if line2 else ''}
+  <text x="240" y="172" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#f5a623">一致度 {prob}%</text>
+  <rect x="120" y="188" width="240" height="8" rx="4" fill="#1a1a3e"/>
+  <rect x="120" y="188" width="{bar_w}" height="8" rx="4" fill="url(#bar)"/>
+  <text x="240" y="228" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#555">あなたの性癖を診断 → hekineitor.onrender.com</text>
+</svg>'''
+    return Response(svg, mimetype='image/svg+xml',
+                    headers={'Cache-Control': 'public, max-age=3600'})
 
 
 @app.route('/manifest.json')
@@ -211,6 +254,11 @@ def sw():
         'Content-Type': 'application/javascript',
         'Cache-Control': 'no-cache',
     }
+
+
+@app.route('/offline')
+def offline():
+    return render_template('offline.html')
 
 
 @app.route('/api/start', methods=['POST'])

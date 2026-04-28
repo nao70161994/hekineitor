@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>へきネイター - オフライン</title>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:#0a0a1a; color:#eee; font-family:'Hiragino Sans','Noto Sans JP',sans-serif;
+       display:flex; align-items:center; justify-content:center; min-height:100vh; text-align:center; padding:24px; }
+.icon { font-size:4rem; margin-bottom:16px; }
+h1 { font-size:1.4rem; color:#e94560; margin-bottom:8px; }
+p { color:#888; font-size:0.9rem; line-height:1.7; margin-bottom:24px; }
+button { background:linear-gradient(135deg,#e94560,#f5a623); color:#fff; border:none;
+         border-radius:10px; padding:12px 28px; font-size:1rem; font-weight:bold; cursor:pointer; }
+button:hover { opacity:0.85; }
+</style>
+</head><body>
+<div>
+  <div class="icon">📡</div>
+  <h1>オフラインです</h1>
+  <p>インターネット接続がありません。<br>接続を確認してからもう一度お試しください。</p>
+  <button onclick="location.reload()">再試行</button>
+</div>
+</body></html>
