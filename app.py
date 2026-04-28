@@ -1114,5 +1114,48 @@ def admin_fetish_similarity():
     return jsonify({'status': 'ok', **result})
 
 
+_ERROR_PAGE = '''<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>へきネイター - {title}</title>
+<style>
+body{{margin:0;background:#0a0a1a;color:#eee;font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;}}
+h1{{font-size:3rem;color:#e94560;margin-bottom:8px;}}
+p{{color:#888;margin-bottom:24px;}}
+a{{color:#7af0a0;text-decoration:none;border:1px solid #7af0a0;padding:8px 20px;border-radius:8px;}}
+a:hover{{background:#7af0a0;color:#0a0a1a;}}
+</style></head><body>
+<div>
+<div style="font-size:3rem;">{emoji}</div>
+<h1>{code}</h1>
+<p>{message}</p>
+<a href="/">トップに戻る</a>
+</div></body></html>'''
+
+@app.errorhandler(404)
+def not_found(e):
+    return _ERROR_PAGE.format(
+        title='ページが見つかりません',
+        emoji='🔮', code='404',
+        message='ページが見つかりません。'
+    ), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    return _ERROR_PAGE.format(
+        title='エラーが発生しました',
+        emoji='💀', code='500',
+        message='サーバーエラーが発生しました。しばらくしてからお試しください。'
+    ), 500
+
+@app.errorhandler(503)
+def service_unavailable(e):
+    return _ERROR_PAGE.format(
+        title='サービス停止中',
+        emoji='🛠️', code='503',
+        message='ただいまメンテナンス中です。しばらくしてからお試しください。'
+    ), 503
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

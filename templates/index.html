@@ -1356,14 +1356,36 @@ async function addFetishDone() {
   show('done-screen');
 }
 
+function _buildShareText(name, prob, guessData) {
+  const compound = guessData.compound && guessData.compound.length > 0;
+  const p = parseFloat(prob) || 0;
+
+  // 確率・複合に応じたバリエーション
+  let opening;
+  if (compound) {
+    const names = [name]; // _diagnosedName は既に「A × B」形式
+    opening = `へきネイターで診断したら「${name}」という複合性癖でした…`;
+  } else if (p >= 90) {
+    opening = `へきネイターに性癖を完全に見破られました。「${name}」（一致度${prob}%）`;
+  } else if (p >= 75) {
+    opening = `へきネイターで診断したら「${name}」でした！（一致度${prob}%）`;
+  } else if (p >= 50) {
+    opening = `へきネイターの診断結果は「${name}」…当たってる気がする（一致度${prob}%）`;
+  } else {
+    opening = `へきネイターの診断は「${name}」でした。当たってる？（一致度${prob}%）`;
+  }
+  return opening;
+}
+
 function shareResult() {
-  const origin  = window.location.origin;
+  const origin    = window.location.origin;
   const guessData = window._guessData || {};
   const name = _diagnosedName;
   const prob = guessData.probability || '';
   const desc = (guessData.fetish_desc || '').slice(0, 80);
   const shareUrl = `${origin}/r?f=${encodeURIComponent(name)}&p=${prob}&d=${encodeURIComponent(desc)}`;
-  const text = `へきネイターで診断したら「${name}」でした！（一致度${prob}%）\n${shareUrl} #へきネイター`;
+  const opening  = _buildShareText(name, prob, guessData);
+  const text = `${opening}\n${shareUrl} #へきネイター`;
   if (navigator.share) {
     navigator.share({title: `私の性癖は「${name}」`, text, url: shareUrl}).catch(() => {});
     return;
