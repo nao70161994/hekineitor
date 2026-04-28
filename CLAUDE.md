@@ -37,7 +37,7 @@
 - **複数worker対応**：DB使用時に `posteriors()` が5秒TTLでmatrixをリロード（`_MATRIX_RELOAD_INTERVAL`）
 - **質問の無効化**：`disabled_questions` セットに含まれる質問は `best_question()` でスキップ。DB/JSONに永続化
 - `learn(strength_factor)` で正解フィードバックをmatrixに反映（正解性癖を強化・他を弱化）
-- `learn_negative()` で不正解フィードバック（対象性癖のみ弱く負学習、0.2×強度）
+- `learn_negative(strength_factor=1.0)` で不正解フィードバック（対象性癖のみ弱く負学習、0.2×strength_factor×強度）
 - `learn_cooccurrence(idx_a, idx_b, factor)` で共起した2性癖を相互強化（複合正解時に呼ぶ）
 - `_learn_silent()` はlearn_countをカウントしない内部用（初期ブースト専用）
 - 0.5/-0.5（どちらかといえば）の回答も強さに比例して学習
@@ -100,6 +100,8 @@
 - 複合正解（複数のIDが○）時は `learn_cooccurrence()` で共起パターンを強化
 - `/api/confirm` の `add_only: true` フラグ：正解追加目的のリスト取得（wrong_db_ids を設定しない）
 - 正解候補リストは事後確率上位**20件**・診断済み性癖を除外
+- `/api/confirm`（wrong時）はセッションに `wrong_db_ids`（元診断ID）と `candidate_db_ids`（提示した候補20件のID）を保存
+- `/api/finalize_added` で候補リストに提示されたが○をつけなかった性癖にも弱い負学習を適用（`learn_negative` の `strength_factor = factor × 0.3 / √n`。nは非選択候補件数）
 
 ## セッション管理
 

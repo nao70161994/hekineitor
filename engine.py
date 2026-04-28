@@ -1767,9 +1767,9 @@ class Engine:
 
         self._save_async(all_updates, idx_to_db_id)
 
-    def learn_negative(self, answers, fetish_idx):
+    def learn_negative(self, answers, fetish_idx, strength_factor=1.0):
         """fetish_idx が外れだった弱いネガティブ更新。learn() の約1/5の強度。"""
-        neg_str      = 0.2
+        neg_str      = 0.2 * strength_factor
         all_updates  = {}
         idx_to_db_id = {}
         with self._lock:

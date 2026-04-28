@@ -139,7 +139,7 @@ def _app_version():
     return h.hexdigest()[:8]
 
 APP_VERSION       = _app_version()
-DISPLAY_VERSION   = 'v1.9.0'
+DISPLAY_VERSION   = 'v1.9.1'
 AMAZON_ASSOCIATE_ID = os.environ.get('AMAZON_ASSOCIATE_ID', '')
 engine = Engine()
 
@@ -814,8 +814,10 @@ def confirm():
         # add_only=True は正解追加目的のリスト取得なので wrong_db_ids を設定しない
         if not data.get('add_only', False):
             session['wrong_db_ids'] = list(excluded_db_ids)
+            session['candidate_db_ids'] = [f['id'] for f in sorted_fetishes]
         else:
             session['wrong_db_ids'] = []
+            session['candidate_db_ids'] = []
         return jsonify({'status': 'wrong', 'fetishes': sorted_fetishes})
 
 
@@ -910,6 +912,15 @@ def finalize_added():
             w_idx = engine.index_of(wid)
             if w_idx is not None:
                 engine.learn_negative(answers, w_idx)
+    # 候補リストに表示されたが選ばれなかった性癖に弱い負学習（wrong_db_ids より弱め）
+    candidate_db_ids = session.pop('candidate_db_ids', [])
+    already_learned = set(wrong_db_ids) | correct_db_ids
+    unselected = [cid for cid in candidate_db_ids if cid not in already_learned]
+    n_unsel = max(1, len(unselected))
+    for cid in unselected:
+        c_idx = engine.index_of(cid)
+        if c_idx is not None:
+            engine.learn_negative(answers, c_idx, strength_factor=factor * 0.3 / (n_unsel ** 0.5))
     return jsonify({'status': 'done'})
 
 
