@@ -23,13 +23,73 @@ jobs:
           fi
           echo "バックアップサイズ: $(wc -c < data/matrix_backup.json) bytes"
 
+      - name: Validate backup payload
+        env:
+          MATRIX_BACKUP_MAX_AGE_HOURS: 48
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+
+          with open('data/matrix_backup.json', encoding='utf-8') as f:
+              payload = json.load(f)
+          if not isinstance(payload, dict):
+              raise SystemExit('matrix_backup.json must be a JSON object')
+          matrix_rows = payload.get('matrix_rows')
+          if not isinstance(matrix_rows, list) or not matrix_rows:
+              raise SystemExit('matrix_backup.json must include non-empty matrix_rows')
+          fetishes = payload.get('fetishes')
+          if not isinstance(fetishes, list) or not fetishes:
+              raise SystemExit('matrix_backup.json must include non-empty fetishes')
+          with open('data/questions.json', encoding='utf-8') as f:
+              questions = json.load(f)
+          if not isinstance(questions, list) or not questions:
+              raise SystemExit('data/questions.json must include non-empty questions')
+          expected_rows = len(fetishes) * len(questions)
+          if len(matrix_rows) != expected_rows:
+              raise SystemExit(
+                  f'matrix_backup.json row count mismatch: expected {expected_rows}, got {len(matrix_rows)}'
+              )
+
+          metadata = payload.get('metadata') if isinstance(payload.get('metadata'), dict) else {}
+          exported_at = payload.get('exported_at') or metadata.get('exported_at')
+          if not exported_at:
+              raise SystemExit('matrix_backup.json must include exported_at metadata')
+          try:
+              exported = datetime.fromisoformat(exported_at.replace('Z', '+00:00'))
+          except ValueError as exc:
+              raise SystemExit(f'exported_at must be ISO 8601: {exc}') from exc
+          if exported.tzinfo is None:
+              exported = exported.replace(tzinfo=timezone.utc)
+          age_seconds = (datetime.now(timezone.utc) - exported.astimezone(timezone.utc)).total_seconds()
+          max_age_seconds = int(os.environ.get('MATRIX_BACKUP_MAX_AGE_HOURS', '48')) * 60 * 60
+          if age_seconds < 0:
+              raise SystemExit('matrix_backup.json exported_at is in the future')
+          if age_seconds > max_age_seconds:
+              raise SystemExit(f'matrix_backup.json is stale: exported_at={exported.isoformat()}')
+
+          print(f"matrix_rows: {len(matrix_rows)}")
+          PY
+
       - name: Import matrix to Render
         run: |
+          python - <<'PY'
+          import json
+
+          with open('data/matrix_backup.json', encoding='utf-8') as f:
+              payload = json.load(f)
+          if not isinstance(payload, dict):
+              raise SystemExit('matrix_backup.json must be a JSON object')
+          payload['confirm_text'] = 'IMPORT'
+          with open('/tmp/restore_payload.json', 'w', encoding='utf-8') as f:
+              json.dump(payload, f, ensure_ascii=False)
+          PY
           HTTP=$(curl -s -w "%{http_code}" -o /tmp/restore_result.json \
             -X POST \
             -u "${{ secrets.ADMIN_USER }}:${{ secrets.ADMIN_PASS }}" \
             -H "Content-Type: application/json" \
-            -d @data/matrix_backup.json \
+            -d @/tmp/restore_payload.json \
             "${{ secrets.APP_URL }}/api/admin/import_matrix")
           echo "HTTP status: $HTTP"
           cat /tmp/restore_result.json
@@ -37,4 +97,20 @@ jobs:
             echo "Restore failed"
             exit 1
           fi
+          python - <<'PY'
+          import json
+
+          with open('/tmp/restore_payload.json', encoding='utf-8') as f:
+              payload = json.load(f)
+          with open('/tmp/restore_result.json', encoding='utf-8') as f:
+              result = json.load(f)
+
+          expected = len(payload.get('matrix_rows', []))
+          imported = result.get('imported_rows')
+          skipped = result.get('skipped_rows', 0)
+          if imported != expected:
+              raise SystemExit(f"imported_rows mismatch: expected {expected}, got {imported}")
+          if skipped > 0:
+              raise SystemExit(f"Restore skipped rows: {skipped}")
+          PY
           echo "復元完了"

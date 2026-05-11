@@ -4,9 +4,18 @@
     "name": "NTR（寝取られ）",
     "desc": "大切な人が別の誰かに奪われる背徳感・嫉妬・喪失の痛みが混ざり合う展開",
     "works": [
-      "NTRエロゲの金字塔・君が望む永遠",
-      "ネトラレーゼ（成人向け漫画）",
-      "ヤキモチの行方（同人誌）"
+      {
+        "title": "NTRエロゲの金字塔・君が望む永遠",
+        "url": "https://www.amazon.co.jp/dp/B0FNDBR1YM?tag=hekinator-22"
+      },
+      {
+        "title": "ネトラレーゼ（成人向け漫画）",
+        "url": "https://www.amazon.co.jp/dp/B07WRK3MF8?tag=hekinator-22"
+      },
+      {
+        "title": "ヤキモチの行方（同人誌）",
+        "url": "https://www.amazon.co.jp/dp/B0DR2QTKHX?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -1899,7 +1908,7 @@
     "works": [
       {
         "title": "Re:ゼロから始める異世界生活（小説）",
-        "url": "https://www.amazon.co.jp/s?k=Re%3A%E3%82%BC%E3%83%AD%E3%81%8B%E3%82%89%E5%A7%8B%E3%82%81%E3%82%8B%E7%95%B0%E4%B8%96%E7%95%8C%E7%94%9F%E6%B4%BB&tag=hekinator-22"
+        "url": "https://www.amazon.co.jp/dp/B09N91MJLZ?tag=hekinator-22"
       },
       {
         "title": "ループ7回目の悪役令嬢は、元敵国で自由に生きる（漫画）",
@@ -1967,7 +1976,7 @@
     "works": [
       {
         "title": "氷菓（小説）",
-        "url": "https://www.amazon.co.jp/s?k=%E6%B0%B7%E8%8F%93%20%E7%B1%B3%E6%BE%A4%E7%A9%82%E4%BF%A1&tag=hekinator-22"
+        "url": "https://www.amazon.co.jp/dp/B0GS3NTD6R?tag=hekinator-22"
       },
       {
         "title": "魔探偵ロキ（漫画）",
@@ -2043,7 +2052,7 @@
     "works": [
       {
         "title": "君の名は。（小説）",
-        "url": "https://www.amazon.co.jp/s?k=%E5%90%9B%E3%81%AE%E5%90%8D%E3%81%AF%20%E6%96%B0%E6%B5%B7%E8%AA%A0&tag=hekinator-22"
+        "url": "https://www.amazon.co.jp/dp/B01KJ5Y0JC?tag=hekinator-22"
       },
       {
         "title": "からかい上手の高木さん（漫画）",
@@ -2051,7 +2060,7 @@
       },
       {
         "title": "orange（漫画）",
-        "url": "https://www.amazon.co.jp/s?k=orange%20%E6%BC%AB%E7%94%BB%20%E9%AB%98%E9%87%8E%E8%8B%BA&tag=hekinator-22"
+        "url": "https://www.amazon.co.jp/dp/B00JD349L6?tag=hekinator-22"
       }
     ]
   },
@@ -2062,15 +2071,15 @@
     "works": [
       {
         "title": "暁のヨナ（漫画）",
-        "url": "https://www.amazon.co.jp/s?k=%E6%9A%81%E3%81%AE%E3%83%A8%E3%83%8A&tag=hekinator-22"
+        "url": "https://www.amazon.co.jp/dp/B0FD2S31CP?tag=hekinator-22"
       },
       {
         "title": "狼と香辛料（小説）",
-        "url": "https://www.amazon.co.jp/s?k=%E7%8B%BC%E3%81%A8%E9%A6%99%E8%BE%9B%E6%96%99&tag=hekinator-22"
+        "url": "https://www.amazon.co.jp/dp/B00GOO64FG?tag=hekinator-22"
       },
       {
         "title": "黒執事（漫画）",
-        "url": "https://www.amazon.co.jp/s?k=%E9%BB%92%E5%9F%B7%E4%BA%8B&tag=hekinator-22"
+        "url": "https://www.amazon.co.jp/dp/B0FSTK3QF8?tag=hekinator-22"
       }
     ]
   },
@@ -2080,7 +2089,10 @@
     "desc": "自分の気持ちに気づかないまま相手を特別扱いし、無意識のうちに溺愛してしまうキャラクターの愛おしさ",
     "works": [
       "着せ恋（彼女、お借りします）",
-      "幼なじみが絶対に負けないラブコメ",
+      {
+        "title": "幼なじみが絶対に負けないラブコメ",
+        "url": "https://www.amazon.co.jp/dp/B0DV52Q98W?tag=hekinator-22"
+      },
       "からかい上手の高木さん"
     ]
   },
@@ -2089,9 +2101,18 @@
     "name": "主従逆転",
     "desc": "本来の主人と使用人・強者と弱者の立場が逆転するときのドラマ。下剋上の快感と歪んだ関係の妙味",
     "works": [
-      "黒執事",
-      "狼と香辛料",
-      "Re:ゼロから始める異世界生活（一部）"
+      {
+        "title": "黒執事",
+        "url": "https://www.amazon.co.jp/dp/B0FSTK3QF8?tag=hekinator-22"
+      },
+      {
+        "title": "狼と香辛料",
+        "url": "https://www.amazon.co.jp/dp/B00GOO64FG?tag=hekinator-22"
+      },
+      {
+        "title": "Re:ゼロから始める異世界生活（一部）",
+        "url": "https://www.amazon.co.jp/dp/B09N91MJLZ?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -2109,7 +2130,10 @@
     "name": "無口×賑やか",
     "desc": "無口・無表情な一方と明るく賑やかな一方が凸凹コンビを形成し、やがて惹かれ合う対照的な二人の温かさ",
     "works": [
-      "氷菓",
+      {
+        "title": "氷菓",
+        "url": "https://www.amazon.co.jp/dp/B0GS3NTD6R?tag=hekinator-22"
+      },
       "CLANNAD",
       "響け！ユーフォニアム"
     ]
@@ -2119,9 +2143,15 @@
     "name": "病弱・薄命の恋",
     "desc": "余命宣告・難病・身体の弱さを抱えながら誰かを愛する切ない純愛。限られた時間が愛を輝かせる",
     "works": [
-      "君の膵臓をたべたい",
+      {
+        "title": "君の膵臓をたべたい",
+        "url": "https://www.amazon.co.jp/dp/B071RFTDZG?tag=hekinator-22"
+      },
       "四月は君の嘘",
-      "orange"
+      {
+        "title": "orange",
+        "url": "https://www.amazon.co.jp/dp/B00JD349L6?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -2169,9 +2199,18 @@
     "name": "完璧な人間が崩れる",
     "desc": "完璧に見えていた人物が特定の誰かの前だけで弱くなり崩れる。その落差と脆さが極上の萌えになる",
     "works": [
-      "かぐや様は告らせたい",
-      "やはり俺の青春ラブコメはまちがっている。",
-      "氷菓"
+      {
+        "title": "かぐや様は告らせたい",
+        "url": "https://www.amazon.co.jp/dp/B01C3ZR3X6?tag=hekinator-22"
+      },
+      {
+        "title": "やはり俺の青春ラブコメはまちがっている。",
+        "url": "https://www.amazon.co.jp/dp/B00A20SDQQ?tag=hekinator-22"
+      },
+      {
+        "title": "氷菓",
+        "url": "https://www.amazon.co.jp/dp/B0GS3NTD6R?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -2180,7 +2219,10 @@
     "desc": "社会に馴染めない・引きこもりなど社会不適合者が誰かとの出会いで少しずつ変わっていく恋愛",
     "works": [
       "NHKへようこそ！",
-      "やはり俺の青春ラブコメはまちがっている。",
+      {
+        "title": "やはり俺の青春ラブコメはまちがっている。",
+        "url": "https://www.amazon.co.jp/dp/B00A20SDQQ?tag=hekinator-22"
+      },
       "ぼっち・ざ・ろっく！"
     ]
   },
@@ -2191,7 +2233,10 @@
     "works": [
       "Rozen Maiden",
       "機動天使エンジェリックレイヤー",
-      "黒執事（一部）"
+      {
+        "title": "黒執事（一部）",
+        "url": "https://www.amazon.co.jp/dp/B0FSTK3QF8?tag=hekinator-22"
+      }
     ]
   }
 ]

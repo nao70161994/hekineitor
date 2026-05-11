@@ -130,7 +130,9 @@ body {
   {% endif %}
 
   <a class="btn-diagnose" href="/">自分の性癖を診断してみる →</a>
-  <a class="btn-share" href="https://twitter.com/intent/tweet?text={{ fetish.name }}が好きな人は%23へきネイター で診断しよう&url={{ base_url }}/fetish/{{ fetish.id }}" target="_blank" rel="noopener">Xでシェア</a>
+  {% set share_text = fetish.name ~ 'が好きな人は #へきネイター で診断しよう' %}
+  {% set share_url = base_url ~ '/fetish/' ~ fetish.id %}
+  <a class="btn-share" href="https://twitter.com/intent/tweet?{{ {'text': share_text, 'url': share_url} | urlencode }}" target="_blank" rel="noopener">Xでシェア</a>
 </div>
 <div class="footer">へきネイター {{ display_version }}</div>
 </body>

@@ -1,6 +1,10 @@
 import sys
 import os
+import json
+import re
+import time
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 os.environ.setdefault('SECRET_KEY', 'test_secret_key_for_testing')
@@ -10,21 +14,69 @@ import engine as eng_module
 from engine import PLAYER_FETISH_BASE_ID, _use_db
 
 
-class TestAPI(unittest.TestCase):
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+DATA_FILES = (
+    'fetish_log.json', 'stats.json', 'stats_history.json', 'fetishes.json',
+    'matrix.json', 'questions.json', 'compound_works.json', 'question_flags.json',
+    'config.json', 'admin_audit_log.json',
+    time.strftime('admin_audit_log_%Y%m.json'),
+)
+
+
+class FileSnapshotMixin:
+    @classmethod
+    def setUpClass(cls):
+        cls._file_snapshot = {}
+        for name in DATA_FILES:
+            path = os.path.join(DATA_DIR, name)
+            try:
+                with open(path, 'rb') as f:
+                    cls._file_snapshot[name] = f.read()
+            except OSError:
+                cls._file_snapshot[name] = None
+
+    @classmethod
+    def tearDownClass(cls):
+        for name, content in cls._file_snapshot.items():
+            path = os.path.join(DATA_DIR, name)
+            if content is None:
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+            else:
+                with open(path, 'wb') as f:
+                    f.write(content)
+
+
+class TestAPI(FileSnapshotMixin, unittest.TestCase):
     def setUp(self):
         app.config['TESTING'] = True
+        from app import engine as app_engine
+        self._patches = [
+            patch.object(app_engine, '_save_async', return_value=None),
+            patch.object(app_engine, '_save_matrix_file', return_value=None),
+            patch.object(app_engine, '_save_fetishes_file', return_value=None),
+            patch.object(app_engine, '_save_to_db', return_value=None),
+        ]
+        for p in self._patches:
+            p.start()
         self.client = app.test_client()
         self.client.post('/api/start')
+
+    def tearDown(self):
+        for p in reversed(self._patches):
+            p.stop()
 
     def _start(self):
         res = self.client.post('/api/start')
         return res.get_json()
 
     def _force_guess(self):
-        """20問すべてに yes と答えて強制診断を得る"""
+        """上限まで yes と答えて強制診断を得る"""
         start = self._start()
         q = start['question_id']
-        for _ in range(20):
+        for _ in range(30):
             res = self.client.post('/api/answer',
                 json={'question_id': q, 'answer': 1.0})
             data = res.get_json()
@@ -193,6 +245,34 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.get_json()['status'], 'done')
 
+    def test_confirm_maybe_learns_weak_positive_without_wrong_bucket(self):
+        from app import engine as app_engine
+        q = 8
+        idx = app_engine.index_of(0)
+        before_yes = app_engine.matrix['yes'][idx][q]
+        before_total = app_engine.matrix['total'][idx][q]
+        with self.client.session_transaction() as sess:
+            sess['answers'] = {str(q): 1.0}
+
+        res = self.client.post('/api/confirm', json={
+            'correct': False,
+            'fetish_id': 0,
+            'maybe_ids': [0],
+            'wrong_ids': [],
+        })
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()['status'], 'wrong')
+        self.assertGreater(app_engine.matrix['yes'][idx][q], before_yes)
+        self.assertGreater(app_engine.matrix['total'][idx][q], before_total)
+        with self.client.session_transaction() as sess:
+            self.assertEqual(sess.get('wrong_db_ids'), [])
+            self.assertEqual(sess.get('near_miss_db_ids'), [0])
+            self.assertEqual(sess.get('candidate_negative_factor'), 0.15)
+
+        app_engine.matrix['yes'][idx][q] = before_yes
+        app_engine.matrix['total'][idx][q] = before_total
+
     # ── static ─────────────────────────────────────────────
     def test_sw_js_served(self):
         res = self.client.get('/sw.js')
@@ -241,9 +321,57 @@ class TestAPI(unittest.TestCase):
 
     # ── early stop ratio ──────────────────────────────────
     def test_answer_loop_terminates(self):
-        """20問以内に必ず guess が返ること。"""
+        """hard上限以内に必ず guess が返ること。"""
         data = self._force_guess()
         self.assertEqual(data.get('action'), 'guess')
+
+    def test_low_confidence_at_soft_limit_extends_questions(self):
+        import app as app_module
+        with self.client.session_transaction() as sess:
+            sess['started'] = True
+            sess['answers'] = {str(i): 1.0 for i in range(19)}
+            sess['asked'] = list(range(20))
+            sess['idk_streak'] = 0
+        with patch.object(app_module.engine, 'top_guess', return_value=[(0, 0.50), (1, 0.45)]), \
+                patch.object(app_module.engine, 'best_disambiguating_question', return_value=20) as disambiguating:
+            res = self.client.post('/api/answer', json={'question_id': 19, 'answer': 1.0})
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['action'], 'question')
+        self.assertEqual(data['count'], 20)
+        self.assertEqual(data['total'], 30)
+        self.assertIn('絞り込み', data.get('hint', ''))
+        disambiguating.assert_called_once()
+
+    def test_normal_flow_uses_best_question_before_soft_limit(self):
+        import app as app_module
+        with self.client.session_transaction() as sess:
+            sess['started'] = True
+            sess['answers'] = {str(i): 1.0 for i in range(4)}
+            sess['asked'] = list(range(5))
+            sess['idk_streak'] = 0
+        with patch.object(app_module.engine, 'top_guess', return_value=[(0, 0.40), (1, 0.30)]), \
+                patch.object(app_module.engine, 'best_question', return_value=5) as best_question, \
+                patch.object(app_module.engine, 'best_disambiguating_question', return_value=6) as disambiguating:
+            res = self.client.post('/api/answer', json={'question_id': 4, 'answer': 1.0})
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['action'], 'question')
+        self.assertEqual(data['question_id'], 5)
+        best_question.assert_called_once()
+        disambiguating.assert_not_called()
+
+    def test_hard_limit_forces_guess_even_when_low_confidence(self):
+        import app as app_module
+        with self.client.session_transaction() as sess:
+            sess['started'] = True
+            sess['answers'] = {str(i): 1.0 for i in range(29)}
+            sess['asked'] = list(range(30))
+            sess['idk_streak'] = 0
+        with patch.object(app_module.engine, 'top_guess', return_value=[(0, 0.50), (1, 0.45)]):
+            res = self.client.post('/api/answer', json={'question_id': 29, 'answer': 1.0})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()['action'], 'guess')
 
     # ── session expiry ────────────────────────────────────
     def test_answer_without_start_returns_440(self):
@@ -402,18 +530,62 @@ class TestAPI(unittest.TestCase):
     def test_health_endpoint(self):
         res = self.client.get('/health')
         self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.headers['X-Content-Type-Options'], 'nosniff')
+        self.assertEqual(res.headers['X-Frame-Options'], 'DENY')
+        self.assertIn('Content-Security-Policy', res.headers)
         data = res.get_json()
         self.assertEqual(data['status'], 'ok')
         self.assertIn('fetishes', data)
         self.assertIn('questions', data)
+        self.assertIn('matrix', data)
+        self.assertIn('runtime', data)
+        self.assertIn('persistence', data)
+        self.assertTrue(data['matrix']['ok'])
+        self.assertIn('error_counts', data['runtime'])
+        self.assertIn('matrix_saved_mtime', data['persistence'])
         self.assertGreater(data['fetishes'], 0)
         self.assertGreater(data['questions'], 0)
+
+    def test_health_degrades_on_5xx_threshold(self):
+        import app as app_module
+        old_counts = dict(app_module._ERROR_COUNTS)
+        old_threshold = os.environ.get('HEALTH_5XX_DEGRADED_THRESHOLD')
+        try:
+            app_module._ERROR_COUNTS['5xx'] = 1
+            os.environ['HEALTH_5XX_DEGRADED_THRESHOLD'] = '1'
+            res = self.client.get('/health')
+            self.assertEqual(res.status_code, 200)
+            data = res.get_json()
+            self.assertEqual(data['status'], 'degraded')
+            self.assertIn('5xx_threshold', data['degraded_reasons'])
+        finally:
+            app_module._ERROR_COUNTS.clear()
+            app_module._ERROR_COUNTS.update(old_counts)
+            if old_threshold is None:
+                os.environ.pop('HEALTH_5XX_DEGRADED_THRESHOLD', None)
+            else:
+                os.environ['HEALTH_5XX_DEGRADED_THRESHOLD'] = old_threshold
 
     def _admin_headers(self):
         import base64
         os.environ['ADMIN_PASS'] = 'testpass'
         creds = base64.b64encode(b'admin:testpass').decode()
         return {'Authorization': f'Basic {creds}'}
+
+    def _full_matrix_rows(self):
+        from app import engine as app_engine
+        rows = []
+        for fi, f in enumerate(app_engine.fetishes):
+            for qi, q in enumerate(app_engine.questions):
+                rows.append({
+                    'fetish_id': f['id'],
+                    'fetish_name': f['name'],
+                    'question_id': qi,
+                    'question_text': q['text'],
+                    'yes': app_engine.matrix['yes'][fi][qi],
+                    'total': app_engine.matrix['total'][fi][qi],
+                })
+        return rows
 
     def test_export_log_returns_csv(self):
         headers = self._admin_headers()
@@ -431,7 +603,386 @@ class TestAPI(unittest.TestCase):
         data = res.get_json()
         self.assertIn('fetishes', data)
         self.assertIn('matrix_rows', data)
+        self.assertIn('exported_at', data)
+        self.assertIn('metadata', data)
+        self.assertEqual(data['metadata']['matrix_row_count'], len(data['matrix_rows']))
         self.assertGreater(len(data['matrix_rows']), 0)
+
+    def test_import_matrix_rejects_invalid_counts(self):
+        headers = self._admin_headers()
+        res = self.client.post('/api/admin/import_matrix',
+            json={'matrix_rows': [{'fetish_id': 0, 'question_id': 0, 'yes': 2, 'total': 1}]},
+            headers=headers)
+        self.assertEqual(res.status_code, 400)
+
+    def test_import_matrix_creates_pre_import_backup(self):
+        headers = self._admin_headers()
+        rows = self._full_matrix_rows()
+        with patch('app._snapshot_current_matrix', return_value=os.path.join(DATA_DIR, 'matrix_import_backups', 'test.json')) as snapshot:
+            res = self.client.post('/api/admin/import_matrix',
+                json={'matrix_rows': rows, 'confirm_text': 'IMPORT'},
+                headers=headers)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()['imported_rows'], len(rows))
+        self.assertIn('backup_path', res.get_json())
+        snapshot.assert_called_once()
+
+    def test_import_matrix_requires_confirmation_after_validation(self):
+        headers = self._admin_headers()
+        res = self.client.post('/api/admin/import_matrix',
+            json={'matrix_rows': self._full_matrix_rows()},
+            headers=headers)
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.get_json()['required_confirm_text'], 'IMPORT')
+
+    def test_import_matrix_rejects_partial_snapshot(self):
+        from app import engine as app_engine
+        headers = self._admin_headers()
+        fid = app_engine.fetishes[0]['id']
+        res = self.client.post('/api/admin/import_matrix',
+            json={'matrix_rows': [{
+                'fetish_id': fid,
+                'question_id': 0,
+                'yes': app_engine.matrix['yes'][0][0],
+                'total': app_engine.matrix['total'][0][0],
+            }], 'confirm_text': 'IMPORT'},
+            headers=headers)
+        self.assertEqual(res.status_code, 400)
+        data = res.get_json()
+        self.assertIn('expected_rows', data)
+        self.assertEqual(data['valid_rows'], 1)
+
+    def test_restore_matrix_backup_endpoint(self):
+        headers = self._admin_headers()
+        backup_dir = os.path.join(DATA_DIR, 'matrix_import_backups')
+        os.makedirs(backup_dir, exist_ok=True)
+        backup_name = 'test_restore_matrix.json'
+        backup_path = os.path.join(backup_dir, backup_name)
+        rows = self._full_matrix_rows()
+        payload = {'matrix_rows': rows}
+        try:
+            with open(backup_path, 'w', encoding='utf-8') as f:
+                json.dump(payload, f)
+            with patch('app._snapshot_current_matrix', return_value=os.path.join(backup_dir, 'pre_restore.json')):
+                res = self.client.post(f'/api/admin/matrix_backups/{backup_name}/restore',
+                    json={'confirm_text': 'RESTORE'}, headers=headers)
+            self.assertEqual(res.status_code, 200)
+            data = res.get_json()
+            self.assertEqual(data['status'], 'ok')
+            self.assertEqual(data['restored_rows'], len(rows))
+        finally:
+            try:
+                os.remove(backup_path)
+            except OSError:
+                pass
+
+    def test_restore_matrix_backup_rejects_partial_snapshot(self):
+        from app import engine as app_engine
+        headers = self._admin_headers()
+        backup_dir = os.path.join(DATA_DIR, 'matrix_import_backups')
+        os.makedirs(backup_dir, exist_ok=True)
+        backup_name = 'test_restore_partial_matrix.json'
+        backup_path = os.path.join(backup_dir, backup_name)
+        fid = app_engine.fetishes[0]['id']
+        payload = {'matrix_rows': [{
+            'fetish_id': fid,
+            'question_id': 0,
+            'yes': app_engine.matrix['yes'][0][0],
+            'total': app_engine.matrix['total'][0][0],
+        }]}
+        try:
+            with open(backup_path, 'w', encoding='utf-8') as f:
+                json.dump(payload, f)
+            res = self.client.post(f'/api/admin/matrix_backups/{backup_name}/restore',
+                json={'confirm_text': 'RESTORE'}, headers=headers)
+            self.assertEqual(res.status_code, 400)
+            self.assertIn('expected_rows', res.get_json())
+        finally:
+            try:
+                os.remove(backup_path)
+            except OSError:
+                pass
+
+    def test_import_matrix_dry_run_validates_without_importing(self):
+        headers = self._admin_headers()
+        res = self.client.post('/api/admin/import_matrix/dry_run',
+            json={'matrix_rows': [{'fetish_id': 0, 'question_id': 0, 'yes': 1, 'total': 2}]},
+            headers=headers)
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(data['valid_rows'], 1)
+        self.assertEqual(data['skipped_rows'], 0)
+        self.assertFalse(data['complete'])
+        self.assertGreater(data['expected_rows'], 1)
+
+    def test_import_matrix_dry_run_rejects_invalid_counts(self):
+        headers = self._admin_headers()
+        res = self.client.post('/api/admin/import_matrix/dry_run',
+            json={'matrix_rows': [{'fetish_id': 0, 'question_id': 0, 'yes': 2, 'total': 1}]},
+            headers=headers)
+        self.assertEqual(res.status_code, 400)
+
+    def test_import_matrix_dry_run_rejects_duplicate_pairs(self):
+        from app import engine as app_engine
+        headers = self._admin_headers()
+        fid = app_engine.fetishes[0]['id']
+        rows = [
+            {'fetish_id': fid, 'question_id': 0, 'yes': 1, 'total': 2},
+            {'fetish_id': fid, 'question_id': 0, 'yes': 1, 'total': 2},
+        ]
+        res = self.client.post('/api/admin/import_matrix/dry_run',
+            json={'matrix_rows': rows},
+            headers=headers)
+        self.assertEqual(res.status_code, 400)
+
+    def test_import_matrix_rejects_duplicate_pairs(self):
+        from app import engine as app_engine
+        headers = self._admin_headers()
+        fid = app_engine.fetishes[0]['id']
+        rows = [
+            {'fetish_id': fid, 'question_id': 0, 'yes': 1, 'total': 2},
+            {'fetish_id': fid, 'question_id': 0, 'yes': 1, 'total': 2},
+        ]
+        res = self.client.post('/api/admin/import_matrix',
+            json={'matrix_rows': rows, 'confirm_text': 'IMPORT'},
+            headers=headers)
+        self.assertEqual(res.status_code, 400)
+
+    def test_audit_log_export_and_preflight(self):
+        headers = self._admin_headers()
+        res = self.client.get('/api/admin/audit_log', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('audit_log', res.get_json())
+        res = self.client.get('/api/admin/audit_log?format=csv', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('text/csv', res.content_type)
+        self.assertTrue(res.data.decode('utf-8').startswith('ts,action,status'))
+        res = self.client.get('/api/admin/preflight', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('checks', res.get_json())
+
+    def test_admin_fetish_log_rows_paginates(self):
+        headers = self._admin_headers()
+        res = self.client.get('/api/admin/fetish_log_rows?page=1&per_page=10&sort=guessed&order=desc', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertLessEqual(len(data['rows']), 10)
+        self.assertIn('total', data)
+        self.assertIn('pages', data)
+
+    def test_admin_performance_endpoint(self):
+        headers = self._admin_headers()
+        res = self.client.get('/api/admin/performance', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertTrue(data['measurements'])
+        self.assertIn('ms', data['measurements'][0])
+
+    def test_admin_csrf_enforced_when_enabled(self):
+        app.config['ENFORCE_CSRF'] = True
+        try:
+            headers = self._admin_headers()
+            res = self.client.post('/api/admin/cleanup_sessions', headers=headers)
+            self.assertEqual(res.status_code, 403)
+            admin = self.client.get('/admin', headers=headers)
+            self.assertEqual(admin.status_code, 200)
+            match = re.search(r'csrfToken: \"([^\"]+)\"', admin.data.decode('utf-8'))
+            self.assertIsNotNone(match)
+            headers = {**headers, 'X-CSRF-Token': match.group(1)}
+            res = self.client.post('/api/admin/cleanup_sessions', headers=headers)
+            self.assertEqual(res.status_code, 200)
+        finally:
+            app.config.pop('ENFORCE_CSRF', None)
+
+    def test_rate_limit_enforced_when_enabled(self):
+        import app as app_module
+        app.config['ENFORCE_RATE_LIMIT'] = True
+        app.config['RATE_LIMIT_OVERRIDES'] = {'api_start': (2, 60)}
+        app_module._RATE_LIMIT_BUCKETS.clear()
+        try:
+            self.assertEqual(self.client.post('/api/start').status_code, 200)
+            self.assertEqual(self.client.post('/api/start').status_code, 200)
+            limited = self.client.post('/api/start')
+            self.assertEqual(limited.status_code, 429)
+            self.assertIn('Retry-After', limited.headers)
+            self.assertIn('retry_after', limited.get_json())
+        finally:
+            app.config.pop('ENFORCE_RATE_LIMIT', None)
+            app.config.pop('RATE_LIMIT_OVERRIDES', None)
+            app_module._RATE_LIMIT_BUCKETS.clear()
+
+    def test_rate_limit_ignores_untrusted_x_forwarded_for(self):
+        import app as app_module
+        app.config['ENFORCE_RATE_LIMIT'] = True
+        app.config['RATE_LIMIT_OVERRIDES'] = {'api_start': (2, 60)}
+        app.config.pop('TRUSTED_PROXY_IPS', None)
+        app_module._RATE_LIMIT_BUCKETS.clear()
+        try:
+            for i in range(2):
+                res = self.client.post('/api/start',
+                    headers={'X-Forwarded-For': f'203.0.113.{i}'},
+                    environ_base={'REMOTE_ADDR': '198.51.100.10'})
+                self.assertEqual(res.status_code, 200)
+            limited = self.client.post('/api/start',
+                headers={'X-Forwarded-For': '203.0.113.99'},
+                environ_base={'REMOTE_ADDR': '198.51.100.10'})
+            self.assertEqual(limited.status_code, 429)
+        finally:
+            app.config.pop('ENFORCE_RATE_LIMIT', None)
+            app.config.pop('RATE_LIMIT_OVERRIDES', None)
+            app_module._RATE_LIMIT_BUCKETS.clear()
+
+    def test_rate_limit_can_use_environment_settings(self):
+        import app as app_module
+        app.config['ENFORCE_RATE_LIMIT'] = True
+        old_limit = os.environ.get('RATE_LIMIT_API_START_LIMIT')
+        old_window = os.environ.get('RATE_LIMIT_API_START_WINDOW')
+        app_module._RATE_LIMIT_BUCKETS.clear()
+        try:
+            os.environ['RATE_LIMIT_API_START_LIMIT'] = '1'
+            os.environ['RATE_LIMIT_API_START_WINDOW'] = '60'
+            self.assertEqual(self.client.post('/api/start').status_code, 200)
+            limited = self.client.post('/api/start')
+            self.assertEqual(limited.status_code, 429)
+            self.assertGreaterEqual(limited.get_json()['retry_after'], 1)
+        finally:
+            app.config.pop('ENFORCE_RATE_LIMIT', None)
+            app_module._RATE_LIMIT_BUCKETS.clear()
+            if old_limit is None:
+                os.environ.pop('RATE_LIMIT_API_START_LIMIT', None)
+            else:
+                os.environ['RATE_LIMIT_API_START_LIMIT'] = old_limit
+            if old_window is None:
+                os.environ.pop('RATE_LIMIT_API_START_WINDOW', None)
+            else:
+                os.environ['RATE_LIMIT_API_START_WINDOW'] = old_window
+
+    def test_admin_csrf_token_expires_when_enabled(self):
+        app.config['ENFORCE_CSRF'] = True
+        old_ttl = os.environ.get('ADMIN_CSRF_TTL_SECONDS')
+        try:
+            os.environ['ADMIN_CSRF_TTL_SECONDS'] = '1'
+            headers = self._admin_headers()
+            admin = self.client.get('/admin', headers=headers)
+            self.assertEqual(admin.status_code, 200)
+            match = re.search(r'csrfToken: \"([^\"]+)\"', admin.data.decode('utf-8'))
+            self.assertIsNotNone(match)
+            with self.client.session_transaction() as sess:
+                sess['admin_csrf_issued_at'] = 0
+            res = self.client.post('/api/admin/cleanup_sessions',
+                headers={**headers, 'X-CSRF-Token': match.group(1)})
+            self.assertEqual(res.status_code, 403)
+        finally:
+            app.config.pop('ENFORCE_CSRF', None)
+            if old_ttl is None:
+                os.environ.pop('ADMIN_CSRF_TTL_SECONDS', None)
+            else:
+                os.environ['ADMIN_CSRF_TTL_SECONDS'] = old_ttl
+
+    def test_matrix_backup_prune_respects_keep_setting(self):
+        import app as app_module
+        old_keep = os.environ.get('MATRIX_IMPORT_BACKUP_KEEP')
+        try:
+            os.environ['MATRIX_IMPORT_BACKUP_KEEP'] = '2'
+            rows = [{'name': f'backup_{i}.json'} for i in range(4)]
+            with patch('app._list_matrix_import_backups', return_value=rows), \
+                    patch('app.os.remove') as remove:
+                app_module._prune_matrix_import_backups()
+            removed = [os.path.basename(call.args[0]) for call in remove.call_args_list]
+            self.assertEqual(removed, ['backup_2.json', 'backup_3.json'])
+        finally:
+            if old_keep is None:
+                os.environ.pop('MATRIX_IMPORT_BACKUP_KEEP', None)
+            else:
+                os.environ['MATRIX_IMPORT_BACKUP_KEEP'] = old_keep
+
+    def test_matrix_snapshot_names_are_unique_within_same_second(self):
+        import app as app_module
+        written = []
+
+        def fake_atomic_write(path, data, **kwargs):
+            written.append(path)
+
+        with patch('app.atomic_write_json', side_effect=fake_atomic_write), \
+                patch('app._prune_matrix_import_backups', return_value=None), \
+                patch.object(app_module._time, 'time', return_value=1234), \
+                patch.object(app_module._time, 'time_ns', side_effect=[1234000000000, 1234000000001]):
+            first = app_module._snapshot_current_matrix('test')
+            second = app_module._snapshot_current_matrix('test')
+
+        self.assertNotEqual(first, second)
+        self.assertEqual(written, [first, second])
+
+    def test_recent_ranking_bounds_query_params(self):
+        headers = self._admin_headers()
+        res = self.client.get('/api/admin/recent_fetish_ranking?days=-1&top_n=999',
+            headers=headers)
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['days'], 1)
+
+    def test_quality_report_endpoint(self):
+        headers = self._admin_headers()
+        res = self.client.get('/api/admin/quality_report', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertIn('low_questions', data)
+        self.assertIn('high_correlation_questions', data)
+        self.assertIn('weak_fetishes', data)
+        self.assertIn('feedback_summary', data)
+        self.assertIn('confusion_summary', data)
+        self.assertIn('low_confidence_summary', data)
+        self.assertIn('action_items', data)
+
+    def test_quality_report_includes_low_confidence_effectiveness(self):
+        import app as app_module
+        from app import engine as app_engine
+        fid = app_engine.fetishes[0]['id']
+        app_module._record_quality_stat('q_low_conf_guess')
+        app_module._record_quality_stat('q_additional_guess')
+        app_module._record_quality_stat('q_additional_question', 2)
+        with self.client.session_transaction() as sess:
+            sess['answers'] = {}
+            sess['last_guess_quality'] = {
+                'low_confidence_extended': True,
+                'additional_questions': 2,
+            }
+        res = self.client.post('/api/confirm', json={'correct': True, 'fetish_id': fid})
+        self.assertEqual(res.status_code, 200)
+
+        headers = self._admin_headers()
+        res = self.client.get('/api/admin/quality_report', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        summary = res.get_json()['low_confidence_summary']
+        self.assertGreaterEqual(summary['low_confidence_guesses'], 1)
+        self.assertGreaterEqual(summary['low_confidence_correct'], 1)
+        self.assertGreaterEqual(summary['additional_questions_asked'], 2)
+
+    def test_maintenance_checklist_endpoint(self):
+        headers = self._admin_headers()
+        res = self.client.get('/api/admin/maintenance_checklist', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertIn('checklist', data)
+        self.assertIn('weak_fetishes', data)
+        self.assertIn('duplicate_questions', data)
+        self.assertIn('low_questions', data)
+        self.assertIn('works', data)
+        ids = {item['id'] for item in data['checklist']}
+        self.assertIn('weak_fetishes', ids)
+        self.assertIn('duplicate_questions', ids)
+        self.assertIn('low_questions', ids)
+        self.assertIn('works', ids)
+        self.assertIn('missing_url_work_count', data['works'])
+        if data['weak_fetishes']:
+            row = data['weak_fetishes'][0]
+            self.assertIn('edit_anchor', row)
+            self.assertIn('similarity_anchor', row)
+            self.assertIn('hint', row)
+        if data['duplicate_questions']:
+            self.assertIn('suggested_action', data['duplicate_questions'][0])
 
     def test_resume_replays_answers(self):
         start = self._start()
@@ -559,6 +1110,34 @@ class TestAPI(unittest.TestCase):
             json={'id_a': 999999, 'id_b': 0}, headers=headers)
         self.assertEqual(res.status_code, 404)
 
+    def test_fetish_similarity_rejects_non_integer_ids(self):
+        headers = self._admin_headers()
+        res = self.client.post('/api/admin/fetish_similarity',
+            json={'id_a': 'x', 'id_b': 0}, headers=headers)
+        self.assertEqual(res.status_code, 400)
+
+    def test_merge_fetishes_rejects_non_integer_ids(self):
+        headers = self._admin_headers()
+        res = self.client.post('/api/admin/merge_fetishes',
+            json={'id_keep': 'x', 'id_remove': 0, 'confirm_text': 'MERGE'},
+            headers=headers)
+        self.assertEqual(res.status_code, 400)
+
+    def test_fetish_detail_drops_unsafe_work_url(self):
+        from app import engine as app_engine
+        fid = app_engine.fetishes[0]['id']
+        original_works = app_engine.fetishes[0].get('works', [])
+        try:
+            app_engine.fetishes[0]['works'] = [{'title': 'Unsafe', 'url': 'javascript:alert(1)'}]
+            res = self.client.get(f'/fetish/{fid}')
+            self.assertEqual(res.status_code, 200)
+            body = res.data.decode('utf-8')
+            self.assertIn('Unsafe', body)
+            self.assertNotIn('javascript:alert', body)
+            self.assertNotIn('href=""', body)
+        finally:
+            app_engine.fetishes[0]['works'] = original_works
+
     def test_axis_stats_in_admin(self):
         headers = self._admin_headers()
         res = self.client.get('/admin', headers=headers)
@@ -617,12 +1196,24 @@ class TestAPI(unittest.TestCase):
             app_engine.config['focus_threshold'] = orig
 
 
-class TestEngine(unittest.TestCase):
+class TestEngine(FileSnapshotMixin, unittest.TestCase):
     """engine.py のコア推論ロジックを直接テスト。"""
 
     def setUp(self):
         from app import engine as app_engine
         self.eng = app_engine
+        self._patches = [
+            patch.object(self.eng, '_save_async', return_value=None),
+            patch.object(self.eng, '_save_matrix_file', return_value=None),
+            patch.object(self.eng, '_save_fetishes_file', return_value=None),
+            patch.object(self.eng, '_save_to_db', return_value=None),
+        ]
+        for p in self._patches:
+            p.start()
+
+    def tearDown(self):
+        for p in reversed(self._patches):
+            p.stop()
 
     def test_posteriors_sum_to_one(self):
         probs = self.eng.posteriors({})
@@ -691,7 +1282,7 @@ class TestEngine(unittest.TestCase):
         res = client.post('/api/start')
         q = res.get_json()['question_id']
         action = 'question'
-        for _ in range(20):
+        for _ in range(30):
             r = client.post('/api/answer', json={'question_id': q, 'answer': 1.0})
             d = r.get_json()
             action = d.get('action')
@@ -772,11 +1363,13 @@ class TestEngine(unittest.TestCase):
         self.assertEqual(d.get('action'), 'guess')
 
 
-class TestCompoundWorks(unittest.TestCase):
+class TestCompoundWorks(FileSnapshotMixin, unittest.TestCase):
     """compound_works機能のテスト"""
 
     def setUp(self):
         import engine as em
+        self._save_patch = patch.object(em, '_save_compound_works', return_value=None)
+        self._save_patch.start()
         # テスト前にキャッシュをリセット
         em._compound_works_loaded = False
         em._COMPOUND_WORKS = {}
@@ -787,6 +1380,7 @@ class TestCompoundWorks(unittest.TestCase):
         import engine as em
         em._compound_works_loaded = False
         em._COMPOUND_WORKS = {}
+        self._save_patch.stop()
 
     def _admin_headers(self):
         import base64
@@ -925,6 +1519,26 @@ class TestCompoundWorks(unittest.TestCase):
             self.assertIn('API作品A', data['works'])
         finally:
             app_engine.edit_fetish(fid, works=original_works)
+
+    def test_admin_api_edit_fetish_rejects_invalid_works_payload_types(self):
+        from app import engine as app_engine
+        headers = self._admin_headers()
+        fid = app_engine.fetishes[0]['id']
+        for works in (None, {'title': 'bad'}, 123):
+            with self.subTest(works=works):
+                res = self.client.post(f'/api/admin/edit_fetish/{fid}',
+                    json={'works': works},
+                    headers=headers)
+                self.assertEqual(res.status_code, 400)
+
+    def test_work_url_rejects_javascript_scheme(self):
+        from engine import parse_work_item
+        self.assertEqual(parse_work_item('危険|javascript:alert(1)'), '危険')
+        self.assertEqual(parse_work_item({'title': '危険', 'url': 'javascript:alert(1)'}), '危険')
+        self.assertEqual(
+            parse_work_item('安全|https://example.com/a'),
+            {'title': '安全', 'url': 'https://example.com/a'},
+        )
 
 
 if __name__ == '__main__':

@@ -2,20 +2,22 @@ import json
 import math
 import os
 import random
-import tempfile
 import threading
 import time
+from analytics import build_quality_report
+from matrix_service import collect_matrix_updates, matrix_validation_report
+from storage import DATA_DIR, DATABASE_URL, HAS_PSYCOPG2
+from storage import atomic_write_json, data_path, load_json_file
+from storage import get_conn as _storage_get_conn
+from storage import put_conn as _storage_put_conn
+from storage import use_db as _storage_use_db
+from work_utils import parse_work_item, parse_works_list, work_title
 
 try:
-    import psycopg2
     import psycopg2.extras
-    from psycopg2 import pool as psycopg2_pool
-    HAS_PSYCOPG2 = True
 except ImportError:
-    HAS_PSYCOPG2 = False
+    pass
 
-DATA_DIR              = os.path.join(os.path.dirname(__file__), 'data')
-DATABASE_URL          = os.environ.get('DATABASE_URL', '')
 PLAYER_FETISH_BASE_ID = 10000  # プレイヤー追加性癖のIDはここから開始（シードIDとの競合防止）
 
 # 質問の3軸構造（best_question で軸の多様性確保・idk連続時の切替に使用）
@@ -28,20 +30,6 @@ QUESTION_AXES = [
     ('content',     range(98, 102)),  # 98-101: 追加コンテンツ軸（4問）
     ('content',     range(102, 105)), # 102-104: 追加コンテンツ軸（3問）
 ]
-
-_conn_pool      = None
-_conn_pool_lock = threading.Lock()
-
-def _get_pool():
-    global _conn_pool
-    if _conn_pool is None:
-        with _conn_pool_lock:
-            if _conn_pool is None:
-                url = DATABASE_URL
-                if url.startswith('postgres://'):
-                    url = url.replace('postgres://', 'postgresql://', 1)
-                _conn_pool = psycopg2_pool.SimpleConnectionPool(2, 20, url, sslmode='require')
-    return _conn_pool
 
 # (fetish_idx, question_idx, probability)
 DOMAIN_PRIORS = [
@@ -507,72 +495,22 @@ UCB_EXPLORE_C = 0.05
 
 
 def _use_db():
-    return bool(DATABASE_URL) and HAS_PSYCOPG2
-
-
-def parse_work_item(raw) -> 'str | dict':
-    """works項目を正規化する。
-    - dict {"title":..., "url":...} → そのまま返す
-    - "タイトル|https://..." → {"title":..., "url":...}
-    - "タイトル" → str のまま返す
-    """
-    if isinstance(raw, dict):
-        title = str(raw.get('title', '')).strip()
-        url   = str(raw.get('url', '')).strip()
-        if not title:
-            return ''
-        return {'title': title, 'url': url} if url else title
-    s = str(raw).strip()
-    if '|' in s:
-        title, _, url = s.partition('|')
-        title = title.strip()
-        url   = url.strip()
-        if title and url:
-            return {'title': title, 'url': url}
-        return title
-    return s
-
-
-def parse_works_list(raw_list: list) -> list:
-    """worksリスト全体を正規化（空文字は除外）。"""
-    result = []
-    for item in raw_list:
-        parsed = parse_work_item(item)
-        if parsed:
-            result.append(parsed)
-    return result
-
-
-def work_title(w) -> str:
-    """works項目からタイトル文字列を取得。"""
-    return w['title'] if isinstance(w, dict) else str(w)
+    return _storage_use_db()
 
 
 _COMPOUND_WORKS: dict = {}
 _compound_works_loaded = False
-_COMPOUND_WORKS_PATH = os.path.join(DATA_DIR, 'compound_works.json')
+_COMPOUND_WORKS_PATH = data_path('compound_works.json')
 
 def _load_compound_works():
     global _COMPOUND_WORKS, _compound_works_loaded
     if _compound_works_loaded:
         return
-    if os.path.exists(_COMPOUND_WORKS_PATH):
-        with open(_COMPOUND_WORKS_PATH, encoding='utf-8') as f:
-            _COMPOUND_WORKS = json.load(f)
+    _COMPOUND_WORKS = load_json_file('compound_works.json', default={})
     _compound_works_loaded = True
 
 def _save_compound_works():
-    fd, tmp = tempfile.mkstemp(dir=DATA_DIR, suffix='.tmp')
-    try:
-        with os.fdopen(fd, 'w', encoding='utf-8') as f:
-            json.dump(_COMPOUND_WORKS, f, ensure_ascii=False, indent=2)
-        os.replace(tmp, _COMPOUND_WORKS_PATH)
-    except Exception:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
+    atomic_write_json(_COMPOUND_WORKS_PATH, _COMPOUND_WORKS, ensure_ascii=False, indent=2)
 
 def get_compound_works(id_a: int, id_b: int) -> list:
     """2つの性癖IDペアに特化した作品リストを返す。なければ空リスト。"""
@@ -610,10 +548,10 @@ def delete_compound_works(id_a: int, id_b: int) -> bool:
 
 
 def _get_conn():
-    return _get_pool().getconn()
+    return _storage_get_conn()
 
 def _put_conn(conn):
-    _get_pool().putconn(conn)
+    _storage_put_conn(conn)
 
 
 def _build_initial_matrix(nf, nq):
@@ -631,7 +569,7 @@ _DYNAMIC_PRIOR_INTERVAL  = 60.0  # 動的事前確率キャッシュの更新間
 
 class Engine:
     def __init__(self):
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self.questions = self._load_json('questions.json')
         if _use_db():
             self._ensure_db()
@@ -652,8 +590,21 @@ class Engine:
 
     # ── JSON ローカル ──────────────────────────────────────
     def _load_json(self, fname):
-        with open(os.path.join(DATA_DIR, fname), encoding='utf-8') as f:
-            return json.load(f)
+        return load_json_file(fname)
+
+    def _valid_matrix_shape(self, matrix, nf, nq):
+        if not isinstance(matrix, dict):
+            return False
+        yes = matrix.get('yes')
+        total = matrix.get('total')
+        return (
+            isinstance(yes, list)
+            and isinstance(total, list)
+            and len(yes) == nf
+            and len(total) == nf
+            and all(isinstance(row, list) and len(row) == nq for row in yes)
+            and all(isinstance(row, list) and len(row) == nq for row in total)
+        )
 
     def _load_matrix_file(self):
         path = os.path.join(DATA_DIR, 'matrix.json')
@@ -662,7 +613,7 @@ class Engine:
                 m = json.load(f)
             nf = len(self.fetishes)
             nq = len(self.questions)
-            if len(m.get('yes', [])) == nf and nf > 0 and len(m['yes'][0]) == nq:
+            if self._valid_matrix_shape(m, nf, nq):
                 return m
             # サイズ不整合: 削除前にバックアップを作成
             backup = path + '.bak'
@@ -707,29 +658,25 @@ class Engine:
         return m
 
     def _atomic_write(self, path, data, **kwargs):
-        fd, tmp = tempfile.mkstemp(dir=DATA_DIR, suffix='.tmp')
-        try:
-            os.chmod(tmp, 0o600)
-            with os.fdopen(fd, 'w', encoding='utf-8') as f:
-                json.dump(data, f, **kwargs)
-            os.replace(tmp, path)
-        except Exception:
-            try:
-                os.unlink(tmp)
-            except OSError:
-                pass
-            raise
+        atomic_write_json(path, data, **kwargs)
+
+    def _matrix_snapshot(self):
+        with self._lock:
+            return {
+                'yes': [list(row) for row in self.matrix.get('yes', [])],
+                'total': [list(row) for row in self.matrix.get('total', [])],
+            }
 
     def _save_matrix_file(self):
-        self._atomic_write(os.path.join(DATA_DIR, 'matrix.json'), self.matrix)
+        self._atomic_write(os.path.join(DATA_DIR, 'matrix.json'), self._matrix_snapshot())
 
     def _save_async(self, all_updates, idx_to_db_id):
         """バックグラウンドスレッドで matrix 保存を行う（レスポンスをブロックしない）。"""
         if _use_db():
             t = threading.Thread(target=self._save_to_db, args=(all_updates, idx_to_db_id), daemon=True)
+            t.start()
         else:
-            t = threading.Thread(target=self._save_matrix_file, daemon=True)
-        t.start()
+            self._save_matrix_file()
 
     def _save_fetishes_file(self):
         self._atomic_write(
@@ -748,9 +695,11 @@ class Engine:
                     CREATE TABLE IF NOT EXISTS fetishes (
                         id   INTEGER PRIMARY KEY,
                         name TEXT NOT NULL,
-                        "desc" TEXT NOT NULL
+                        "desc" TEXT NOT NULL,
+                        works TEXT NOT NULL DEFAULT '[]'
                     )
                 ''')
+                cur.execute("ALTER TABLE fetishes ADD COLUMN IF NOT EXISTS works TEXT NOT NULL DEFAULT '[]'")
                 cur.execute('''
                     CREATE TABLE IF NOT EXISTS matrix (
                         fetish_id   INTEGER,
@@ -765,8 +714,12 @@ class Engine:
                     seed_fetishes = self._load_json('fetishes.json')
                     psycopg2.extras.execute_values(
                         cur,
-                        'INSERT INTO fetishes (id, name, "desc") VALUES %s',
-                        [(f['id'], f['name'], f['desc']) for f in seed_fetishes]
+                        'INSERT INTO fetishes (id, name, "desc", works) VALUES %s',
+                        [
+                            (f['id'], f['name'], f['desc'],
+                             json.dumps(f.get('works', []), ensure_ascii=False))
+                            for f in seed_fetishes
+                        ]
                     )
                 cur.execute('SELECT COUNT(*) FROM matrix')
                 if cur.fetchone()[0] == 0:
@@ -820,8 +773,12 @@ class Engine:
                 if new_f:
                     psycopg2.extras.execute_values(
                         cur,
-                        'INSERT INTO fetishes (id, name, "desc") VALUES %s ON CONFLICT DO NOTHING',
-                        [(f['id'], f['name'], f['desc']) for f in new_f]
+                        'INSERT INTO fetishes (id, name, "desc", works) VALUES %s ON CONFLICT DO NOTHING',
+                        [
+                            (f['id'], f['name'], f['desc'],
+                             json.dumps(f.get('works', []), ensure_ascii=False))
+                            for f in new_f
+                        ]
                     )
                     nq = len(self.questions)
                     nf_total = len(seed)
@@ -870,27 +827,28 @@ class Engine:
         conn = _get_conn()
         try:
             cur = conn.cursor()
-            cur.execute('SELECT id, name, "desc" FROM fetishes ORDER BY id')
-            rows = [{'id': r[0], 'name': r[1], 'desc': r[2]} for r in cur.fetchall()]
+            cur.execute('SELECT id, name, "desc", works FROM fetishes ORDER BY id')
+            rows = []
+            for r in cur.fetchall():
+                try:
+                    works = json.loads(r[3]) if r[3] else []
+                    if not isinstance(works, list):
+                        works = []
+                except (TypeError, json.JSONDecodeError):
+                    works = []
+                rows.append({'id': r[0], 'name': r[1], 'desc': r[2], 'works': works})
         finally:
             _put_conn(conn)
-        # works はDBに持たないので fetishes.json からマージ
-        try:
-            seed = {f['id']: f.get('works', []) for f in self._load_json('fetishes.json')}
-            for f in rows:
-                f['works'] = seed.get(f['id'], [])
-        except Exception:
-            pass
         return rows
 
     def _seed_db(self, cur, fetishes=None):
         if fetishes is None:
             fetishes = self.fetishes
         nq = len(self.questions)
-        alpha = 2.0
+        yes, total = _build_initial_matrix(len(fetishes), nq)
         rows = [
-            (f['id'], q, alpha, alpha * 2.0)
-            for f in fetishes for q in range(nq)
+            (f['id'], q, yes[fi][q], total[fi][q])
+            for fi, f in enumerate(fetishes) for q in range(nq)
         ]
         psycopg2.extras.execute_values(
             cur,
@@ -931,13 +889,14 @@ class Engine:
                 _put_conn(conn)
         else:
             path = os.path.join(DATA_DIR, 'stats.json')
-            try:
-                with open(path, encoding='utf-8') as f:
-                    s = json.load(f)
-            except (OSError, json.JSONDecodeError):
-                s = {}
-            s[key] = s.get(key, 0) + 1
-            self._atomic_write(path, s)
+            with self._lock:
+                try:
+                    with open(path, encoding='utf-8') as f:
+                        s = json.load(f)
+                except (OSError, json.JSONDecodeError):
+                    s = {}
+                s[key] = s.get(key, 0) + 1
+                self._atomic_write(path, s)
 
     def _record_daily_stat(self, key):
         from datetime import date as _date
@@ -956,14 +915,15 @@ class Engine:
                 _put_conn(conn)
         else:
             path = os.path.join(DATA_DIR, 'stats_history.json')
-            try:
-                with open(path, encoding='utf-8') as f:
-                    h = json.load(f)
-            except (OSError, json.JSONDecodeError):
-                h = {}
-            day = h.setdefault(today, {})
-            day[key] = day.get(key, 0) + 1
-            self._atomic_write(path, h)
+            with self._lock:
+                try:
+                    with open(path, encoding='utf-8') as f:
+                        h = json.load(f)
+                except (OSError, json.JSONDecodeError):
+                    h = {}
+                day = h.setdefault(today, {})
+                day[key] = day.get(key, 0) + 1
+                self._atomic_write(path, h)
 
     def _increment_learn_count(self):
         self._increment_stat('learn_count')
@@ -1110,6 +1070,60 @@ class Engine:
                  'correct': raw.get(d, {}).get(ck, 0),
                  'wrong':   raw.get(d, {}).get(wk, 0)} for d in date_range]
 
+    def get_quality_event_summary(self, days=30):
+        """診断品質用の内部イベントを過去N日分集計して返す。"""
+        from datetime import date as _date, timedelta
+        today = _date.today()
+        days = max(1, int(days or 30))
+        date_range = [(today - timedelta(days=i)).isoformat() for i in range(days - 1, -1, -1)]
+        keys = (
+            'q_low_conf_guess',
+            'q_low_conf_correct',
+            'q_low_conf_wrong',
+            'q_additional_guess',
+            'q_additional_correct',
+            'q_additional_wrong',
+            'q_additional_question',
+        )
+        totals = {key: 0 for key in keys}
+        if _use_db():
+            conn = _get_conn()
+            try:
+                cur = conn.cursor()
+                cur.execute(
+                    "SELECT key, SUM(value) FROM stats_history WHERE date >= %s AND key = ANY(%s) GROUP BY key",
+                    (date_range[0], list(keys))
+                )
+                for key, value in cur.fetchall():
+                    totals[key] = int(value or 0)
+            finally:
+                _put_conn(conn)
+        else:
+            path = os.path.join(DATA_DIR, 'stats_history.json')
+            try:
+                with open(path, encoding='utf-8') as f:
+                    raw = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                raw = {}
+            for d in date_range:
+                day = raw.get(d, {})
+                for key in keys:
+                    totals[key] += int(day.get(key, 0) or 0)
+        return {
+            'days': days,
+            'low_confidence': {
+                'guesses': totals['q_low_conf_guess'],
+                'correct': totals['q_low_conf_correct'],
+                'wrong': totals['q_low_conf_wrong'],
+            },
+            'additional_questions': {
+                'guesses': totals['q_additional_guess'],
+                'correct': totals['q_additional_correct'],
+                'wrong': totals['q_additional_wrong'],
+                'questions': totals['q_additional_question'],
+            },
+        }
+
     # ── 質問無効化フラグ ───────────────────────────────────
     def _load_disabled_questions(self):
         if _use_db():
@@ -1175,16 +1189,17 @@ class Engine:
                 _put_conn(conn)
         else:
             path = os.path.join(DATA_DIR, 'fetish_log.json')
-            try:
-                with open(path, encoding='utf-8') as f:
-                    data = json.load(f)
-            except (OSError, json.JSONDecodeError):
-                data = {}
-            key = str(fetish_db_id)
-            entry = data.get(key, {'guessed': 0, 'correct': 0, 'wrong': 0})
-            entry[col] = entry.get(col, 0) + 1
-            data[key] = entry
-            self._atomic_write(path, data)
+            with self._lock:
+                try:
+                    with open(path, encoding='utf-8') as f:
+                        data = json.load(f)
+                except (OSError, json.JSONDecodeError):
+                    data = {}
+                key = str(fetish_db_id)
+                entry = data.get(key, {'guessed': 0, 'correct': 0, 'wrong': 0})
+                entry[col] = entry.get(col, 0) + 1
+                data[key] = entry
+                self._atomic_write(path, data)
 
     def log_guessed(self, fetish_db_id):
         self._increment_fetish_log(fetish_db_id, 'guessed')
@@ -1535,6 +1550,49 @@ class Engine:
         # 軸フィルタで該当が無ければ全体ベストにフォールバック
         return best_filtered_q if best_filtered_q is not None else best_any_q
 
+    def best_disambiguating_question(self, answers, asked, candidate_count=3, idk_streak=0):
+        """上位候補同士の P(yes) 差が大きい質問を選ぶ。"""
+        probs = self.posteriors(answers)
+        nf = len(self.fetishes)
+        asked_ints = set()
+        for q in asked:
+            try:
+                asked_ints.add(int(q))
+            except (ValueError, TypeError):
+                pass
+
+        ranked = sorted(range(nf), key=lambda i: probs[i], reverse=True)
+        top = ranked[:max(2, min(candidate_count, nf))]
+        if len(top) < 2:
+            return self.best_question(answers, asked_ints, idk_streak=idk_streak)
+
+        top_total = sum(probs[f] for f in top) or 1e-9
+        top_weights = {f: probs[f] / top_total for f in top}
+        best_q, best_score = None, 0.0
+
+        for q in range(len(self.questions)):
+            if q in asked_ints or q in self.disabled_questions:
+                continue
+            p_yes = sum(top_weights[f] * self._prob(f, q) for f in top)
+            p_no = 1.0 - p_yes
+            if p_yes < 0.01 or p_no < 0.01:
+                continue
+
+            separation = 0.0
+            for pos, fa in enumerate(top):
+                for fb in top[pos + 1:]:
+                    pair_weight = top_weights[fa] * top_weights[fb]
+                    separation += pair_weight * abs(self._prob(fa, q) - self._prob(fb, q))
+            balance = 1.0 - abs(0.5 - p_yes) * 2.0
+            score = separation * (0.5 + 0.5 * balance)
+            if score > best_score:
+                best_score = score
+                best_q = q
+
+        if best_q is None:
+            return self.best_question(answers, asked_ints, idk_streak=idk_streak)
+        return best_q
+
     def get_matrix_heatmap(self, n_fetishes=20, n_questions=20):
         """上位N性癖×上位N質問の P(yes) ヒートマップデータを返す。"""
         nf = len(self.fetishes)
@@ -1676,6 +1734,10 @@ class Engine:
         self._corr_cache_time = now
         return pairs[:top_n]
 
+    def get_quality_report(self):
+        """診断品質改善に使う要注意項目を返す。"""
+        return build_quality_report(self)
+
     def top_guess(self, answers, n=1):
         probs   = self.posteriors(answers)
         ranked  = sorted(range(len(probs)), key=lambda i: probs[i], reverse=True)
@@ -1808,6 +1870,36 @@ class Engine:
 
         self._save_async(all_updates, idx_to_db_id)
 
+    def learn_near_miss(self, answers, fetish_idx, strength_factor=1.0):
+        """「近い」フィードバック用の弱い正学習。ほかの性癖へ負学習は入れない。"""
+        near_str     = 0.35 * strength_factor
+        disc_scales  = self._get_disc_scales()
+        all_updates  = {}
+        idx_to_db_id = {}
+        with self._lock:
+            nf = len(self.fetishes)
+            nq = len(self.questions)
+            if not (0 <= fetish_idx < nf):
+                return
+            for q_str, ans in answers.items():
+                try:
+                    q = int(q_str)
+                except (ValueError, TypeError):
+                    continue
+                if ans == 0 or not (0 <= q < nq):
+                    continue
+                strength = abs(ans) * near_str
+                scale = min(1.0, PSEUDO / max(self.matrix['total'][fetish_idx][q], PSEUDO))
+                effective = strength * scale * disc_scales[q]
+                dy = effective if ans > 0 else 0.0
+                self.matrix['yes'][fetish_idx][q]   += dy
+                self.matrix['total'][fetish_idx][q] += effective
+                all_updates.setdefault(fetish_idx, []).append((q, dy, effective))
+            idx_to_db_id = {i: f['id'] for i, f in enumerate(self.fetishes)}
+
+        self._save_async(all_updates, idx_to_db_id)
+        self._increment_learn_count()
+
     def learn_negative(self, answers, fetish_idx, strength_factor=1.0):
         """fetish_idx が外れだった弱いネガティブ更新。learn() の約1/5の強度。"""
         neg_str      = 0.2 * strength_factor
@@ -1912,8 +2004,8 @@ class Engine:
                         )
                         db_id = max(cur.fetchone()[0], PLAYER_FETISH_BASE_ID)
                         cur.execute(
-                            'INSERT INTO fetishes (id, name, "desc") VALUES (%s, %s, %s)',
-                            (db_id, name, desc)
+                            'INSERT INTO fetishes (id, name, "desc", works) VALUES (%s, %s, %s, %s)',
+                            (db_id, name, desc, '[]')
                         )
                         rows = [(db_id, q, new_yes[q], new_total[q]) for q in range(nq)]
                         psycopg2.extras.execute_values(
@@ -2029,24 +2121,23 @@ class Engine:
             self._atomic_write(q_path, self.questions)
         return True
 
+    def _collect_matrix_updates(self, matrix_rows: list) -> tuple[dict, dict]:
+        return collect_matrix_updates(self.fetishes, self.questions, matrix_rows)
+
+    def validate_matrix_rows(self, matrix_rows: list) -> dict:
+        """matrix import の内容を保存せずに検証し、反映対象件数を返す。"""
+        return matrix_validation_report(self.fetishes, self.questions, matrix_rows)
+
     def import_matrix(self, matrix_rows: list) -> int:
         """matrix_rows（export_matrixと同形式）でmatrixを上書き復元する。返り値は反映行数。"""
-        idx_map = {f['id']: i for i, f in enumerate(self.fetishes)}
-        nq = len(self.questions)
-        updates: dict = {}
+        updates, _meta = self._collect_matrix_updates(matrix_rows)
         with self._lock:
-            for row in matrix_rows:
-                fid = row.get('fetish_id')
-                qi  = row.get('question_id')
-                y   = row.get('yes', 0.0)
-                t   = row.get('total', 0.0)
-                fi  = idx_map.get(fid)
-                if fi is None or not (0 <= qi < nq):
-                    continue
-                self.matrix['yes'][fi][qi]   = y
-                self.matrix['total'][fi][qi] = t
-                updates.setdefault(fi, []).append((qi, y, t))
+            for fi, qs in updates.items():
+                for qi, y, t in qs:
+                    self.matrix['yes'][fi][qi]   = y
+                    self.matrix['total'][fi][qi] = t
         if _use_db() and updates:
+            idx_map = {f['id']: i for i, f in enumerate(self.fetishes)}
             self._import_to_db(updates, idx_map)
         elif not _use_db():
             self._save_matrix_file()
@@ -2103,6 +2194,9 @@ class Engine:
                         if desc is not None:
                             updates.append('"desc"=%s')
                             params.append(desc)
+                        if works is not None:
+                            updates.append('works=%s')
+                            params.append(json.dumps(works, ensure_ascii=False))
                         if updates:
                             params.append(fetish_id)
                             cur.execute(f'UPDATE fetishes SET {", ".join(updates)} WHERE id=%s', params)

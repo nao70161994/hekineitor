@@ -4,38 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>へきネイター 管理</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Hiragino Sans', 'Noto Sans JP', sans-serif;
-    background: #1a1a2e; color: #eee;
-    padding: 24px 16px;
-  }
-  h1 { color: #e94560; margin-bottom: 6px; font-size: 1.4rem; }
-  p.sub { color: #888; font-size: 0.8rem; margin-bottom: 24px; }
-  table { width: 100%; max-width: 600px; border-collapse: collapse; }
-  th { text-align: left; color: #888; font-size: 0.78rem; padding: 6px 8px;
-       border-bottom: 1px solid #333; }
-  td { padding: 8px 8px; font-size: 0.9rem; border-bottom: 1px solid #222; }
-  .bar-wrap { background: #0f3460; border-radius: 4px; height: 8px; width: 160px; overflow: hidden; }
-  .bar-fill  { height: 100%; border-radius: 4px;
-               background: linear-gradient(90deg, #e94560, #f5a623); }
-  .tag-low  { color: #e74c3c; font-size: 0.75rem; margin-left: 6px; }
-  a { color: #e94560; font-size: 0.85rem; }
-  .btn-toggle { font-size: 0.72rem; padding: 2px 8px; border-radius: 4px; border: 1px solid #555;
-                background: #1a1a2e; color: #aaa; cursor: pointer; }
-  .btn-toggle.disabled { background: #3a1a1a; color: #e74c3c; border-color: #e74c3c; }
-  .param-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
-  .param-row label { color:#aaa; font-size:0.85rem; width:160px; }
-  .param-row input { background:#0f3460; border:1px solid #333; color:#eee; border-radius:4px;
-                     padding:4px 8px; font-size:0.85rem; width:90px; }
-  .btn-save { background:#e94560; color:#fff; border:none; border-radius:6px;
-              padding:6px 16px; cursor:pointer; font-size:0.85rem; margin-top:8px; }
-  .btn-action { background:#0f3460; color:#aaa; border:1px solid #333; border-radius:6px;
-                padding:5px 14px; cursor:pointer; font-size:0.82rem; }
-</style>
+<link rel="stylesheet" href="/static/admin.css{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}">
 </head>
 <body>
+<a class="skip-link" href="#perf-section">診断ログへ移動</a>
 <h1>管理画面</h1>
 <p class="sub"><a href="/">← ゲームに戻る</a></p>
 
@@ -56,14 +28,14 @@
          value="{{ engine_config[key] }}">
 </div>
 {% endfor %}
-<button class="btn-save" onclick="saveParams()">保存</button>
+<button class="btn-save" data-action="save-params">保存</button>
 <span id="param-msg" style="color:#27ae60;font-size:0.8rem;margin-left:10px;"></span>
 </details>
 
 <details style="margin-bottom:24px;">
 <summary style="color:#888;font-size:0.9rem;cursor:pointer;">学習済みPriorsのキャプチャ</summary>
 <p style="color:#555;font-size:0.78rem;margin:8px 0;">現在の学習済みmatrixから各性癖の P(yes) を <code>learned_priors.json</code> に保存します。<br>matrix.jsonをリセットして再構築する際に DOMAIN_PRIORS の代わりに使用されます。</p>
-<button class="btn-action" onclick="capturepriors()">現在のmatrixをpriorとして保存</button>
+<button class="btn-action" data-action="capture-priors">現在のmatrixをpriorとして保存</button>
 <span id="capture-msg" style="color:#aaa;font-size:0.8rem;margin-left:10px;"></span>
 </details>
 
@@ -78,14 +50,14 @@
   <label>説明</label>
   <input type="text" id="af-desc" placeholder="省略可（省略時は名前を使用）" style="width:260px;">
 </div>
-<button class="btn-save" onclick="adminAddFetish()">追加</button>
+<button class="btn-save" data-action="admin-add-fetish">追加</button>
 <span id="af-msg" style="font-size:0.8rem;margin-left:10px;"></span>
 </details>
 
 <details style="margin-bottom:24px;">
 <summary style="color:#888;font-size:0.9rem;cursor:pointer;">セッション管理</summary>
 <p style="color:#555;font-size:0.78rem;margin:8px 0;">期限切れセッションはリクエスト時に自動削除（1%確率）されますが、手動で全掃除もできます。</p>
-<button class="btn-action" onclick="cleanupSessions()">期限切れセッションを削除</button>
+<button class="btn-action" data-action="cleanup-sessions">期限切れセッションを削除</button>
 <span id="cleanup-msg" style="color:#aaa;font-size:0.8rem;margin-left:10px;"></span>
 </details>
 
@@ -101,6 +73,116 @@
   </div>
   {% endfor %}
 </div>
+{% endif %}
+
+{% if quality_report %}
+<details open style="margin-bottom:24px;background:#111827;border:1px solid #263244;border-radius:8px;padding:12px 14px;">
+<summary style="color:#7af0a0;font-size:0.9rem;cursor:pointer;">診断品質チェック</summary>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:12px;">
+  <div>
+    <div style="font-size:1.3rem;color:#f5a623;font-weight:bold;">{{ quality_report.low_questions|length }}</div>
+    <div style="font-size:0.72rem;color:#888;margin-bottom:6px;">低識別力の質問</div>
+    <div style="font-size:0.74rem;color:#aaa;">{{ quality_report.low_questions[:5]|map(attribute='id')|list|join(', ') or 'なし' }}</div>
+  </div>
+  <div>
+    <div style="font-size:1.3rem;color:#e94560;font-weight:bold;">{{ quality_report.high_correlation_questions|length }}</div>
+    <div style="font-size:0.72rem;color:#888;margin-bottom:6px;">重複度が高い質問ペア</div>
+    <div style="font-size:0.74rem;color:#aaa;">
+      {% for p in quality_report.high_correlation_questions[:3] %}Q{{ p.q1_id }}-Q{{ p.q2_id }}{% if not loop.last %}, {% endif %}{% else %}なし{% endfor %}
+    </div>
+  </div>
+  <div>
+    <div style="font-size:1.3rem;color:#e74c3c;font-weight:bold;">{{ quality_report.weak_fetishes|length }}</div>
+    <div style="font-size:0.72rem;color:#888;margin-bottom:6px;">改善候補の性癖</div>
+    <div style="font-size:0.74rem;color:#aaa;">
+      {% for f in quality_report.weak_fetishes[:3] %}{{ f.fetish_name }}{% if not loop.last %}, {% endif %}{% else %}なし{% endfor %}
+    </div>
+  </div>
+  <div>
+    <div style="font-size:1.3rem;color:#7af0a0;font-weight:bold;">{{ quality_report.feedback_summary.accuracy if quality_report.feedback_summary.accuracy is not none else '—' }}{% if quality_report.feedback_summary.accuracy is not none %}%{% endif %}</div>
+    <div style="font-size:0.72rem;color:#888;margin-bottom:6px;">フィードバック正解率</div>
+    <div style="font-size:0.74rem;color:#aaa;">外れ {{ quality_report.feedback_summary.wrong }} / FB {{ quality_report.feedback_summary.feedback_total }}</div>
+  </div>
+  <div>
+    <div style="font-size:1.3rem;color:#5b8dd9;font-weight:bold;">{{ quality_report.low_confidence_summary.low_confidence_accuracy if quality_report.low_confidence_summary.low_confidence_accuracy is not none else '—' }}{% if quality_report.low_confidence_summary.low_confidence_accuracy is not none %}%{% endif %}</div>
+    <div style="font-size:0.72rem;color:#888;margin-bottom:6px;">接戦追加後の正解率</div>
+    <div style="font-size:0.74rem;color:#aaa;">{{ quality_report.low_confidence_summary.low_confidence_feedback_total }}件 / 追加{{ quality_report.low_confidence_summary.additional_questions_asked }}問</div>
+  </div>
+  <div>
+    <div style="font-size:1.3rem;color:#f5a623;font-weight:bold;">{{ quality_report.feedback_summary.no_feedback_rate if quality_report.feedback_summary.no_feedback_rate is not none else '—' }}{% if quality_report.feedback_summary.no_feedback_rate is not none %}%{% endif %}</div>
+    <div style="font-size:0.72rem;color:#888;margin-bottom:6px;">未FB診断率</div>
+    <div style="font-size:0.74rem;color:#aaa;">{{ quality_report.feedback_summary.no_feedback_guesses }} / {{ quality_report.feedback_summary.guessed }}</div>
+  </div>
+</div>
+{% if quality_report.action_items %}
+<div style="margin-top:10px;border-top:1px solid #263244;padding-top:8px;">
+  {% for item in quality_report.action_items[:3] %}
+  <div style="font-size:0.76rem;color:{% if item.severity == 'warning' %}#f5a623{% else %}#aaa{% endif %};margin-bottom:3px;">{{ item.message }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+<div style="margin-top:10px;"><a href="/api/admin/quality_report" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">JSONで確認</a></div>
+</details>
+{% endif %}
+
+{% if maintenance_checklist %}
+<details open style="margin-bottom:24px;background:#101622;border:1px solid #263244;border-radius:8px;padding:12px 14px;">
+<summary style="color:#f5a623;font-size:0.9rem;cursor:pointer;">メンテナンスチェックリスト</summary>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:12px;">
+  {% for item in maintenance_checklist.checklist %}
+  <div style="border:1px solid #263244;border-radius:6px;padding:8px 10px;background:#111827;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+      <span style="font-size:0.78rem;color:#aaa;">{{ item.label }}</span>
+      <strong style="color:{% if item.severity == 'ok' %}#27ae60{% else %}#f5a623{% endif %};">{{ item.count }}</strong>
+    </div>
+    <div style="font-size:0.7rem;color:#666;margin-top:4px;">{{ item.next_action }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if maintenance_checklist.weak_fetishes %}
+<div style="margin-top:14px;">
+  <div style="font-size:0.78rem;color:#e74c3c;margin-bottom:6px;">改善候補の性癖</div>
+  {% for f in maintenance_checklist.weak_fetishes[:5] %}
+  <div style="display:flex;align-items:center;gap:8px;border-top:1px solid #222;padding:6px 0;flex-wrap:wrap;">
+    <span style="color:#eee;font-size:0.82rem;min-width:120px;">{{ f.fetish_name }} <span style="color:#666;">ID {{ f.fetish_id }}</span></span>
+    <span style="color:#aaa;font-size:0.75rem;">正解率 {{ f.accuracy if f.accuracy is not none else '—' }}% / wrong {{ f.wrong_rate }}%</span>
+    <button class="btn-toggle" data-action="maintenance-edit-fetish" data-fid="{{ f.fetish_id }}">編集へ</button>
+    {% if f.nearest_similar %}
+    <button class="btn-toggle" data-action="maintenance-compare-fetish" data-fid="{{ f.fetish_id }}" data-other-id="{{ f.nearest_similar.fetish_id }}">
+      類似: {{ f.nearest_similar.fetish_name }}
+    </button>
+    {% else %}
+    <button class="btn-toggle" data-action="maintenance-compare-fetish" data-fid="{{ f.fetish_id }}">類似度へ</button>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if maintenance_checklist.duplicate_questions %}
+<div style="margin-top:14px;">
+  <div style="font-size:0.78rem;color:#f5a623;margin-bottom:6px;">重複度が高い質問</div>
+  {% for p in maintenance_checklist.duplicate_questions[:4] %}
+  <div style="border-top:1px solid #222;padding:6px 0;font-size:0.76rem;color:#aaa;">
+    <span style="color:#eee;">Q{{ p.q1_id }} / Q{{ p.q2_id }}</span>
+    <span style="color:#666;">cos={{ p.cos }}</span>
+    <span style="color:#f5a623;">{{ p.suggested_action }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if maintenance_checklist.works.missing_work_fetish_count or maintenance_checklist.works.missing_url_work_count or maintenance_checklist.works.unsafe_url_work_count %}
+<div style="margin-top:14px;font-size:0.76rem;color:#aaa;border-top:1px solid #222;padding-top:8px;">
+  作品なし {{ maintenance_checklist.works.missing_work_fetish_count }}件 /
+  URLなし {{ maintenance_checklist.works.missing_url_work_count }}件 /
+  不正URL {{ maintenance_checklist.works.unsafe_url_work_count }}件
+  <a href="{{ maintenance_checklist.works.works_review_url }}" target="_blank" class="btn-action" style="font-size:0.72rem;padding:2px 10px;text-decoration:none;margin-left:8px;">作品リンク確認</a>
+</div>
+{% endif %}
+<div style="margin-top:10px;"><a href="/api/admin/maintenance_checklist" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">JSONで確認</a></div>
+</details>
 {% endif %}
 
 {% set low_count = stats | selectattr('data_weight', 'lt', 10) | list | length %}
@@ -121,8 +203,8 @@
 <div style="margin-bottom:24px;">
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
     <p style="color:#888;font-size:0.8rem;flex:1;" id="chart-label">過去30日間の推移</p>
-    <button onclick="renderStatsChart(7)" id="chart-btn-7" style="font-size:0.72rem;padding:2px 8px;background:#0f3460;border:1px solid #444;color:#aaa;border-radius:4px;cursor:pointer;">7日</button>
-    <button onclick="renderStatsChart(30)" id="chart-btn-30" style="font-size:0.72rem;padding:2px 8px;background:#e94560;border:1px solid #e94560;color:#fff;border-radius:4px;cursor:pointer;">30日</button>
+    <button data-action="render-stats" data-days="7" id="chart-btn-7" style="font-size:0.72rem;padding:2px 8px;background:#0f3460;border:1px solid #444;color:#aaa;border-radius:4px;cursor:pointer;">7日</button>
+    <button data-action="render-stats" data-days="30" id="chart-btn-30" style="font-size:0.72rem;padding:2px 8px;background:#e94560;border:1px solid #e94560;color:#fff;border-radius:4px;cursor:pointer;">30日</button>
     <a href="/api/admin/export_stats_history" class="btn-action" style="font-size:0.72rem;padding:2px 10px;text-decoration:none;">CSVエクスポート</a>
   </div>
   <div id="stats-chart" style="display:flex;align-items:flex-end;gap:2px;height:60px;background:#1a1a1a;border-radius:6px;padding:6px 8px;overflow-x:auto;"></div>
@@ -137,74 +219,23 @@
 <div style="margin-bottom:24px;">
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
     <p style="color:#888;font-size:0.8rem;flex:1;" id="recent-rank-label">最近の性癖ランキング（7日）</p>
-    <button onclick="loadRecentRanking(7)"  id="rank-btn-7"  style="font-size:0.72rem;padding:2px 8px;background:#e94560;border:1px solid #e94560;color:#fff;border-radius:4px;cursor:pointer;">7日</button>
-    <button onclick="loadRecentRanking(30)" id="rank-btn-30" style="font-size:0.72rem;padding:2px 8px;background:#0f3460;border:1px solid #444;color:#aaa;border-radius:4px;cursor:pointer;">30日</button>
+    <button data-action="recent-ranking" data-days="7"  id="rank-btn-7"  style="font-size:0.72rem;padding:2px 8px;background:#e94560;border:1px solid #e94560;color:#fff;border-radius:4px;cursor:pointer;">7日</button>
+    <button data-action="recent-ranking" data-days="30" id="rank-btn-30" style="font-size:0.72rem;padding:2px 8px;background:#0f3460;border:1px solid #444;color:#aaa;border-radius:4px;cursor:pointer;">30日</button>
   </div>
   <div id="recent-rank-chart" style="min-height:24px;"></div>
 </div>
-<script>
-async function loadRecentRanking(days) {
-  document.getElementById('rank-btn-7').style.background  = days===7  ? '#e94560' : '#0f3460';
-  document.getElementById('rank-btn-7').style.borderColor = days===7  ? '#e94560' : '#444';
-  document.getElementById('rank-btn-7').style.color       = days===7  ? '#fff'    : '#aaa';
-  document.getElementById('rank-btn-30').style.background  = days===30 ? '#e94560' : '#0f3460';
-  document.getElementById('rank-btn-30').style.borderColor = days===30 ? '#e94560' : '#444';
-  document.getElementById('rank-btn-30').style.color       = days===30 ? '#fff'    : '#aaa';
-  document.getElementById('recent-rank-label').textContent = `最近の性癖ランキング（${days}日）`;
-  const resp = await fetch(`/api/admin/recent_fetish_ranking?days=${days}&top_n=10`);
-  const json = await resp.json();
-  const el = document.getElementById('recent-rank-chart');
-  const rows = json.ranking || [];
-  if (!rows.length) { el.innerHTML = '<p style="color:#555;font-size:0.78rem;">データなし（フィードバックが蓄積されると表示されます）</p>'; return; }
-  const maxT = Math.max(...rows.map(r => r.total), 1);
-  el.innerHTML = rows.map(r => {
-    const acc = r.acc != null ? r.acc : null;
-    const accStr = acc != null ? `<span style="color:${acc>=60?'#27ae60':'#e74c3c'};min-width:34px;text-align:right;">${acc}%</span>` : '<span style="color:#555;min-width:34px;text-align:right;">—</span>';
-    const cw = Math.max(Math.round(r.correct / maxT * 160), 2);
-    const ww = Math.max(Math.round(r.wrong   / maxT * 160), r.wrong > 0 ? 2 : 0);
-    return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-      <div style="width:90px;font-size:0.72rem;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;" title="${r.fetish_name}">${r.fetish_name}</div>
-      <div style="display:flex;height:10px;border-radius:3px;overflow:hidden;flex:1;max-width:200px;background:#111;">
-        <div style="width:${cw}px;background:#27ae60;"></div>
-        <div style="width:${ww}px;background:#e74c3c;"></div>
-      </div>
-      <div style="font-size:0.7rem;color:#666;min-width:22px;">${r.total}</div>
-      ${accStr}
-    </div>`;
-  }).join('');
-}
-loadRecentRanking(7);
-</script>
-<script>
-const _statsHistory = {{ stats_history | tojson }};
-function renderStatsChart(days) {
-  const data = _statsHistory.slice(-days);
-  const maxV = Math.max(1, ...data.map(r => Math.max(r.play, r.learn)));
-  document.getElementById('chart-label').textContent = `過去${days}日間の推移`;
-  document.getElementById('chart-btn-7').style.background  = days === 7  ? '#e94560' : '#0f3460';
-  document.getElementById('chart-btn-7').style.borderColor = days === 7  ? '#e94560' : '#444';
-  document.getElementById('chart-btn-7').style.color       = days === 7  ? '#fff'    : '#aaa';
-  document.getElementById('chart-btn-30').style.background  = days === 30 ? '#e94560' : '#0f3460';
-  document.getElementById('chart-btn-30').style.borderColor = days === 30 ? '#e94560' : '#444';
-  document.getElementById('chart-btn-30').style.color       = days === 30 ? '#fff'    : '#aaa';
-  document.getElementById('stats-chart').innerHTML = data.map(r => {
-    const ph = Math.round(r.play    / maxV * 48);
-    const lh = Math.round(r.learn   / maxV * 48);
-    const ch = Math.round(r.correct / maxV * 48);
-    const wh = Math.round(r.wrong   / maxV * 48);
-    const fb = r.correct + r.wrong;
-    const accStr = fb > 0 ? ` 正答率:${Math.round(r.correct/fb*100)}%` : '';
-    return `<div style="flex:1;min-width:7px;display:flex;flex-direction:column;align-items:center;gap:1px;height:100%;justify-content:flex-end;" title="${r.date}\nプレイ:${r.play} 学習:${r.learn}\n正解:${r.correct} 外れ:${r.wrong}${accStr}">
-      <div style="width:100%;background:#f5a623;border-radius:2px 2px 0 0;height:${ph}px;"></div>
-      <div style="width:100%;background:#5b8dd9;border-radius:2px 2px 0 0;height:${lh}px;"></div>
-      <div style="width:100%;background:#27ae60;border-radius:2px 2px 0 0;height:${ch}px;"></div>
-      <div style="width:100%;background:#e74c3c;border-radius:2px 2px 0 0;height:${wh}px;"></div>
-    </div>`;
-  }).join('');
-}
-renderStatsChart(30);
-</script>
 {% endif %}
+
+<script>
+window.ADMIN_STATS_HISTORY = {{ (stats_history or []) | tojson }};
+window.ADMIN_CONFIG = {
+  csrfToken: {{ csrf_token | tojson }},
+  csrfExpiresAt: {{ csrf_expires_at | tojson }},
+  fetishLogPage: {{ fetish_log_page | tojson }},
+};
+</script>
+<script src="/static/admin_ops.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
+<script src="/static/admin.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
 
 <table>
   <tr><th>#</th><th>性癖</th><th>データ量</th><th></th></tr>
@@ -234,9 +265,9 @@ renderStatsChart(30);
     <td style="color:#888;font-size:0.82rem" id="pfdesc-{{ f.id }}">{{ f.desc }}</td>
     <td style="color:#4a9;font-size:0.75rem" id="pfworks-{{ f.id }}">{{ f.works | join(', ') if f.works else '（なし）' }}</td>
     <td style="display:flex;gap:4px;flex-wrap:wrap;">
-      <button class="btn-toggle" onclick="promotePlayerFetish({{ f.id }}, this)" title="シード性癖に格上げ">↑格上げ</button>
-      <button class="btn-toggle" onclick="editFetish({{ f.id }}, this)">編集</button>
-      <button class="btn-toggle disabled" onclick="deletePlayerFetish({{ f.id }}, this)">削除</button>
+      <button class="btn-toggle" data-action="promote-player-fetish" data-fid="{{ f.id }}" title="シード性癖に格上げ">↑格上げ</button>
+      <button class="btn-toggle" data-action="edit-fetish" data-fid="{{ f.id }}">編集</button>
+      <button class="btn-toggle" data-action="delete-player-fetish" data-fid="{{ f.id }}">削除</button>
     </td>
   </tr>
   {% endfor %}
@@ -245,7 +276,7 @@ renderStatsChart(30);
 <p style="color:#555;font-size:0.85rem;margin-top:32px;">プレイヤーが追加した性癖はまだありません。</p>
 {% endif %}
 
-<details style="margin-top:16px;">
+<details style="margin-top:16px;" id="seed-edit-section">
 <summary style="color:#888;font-size:0.85rem;cursor:pointer;">シード性癖を編集</summary>
 <p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">性癖IDを指定して名前・説明文・作品リストを変更します。</p>
 <div style="display:flex;flex-direction:column;gap:6px;max-width:420px;">
@@ -255,7 +286,7 @@ renderStatsChart(30);
   <input id="ef-works" type="text" placeholder="作品（カンマ区切り。URL付きは「作品名|URL」形式）" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
   <p style="color:#555;font-size:0.72rem;margin:0;">例: <code style="color:#888;">君が望む永遠|https://amzn.to/xxx, ヤンデレ彼女</code></p>
   <div style="display:flex;align-items:center;gap:8px;">
-    <button class="btn-action" onclick="editFetishById()">保存</button>
+    <button class="btn-action" data-action="edit-fetish-by-id">保存</button>
     <span id="ef-msg" style="font-size:0.8rem;"></span>
   </div>
 </div>
@@ -287,7 +318,7 @@ renderStatsChart(30);
 <div style="background:#0d2010;border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:0.78rem;color:#27ae60;border:1px solid #1a4a1a;">✓ 問題のある質問なし（avg_ask={{ avg_ask }}）</div>
 {% endif %}
 <table id="q-table" style="margin-top:8px;">
-  <tr><th>#</th><th>質問</th><th onclick="sortQTable()" style="cursor:pointer;user-select:none;">識別力 ↕</th><th></th><th style="color:#888;font-size:0.75rem;white-space:nowrap;" title="UCB使用回数（学習累計）">使用量</th><th style="color:#888;font-size:0.75rem;white-space:nowrap;" title="バリアント（別表現）の数">Var</th><th>操作</th></tr>
+  <tr><th>#</th><th>質問</th><th data-action="sort-q-table" style="cursor:pointer;user-select:none;">識別力 ↕</th><th></th><th style="color:#888;font-size:0.75rem;white-space:nowrap;" title="UCB使用回数（学習累計）">使用量</th><th style="color:#888;font-size:0.75rem;white-space:nowrap;" title="バリアント（別表現）の数">Var</th><th>操作</th></tr>
   {% set max_d = [question_stats[-1].disc, 0.01] | max if question_stats else 0.01 %}
   {% for q in question_stats %}
   <tr id="qrow-{{ q.id }}" style="{% if q.disabled %}opacity:0.4{% elif q.disc < 0.03 %}background:#1a0a0a{% elif q.ask_count < avg_ask*0.25 and avg_ask > 1 %}background:#1a1500{% endif %}">
@@ -303,8 +334,8 @@ renderStatsChart(30);
     <td style="color:#{% if q.variants_count > 0 %}7af0a0{% else %}555{% endif %};font-size:0.75rem;text-align:center;">{{ q.variants_count }}</td>
     <td style="display:flex;gap:4px;">
       <button class="btn-toggle {% if q.disabled %}disabled{% endif %}" id="qtoggle-{{ q.id }}"
-          onclick="toggleQuestion({{ q.id }})">{% if q.disabled %}無効{% else %}有効{% endif %}</button>
-      <button class="btn-toggle" onclick="editQuestion({{ q.id }}, this)">編集</button>
+          data-action="toggle-question" data-qid="{{ q.id }}">{% if q.disabled %}無効{% else %}有効{% endif %}</button>
+      <button class="btn-toggle" data-action="edit-question" data-qid="{{ q.id }}">編集</button>
     </td>
   </tr>
   {% endfor %}
@@ -392,37 +423,108 @@ renderStatsChart(30);
 <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
   <a href="/api/admin/export_log" class="btn-action" style="font-size:0.78rem;padding:4px 12px;text-decoration:none;">CSVエクスポート</a>
   <a href="/api/admin/export_matrix" class="btn-action" style="font-size:0.78rem;padding:4px 12px;text-decoration:none;">Matrix JSONエクスポート</a>
+  <a href="/api/admin/audit_log?format=csv" class="btn-action" style="font-size:0.78rem;padding:4px 12px;text-decoration:none;">監査ログCSV</a>
+  <a href="/api/admin/preflight" class="btn-action" style="font-size:0.78rem;padding:4px 12px;text-decoration:none;">Preflight</a>
+  <a href="/api/admin/performance" class="btn-action" style="font-size:0.78rem;padding:4px 12px;text-decoration:none;">Performance</a>
   <a href="/api/admin/works_review" target="_blank" class="btn-action" style="font-size:0.78rem;padding:4px 12px;text-decoration:none;">作品リンク確認</a>
 </div>
+<details style="margin-bottom:16px;">
+<summary style="color:#f5a623;font-size:0.85rem;cursor:pointer;">Matrix JSONインポート</summary>
+<p style="color:#555;font-size:0.78rem;margin:8px 0;">先にdry-runで検証してから本インポートします。本インポート時は現在のmatrixを自動バックアップします。</p>
+<input id="matrix-import-file" type="file" accept="application/json,.json"
+  style="display:block;margin-bottom:8px;color:#aaa;font-size:0.8rem;">
+<textarea id="matrix-import-json" placeholder="export_matrix のJSONを貼り付け"
+  style="width:100%;max-width:680px;min-height:120px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:8px 10px;border-radius:6px;font-size:0.8rem;"></textarea>
+<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+  <button class="btn-action" data-action="dry-run-matrix-import">dry-run検証</button>
+  <button class="btn-save" data-action="import-matrix" style="margin-top:0;">本インポート</button>
+  <span id="matrix-import-msg" style="font-size:0.8rem;color:#aaa;"></span>
+</div>
+</details>
+<details style="margin-bottom:16px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">Matrixバックアップ復元</summary>
+<p style="color:#555;font-size:0.78rem;margin:8px 0;">import/restore 前に作成されたバックアップです。復元時も現在のmatrixを退避します。</p>
+<button class="btn-action" data-action="refresh-matrix-backups" style="font-size:0.76rem;padding:3px 10px;margin-bottom:8px;">一覧更新</button>
+<div id="matrix-backup-list" style="font-size:0.8rem;color:#aaa;">
+  {% for b in matrix_backups[:10] %}
+  <div style="display:flex;gap:8px;align-items:center;border-top:1px solid #222;padding:6px 0;flex-wrap:wrap;">
+    <code style="color:#ccc;">{{ b.name }}</code>
+    <span style="color:#666;">{{ b.size }} bytes</span>
+    <button class="btn-toggle" data-action="restore-matrix-backup" data-name="{{ b.name }}">復元</button>
+  </div>
+  {% else %}
+  <p style="color:#555;">バックアップはまだありません。</p>
+  {% endfor %}
+</div>
+<span id="matrix-restore-msg" style="font-size:0.8rem;color:#aaa;"></span>
+</details>
+<details style="margin-bottom:16px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">Preflightチェック</summary>
+<p style="color:#555;font-size:0.78rem;margin:8px 0;">本番起動前に確認したい設定・保存状態をチェックします。</p>
+<button class="btn-action" data-action="load-preflight" style="font-size:0.76rem;padding:3px 10px;">チェック実行</button>
+<div id="preflight-result" style="font-size:0.8rem;color:#aaa;margin-top:8px;"></div>
+</details>
+<details style="margin-bottom:16px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">Performance計測</summary>
+<p style="color:#555;font-size:0.78rem;margin:8px 0;">管理集計と推論の代表処理時間を計測します。</p>
+<button class="btn-action" data-action="load-performance" style="font-size:0.76rem;padding:3px 10px;">計測実行</button>
+<div id="performance-result" style="font-size:0.8rem;color:#aaa;margin-top:8px;"></div>
+</details>
+<details style="margin-bottom:16px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">管理操作ログ</summary>
+<div style="font-size:0.78rem;color:#aaa;margin-top:8px;">
+  {% for row in audit_rows %}
+  <div style="border-top:1px solid #222;padding:6px 0;">
+    <code style="color:{% if row.status == 'ok' %}#27ae60{% else %}#e74c3c{% endif %};">{{ row.status }}</code>
+    <span style="color:#ccc;">{{ row.action }}</span>
+    <span style="color:#666;">{{ row.ts }}</span>
+    <span style="color:#666;">{{ row.path or '' }}</span>
+  </div>
+  {% else %}
+  <p style="color:#555;">操作ログはまだありません。</p>
+  {% endfor %}
+</div>
+</details>
 <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
-  <input id="log-search" type="text" placeholder="名前で絞り込み" oninput="filterLogTable()"
+  <label for="log-search" class="sr-only">性癖名で絞り込み</label>
+  <input id="log-search" type="text" placeholder="名前で絞り込み" data-action="filter-log"
     style="flex:1;min-width:120px;max-width:200px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:4px 10px;border-radius:6px;font-size:0.82rem;">
-  <select id="log-min-guessed" onchange="filterLogTable()" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:4px 8px;border-radius:6px;font-size:0.82rem;">
+  <label for="log-min-guessed" class="sr-only">最小診断数</label>
+  <select id="log-min-guessed" data-action="filter-log" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:4px 8px;border-radius:6px;font-size:0.82rem;">
     <option value="0">診断数 すべて</option>
     <option value="3">3回以上</option>
     <option value="10">10回以上</option>
   </select>
-  <select id="log-acc-filter" onchange="filterLogTable()" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:4px 8px;border-radius:6px;font-size:0.82rem;">
+  <label for="log-acc-filter" class="sr-only">正解率フィルター</label>
+  <select id="log-acc-filter" data-action="filter-log" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:4px 8px;border-radius:6px;font-size:0.82rem;">
     <option value="all">正解率 すべて</option>
     <option value="low">低い（&lt;50%）</option>
     <option value="high">高い（≥70%）</option>
     <option value="none">未フィードバック</option>
   </select>
 </div>
+<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap;">
+  <button class="btn-toggle" data-action="log-page-prev">前へ</button>
+  <span id="log-page-info" style="font-size:0.78rem;color:#888;">{{ fetish_log_page.page }} / {{ fetish_log_page.pages }}（{{ fetish_log_page.total }}件）</span>
+  <button class="btn-toggle" data-action="log-page-next">次へ</button>
+</div>
 <table id="log-table" style="margin-top:8px;">
+  <thead>
   <tr>
     <th>#</th>
-    <th onclick="sortLogTable(1)" style="cursor:pointer;user-select:none;">性癖 ↕</th>
-    <th onclick="sortLogTable(2)" style="cursor:pointer;user-select:none;">診断 ↕</th>
-    <th onclick="sortLogTable(3)" style="cursor:pointer;user-select:none;">正解 ↕</th>
-    <th onclick="sortLogTable(4)" style="cursor:pointer;user-select:none;">外れ ↕</th>
-    <th onclick="sortLogTable(5)" style="cursor:pointer;user-select:none;">正解率 ↕</th>
+    <th data-action="sort-log" data-col="1" style="cursor:pointer;user-select:none;">性癖 ↕</th>
+    <th data-action="sort-log" data-col="2" style="cursor:pointer;user-select:none;">診断 ↕</th>
+    <th data-action="sort-log" data-col="3" style="cursor:pointer;user-select:none;">正解 ↕</th>
+    <th data-action="sort-log" data-col="4" style="cursor:pointer;user-select:none;">外れ ↕</th>
+    <th data-action="sort-log" data-col="5" style="cursor:pointer;user-select:none;">正解率 ↕</th>
     <th></th>
   </tr>
-  {% for r in fetish_log_rows %}
+  </thead>
+  <tbody id="log-table-body">
+  {% for r in fetish_log_page.rows %}
   <tr id="logrow-{{ r.id }}"{% if r.acc is not none and r.acc < 40 and r.guessed >= 3 %} style="background:#2a1010"{% endif %}
       data-name="{{ r.name }}" data-guessed="{{ r.guessed }}" data-acc="{{ r.acc if r.acc is not none else -1 }}">
-    <td style="color:#666;font-size:0.75rem">{{ loop.index }}</td>
+    <td style="color:#666;font-size:0.75rem">{{ loop.index + ((fetish_log_page.page - 1) * fetish_log_page.per_page) }}</td>
     <td style="font-size:0.82rem">{{ r.name }}{% if r.acc is not none and r.acc < 40 and r.guessed >= 3 %}<span class="tag-low" title="wrong率60%超">⚠</span>{% endif %}</td>
     <td style="color:#aaa;font-size:0.8rem" data-val="{{ r.guessed }}">{{ r.guessed }}</td>
     <td style="color:#27ae60;font-size:0.8rem" data-val="{{ r.correct }}">{{ r.correct }}</td>
@@ -431,7 +533,7 @@ renderStatsChart(30);
         data-val="{{ r.acc if r.acc is not none else -1 }}">
       {% if r.acc is not none %}{{ r.acc }}%{% else %}—{% endif %}
     </td>
-    <td><button class="btn-toggle" onclick="toggleFetishHistory({{ r.id }}, this)" style="font-size:0.72rem;padding:2px 8px;">履歴</button></td>
+    <td><button class="btn-toggle" data-action="toggle-fetish-history" data-fid="{{ r.id }}" style="font-size:0.72rem;padding:2px 8px;">履歴</button></td>
   </tr>
   <tr id="logrow-hist-{{ r.id }}" style="display:none;">
     <td colspan="7" style="padding:8px 4px 12px;">
@@ -439,6 +541,7 @@ renderStatsChart(30);
     </td>
   </tr>
   {% endfor %}
+  </tbody>
 </table>
 </details>
 
@@ -528,44 +631,44 @@ renderStatsChart(30);
 </details>
 
 <datalist id="fetish-list">
-  {% for f in stats %}<option value="{{ f.fetish_name }} ({{ f.fetish_id }})">{% endfor %}
+  {% for f in stats %}<option value="{{ f.name }} ({{ f.id }})">{% endfor %}
 </datalist>
 
 <details style="margin-top:24px;" id="compound-works-section">
-<summary style="color:#888;font-size:0.85rem;cursor:pointer;" onclick="loadCompoundWorks()">複合診断の特化作品（展開で表示・編集）</summary>
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;" data-action="load-compound-works">複合診断の特化作品（展開で表示・編集）</summary>
 <p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">2つの性癖IDペアに両方の要素を持つ作品を登録します。複合診断時に金色タグで優先表示されます。</p>
 <div style="display:flex;flex-direction:column;gap:6px;max-width:520px;margin-bottom:12px;">
   <div style="display:flex;gap:8px;">
-    <input list="fetish-list" id="cw-a-name" placeholder="性癖A（名前で検索）" oninput="fillId('cw-a-name','cw-a')" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <input list="fetish-list" id="cw-a-name" placeholder="性癖A（名前で検索）" data-action="fill-id" data-target="cw-a" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
     <input id="cw-a" type="number" placeholder="ID" style="width:60px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 8px;border-radius:6px;font-size:0.85rem;">
   </div>
   <div style="display:flex;gap:8px;">
-    <input list="fetish-list" id="cw-b-name" placeholder="性癖B（名前で検索）" oninput="fillId('cw-b-name','cw-b')" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <input list="fetish-list" id="cw-b-name" placeholder="性癖B（名前で検索）" data-action="fill-id" data-target="cw-b" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
     <input id="cw-b" type="number" placeholder="ID" style="width:60px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 8px;border-radius:6px;font-size:0.85rem;">
   </div>
   <input id="cw-works" type="text" placeholder="作品（カンマ区切り。URL付きは「作品名|URL」形式）" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
   <p style="color:#555;font-size:0.72rem;margin:0;">例: <code style="color:#888;">ミライニッキ|https://amzn.to/xxx, School Days</code></p>
   <div style="display:flex;align-items:center;gap:8px;">
-    <button class="btn-action" onclick="saveCompoundWorks()">追加・更新</button>
+    <button class="btn-action" data-action="save-compound-works">追加・更新</button>
     <span id="cw-msg" style="font-size:0.8rem;"></span>
   </div>
 </div>
 <div id="cw-list" style="font-size:0.82rem;"></div>
 </details>
 
-<details style="margin-top:24px;">
+<details style="margin-top:24px;" id="similarity-section">
 <summary style="color:#888;font-size:0.85rem;cursor:pointer;">性癖類似度チェック（2つの性癖IDを比較）</summary>
 <p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">matrixベースのコサイン類似度と、2性癖の差異が大きい質問TOP5を表示します。</p>
 <div style="display:flex;flex-direction:column;gap:6px;max-width:420px;">
   <div style="display:flex;gap:8px;">
-    <input list="fetish-list" id="sim-a-name" placeholder="性癖A（名前で検索）" oninput="fillId('sim-a-name','sim-a')" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <input list="fetish-list" id="sim-a-name" placeholder="性癖A（名前で検索）" data-action="fill-id" data-target="sim-a" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
     <input id="sim-a" type="number" placeholder="ID" style="width:60px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 8px;border-radius:6px;font-size:0.85rem;">
   </div>
   <div style="display:flex;gap:8px;">
-    <input list="fetish-list" id="sim-b-name" placeholder="性癖B（名前で検索）" oninput="fillId('sim-b-name','sim-b')" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <input list="fetish-list" id="sim-b-name" placeholder="性癖B（名前で検索）" data-action="fill-id" data-target="sim-b" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
     <input id="sim-b" type="number" placeholder="ID" style="width:60px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 8px;border-radius:6px;font-size:0.85rem;">
   </div>
-  <div><button class="btn-action" onclick="checkSimilarity()">比較</button></div>
+  <div><button class="btn-action" data-action="check-similarity">比較</button></div>
   <div id="sim-result" style="font-size:0.82rem;"></div>
 </div>
 </details>
@@ -575,433 +678,22 @@ renderStatsChart(30);
 <p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">id_keep の matrix に id_remove の matrix を加算し、id_remove を削除します。取り消し不可。</p>
 <div style="display:flex;flex-direction:column;gap:6px;max-width:420px;">
   <div style="display:flex;gap:8px;">
-    <input list="fetish-list" id="mg-keep-name" placeholder="残す性癖（名前で検索）" oninput="fillId('mg-keep-name','mg-keep')" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <input list="fetish-list" id="mg-keep-name" placeholder="残す性癖（名前で検索）" data-action="fill-id" data-target="mg-keep" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
     <input id="mg-keep" type="number" placeholder="ID" style="width:60px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 8px;border-radius:6px;font-size:0.85rem;">
   </div>
   <div style="display:flex;gap:8px;">
-    <input list="fetish-list" id="mg-rm-name" placeholder="削除する性癖（名前で検索）" oninput="fillId('mg-rm-name','mg-rm')" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <input list="fetish-list" id="mg-rm-name" placeholder="削除する性癖（名前で検索）" data-action="fill-id" data-target="mg-rm" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
     <input id="mg-rm" type="number" placeholder="ID" style="width:60px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 8px;border-radius:6px;font-size:0.85rem;">
   </div>
   <input id="mg-name" type="text"   placeholder="新しい名前（省略可）" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
   <input id="mg-desc" type="text"   placeholder="新しい説明文（省略可）" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
   <div style="display:flex;align-items:center;gap:8px;">
-    <button class="btn-action" onclick="mergeFetishes()">統合する</button>
+    <button class="btn-action" data-action="merge-fetishes">統合する</button>
     <span id="mg-msg" style="font-size:0.8rem;"></span>
   </div>
 </div>
 </details>
 
-<script>
-function worksToInputStr(works) {
-  // works配列を「タイトル|URL, タイトル」形式の文字列に変換（入力欄表示用）
-  return (works || []).map(w =>
-    (typeof w === 'object' && w.url) ? `${w.title}|${w.url}` : (w.title || w)
-  ).join(', ');
-}
 
-function fillId(nameInputId, idInputId) {
-  const val = document.getElementById(nameInputId).value;
-  const m = val.match(/\((\d+)\)\s*$/);
-  if (m) document.getElementById(idInputId).value = m[1];
-}
-
-async function adminFetch(url, options = {}) {
-  const res = await fetch(url, {
-    credentials: 'same-origin',
-    headers: {'Content-Type': 'application/json'},
-    ...options,
-  });
-  if (!res.ok && res.status === 401) {
-    alert('認証が必要です。ページを再読み込みしてください。');
-    return null;
-  }
-  return res;
-}
-
-async function saveParams() {
-  const keys = ['guess_threshold','compound_ratio','triple_ratio','ucb_explore_c','focus_threshold'];
-  const body = {};
-  for (const k of keys) {
-    const v = parseFloat(document.getElementById(`param-${k}`).value);
-    if (!isNaN(v)) body[k] = v;
-  }
-  const res  = await adminFetch('/api/admin/params', {method: 'POST', body: JSON.stringify(body)});
-  if (!res) return;
-  const data = await res.json();
-  const msg  = document.getElementById('param-msg');
-  if (data.errors && data.errors.length) {
-    msg.style.color = '#e74c3c';
-    msg.textContent = data.errors.join(', ');
-  } else {
-    msg.style.color = '#27ae60';
-    msg.textContent = '保存しました';
-    setTimeout(() => msg.textContent = '', 3000);
-  }
-}
-
-async function cleanupSessions() {
-  const res  = await adminFetch('/api/admin/cleanup_sessions', {method: 'POST'});
-  if (!res) return;
-  const data = await res.json();
-  document.getElementById('cleanup-msg').textContent = `${data.deleted} 件削除しました`;
-}
-
-let _logSortCol = -1, _logSortAsc = true;
-function sortLogTable(col) {
-  const table = document.getElementById('log-table');
-  const rows  = Array.from(table.rows).slice(1).filter(r => !r.id.includes('-hist-'));
-  if (_logSortCol === col) { _logSortAsc = !_logSortAsc; } else { _logSortCol = col; _logSortAsc = false; }
-  rows.sort((a, b) => {
-    const av = a.cells[col].dataset.val ?? a.cells[col].textContent;
-    const bv = b.cells[col].dataset.val ?? b.cells[col].textContent;
-    const an = parseFloat(av), bn = parseFloat(bv);
-    const cmp = isNaN(an) || isNaN(bn) ? av.localeCompare(bv) : an - bn;
-    return _logSortAsc ? cmp : -cmp;
-  });
-  rows.forEach((r, i) => { r.cells[0].textContent = i + 1; table.appendChild(r); });
-}
-
-function filterLogTable() {
-  const q    = document.getElementById('log-search').value.toLowerCase();
-  const minG = parseInt(document.getElementById('log-min-guessed').value) || 0;
-  const accF = document.getElementById('log-acc-filter').value;
-  const rows = document.querySelectorAll('#log-table tr[data-name]');
-  rows.forEach(row => {
-    const name    = (row.dataset.name || '').toLowerCase();
-    const guessed = parseInt(row.dataset.guessed) || 0;
-    const acc     = parseFloat(row.dataset.acc);
-    const show =
-      name.includes(q) &&
-      guessed >= minG &&
-      (accF === 'all' ||
-       (accF === 'low'  && acc >= 0 && acc < 50) ||
-       (accF === 'high' && acc >= 70) ||
-       (accF === 'none' && acc < 0));
-    row.style.display = show ? '' : 'none';
-    const histRow = document.getElementById('logrow-hist-' + row.id.replace('logrow-', ''));
-    if (histRow) histRow.style.display = 'none';
-  });
-}
-
-async function toggleFetishHistory(fid, btn) {
-  const histRow = document.getElementById(`logrow-hist-${fid}`);
-  const content = document.getElementById(`logrow-hist-content-${fid}`);
-  if (histRow.style.display !== 'none') { histRow.style.display = 'none'; return; }
-  content.textContent = '読み込み中…';
-  histRow.style.display = '';
-  const res = await adminFetch(`/api/admin/fetish_history/${fid}?days=30`, {method: 'GET'});
-  if (!res) { histRow.style.display = 'none'; return; }
-  const data = await res.json();
-  const hasSome = data.some(d => d.correct > 0 || d.wrong > 0);
-  if (!hasSome) { content.textContent = 'フィードバックデータなし（記録は今後蓄積されます）'; return; }
-  const maxV = Math.max(1, ...data.map(d => d.correct + d.wrong));
-  let html = '<div style="display:flex;align-items:flex-end;gap:2px;height:36px;overflow-x:auto;">';
-  data.forEach(d => {
-    const tot = d.correct + d.wrong;
-    const h   = Math.round(tot / maxV * 34);
-    const acc = tot > 0 ? Math.round(d.correct / tot * 100) : null;
-    const bg  = acc === null ? '#333' : acc >= 70 ? '#27ae60' : acc >= 40 ? '#f5a623' : '#e74c3c';
-    html += `<div title="${d.date}: 正解${d.correct}/外れ${d.wrong}${acc!==null?' ('+acc+'%)':''}"
-               style="flex:1;min-width:4px;height:${Math.max(h,2)}px;background:${bg};border-radius:2px 2px 0 0;"></div>`;
-  });
-  html += '</div><div style="font-size:0.72rem;color:#555;margin-top:3px;">過去30日（緑=正解多, 橙=接戦, 赤=外れ多）</div>';
-  content.innerHTML = html;
-}
-
-async function promotePlayerFetish(fid, btn) {
-  if (!confirm(`ID ${fid} の性癖をシード性癖に格上げしますか？\nIDが変わり「プレイヤー追加」扱いではなくなります。`)) return;
-  btn.disabled = true;
-  const res  = await adminFetch(`/api/admin/promote_fetish/${fid}`, {method: 'POST'});
-  if (!res) { btn.disabled = false; return; }
-  const data = await res.json();
-  if (res.ok) {
-    const row = document.getElementById(`pfrow-${fid}`);
-    if (row) {
-      row.cells[0].textContent = data.new_id;
-      row.id = `pfrow-${data.new_id}`;
-      row.cells[3].innerHTML = `<span style="color:#27ae60;font-size:0.78rem">シード済 (ID:${data.new_id})</span>`;
-    }
-  } else {
-    alert(data.message || '格上げに失敗しました');
-    btn.disabled = false;
-  }
-}
-
-async function editFetish(fid, btn) {
-  const nameEl  = document.getElementById(`pfname-${fid}`);
-  const descEl  = document.getElementById(`pfdesc-${fid}`);
-  const worksEl = document.getElementById(`pfworks-${fid}`);
-  if (btn.dataset.editing) {
-    const name  = nameEl.querySelector('input').value.trim();
-    const desc  = descEl.querySelector('input').value.trim();
-    const worksRaw = worksEl.querySelector('input').value.trim();
-    const body  = {name, desc};
-    if (worksRaw) body.works = worksRaw.split(',').map(s => s.trim()).filter(Boolean);
-    btn.disabled = true;
-    const res  = await adminFetch(`/api/admin/edit_fetish/${fid}`, {method: 'POST', body: JSON.stringify(body)});
-    btn.disabled = false;
-    if (!res) return;
-    const data = await res.json();
-    if (res.ok) {
-      nameEl.textContent  = data.name;
-      descEl.textContent  = data.desc;
-      worksEl.textContent = data.works && data.works.length ? worksToInputStr(data.works) : '（なし）';
-      delete btn.dataset.editing;
-      btn.textContent = '編集';
-    } else {
-      alert(data.message || '保存に失敗しました');
-    }
-  } else {
-    const curName  = nameEl.textContent;
-    const curDesc  = descEl.textContent;
-    const curWorks = worksEl.textContent === '（なし）' ? '' : worksEl.textContent;
-    const inp = 'style="background:#1a1a2e;color:#eee;border:1px solid #555;padding:2px 6px;border-radius:4px;font-size:0.82rem;width:100%"';
-    nameEl.innerHTML  = `<input value="${curName.replace(/"/g,'&quot;')}" ${inp}>`;
-    descEl.innerHTML  = `<input value="${curDesc.replace(/"/g,'&quot;')}" ${inp}>`;
-    worksEl.innerHTML = `<input value="${curWorks.replace(/"/g,'&quot;')}" placeholder="作品名|URL, 作品名, ..." ${inp}>`;
-    btn.dataset.editing = '1';
-    btn.textContent = '保存';
-  }
-}
-
-async function editFetishById() {
-  const fid   = parseInt(document.getElementById('ef-id').value);
-  const name  = document.getElementById('ef-name').value.trim() || undefined;
-  const desc  = document.getElementById('ef-desc').value.trim() || undefined;
-  const worksRaw = document.getElementById('ef-works').value.trim();
-  const msg   = document.getElementById('ef-msg');
-  if (!fid) { msg.style.color = '#e74c3c'; msg.textContent = 'IDを入力してください'; return; }
-  const body = {};
-  if (name) body.name = name;
-  if (desc) body.desc = desc;
-  if (worksRaw) body.works = worksRaw.split(',').map(s => s.trim()).filter(Boolean);
-  const res  = await adminFetch(`/api/admin/edit_fetish/${fid}`, {method: 'POST', body: JSON.stringify(body)});
-  if (!res) return;
-  const data = await res.json();
-  if (res.ok) {
-    msg.style.color = '#27ae60';
-    const worksCount = data.works ? data.works.length : 0;
-    msg.textContent = `保存しました: ${data.name}（作品${worksCount}件）`;
-    setTimeout(() => msg.textContent = '', 4000);
-    document.getElementById('ef-works').value = '';
-  } else {
-    msg.style.color = '#e74c3c';
-    msg.textContent = data.message || 'エラーが発生しました';
-  }
-}
-
-async function deletePlayerFetish(fid, btn) {
-  if (!confirm(`ID ${fid} の性癖を削除しますか？この操作は元に戻せません。`)) return;
-  btn.disabled = true;
-  const res = await adminFetch(`/api/fetish/${fid}`, {method: 'DELETE', headers: {}});
-  if (!res) { btn.disabled = false; return; }
-  if (res.ok) {
-    const row = document.getElementById(`pfrow-${fid}`);
-    if (row) row.remove();
-  } else {
-    alert('削除に失敗しました');
-    btn.disabled = false;
-  }
-}
-
-async function capturepriors() {
-  const res  = await adminFetch('/api/admin/capture_priors', {method: 'POST'});
-  if (!res) return;
-  const data = await res.json();
-  const msg  = document.getElementById('capture-msg');
-  msg.style.color = data.status === 'ok' ? '#27ae60' : '#e74c3c';
-  msg.textContent = data.status === 'ok' ? '保存しました' : 'エラーが発生しました';
-  setTimeout(() => msg.textContent = '', 3000);
-}
-
-async function adminAddFetish() {
-  const name = document.getElementById('af-name').value.trim();
-  const desc = document.getElementById('af-desc').value.trim();
-  const msg  = document.getElementById('af-msg');
-  if (!name) { msg.style.color = '#e74c3c'; msg.textContent = '名前を入力してください'; return; }
-  const res  = await adminFetch('/api/admin/add_fetish', {method: 'POST', body: JSON.stringify({name, desc})});
-  if (!res) return;
-  const data = await res.json();
-  if (data.status === 'created') {
-    msg.style.color = '#27ae60';
-    msg.textContent = `追加しました (ID: ${data.fetish_id})`;
-    document.getElementById('af-name').value = '';
-    document.getElementById('af-desc').value = '';
-  } else if (data.status === 'exists') {
-    msg.style.color = '#f5a623';
-    msg.textContent = `既に存在します (ID: ${data.fetish_id})`;
-  } else {
-    msg.style.color = '#e74c3c';
-    msg.textContent = data.message || 'エラーが発生しました';
-  }
-}
-
-let _qSortAsc = true;
-function sortQTable() {
-  const table = document.getElementById('q-table');
-  const rows  = Array.from(table.rows).slice(1);
-  _qSortAsc = !_qSortAsc;
-  rows.sort((a, b) => {
-    const av = parseFloat(a.cells[3].textContent);
-    const bv = parseFloat(b.cells[3].textContent);
-    return _qSortAsc ? av - bv : bv - av;
-  });
-  rows.forEach((r, i) => { r.cells[0].textContent = i + 1; table.appendChild(r); });
-}
-
-async function editQuestion(qId, btn) {
-  const cell = document.getElementById(`qtext-${qId}`);
-  if (btn.dataset.editing) {
-    const inp  = cell.querySelector('input');
-    const text = inp ? inp.value.trim() : '';
-    if (!text) return;
-    btn.disabled = true;
-    const res  = await adminFetch(`/api/admin/edit_question/${qId}`, {method: 'POST', body: JSON.stringify({text})});
-    btn.disabled = false;
-    if (!res) return;
-    const data = await res.json();
-    if (res.ok) {
-      cell.textContent = data.text;
-      delete btn.dataset.editing;
-      btn.textContent = '編集';
-    } else {
-      alert(data.message || '保存に失敗しました');
-    }
-  } else {
-    const cur = cell.textContent.replace(/低識別力$/, '').trim();
-    cell.innerHTML = `<input value="${cur.replace(/"/g,'&quot;')}" style="background:#1a1a2e;color:#eee;border:1px solid #555;padding:2px 6px;border-radius:4px;font-size:0.8rem;width:100%">`;
-    btn.dataset.editing = '1';
-    btn.textContent = '保存';
-    cell.querySelector('input').focus();
-  }
-}
-
-async function checkSimilarity() {
-  const id_a = parseInt(document.getElementById('sim-a').value);
-  const id_b = parseInt(document.getElementById('sim-b').value);
-  const out  = document.getElementById('sim-result');
-  if (!id_a || !id_b) { out.style.color='#e74c3c'; out.textContent='IDを両方入力してください'; return; }
-  const res  = await adminFetch('/api/admin/fetish_similarity', {method: 'POST', body: JSON.stringify({id_a, id_b})});
-  if (!res) return;
-  const d = await res.json();
-  if (!res.ok) { out.style.color='#e74c3c'; out.textContent=d.message||'エラー'; return; }
-  const pct = Math.round((d.cosine + 1) / 2 * 100);
-  const color = pct >= 70 ? '#e94560' : pct >= 40 ? '#f5a623' : '#27ae60';
-  let html = `<div style="margin-bottom:8px;">
-    <span style="color:#eee;font-weight:bold;">${d.name_a}</span>
-    <span style="color:#555;"> × </span>
-    <span style="color:#eee;font-weight:bold;">${d.name_b}</span>
-    &nbsp;&nbsp;コサイン類似度: <span style="color:${color};">${d.cosine}</span>
-  </div>
-  <div style="color:#888;margin-bottom:4px;">差異が大きい質問 TOP5:</div>
-  <table style="width:100%;border-collapse:collapse;font-size:0.78rem;">`;
-  html += `<tr><th style="color:#555;text-align:left;padding:2px 6px;">質問</th><th style="color:#555;padding:2px 6px;">${d.name_a}</th><th style="color:#555;padding:2px 6px;">${d.name_b}</th></tr>`;
-  d.top_diff.forEach(q => {
-    html += `<tr style="border-top:1px solid #1a1a2e;">
-      <td style="padding:2px 6px;color:#aaa;">${q.text}</td>
-      <td style="text-align:center;padding:2px 6px;color:#f5a623;">${q.p_a}</td>
-      <td style="text-align:center;padding:2px 6px;color:#f5a623;">${q.p_b}</td>
-    </tr>`;
-  });
-  html += '</table>';
-  out.innerHTML = html;
-}
-
-async function mergeFetishes() {
-  const id_keep   = parseInt(document.getElementById('mg-keep').value);
-  const id_remove = parseInt(document.getElementById('mg-rm').value);
-  const new_name  = document.getElementById('mg-name').value.trim() || undefined;
-  const new_desc  = document.getElementById('mg-desc').value.trim() || undefined;
-  const msg = document.getElementById('mg-msg');
-  if (!id_keep || !id_remove) { msg.style.color='#e74c3c'; msg.textContent='IDを両方入力してください'; return; }
-  if (!confirm(`ID ${id_keep} に ID ${id_remove} をマージし、ID ${id_remove} を削除します。\nこの操作は取り消せません。続けますか？`)) return;
-  const body = {id_keep, id_remove};
-  if (new_name) body.new_name = new_name;
-  if (new_desc) body.new_desc = new_desc;
-  const res  = await adminFetch('/api/admin/merge_fetishes', {method: 'POST', body: JSON.stringify(body)});
-  if (!res) return;
-  const data = await res.json();
-  if (res.ok) {
-    msg.style.color = '#27ae60';
-    msg.textContent = `統合しました: ${data.name}`;
-  } else {
-    msg.style.color = '#e74c3c';
-    msg.textContent = data.message || 'エラーが発生しました';
-  }
-}
-
-let _cwLoaded = false;
-async function loadCompoundWorks() {
-  if (_cwLoaded) return;
-  _cwLoaded = true;
-  const res = await adminFetch('/api/admin/compound_works', {method: 'GET', headers: {}});
-  if (!res || !res.ok) return;
-  const items = await res.json();
-  renderCompoundWorks(items);
-}
-
-function renderCompoundWorks(items) {
-  const el = document.getElementById('cw-list');
-  if (!items.length) { el.innerHTML = '<p style="color:#555;font-size:0.82rem;">登録なし</p>'; return; }
-  el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:4px;">
-    <tr><th style="text-align:left;color:#888;padding:4px 8px;">ペア</th><th style="text-align:left;color:#888;padding:4px 8px;">作品</th><th></th></tr>
-    ${items.map(it => `
-    <tr id="cwrow-${it.key.replace(',','-')}" style="border-top:1px solid #222;">
-      <td style="padding:4px 8px;color:#ccc;white-space:nowrap;">${it.name_a}<br><span style="color:#888;">× ${it.name_b}</span></td>
-      <td style="padding:4px 8px;color:#f0d06a;">${worksToInputStr(it.works)}</td>
-      <td style="padding:4px 8px;"><button class="btn-toggle disabled" onclick="deleteCompoundWorks('${it.key}',${it.id_a},${it.id_b})">削除</button></td>
-    </tr>`).join('')}
-  </table>`;
-}
-
-async function saveCompoundWorks() {
-  const id_a = parseInt(document.getElementById('cw-a').value);
-  const id_b = parseInt(document.getElementById('cw-b').value);
-  const worksRaw = document.getElementById('cw-works').value.trim();
-  const msg = document.getElementById('cw-msg');
-  if (!id_a || !id_b) { msg.style.color='#e74c3c'; msg.textContent='IDを両方入力してください'; return; }
-  if (!worksRaw) { msg.style.color='#e74c3c'; msg.textContent='作品を入力してください'; return; }
-  const works = worksRaw.split(',').map(s => s.trim()).filter(Boolean);
-  const res = await adminFetch('/api/admin/compound_works', {method: 'POST', body: JSON.stringify({id_a, id_b, works})});
-  if (!res) return;
-  const data = await res.json();
-  if (res.ok) {
-    msg.style.color = '#27ae60';
-    msg.textContent = `保存しました（${data.works.length}件）`;
-    setTimeout(() => msg.textContent = '', 3000);
-    document.getElementById('cw-works').value = '';
-    _cwLoaded = false;
-    loadCompoundWorks();
-  } else {
-    msg.style.color = '#e74c3c';
-    msg.textContent = data.message || 'エラーが発生しました';
-  }
-}
-
-async function deleteCompoundWorks(key, id_a, id_b) {
-  if (!confirm(`ペア (${id_a}, ${id_b}) の複合作品を削除しますか？`)) return;
-  const res = await adminFetch(`/api/admin/compound_works/${key}`, {method: 'DELETE', headers: {}});
-  if (!res || !res.ok) { alert('削除に失敗しました'); return; }
-  const row = document.getElementById(`cwrow-${key.replace(',','-')}`);
-  if (row) row.remove();
-}
-
-async function toggleQuestion(qId) {
-  const res  = await adminFetch(`/api/admin/toggle_question/${qId}`, {method: 'POST'});
-  if (!res || !res.ok) { alert('エラーが発生しました'); return; }
-  const data = await res.json();
-  const row  = document.getElementById(`qrow-${qId}`);
-  const btn  = document.getElementById(`qtoggle-${qId}`);
-  if (data.disabled) {
-    row.style.opacity = '0.4';
-    btn.textContent = '無効';
-    btn.classList.add('disabled');
-  } else {
-    row.style.opacity = '';
-    btn.textContent = '有効';
-    btn.classList.remove('disabled');
-  }
-}
-</script>
 </body>
 </html>

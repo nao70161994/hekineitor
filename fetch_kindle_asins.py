@@ -18,7 +18,10 @@ import os
 import urllib.request
 import urllib.parse
 import http.cookiejar
+import unicodedata
 from pathlib import Path
+
+from storage import atomic_write_json
 
 DATA_DIR     = Path(__file__).parent / 'data'
 FETISHES     = DATA_DIR / 'fetishes.json'
@@ -73,8 +76,7 @@ def load_progress():
 
 
 def save_progress(p):
-    with open(PROGRESS, 'w') as f:
-        json.dump(p, f, ensure_ascii=False, indent=2)
+    atomic_write_json(PROGRESS, p, ensure_ascii=False, indent=2)
 
 
 def search_kindle_asin(title: str) -> str | None:
@@ -119,23 +121,80 @@ def kindle_url(asin: str) -> str:
     return f'https://www.amazon.co.jp/dp/{asin}?tag={ASSOCIATE_ID}'
 
 
+def canonical_title(title: str) -> str:
+    """Return a lookup key that ignores local format qualifiers."""
+    title = unicodedata.normalize('NFKC', str(title)).strip().lower()
+    title = re.sub(r'[（(][^）)]*[）)]', '', title).strip()
+    title = re.sub(r'\s+', ' ', title)
+    return title
+
+
+def is_search_url(url: str) -> bool:
+    return 'amazon.co.jp/s?' in url or 'amazon.co.jp/s/' in url
+
+
+def known_asin_maps(progress: dict, fetishes: list) -> tuple[dict, dict]:
+    exact: dict[str, str] = {}
+    canonical: dict[str, str] = {}
+    conflicts: set[str] = set()
+
+    def add(key: str, asin: str, target: dict):
+        if not key or not asin or asin in ('CAPTCHA', 'ERROR', 'NOT_FOUND'):
+            return
+        current = target.get(key)
+        if current and current != asin:
+            target.pop(key, None)
+            conflicts.add(key)
+            return
+        if key not in conflicts:
+            target[key] = asin
+
+    for title, asin in progress.items():
+        add(str(title).strip(), asin, exact)
+        add(canonical_title(title), asin, canonical)
+
+    for fe in fetishes:
+        for w in fe.get('works', []):
+            if not isinstance(w, dict):
+                continue
+            title = str(w.get('title', '')).strip()
+            url = str(w.get('url', '')).strip()
+            m = re.search(r'/dp/([A-Z0-9]{10})', url)
+            if m:
+                add(title, m.group(1), exact)
+                add(canonical_title(title), m.group(1), canonical)
+
+    return exact, canonical
+
+
+def lookup_known_asin(title: str, exact: dict, canonical: dict) -> str | None:
+    asin = exact.get(title) or canonical.get(canonical_title(title))
+    if asin:
+        return asin
+    for key, candidate in canonical.items():
+        if key and key in canonical_title(title):
+            return candidate
+    return None
+
+
 def main():
     with open(FETISHES) as f:
         fetishes = json.load(f)
 
-    # URLなし作品を収集
+    # URLなし・検索URL作品を収集
     targets = []   # (fetish_idx, work_idx, title)
     for fi, fe in enumerate(fetishes):
         for wi, w in enumerate(fe.get('works', [])):
             if isinstance(w, dict):
-                if not w.get('url'):
+                if not w.get('url') or is_search_url(w.get('url', '')):
                     targets.append((fi, wi, w['title']))
             else:
                 targets.append((fi, wi, w))
 
-    print(f'URLなし作品: {len(targets)} 件')
+    print(f'URLなし・検索URL作品: {len(targets)} 件')
 
     progress = load_progress()
+    exact_asins, canonical_asins = known_asin_maps(progress, fetishes)
     done = sum(1 for v in progress.values() if v and v not in ('CAPTCHA', 'ERROR', 'NOT_FOUND'))
     print(f'進捗: {done}/{len(targets)} 件完了\n')
 
@@ -143,6 +202,11 @@ def main():
     updated = 0
 
     for fi, wi, title in targets:
+        known_asin = lookup_known_asin(title, exact_asins, canonical_asins)
+        if known_asin:
+            progress[title] = known_asin
+            continue
+
         if title in progress and progress[title] not in ('CAPTCHA', 'ERROR'):
             continue
 
@@ -193,15 +257,14 @@ def main():
                     continue
                 url = kindle_url(asin)
                 if isinstance(w, dict):
-                    if not w.get('url'):
+                    if not w.get('url') or is_search_url(w.get('url', '')):
                         fetishes[fi]['works'][wi]['url'] = url
                         apply_count += 1
                 else:
                     fetishes[fi]['works'][wi] = {'title': title, 'url': url}
                     apply_count += 1
 
-        with open(FETISHES, 'w') as f:
-            json.dump(fetishes, f, ensure_ascii=False, indent=2)
+        atomic_write_json(FETISHES, fetishes, ensure_ascii=False, indent=2)
         print(f'\nfetishes.json を更新しました（{apply_count} 件）')
 
     # サマリー

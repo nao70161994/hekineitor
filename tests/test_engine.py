@@ -1,10 +1,13 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+import types
 import unittest
+import threading
 from unittest.mock import patch
 import engine as eng_module
 from engine import Engine, FETISH_PRIOR_WEIGHTS
+from matrix_service import collect_matrix_updates
 
 MATRIX_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'matrix.json')
 
@@ -53,11 +56,31 @@ class TestEngine(unittest.TestCase):
         probs = self.e.posteriors({'0': 1, '3': -1, '9': 0.5, '15': -0.5})
         self.assertAlmostEqual(sum(probs), 1.0, places=6)
 
-    def test_posteriors_ignores_zero_answers(self):
+    def test_posteriors_zero_answers_are_weak_signal(self):
         p_empty = self.e.posteriors({})
         p_zero  = self.e.posteriors({'0': 0, '5': 0})
-        for a, b in zip(p_empty, p_zero):
-            self.assertAlmostEqual(a, b, places=6)
+        self.assertAlmostEqual(sum(p_zero), 1.0, places=6)
+        self.assertNotEqual(p_empty, p_zero)
+
+    def test_matrix_shape_validation_rejects_ragged_total(self):
+        nf = len(self.e.fetishes)
+        nq = len(self.e.questions)
+        valid = {
+            'yes': [[0.5] * nq for _ in range(nf)],
+            'total': [[1.0] * nq for _ in range(nf)],
+        }
+        self.assertTrue(self.e._valid_matrix_shape(valid, nf, nq))
+        invalid = {
+            'yes': [[0.5] * nq for _ in range(nf)],
+            'total': [[1.0] * nq for _ in range(max(0, nf - 1))],
+        }
+        self.assertFalse(self.e._valid_matrix_shape(invalid, nf, nq))
+        invalid = {
+            'yes': [[0.5] * nq for _ in range(nf)],
+            'total': [[1.0] * nq for _ in range(nf)],
+        }
+        invalid['total'][0] = invalid['total'][0][:-1]
+        self.assertFalse(self.e._valid_matrix_shape(invalid, nf, nq))
 
     # ── top_guess ─────────────────────────────────────────
     def test_top_guess_returns_valid_index(self):
@@ -110,6 +133,32 @@ class TestEngine(unittest.TestCase):
         self.assertIsNotNone(q)
         self.assertGreaterEqual(q, 55)  # 抽象(55-62) or パーソナリティ(63-86)
 
+    def test_best_disambiguating_question_separates_top_candidates(self):
+        probs = [0.45, 0.44, 0.11] + [0.0] * (len(self.e.fetishes) - 3)
+        asked = set(range(2, len(self.e.questions)))
+
+        def fake_prob(f, q):
+            values = {
+                0: [0.9, 0.1, 0.5],
+                1: [0.6, 0.55, 0.5],
+            }
+            return values[q][f] if f < 3 else 0.5
+
+        with patch.object(self.e, 'posteriors', return_value=probs), \
+                patch.object(self.e, '_prob', side_effect=fake_prob):
+            q = self.e.best_disambiguating_question({}, asked, candidate_count=3)
+        self.assertEqual(q, 0)
+
+    def test_best_disambiguating_question_falls_back_without_separation(self):
+        probs = [0.5, 0.3, 0.2] + [0.0] * (len(self.e.fetishes) - 3)
+        asked = set(range(1, len(self.e.questions)))
+        with patch.object(self.e, 'posteriors', return_value=probs), \
+                patch.object(self.e, '_prob', return_value=0.5), \
+                patch.object(self.e, 'best_question', return_value=7) as best_question:
+            q = self.e.best_disambiguating_question({}, asked, candidate_count=3, idk_streak=2)
+        self.assertEqual(q, 7)
+        best_question.assert_called_once_with({}, asked, idk_streak=2)
+
     # ── learn ─────────────────────────────────────────────
     def test_learn_increases_yes_count(self):
         before = self.e.matrix['yes'][0][8]
@@ -135,6 +184,23 @@ class TestEngine(unittest.TestCase):
         delta1 = e1.matrix['total'][0][9] - b1
         delta2 = e2.matrix['total'][0][9] - b2
         self.assertAlmostEqual(delta1, delta2 * 2, places=5)
+
+    def test_learn_near_miss_is_weaker_positive_than_yes(self):
+        e_yes = Engine()
+        e_maybe = Engine()
+        q = 8
+        before_yes_total = e_yes.matrix['total'][0][q]
+        before_maybe_total = e_maybe.matrix['total'][0][q]
+        before_maybe_yes = e_maybe.matrix['yes'][0][q]
+
+        e_yes.learn({str(q): 1.0}, 0)
+        e_maybe.learn_near_miss({str(q): 1.0}, 0)
+
+        yes_delta = e_yes.matrix['total'][0][q] - before_yes_total
+        maybe_delta = e_maybe.matrix['total'][0][q] - before_maybe_total
+        self.assertGreater(e_maybe.matrix['yes'][0][q], before_maybe_yes)
+        self.assertGreater(maybe_delta, 0)
+        self.assertLess(maybe_delta, yes_delta)
 
     # ── add_fetish ────────────────────────────────────────
     def test_add_fetish_increases_count(self):
@@ -214,6 +280,62 @@ class TestEngine(unittest.TestCase):
         for fid in range(83):
             for r in self.e.get_related(fid):
                 self.assertIn(r['fetish_id'], all_db_ids)
+
+    def test_collect_matrix_updates_rejects_duplicate_pairs(self):
+        fid = self.e.fetishes[0]['id']
+        rows = [
+            {'fetish_id': fid, 'question_id': 0, 'yes': 1, 'total': 2},
+            {'fetish_id': fid, 'question_id': 0, 'yes': 2, 'total': 3},
+        ]
+        with self.assertRaises(ValueError):
+            collect_matrix_updates(self.e.fetishes, self.e.questions, rows)
+
+    def test_seed_db_uses_initial_matrix_priors(self):
+        captured = {}
+
+        def fake_execute_values(cur, query, rows):
+            captured['rows'] = rows
+
+        fake_psycopg2 = types.SimpleNamespace(
+            extras=types.SimpleNamespace(execute_values=fake_execute_values)
+        )
+        with patch.object(eng_module, 'psycopg2', fake_psycopg2, create=True):
+            self.e._seed_db(object(), self.e.fetishes)
+
+        rows = {
+            (fetish_id, question_id): (yes, total)
+            for fetish_id, question_id, yes, total in captured['rows']
+        }
+        ntr_id = self.e.fetishes[0]['id']
+        self.assertEqual(rows[(ntr_id, 8)], (0.95 * eng_module.PSEUDO, float(eng_module.PSEUDO)))
+
+
+class TestMatrixPersistence(unittest.TestCase):
+    def test_save_matrix_file_writes_locked_snapshot(self):
+        e = Engine.__new__(Engine)
+        e._lock = threading.RLock()
+        e.matrix = {'yes': [[1.0]], 'total': [[2.0]]}
+        captured = {}
+
+        def fake_atomic_write(path, data, **kwargs):
+            e.matrix['yes'][0][0] = 99.0
+            e.matrix['total'][0][0] = 100.0
+            captured['data'] = data
+
+        e._atomic_write = fake_atomic_write
+        e._save_matrix_file()
+
+        self.assertEqual(captured['data'], {'yes': [[1.0]], 'total': [[2.0]]})
+
+    def test_local_save_async_saves_synchronously(self):
+        e = Engine.__new__(Engine)
+        with patch.object(eng_module, '_use_db', return_value=False), \
+             patch.object(e, '_save_matrix_file', return_value=None) as save_matrix, \
+             patch.object(eng_module.threading, 'Thread') as thread_cls:
+            e._save_async({0: [(0, 1.0, 1.0)]}, {0: 0})
+
+        save_matrix.assert_called_once()
+        thread_cls.assert_not_called()
 
 
 if __name__ == '__main__':
