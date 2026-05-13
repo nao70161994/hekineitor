@@ -4,14 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ fetish_name }} — へきネイター {{ display_version }}</title>
-<meta property="og:title" content="私の性癖は「{{ fetish_name }}」でした！">
-<meta property="og:description" content="一致度 {{ probability }}%{% if desc %} — {{ desc }}{% endif %} | へきネイターで診断">
+<meta name="robots" content="noindex,follow">
+<meta name="description" content="{{ share_text }}。質問に答えるだけであなたの性癖も診断できます。">
+<meta property="og:title" content="{{ share_text }}">
+<meta property="og:description" content="{% if result_tagline %}{{ result_tagline }} {% endif %}あなたの性癖もへきネイターで診断。">
 <meta property="og:type" content="website">
+<meta property="og:url" content="{{ share_url }}">
 {% if og_image %}<meta property="og:image" content="{{ og_image }}">{% endif %}
+{% if og_image %}<meta property="og:image:secure_url" content="{{ og_image }}">{% endif %}
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="私の性癖は「{{ fetish_name }}」でした！">
-<meta name="twitter:description" content="一致度 {{ probability }}% | あなたの性癖も診断してみよう → へきネイター">
+<meta name="twitter:title" content="{{ share_text }}">
+<meta name="twitter:description" content="{% if result_tagline %}{{ result_tagline }} {% endif %}友達にも診断させてみよう。">
 {% if og_image %}<meta name="twitter:image" content="{{ og_image }}">{% endif %}
+<meta name="twitter:image:alt" content="へきネイター診断結果 {{ fetish_name }}">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -29,9 +36,20 @@
     text-align: center;
   }
   .label { color: #888; font-size: 0.85rem; margin-bottom: 8px; }
+  .headline { color: #eee; font-size: 0.95rem; line-height: 1.5; margin-bottom: 14px; }
   .name { color: #e94560; font-size: 1.6rem; font-weight: bold; margin-bottom: 8px; }
   .prob { color: #f5a623; font-size: 1.1rem; margin-bottom: 12px; }
   .desc { color: #aaa; font-size: 0.88rem; line-height: 1.6; margin-bottom: 24px; }
+  .share-box {
+    background: #0d1b2a; border: 1px solid #23314d; border-radius: 10px;
+    padding: 12px; color: #ccc; font-size: 0.82rem; line-height: 1.6;
+    margin-bottom: 18px; text-align: left;
+  }
+  .share-link {
+    display: inline-block; background: #1d9bf0; color: #fff;
+    border-radius: 10px; padding: 12px 18px; width: 100%;
+    text-decoration: none; font-weight: bold; margin-bottom: 10px;
+  }
   .btn {
     display: inline-block; background: linear-gradient(135deg,#e94560,#f5a623);
     color: #fff; border-radius: 10px; padding: 14px 24px;
@@ -45,13 +63,18 @@
 <div class="card">
   <div class="label">🔮 へきネイター診断結果</div>
   {% if fetish_name %}
+  {% if result_tagline %}<div class="headline">{{ result_tagline }}</div>{% endif %}
   <div class="name">{{ fetish_name }}</div>
   {% if probability %}<div class="prob">一致度 {{ probability }}%</div>{% endif %}
   {% if desc %}<div class="desc">{{ desc }}</div>{% endif %}
+  <div class="share-box">{{ share_text }}<br>#へきネイター</div>
   {% else %}
   <div class="name" style="color:#555">結果が見つかりません</div>
   {% endif %}
-  <a class="btn" href="/">あなたの性癖を診断する →</a>
+  {% if fetish_name %}
+  <a class="share-link" href="https://twitter.com/intent/tweet?{{ {'text': share_text ~ ' #へきネイター', 'url': share_url} | urlencode }}" target="_blank" rel="noopener">Xで結果を見せる</a>
+  {% endif %}
+  <a class="btn" href="/">友達にも診断させる →</a>
   <div class="sub">へきネイター {{ display_version }}</div>
 </div>
 </body>

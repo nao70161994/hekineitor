@@ -275,6 +275,14 @@
     padding: 10px; border-radius: 10px; border: none; cursor: pointer;
     width: 100%; margin-bottom: 8px;
   }
+  .catalog-link {
+    display: block;
+    color: #7ab;
+    font-size: 0.82rem;
+    text-decoration: none;
+    margin-top: 10px;
+  }
+  .catalog-link:hover { color: #9bd; }
   .toast {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
     background: #e67e22; color: #fff; padding: 10px 20px;

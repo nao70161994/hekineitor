@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>性癖一覧 — へきネイター</title>
+<meta name="description" content="へきネイターで診断できる性癖一覧。{{ fetishes|length }}種類の性癖の意味、関連作品、診断ページへの入口をまとめています。">
+<link rel="canonical" href="{{ page_url }}">
+<meta property="og:title" content="性癖一覧 — へきネイター">
+<meta property="og:description" content="{{ fetishes|length }}種類の性癖から、自分に近いタイプを探せます。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ page_url }}">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="性癖一覧 — へきネイター">
+<meta name="twitter:description" content="{{ fetishes|length }}種類の性癖を一覧で確認できます。">
+<script type="application/ld+json">{{ json_ld | tojson }}</script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Hiragino Sans','Noto Sans JP',sans-serif; background:#0a0a1a; color:#eee; min-height:100vh; padding:24px 16px; }
+.wrap { max-width: 880px; margin: 0 auto; }
+.back { color:#555; font-size:0.8rem; text-decoration:none; display:inline-block; margin-bottom:20px; }
+.back:hover { color:#888; }
+h1 { color:#e94560; font-size:1.55rem; line-height:1.35; margin-bottom:8px; }
+.lead { color:#aaa; font-size:0.92rem; line-height:1.8; margin-bottom:18px; max-width:680px; }
+.actions { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:22px; }
+.btn { display:inline-flex; align-items:center; justify-content:center; min-height:42px; padding:10px 16px; border-radius:10px; text-decoration:none; font-weight:bold; font-size:0.9rem; }
+.btn-primary { background:linear-gradient(135deg,#e94560,#f5a623); color:#fff; }
+.btn-secondary { background:#16213e; color:#ccc; border:1px solid #263554; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px; }
+.item { display:block; background:#111b32; border:1px solid #22304b; border-radius:8px; padding:14px; text-decoration:none; min-height:158px; }
+.item:hover { border-color:#e94560; background:#14213d; }
+.name { color:#f1f1f1; font-size:1rem; font-weight:bold; line-height:1.45; margin-bottom:7px; }
+.desc { color:#999; font-size:0.78rem; line-height:1.65; margin-bottom:10px; }
+.works { color:#5f93bf; font-size:0.72rem; line-height:1.55; }
+.count { color:#555; font-size:0.74rem; margin-bottom:12px; }
+.footer { color:#333; text-align:center; font-size:0.72rem; margin-top:24px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/">← 診断に戻る</a>
+  <h1>性癖一覧</h1>
+  <p class="lead">へきネイターで診断できる性癖の一覧です。気になる項目から意味やおすすめ作品を確認し、そのまま診断できます。</p>
+  <div class="actions">
+    <a class="btn btn-primary" href="/">自分の性癖を診断する</a>
+    <a class="btn btn-secondary" href="/stats">診断統計を見る</a>
+  </div>
+  <div class="count">{{ fetishes|length }}種類</div>
+
+  <div class="grid">
+    {% for f in fetishes %}
+    <a class="item" href="/fetish/{{ f.id }}">
+      <div class="name">{{ f.name }}</div>
+      <div class="desc">{{ f.desc }}</div>
+      {% if f.works %}
+      <div class="works">作品例: {{ f.works|join(' / ') }}</div>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  <div class="footer">へきネイター {{ display_version }}</div>
+</div>
+</body>
+</html>

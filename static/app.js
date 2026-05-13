@@ -774,16 +774,15 @@ function _buildShareText(name, prob, guessData) {
   // 確率・複合に応じたバリエーション
   let opening;
   if (compound) {
-    const names = [name]; // _diagnosedName は既に「A × B」形式
-    opening = `へきネイターで診断したら「${name}」という複合性癖でした…`;
+    opening = `へきネイターで診断したら複合性癖「${name}」だった。情報量が多い`;
   } else if (p >= 90) {
-    opening = `へきネイターに性癖を完全に見破られました。「${name}」（一致度${prob}%）`;
+    opening = `へきネイターに性癖を完全に見破られた: ${name} ${prob}%`;
   } else if (p >= 75) {
-    opening = `へきネイターで診断したら「${name}」でした！（一致度${prob}%）`;
+    opening = `へきネイターで診断したら「${name}」だった。これ当たってる？ ${prob}%`;
   } else if (p >= 50) {
-    opening = `へきネイターの診断結果は「${name}」…当たってる気がする（一致度${prob}%）`;
+    opening = `へきネイターの診断結果は「${name}」。否定しきれない ${prob}%`;
   } else {
-    opening = `へきネイターの診断は「${name}」でした。当たってる？（一致度${prob}%）`;
+    opening = `へきネイターに「${name}」って言われた。これは当たってる？`;
   }
   return opening;
 }
@@ -796,15 +795,19 @@ function shareResult() {
   const desc = (guessData.fetish_desc || '').slice(0, 80);
   const shareUrl = `${origin}/r?f=${encodeURIComponent(name)}&p=${prob}&d=${encodeURIComponent(desc)}`;
   const opening  = _buildShareText(name, prob, guessData);
-  const text = `${opening}\n${shareUrl} #へきネイター`;
+  const text = `${opening}\n#へきネイター`;
   if (navigator.share) {
     navigator.share({title: `私の性癖は「${name}」`, text, url: shareUrl}).catch(() => {});
     return;
   }
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(text).then(() => showToast('クリップボードにコピーしました', '#27ae60'));
+    navigator.clipboard.writeText(`${text}\n${shareUrl}`).then(() => showToast('クリップボードにコピーしました', '#27ae60'));
   }
-  window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(text), '_blank', 'noopener');
+  window.open(
+    'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(shareUrl),
+    '_blank',
+    'noopener'
+  );
 }
 // インストール促進
 let deferredPrompt = null;

@@ -1033,6 +1033,69 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         body = res.data.decode('utf-8')
         self.assertIn('NTR', body)
         self.assertIn('82', body)
+        self.assertIn('へきネイターで診断したら「NTR」だった', body)
+        self.assertIn('友達にも診断させる', body)
+        self.assertIn('og:url', body)
+        self.assertEqual(res.headers.get('X-Robots-Tag'), 'noindex, follow')
+        self.assertIn('name="robots" content="noindex,follow"', body)
+
+    def test_result_share_clamps_probability(self):
+        res = self.client.get('/r?f=NTR&p=999&d=テスト')
+        body = res.data.decode('utf-8')
+        self.assertIn('100', body)
+        self.assertNotIn('999', body)
+
+    def test_public_index_links_to_crawlable_pages(self):
+        res = self.client.get('/')
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        self.assertIn('<link rel="canonical"', body)
+        self.assertIn('property="og:url"', body)
+        self.assertIn('href="/fetishes"', body)
+        self.assertIn('href="/stats"', body)
+
+    def test_fetish_index_page(self):
+        res = self.client.get('/fetishes')
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        self.assertIn('性癖一覧', body)
+        self.assertIn('<link rel="canonical"', body)
+        self.assertIn('application/ld+json', body)
+        self.assertIn('href="/fetish/0"', body)
+
+    def test_stats_page_has_seo_metadata(self):
+        res = self.client.get('/stats')
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        self.assertIn('<link rel="canonical"', body)
+        self.assertIn('property="og:url"', body)
+        self.assertIn('name="twitter:card"', body)
+
+    def test_sitemap_indexes_public_content_only(self):
+        res = self.client.get('/sitemap.xml')
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        self.assertIn('/fetishes', body)
+        self.assertIn('/stats', body)
+        self.assertIn('/fetish/0', body)
+        self.assertNotIn('/admin', body)
+        self.assertNotIn('/api/', body)
+        self.assertNotIn('/offline', body)
+        self.assertNotIn('/r</loc>', body)
+
+    def test_robots_points_to_sitemap(self):
+        res = self.client.get('/robots.txt')
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        self.assertIn('Disallow: /admin', body)
+        self.assertIn('Disallow: /api/', body)
+        self.assertIn('Sitemap:', body)
+
+    def test_site_base_url_controls_canonical_urls(self):
+        with patch.dict(os.environ, {'SITE_BASE_URL': 'https://example.test'}, clear=False):
+            res = self.client.get('/fetishes')
+        body = res.data.decode('utf-8')
+        self.assertIn('href="https://example.test/fetishes"', body)
 
     def test_edit_fetish(self):
         from app import engine as app_engine
@@ -1137,6 +1200,18 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             self.assertNotIn('href=""', body)
         finally:
             app_engine.fetishes[0]['works'] = original_works
+
+    def test_fetish_detail_has_seo_content(self):
+        from app import engine as app_engine
+        fid = app_engine.fetishes[0]['id']
+        name = app_engine.fetishes[0]['name']
+        res = self.client.get(f'/fetish/{fid}')
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        self.assertIn(f'{name}とは？性癖診断・おすすめ作品', body)
+        self.assertIn('<link rel="canonical"', body)
+        self.assertIn('application/ld+json', body)
+        self.assertIn('この性癖とは', body)
 
     def test_axis_stats_in_admin(self):
         headers = self._admin_headers()

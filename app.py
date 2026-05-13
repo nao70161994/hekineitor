@@ -277,6 +277,13 @@ APP_VERSION       = _app_version()
 DISPLAY_VERSION   = 'v1.9.2'
 AMAZON_ASSOCIATE_ID = os.environ.get('AMAZON_ASSOCIATE_ID', '')
 engine = Engine()
+
+
+def public_base_url():
+    configured = os.environ.get('SITE_BASE_URL', '').strip().rstrip('/')
+    if configured:
+        return configured
+    return request.host_url.rstrip('/')
 APP_STARTED_AT = int(_time.time())
 _ERROR_COUNTS = {'4xx': 0, '5xx': 0}
 _RATE_LIMIT_BUCKETS = {}
@@ -505,22 +512,118 @@ def _paged_fetish_log_rows(rows, args):
 
 @app.route('/')
 def index():
+    base_url = public_base_url()
+    public_fetish_count = len([f for f in engine.fetishes if f['id'] < PLAYER_FETISH_BASE_ID])
     return render_template('index.html',
                            display_version=DISPLAY_VERSION,
-                           amazon_associate_id=AMAZON_ASSOCIATE_ID)
+                           amazon_associate_id=AMAZON_ASSOCIATE_ID,
+                           base_url=base_url,
+                           public_fetish_count=public_fetish_count)
+
+
+@app.route('/fetishes')
+def fetish_index():
+    base_url = public_base_url()
+    fetish_log = engine.get_fetish_log()
+    rows = []
+    for f in engine.fetishes:
+        if f['id'] >= PLAYER_FETISH_BASE_ID:
+            continue
+        works = [work_title(w) for w in f.get('works', [])][:3]
+        lg = fetish_log.get(f['id'], {'guessed': 0, 'correct': 0, 'wrong': 0})
+        rows.append({
+            'id': f['id'],
+            'name': f['name'],
+            'desc': f['desc'],
+            'works': works,
+            'guessed': lg.get('guessed', 0),
+        })
+    rows.sort(key=lambda r: (-r['guessed'], r['id']))
+    page_url = f"{base_url}/fetishes"
+    json_ld = {
+        '@context': 'https://schema.org',
+        '@type': 'CollectionPage',
+        'name': '性癖一覧 - へきネイター',
+        'description': 'へきネイターで診断できる性癖の一覧。各性癖の意味、関連作品、診断ページへの入口をまとめています。',
+        'url': page_url,
+        'mainEntity': {
+            '@type': 'ItemList',
+            'numberOfItems': len(rows),
+            'itemListElement': [
+                {
+                    '@type': 'ListItem',
+                    'position': i + 1,
+                    'url': f"{base_url}/fetish/{row['id']}",
+                    'name': row['name'],
+                }
+                for i, row in enumerate(rows[:50])
+            ],
+        },
+    }
+    return render_template('fetishes.html',
+                           fetishes=rows,
+                           display_version=DISPLAY_VERSION,
+                           base_url=base_url,
+                           page_url=page_url,
+                           json_ld=json_ld)
 
 
 @app.route('/r')
 def result_share():
     name = request.args.get('f', '')[:60]
-    prob = request.args.get('p', '')[:5]
+    prob = _clean_probability(request.args.get('p', ''))
     desc = request.args.get('d', '')[:120]
-    base_url = request.host_url.rstrip('/')
+    base_url = public_base_url()
     og_image = f"{base_url}/ogp?f={urllib.parse.quote(name)}&p={prob}"
-    return render_template('result_share.html',
+    share_url = f"{base_url}/r?f={urllib.parse.quote(name)}&p={urllib.parse.quote(prob)}&d={urllib.parse.quote(desc)}"
+    share_text = _result_share_text(name, prob)
+    result_tagline = _result_tagline(name, prob)
+    body = render_template('result_share.html',
                            fetish_name=name, probability=prob, desc=desc,
                            display_version=DISPLAY_VERSION,
-                           og_image=og_image)
+                           og_image=og_image,
+                           share_url=share_url,
+                           share_text=share_text,
+                           result_tagline=result_tagline)
+    return Response(body, headers={'X-Robots-Tag': 'noindex, follow'})
+
+
+def _clean_probability(raw):
+    try:
+        value = max(0, min(float(str(raw)[:8]), 100))
+    except (TypeError, ValueError):
+        return ''
+    return f"{value:.1f}".rstrip('0').rstrip('.')
+
+
+def _result_share_text(name, prob):
+    try:
+        p = float(prob)
+    except (TypeError, ValueError):
+        p = 0
+    if p >= 90:
+        return f"へきネイターに性癖を完全に見破られた: {name} {prob}%"
+    if p >= 75:
+        return f"へきネイターで診断したら「{name}」だった。これ当たってる？ {prob}%"
+    if p >= 50:
+        return f"へきネイターの診断結果は「{name}」。否定しきれない {prob}%"
+    return f"へきネイターに「{name}」って言われた。これは当たってる？"
+
+
+def _result_tagline(name, prob):
+    if not name:
+        return ''
+    try:
+        p = float(prob)
+    except (TypeError, ValueError):
+        p = 0
+    if p >= 90:
+        return f"「{name}」がかなり濃く出ています。"
+    if p >= 75:
+        return f"「{name}」に強く反応するタイプです。"
+    if p >= 50:
+        return f"「{name}」の気配があります。"
+    return f"「{name}」かもしれません。"
 
 
 @app.route('/ogp')
@@ -650,11 +753,36 @@ def fetish_detail(fetish_id):
     fetish_log = engine.get_fetish_log()
     lg = fetish_log.get(fetish_id, {'guessed': 0, 'correct': 0, 'wrong': 0})
     acc = round(lg['correct'] / lg['guessed'] * 100) if lg['guessed'] else None
-    base_url = request.host_url.rstrip('/')
+    base_url = public_base_url()
     og_image = f"{base_url}/ogp?f={urllib.parse.quote(f['name'])}&p=90"
+    work_names = [w['title'] for w in works[:6]]
+    seo_desc = (
+        f"{f['name']}とは、{f['desc']} へきネイターでこの性癖に当てはまるか診断できます。"
+    )[:155]
+    page_url = f"{base_url}/fetish/{fetish_id}"
+    json_ld = {
+        '@context': 'https://schema.org',
+        '@type': 'Article',
+        'headline': f"{f['name']}とは？性癖診断とおすすめ作品",
+        'description': seo_desc,
+        'url': page_url,
+        'isPartOf': {
+            '@type': 'WebSite',
+            'name': 'へきネイター',
+            'url': base_url,
+        },
+        'about': {
+            '@type': 'Thing',
+            'name': f['name'],
+            'description': f['desc'],
+        },
+    }
+    if work_names:
+        json_ld['mentions'] = [{'@type': 'CreativeWork', 'name': title} for title in work_names]
     return render_template('fetish.html',
         fetish=f,
         works=works,
+        work_names=work_names,
         related=related,
         char_qs=char_qs,
         log=lg,
@@ -662,6 +790,9 @@ def fetish_detail(fetish_id):
         display_version=DISPLAY_VERSION,
         og_image=og_image,
         base_url=base_url,
+        page_url=page_url,
+        seo_desc=seo_desc,
+        json_ld=json_ld,
     )
 
 
@@ -684,7 +815,8 @@ def stats_page():
     overall_acc = round(total_correct / total_guessed * 100) if total_guessed else None
     ranked = [r for r in rows if r['guessed'] >= 3 and r['acc'] is not None]
     top_acc = sorted(ranked, key=lambda r: -r['acc'])[:5]
-    base_url = request.host_url.rstrip('/')
+    base_url = public_base_url()
+    page_url = f"{base_url}/stats"
     return render_template('stats.html',
         top10=top10,
         play_count=s['play_count'],
@@ -695,12 +827,13 @@ def stats_page():
         total_fetishes=len([f for f in engine.fetishes if f['id'] < PLAYER_FETISH_BASE_ID]),
         display_version=DISPLAY_VERSION,
         base_url=base_url,
+        page_url=page_url,
     )
 
 
 @app.route('/robots.txt')
 def robots_txt():
-    host = request.host_url.rstrip('/')
+    host = public_base_url()
     txt = f"""User-agent: *
 Disallow: /admin
 Disallow: /api/
@@ -712,15 +845,16 @@ Sitemap: {host}/sitemap.xml
 
 @app.route('/sitemap.xml')
 def sitemap_xml():
-    host = request.host_url.rstrip('/')
-    urls = [host + '/', host + '/r']
+    host = public_base_url()
+    urls = [host + '/', host + '/fetishes', host + '/stats']
     for f in engine.fetishes:
         if f['id'] < 10000:
             urls.append(f"{host}/fetish/{f['id']}")
     lines = ['<?xml version="1.0" encoding="UTF-8"?>',
              '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for u in urls:
-        lines.append(f'  <url><loc>{u}</loc></url>')
+        priority = '1.0' if u == host + '/' else ('0.8' if u in (host + '/fetishes', host + '/stats') else '0.6')
+        lines.append(f'  <url><loc>{_html.escape(u, quote=True)}</loc><priority>{priority}</priority></url>')
     lines.append('</urlset>')
     return Response('\n'.join(lines), mimetype='application/xml')
 

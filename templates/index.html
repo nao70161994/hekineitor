@@ -10,10 +10,12 @@
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/static/icon-192.png">
 <title>へきネイター {{ display_version }} — 性癖診断</title>
-<meta name="description" content="質問に答えるだけであなたの性癖を当てる！Akinator風の性癖診断アプリ「へきネイター」。108種類の性癖から最もマッチするものを推定します。">
+<meta name="description" content="質問に答えるだけであなたの性癖を当てる！Akinator風の性癖診断アプリ「へきネイター」。{{ public_fetish_count }}種類の性癖から最もマッチするものを推定します。">
+<link rel="canonical" href="{{ base_url }}/">
 <meta property="og:title" content="へきネイター — 性癖診断">
-<meta property="og:description" content="質問に答えるだけであなたの性癖を当てる！108種類の性癖から最もマッチするものを推定します。">
+<meta property="og:description" content="質問に答えるだけであなたの性癖を当てる！{{ public_fetish_count }}種類の性癖から最もマッチするものを推定します。">
 <meta property="og:type" content="website">
+<meta property="og:url" content="{{ base_url }}/">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="へきネイター — 性癖診断">
 <meta name="twitter:description" content="質問に答えるだけであなたの性癖を当てるAkinator風診断アプリ。">
@@ -23,7 +25,7 @@
 
 <div style="position:relative;text-align:center;">
   <h1>へきネイター</h1>
-  <a href="/admin" style="position:absolute;top:50%;right:0;transform:translateY(-50%);font-size:0.75rem;color:#555;text-decoration:none;">管理</a>
+  <a href="/admin" rel="nofollow" style="position:absolute;top:50%;right:0;transform:translateY(-50%);font-size:0.75rem;color:#555;text-decoration:none;">管理</a>
 </div>
 <p class="subtitle">あなたの性癖を当ててみせましょう…</p>
 
@@ -129,6 +131,7 @@
       遊ぶほど賢くなります。
     </p>
     <button class="btn btn-start" data-action="start-game">スタート</button>
+    <a class="catalog-link" href="/fetishes">性癖一覧を見る</a>
     <button class="history-btn" id="history-btn" data-action="toggle-history">📜 診断履歴<span id="history-badge" class="history-badge hidden"></span></button>
     <div id="history-panel" class="history-panel hidden"></div>
     <div id="resume-banner" class="hidden" style="margin-top:12px;">
@@ -230,7 +233,7 @@
   <div id="done-screen" class="hidden">
     <div class="msg" id="done-msg"></div>
     <br>
-    <button class="btn-share" data-action="share-result">結果をシェア / コピー</button>
+    <button class="btn-share" data-action="share-result">結果をXで見せる / コピー</button>
     <button class="btn btn-retry" data-action="show-start">もう一回</button>
     <button class="btn btn-idk btn-exclude" style="width:100%;margin-top:6px;font-size:0.85rem;" data-action="start-excluding">別の性癖を探す →</button>
   </div>
@@ -249,7 +252,9 @@
   </div>
 </div>
 
-<div style="text-align:center;color:#333;font-size:0.68rem;padding:8px 0 4px;">へきネイター {{ display_version }}</div>
+<div style="text-align:center;color:#333;font-size:0.68rem;padding:8px 0 4px;">
+  へきネイター {{ display_version }} ・ <a href="/fetishes" style="color:#555;">性癖一覧</a> ・ <a href="/stats" style="color:#555;">診断統計</a>
+</div>
 
 <div class="install-banner hidden" id="install-banner">
   <p id="install-msg">ホーム画面に追加してオフラインでも使えます</p>
