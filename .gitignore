@@ -1,6 +1,10 @@
 __pycache__/
 *.pyc
 data/matrix.json
+data/fetish_log.json
+data/fetish_log.local.json
+data/fetish_log.production.json
+data/fetish_log.test*.json
 data/stats.json
 data/learned_priors.json
 data/stats_history.json
