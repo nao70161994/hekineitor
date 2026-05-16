@@ -5,6 +5,7 @@ import random
 import threading
 import time
 from analytics import build_quality_report
+from config import get_fetish_log_path
 from matrix_service import collect_matrix_updates, matrix_validation_report
 from storage import DATA_DIR, DATABASE_URL, HAS_PSYCOPG2
 from storage import atomic_write_json, data_path, load_json_file
@@ -1188,7 +1189,7 @@ class Engine:
             finally:
                 _put_conn(conn)
         else:
-            path = os.path.join(DATA_DIR, 'fetish_log.json')
+            path = get_fetish_log_path()
             with self._lock:
                 try:
                     with open(path, encoding='utf-8') as f:
@@ -1226,7 +1227,7 @@ class Engine:
             finally:
                 _put_conn(conn)
         else:
-            path = os.path.join(DATA_DIR, 'fetish_log.json')
+            path = get_fetish_log_path()
             try:
                 with open(path, encoding='utf-8') as f:
                     raw = json.load(f)
@@ -2094,7 +2095,7 @@ class Engine:
             else:
                 self._save_fetishes_file()
                 self._save_matrix_file()
-                log_path = os.path.join(DATA_DIR, 'fetish_log.json')
+                log_path = get_fetish_log_path()
                 try:
                     with open(log_path, encoding='utf-8') as f:
                         log = json.load(f)

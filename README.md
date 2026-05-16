@@ -10,6 +10,7 @@ SECRET_KEY=dev_secret_key_for_local flask --app app run
 ```
 
 本番では `SECRET_KEY` は必須です。`DATABASE_URL` がある場合は PostgreSQL を使い、ない場合は `data/*.json` をローカル永続化に使います。
+診断ログは環境ごとに保存先を分けています。開発時の既定値は `data/fetish_log.local.json`、本番JSONフォールバック時は `data/fetish_log.production.json`、テスト時は一時ディレクトリです。
 
 ## 主な環境変数
 
@@ -18,6 +19,8 @@ SECRET_KEY=dev_secret_key_for_local flask --app app run
 - `ADMIN_USER`: 管理画面 Basic 認証ユーザー。未指定時は `admin`。
 - `ADMIN_PASS`: 管理画面 Basic 認証パスワード。本番運用では必須。
 - `AMAZON_ASSOCIATE_ID`: 作品リンクに付与する Amazon アソシエイト ID。
+- `APP_ENV`: 実行環境。`development` / `production` / `testing` で診断ログの既定保存先が変わります。
+- `FETISH_LOG_PATH`: PostgreSQL を使わない場合の診断ログ JSON 保存先。指定時は `APP_ENV` より優先されます。
 - `RATE_LIMIT_API_START_LIMIT` / `RATE_LIMIT_API_START_WINDOW`: `/api/start` のレート制限。
 - `RATE_LIMIT_API_ANSWER_LIMIT` / `RATE_LIMIT_API_ANSWER_WINDOW`: `/api/answer` のレート制限。
 - `RATE_LIMIT_ADMIN_API_LIMIT` / `RATE_LIMIT_ADMIN_API_WINDOW`: 管理 API のレート制限。
@@ -30,7 +33,19 @@ SECRET_KEY=dev_secret_key_for_local flask --app app run
 sh scripts/check.sh
 ```
 
-チェックでは Python コンパイル、標準ライブラリ製の静的解析、ユニットテスト、E2E smoke を実行します。テストはデータファイルのスナップショットを復元し、通常のテスト実行で `data/*.json` を汚さないようにしています。
+チェックでは Python コンパイル、標準ライブラリ製の静的解析、ユニットテスト、E2E smoke を実行します。pytest 実行時は `tests/conftest.py` が `FETISH_LOG_PATH` を一時ディレクトリへ向け、通常のテスト実行で本番/開発用の診断ログを汚さないようにしています。
+
+## 診断ログの分離
+
+`data/fetish_log.json` は実行時データのため Git 管理対象から外しています。
+
+- 本番DBあり: PostgreSQL の `fetish_log` テーブルを使用。
+- 本番DBなし: `data/fetish_log.production.json` を使用。
+- ローカル開発: `data/fetish_log.local.json` を使用。
+- pytest: 一時ディレクトリの `fetish_log.json` を使用。
+- 任意指定: `FETISH_LOG_PATH=/path/to/fetish_log.json`。
+
+開発用のサンプルは `data/dev/fetish_log.example.json` にあります。
 
 ## 運用
 

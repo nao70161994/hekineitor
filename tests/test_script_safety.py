@@ -113,6 +113,47 @@ class FetchKindleAsinsScriptTests(unittest.TestCase):
         )
 
 
+class RuntimeConfigTests(unittest.TestCase):
+    def test_fetish_log_path_prefers_environment_override(self):
+        config = load_module('config_under_test_override', ROOT / 'config.py')
+        with tempfile.TemporaryDirectory() as tmp:
+            expected = Path(tmp) / 'logs' / 'fetish.json'
+            old = os.environ.get('FETISH_LOG_PATH')
+            try:
+                os.environ['FETISH_LOG_PATH'] = str(expected)
+                self.assertEqual(config.get_fetish_log_path(), str(expected))
+            finally:
+                if old is None:
+                    os.environ.pop('FETISH_LOG_PATH', None)
+                else:
+                    os.environ['FETISH_LOG_PATH'] = old
+
+    def test_fetish_log_path_separates_development_and_production(self):
+        config = load_module('config_under_test_envs', ROOT / 'config.py')
+        old_path = os.environ.pop('FETISH_LOG_PATH', None)
+        old_env = os.environ.get('APP_ENV')
+        try:
+            os.environ['APP_ENV'] = 'development'
+            self.assertTrue(config.get_fetish_log_path().endswith('data/fetish_log.local.json'))
+            os.environ['APP_ENV'] = 'production'
+            self.assertTrue(config.get_fetish_log_path().endswith('data/fetish_log.production.json'))
+            os.environ['APP_ENV'] = 'testing'
+            self.assertIn('hekineitor-tests', config.get_fetish_log_path())
+        finally:
+            if old_path is not None:
+                os.environ['FETISH_LOG_PATH'] = old_path
+            if old_env is None:
+                os.environ.pop('APP_ENV', None)
+            else:
+                os.environ['APP_ENV'] = old_env
+
+    def test_gitignore_excludes_runtime_fetish_logs(self):
+        gitignore = (ROOT / '.gitignore').read_text(encoding='utf-8')
+        self.assertIn('data/fetish_log.json', gitignore)
+        self.assertIn('data/fetish_log.local.json', gitignore)
+        self.assertIn('data/fetish_log.production.json', gitignore)
+
+
 class WorksLinksScriptTests(unittest.TestCase):
     def test_report_escapes_data_and_uses_noopener(self):
         with tempfile.TemporaryDirectory() as tmp:

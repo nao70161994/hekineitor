@@ -54,7 +54,9 @@ def load_json_file(name, default=None):
 
 
 def atomic_write_json(path, data, **kwargs):
-    fd, tmp = tempfile.mkstemp(dir=DATA_DIR, suffix='.tmp')
+    target_dir = os.path.dirname(os.path.abspath(path)) or DATA_DIR
+    os.makedirs(target_dir, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=target_dir, suffix='.tmp')
     try:
         os.chmod(tmp, 0o600)
         with os.fdopen(fd, 'w', encoding='utf-8') as f:

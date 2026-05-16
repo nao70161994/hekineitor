@@ -3,6 +3,7 @@ import os
 import json
 import re
 import time
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -428,6 +429,17 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         before = log_before.get(0, {}).get('correct', 0)
         after  = log_after.get(0, {}).get('correct', 0)
         self.assertGreater(after, before)
+
+    def test_fetish_log_uses_configured_temp_path(self):
+        from app import engine as app_engine
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'isolated', 'fetish_log.json')
+            with patch.dict(os.environ, {'FETISH_LOG_PATH': path}, clear=False):
+                app_engine.log_guessed(0)
+                self.assertTrue(os.path.exists(path))
+                with open(path, encoding='utf-8') as f:
+                    data = json.load(f)
+                self.assertEqual(data['0']['guessed'], 1)
 
     # ── finalize_added cooccurrence ───────────────────────
     def test_finalize_added_cooccurrence_learns_multiple(self):
