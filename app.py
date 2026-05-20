@@ -485,7 +485,7 @@ def _seo_context():
         safe_work_url=safe_work_url,
         amazon_associate_id=AMAZON_ASSOCIATE_ID,
         fetish_relations=FETISH_RELATIONS,
-        error_page=_ERROR_PAGE,
+        error_page=system_routes.ERROR_PAGE,
     )
 
 
@@ -1140,47 +1140,19 @@ def admin_maintenance_checklist():
     return admin_routes.maintenance_checklist(_admin_context())
 
 
-_ERROR_PAGE = '''<!DOCTYPE html>
-<html lang="ja"><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>へきネイター - {title}</title>
-<style>
-body{{margin:0;background:#0a0a1a;color:#eee;font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;}}
-h1{{font-size:3rem;color:#e94560;margin-bottom:8px;}}
-p{{color:#888;margin-bottom:24px;}}
-a{{color:#7af0a0;text-decoration:none;border:1px solid #7af0a0;padding:8px 20px;border-radius:8px;}}
-a:hover{{background:#7af0a0;color:#0a0a1a;}}
-</style></head><body>
-<div>
-<div style="font-size:3rem;">{emoji}</div>
-<h1>{code}</h1>
-<p>{message}</p>
-<a href="/">トップに戻る</a>
-</div></body></html>'''
-
 @app.errorhandler(404)
 def not_found(e):
-    return _ERROR_PAGE.format(
-        title='ページが見つかりません',
-        emoji='🔮', code='404',
-        message='ページが見つかりません。'
-    ), 404
+    return system_routes.not_found()
+
 
 @app.errorhandler(500)
 def server_error(e):
-    return _ERROR_PAGE.format(
-        title='エラーが発生しました',
-        emoji='💀', code='500',
-        message='サーバーエラーが発生しました。しばらくしてからお試しください。'
-    ), 500
+    return system_routes.server_error()
+
 
 @app.errorhandler(503)
 def service_unavailable(e):
-    return _ERROR_PAGE.format(
-        title='サービス停止中',
-        emoji='🛠️', code='503',
-        message='ただいまメンテナンス中です。しばらくしてからお試しください。'
-    ), 503
+    return system_routes.service_unavailable()
 
 
 if __name__ == '__main__':

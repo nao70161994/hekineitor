@@ -74,3 +74,38 @@ def service_worker(ctx):
 
 def offline(ctx):
     return ctx.render_template('offline.html')
+
+
+ERROR_PAGE = '''<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>へきネイター - {title}</title>
+<style>
+body{{margin:0;background:#0a0a1a;color:#eee;font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;}}
+h1{{font-size:3rem;color:#e94560;margin-bottom:8px;}}
+p{{color:#888;margin-bottom:24px;}}
+a{{color:#7af0a0;text-decoration:none;border:1px solid #7af0a0;padding:8px 20px;border-radius:8px;}}
+a:hover{{background:#7af0a0;color:#0a0a1a;}}
+</style></head><body>
+<div>
+<div style="font-size:3rem;">{emoji}</div>
+<h1>{code}</h1>
+<p>{message}</p>
+<a href="/">トップに戻る</a>
+</div></body></html>'''
+
+
+def error_page(title, emoji, code, message):
+    return ERROR_PAGE.format(title=title, emoji=emoji, code=code, message=message)
+
+
+def not_found():
+    return error_page('ページが見つかりません', '🔮', '404', 'ページが見つかりません。'), 404
+
+
+def server_error():
+    return error_page('エラーが発生しました', '💀', '500', 'サーバーエラーが発生しました。しばらくしてからお試しください。'), 500
+
+
+def service_unavailable():
+    return error_page('サービス停止中', '🛠️', '503', 'ただいまメンテナンス中です。しばらくしてからお試しください。'), 503
