@@ -50,6 +50,19 @@
     margin-bottom: 8px;
     min-height: 60px;
   }
+  .question-progress-message {
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto 8px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(245,166,35,0.12);
+    color: #f5c56d;
+    border: 1px solid rgba(245,166,35,0.24);
+    font-size: 0.78rem;
+    line-height: 1.4;
+    text-align: center;
+  }
   .axis-tag {
     display: inline-block;
     font-size: 0.68rem;
@@ -113,6 +126,73 @@
     font-size: 0.72rem;
     text-align: center;
     margin-bottom: 16px;
+  }
+  .result-share-cta {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin: 10px 0 14px;
+  }
+  .quick-feedback {
+    margin: 12px 0 16px;
+    padding: 12px;
+    border-radius: 10px;
+    background: rgba(15,52,96,0.72);
+    border: 1px solid rgba(245,166,35,0.28);
+  }
+  .quick-feedback-label {
+    color: #eee;
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 10px;
+  }
+  .quick-feedback-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .quick-feedback-btn {
+    min-height: 50px;
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 0.98rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.22);
+  }
+  .quick-feedback-yes { background: #27ae60; }
+  .quick-feedback-maybe { background: #f39c12; }
+  .quick-feedback-no { background: #555; }
+  .quick-feedback-btn:disabled {
+    opacity: 0.55;
+    cursor: default;
+    box-shadow: none;
+  }
+  .quick-feedback-status {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 8px;
+    background: rgba(39,174,96,0.16);
+    color: #b9f6cf;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    text-align: center;
+  }
+  .detail-feedback-toggle {
+    width: 100%;
+    min-height: 44px;
+    margin: 4px 0 10px;
+    border: 1px solid #39435c;
+    border-radius: 10px;
+    background: transparent;
+    color: #9eb0d0;
+    font-size: 0.86rem;
+    cursor: pointer;
+  }
+  .detail-feedback-panel {
+    margin-bottom: 12px;
   }
   .profile-section {
     margin-bottom: 16px;
@@ -271,9 +351,21 @@
   }
   .btn-back:hover { border-color: #888; color: #ccc; }
   .btn-share {
-    background: #1a4a8a; color: #eee; font-size: 0.85rem;
-    padding: 10px; border-radius: 10px; border: none; cursor: pointer;
-    width: 100%; margin-bottom: 8px;
+    background: #1a4a8a; color: #eee; font-size: 0.95rem;
+    padding: 13px 14px; border-radius: 10px; border: none; cursor: pointer;
+    width: 100%; margin-bottom: 8px; min-height: 48px; font-weight: 700;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.24);
+  }
+  .btn-share-primary {
+    background: linear-gradient(135deg, #e94560, #f5a623);
+    color: #fff;
+  }
+  .btn-share-secondary {
+    background: #273f69;
+    color: #eef4ff;
+  }
+  .result-share-cta .btn-share {
+    margin-bottom: 0;
   }
   .catalog-link {
     display: block;

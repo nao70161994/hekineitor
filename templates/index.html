@@ -152,6 +152,7 @@
       <span id="question-axis-tag" class="axis-tag" style="display:none;"></span>
     </div>
     <div class="question-text" id="question-text">読み込み中…</div>
+    <div id="question-progress-message" class="question-progress-message hidden" aria-live="polite"></div>
     <div id="question-hint" style="text-align:center;font-size:0.78rem;color:#f5a623;margin-top:6px;min-height:1em;"></div>
     <div id="contradiction-hint" class="hidden" style="font-size:0.72rem;color:#e67e22;margin-top:4px;text-align:center;padding:4px 8px;border-radius:6px;background:rgba(230,126,34,0.1);"></div>
     <div class="btn-group">
@@ -167,9 +168,22 @@
   <div id="result-screen" class="hidden">
     <div class="result-icon">🔮</div>
     <div class="result-name" id="result-name"></div>
+    <div class="result-share-cta" aria-label="結果を共有">
+      <button class="btn-share btn-share-primary" data-action="share-result">Xで結果を見せる</button>
+      <button class="btn-share btn-share-secondary" data-action="share-result">友達にも診断させる</button>
+    </div>
     <div class="result-desc" id="result-desc"></div>
     <div class="result-prob" id="result-prob"></div>
     <div class="result-prob-note">※ モデルの推定一致度です（実際の正解率とは異なります）</div>
+    <div class="quick-feedback" id="quick-feedback">
+      <div class="quick-feedback-label">この結果、どうでしたか？</div>
+      <div class="quick-feedback-actions">
+        <button class="quick-feedback-btn quick-feedback-yes" data-action="quick-feedback" data-feedback="yes">当たってる</button>
+        <button class="quick-feedback-btn quick-feedback-maybe" data-action="quick-feedback" data-feedback="maybe">惜しい</button>
+        <button class="quick-feedback-btn quick-feedback-no" data-action="quick-feedback" data-feedback="no">違う</button>
+      </div>
+      <div class="quick-feedback-status hidden" id="quick-feedback-status" aria-live="polite"></div>
+    </div>
     <div class="reasons-section hidden" id="reasons-section">
       <div class="reasons-label">決め手になった回答</div>
       <div id="reasons-list"></div>
@@ -188,9 +202,12 @@
       <div class="works-tags" id="cross-works-tags" style="margin-bottom:6px;"></div>
       <div class="works-tags" id="works-tags"></div>
     </div>
-    <div class="confirm-label">各項目の正解を教えてください</div>
-    <div id="confirm-items"></div>
-    <button class="btn btn-correct" style="width:100%;margin-top:4px;" data-action="submit-confirm">確定して学習</button>
+    <button class="detail-feedback-toggle" data-action="toggle-detail-feedback" aria-expanded="false">詳細に○△×を付ける</button>
+    <div class="detail-feedback-panel hidden" id="detail-feedback-panel">
+      <div class="confirm-label">各項目の正解を教えてください</div>
+      <div id="confirm-items"></div>
+      <button class="btn btn-correct" style="width:100%;margin-top:4px;" data-action="submit-confirm">確定して学習</button>
+    </div>
     <button class="btn btn-idk" style="width:100%;margin-top:6px;font-size:0.82rem;" data-action="continue-game">もう少し続ける</button>
     <button class="btn btn-idk" style="width:100%;margin-top:6px;font-size:0.82rem;" data-action="show-start">スキップ</button>
     <button class="btn btn-idk btn-exclude" style="width:100%;margin-top:4px;font-size:0.82rem;opacity:0.75;" data-action="start-excluding">別の性癖を探す →</button>
@@ -265,6 +282,18 @@
 <script>
 window.APP_CONFIG = {amazonAssociateId: {{ amazon_associate_id | tojson }}};
 </script>
+<script src="/static/game_state.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
+<script src="/static/api_client.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
+<script src="/static/renderers.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
 <script src="/static/app.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
+<script src="/static/ui.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
+<script src="/static/game_flow.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
+<script src="/static/draft.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
+<script src="/static/teach.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
+<script src="/static/history.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
+<script src="/static/feedback.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
+<script src="/static/share.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
+<script src="/static/pwa.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
+<script src="/static/events.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
 </body>
 </html>
