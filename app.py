@@ -1,7 +1,6 @@
 import os
 import re
 import hmac
-import urllib.parse
 import hashlib
 import functools
 import html as _html
