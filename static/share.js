@@ -1,4 +1,10 @@
 window.HekiShare = (() => {
+  let diagnosedName = '';
+
+  function setDiagnosedName(value) {
+    diagnosedName = value || '';
+  }
+
   function buildShareText(name, probability, guessData) {
     const compound = guessData.compound && guessData.compound.length > 0;
     const p = parseFloat(probability) || 0;
@@ -9,7 +15,7 @@ window.HekiShare = (() => {
     return `へきネイターに「${name}」って言われた。これは当たってる？`;
   }
 
-  function shareResult(name) {
+  function shareResult(name = diagnosedName) {
     const origin = window.location.origin;
     const guessData = window._guessData || {};
     const probability = guessData.probability || '';
@@ -31,5 +37,5 @@ window.HekiShare = (() => {
     );
   }
 
-  return {buildShareText, shareResult};
+  return {buildShareText, setDiagnosedName, shareResult};
 })();

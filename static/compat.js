@@ -1,6 +1,5 @@
-let _diagnosedName = '';
 window.setLastFetishName = value => { window.lastFetishName = value || ''; };
-window.setDiagnosedName = value => { _diagnosedName = value || ''; };
+window.setDiagnosedName = value => { if (window.HekiShare) window.HekiShare.setDiagnosedName(value); };
 
 function escapeHtml(value) {
   return window.HekiUtils ? window.HekiUtils.escapeHtml(value) : String(value ?? '');
@@ -157,7 +156,7 @@ function _buildShareText(name, prob, guessData) {
 }
 
 function shareResult() {
-  if (window.HekiShare) window.HekiShare.shareResult(_diagnosedName);
+  if (window.HekiShare) window.HekiShare.shareResult();
 }
 
 function dismissInstall() {
