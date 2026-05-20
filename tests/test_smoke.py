@@ -58,6 +58,7 @@ class TestSmoke(unittest.TestCase):
         expected = [
             '/static/game_state.js',
             '/static/api_client.js',
+            '/static/utils.js',
             '/static/renderers.js',
             '/static/app.js',
             '/static/compat.js',

@@ -3,19 +3,11 @@ window.setLastFetishName = value => { window.lastFetishName = value || ''; };
 window.setDiagnosedName = value => { _diagnosedName = value || ''; };
 
 function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, ch => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[ch]));
+  return window.HekiUtils ? window.HekiUtils.escapeHtml(value) : String(value ?? '');
 }
 
 function safeExternalUrl(value) {
-  if (!value) return null;
-  try {
-    const url = new URL(String(value), window.location.origin);
-    return ['http:', 'https:'].includes(url.protocol) ? url.href : null;
-  } catch {
-    return null;
-  }
+  return window.HekiUtils ? window.HekiUtils.safeExternalUrl(value) : (value || null);
 }
 
 function show(id) {
