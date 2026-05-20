@@ -84,6 +84,38 @@ class TestSmoke(unittest.TestCase):
         self.assertIn('/ogp.png?f=Test&amp;p=88', body)
         self.assertNotIn('/ogp?f=Test&amp;p=88', body)
 
+    def test_url_map_keeps_public_game_and_admin_routes(self):
+        rules = {rule.rule for rule in app.url_map.iter_rules()}
+        expected = {
+            '/',
+            '/fetishes',
+            '/r',
+            '/ogp.png',
+            '/ogp',
+            '/fetish/<int:fetish_id>',
+            '/stats',
+            '/robots.txt',
+            '/sitemap.xml',
+            '/manifest.json',
+            '/sw.js',
+            '/offline',
+            '/health',
+            '/api/start',
+            '/api/answer',
+            '/api/back',
+            '/api/continue',
+            '/api/confirm',
+            '/api/teach',
+            '/api/add_fetish',
+            '/api/finalize_added',
+            '/api/fetish/<int:fetish_id>',
+            '/admin',
+            '/api/admin/works_link_queue',
+            '/api/admin/quality_report',
+            '/api/admin/maintenance_checklist',
+        }
+        self.assertTrue(expected.issubset(rules))
+
     def test_start_api_smoke(self):
         res = self.client.post('/api/start')
         self.assertEqual(res.status_code, 200)
