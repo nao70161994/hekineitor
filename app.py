@@ -693,41 +693,6 @@ def _require_admin(f):
     return decorated
 
 
-def _most_similar_fetishes(fetish_ids, limit=1):
-    """Return nearest matrix neighbors for a small set of fetish ids."""
-    import math
-    nq = len(engine.questions)
-    vectors = []
-    for idx, fetish in enumerate(engine.fetishes):
-        vec = [engine._prob(idx, q) - 0.5 for q in range(nq)]
-        norm = math.sqrt(sum(x * x for x in vec))
-        vectors.append((fetish['id'], fetish['name'], vec, norm))
-
-    result = {}
-    for fid in fetish_ids:
-        idx = engine.index_of(fid)
-        if idx is None or idx >= len(vectors):
-            result[fid] = []
-            continue
-        _, _, base_vec, base_norm = vectors[idx]
-        matches = []
-        for other_id, other_name, other_vec, other_norm in vectors:
-            if other_id == fid:
-                continue
-            if base_norm < 1e-9 or other_norm < 1e-9:
-                cos = 0.0
-            else:
-                cos = sum(a * b for a, b in zip(base_vec, other_vec)) / (base_norm * other_norm)
-            matches.append({
-                'fetish_id': other_id,
-                'fetish_name': other_name,
-                'cosine': round(cos, 3),
-            })
-        matches.sort(key=lambda row: -abs(row['cosine']))
-        result[fid] = matches[:limit]
-    return result
-
-
 def _build_work_maintenance_summary(sample_limit=8):
     return works_links_service.build_work_maintenance_summary(
         engine.fetishes,
@@ -738,78 +703,7 @@ def _build_work_maintenance_summary(sample_limit=8):
 
 
 def _build_admin_maintenance_checklist():
-    report = engine.get_quality_report()
-    q_by_id = {q['id']: q for q in engine.get_question_stats()}
-    weak_ids = [int(row['fetish_id']) for row in report.get('weak_fetishes', [])]
-    nearest = _most_similar_fetishes(weak_ids, limit=1) if weak_ids else {}
-
-    weak_fetishes = []
-    for row in report.get('weak_fetishes', []):
-        fid = int(row['fetish_id'])
-        weak_fetishes.append({
-            **row,
-            'nearest_similar': (nearest.get(fid) or [None])[0],
-            'edit_anchor': '#seed-edit-section',
-            'similarity_anchor': '#similarity-section',
-            'hint': '説明・作品・特徴質問を見直し、近い性癖との判別差を確認',
-        })
-
-    duplicate_questions = []
-    for pair in report.get('high_correlation_questions', []):
-        q1 = q_by_id.get(pair['q1_id'], {})
-        q2 = q_by_id.get(pair['q2_id'], {})
-        weaker = q1 if q1.get('disc', 0) <= q2.get('disc', 0) else q2
-        duplicate_questions.append({
-            **pair,
-            'suggested_action': f"Q{weaker.get('id')} の無効化または文言差し替えを検討",
-            'weaker_question_id': weaker.get('id'),
-        })
-
-    low_questions = [{
-        **q,
-        'suggested_action': '文言を具体化するか、類似質問と統合/無効化を検討',
-    } for q in report.get('low_questions', [])]
-
-    works = _build_work_maintenance_summary()
-    checklist = [
-        {
-            'id': 'weak_fetishes',
-            'label': '改善候補の性癖',
-            'count': len(weak_fetishes),
-            'severity': 'warn' if weak_fetishes else 'ok',
-            'next_action': '編集欄で説明・作品を補強し、類似度チェックで近い性癖との差分を見る',
-        },
-        {
-            'id': 'duplicate_questions',
-            'label': '重複度が高い質問',
-            'count': len(duplicate_questions),
-            'severity': 'warn' if duplicate_questions else 'ok',
-            'next_action': '弱い方の質問を無効化、または別軸の文言に差し替える',
-        },
-        {
-            'id': 'low_questions',
-            'label': '低識別力の質問',
-            'count': len(low_questions),
-            'severity': 'warn' if low_questions else 'ok',
-            'next_action': '質問一覧で識別力と使用量を確認して編集する',
-        },
-        {
-            'id': 'works',
-            'label': '作品データの不足',
-            'count': works['missing_work_fetish_count'] + works['missing_url_work_count'] + works['unsafe_url_work_count'],
-            'severity': 'warn' if (
-                works['missing_work_fetish_count'] or works['missing_url_work_count'] or works['unsafe_url_work_count']
-            ) else 'ok',
-            'next_action': '作品リンク確認からURLなし・不正URL・作品なしの性癖を補修する',
-        },
-    ]
-    return {
-        'checklist': checklist,
-        'weak_fetishes': weak_fetishes,
-        'duplicate_questions': duplicate_questions,
-        'low_questions': low_questions,
-        'works': works,
-    }
+    return admin_helper_service.build_admin_maintenance_checklist(engine, _build_work_maintenance_summary)
 
 
 app.register_blueprint(admin_routes.create_blueprint(_admin_context, _require_admin))
