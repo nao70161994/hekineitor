@@ -1,3 +1,4 @@
+from flask import Blueprint
 from services.works_links import collect_work_link_queue
 
 
@@ -535,3 +536,170 @@ def fetish_similarity(ctx):
     if result is None:
         return ctx.jsonify({'status': 'error', 'message': '性癖が見つかりません'}), 404
     return ctx.jsonify({'status': 'ok', **result})
+
+
+
+def create_blueprint(ctx_factory, require_admin):
+    bp = Blueprint('admin_routes', __name__)
+
+    @bp.route('/admin')
+    @require_admin
+    def admin_page_route():
+        return admin_page(ctx_factory())
+
+    @bp.route('/api/admin/toggle_question/<int:q_id>', methods=['POST'])
+    @require_admin
+    def toggle_question_route(q_id):
+        return toggle_question(ctx_factory(), q_id)
+
+    @bp.route('/api/admin/params', methods=['POST'])
+    @require_admin
+    def update_params_route():
+        return update_params(ctx_factory())
+
+    @bp.route('/api/admin/cleanup_sessions', methods=['POST'])
+    @require_admin
+    def cleanup_sessions_route():
+        return cleanup_sessions(ctx_factory())
+
+    @bp.route('/api/admin/add_fetish', methods=['POST'])
+    @require_admin
+    def add_fetish_route():
+        return add_fetish(ctx_factory())
+
+    @bp.route('/api/admin/capture_priors', methods=['POST'])
+    @require_admin
+    def capture_priors_route():
+        return capture_priors(ctx_factory())
+
+    @bp.route('/api/admin/promote_fetish/<int:fetish_id>', methods=['POST'])
+    @require_admin
+    def promote_fetish_route(fetish_id):
+        return promote_fetish(ctx_factory(), fetish_id)
+
+    @bp.route('/api/admin/edit_question/<int:q_idx>', methods=['POST'])
+    @require_admin
+    def edit_question_route(q_idx):
+        return edit_question(ctx_factory(), q_idx)
+
+    @bp.route('/api/admin/edit_fetish/<int:fetish_id>', methods=['POST'])
+    @require_admin
+    def edit_fetish_route(fetish_id):
+        return edit_fetish(ctx_factory(), fetish_id)
+
+    @bp.route('/api/admin/compound_works', methods=['GET'])
+    @require_admin
+    def list_compound_works_route():
+        return list_compound_works(ctx_factory())
+
+    @bp.route('/api/admin/compound_works', methods=['POST'])
+    @require_admin
+    def set_compound_works_route():
+        return set_compound_works(ctx_factory())
+
+    @bp.route('/api/admin/compound_works/<path:key>', methods=['DELETE'])
+    @require_admin
+    def delete_compound_works_route(key):
+        return delete_compound_works(ctx_factory(), key)
+
+    @bp.route('/api/admin/merge_fetishes', methods=['POST'])
+    @require_admin
+    def merge_fetishes_route():
+        return merge_fetishes(ctx_factory())
+
+    @bp.route('/api/admin/works_review', methods=['GET'])
+    @require_admin
+    def works_review_route():
+        return works_review(ctx_factory())
+
+    @bp.route('/api/admin/works_link_queue', methods=['GET'])
+    @require_admin
+    def works_link_queue_route():
+        ctx = ctx_factory()
+        try:
+            sample_limit = max(1, min(int(ctx.request.args.get('sample_limit', 20)), 100))
+        except ValueError:
+            sample_limit = 20
+        return ctx.jsonify(works_link_queue_payload(ctx.engine, sample_limit=sample_limit))
+
+    @bp.route('/api/admin/export_matrix', methods=['GET'])
+    @require_admin
+    def export_matrix_route():
+        return export_matrix(ctx_factory())
+
+    @bp.route('/api/admin/import_matrix', methods=['POST'])
+    @require_admin
+    def import_matrix_route():
+        return import_matrix(ctx_factory())
+
+    @bp.route('/api/admin/import_matrix/dry_run', methods=['POST'])
+    @require_admin
+    def import_matrix_dry_run_route():
+        return import_matrix_dry_run(ctx_factory())
+
+    @bp.route('/api/admin/matrix_backups', methods=['GET'])
+    @require_admin
+    def matrix_backups_route():
+        return matrix_backups(ctx_factory())
+
+    @bp.route('/api/admin/matrix_backups/<path:name>/restore', methods=['POST'])
+    @require_admin
+    def restore_matrix_backup_route(name):
+        return restore_matrix_backup(ctx_factory(), name)
+
+    @bp.route('/api/admin/export_log', methods=['GET'])
+    @require_admin
+    def export_log_route():
+        return export_log(ctx_factory())
+
+    @bp.route('/api/admin/audit_log', methods=['GET'])
+    @require_admin
+    def audit_log_route():
+        return audit_log(ctx_factory())
+
+    @bp.route('/api/admin/preflight', methods=['GET'])
+    @require_admin
+    def preflight_route():
+        return preflight(ctx_factory())
+
+    @bp.route('/api/admin/fetish_history/<int:fetish_id>', methods=['GET'])
+    @require_admin
+    def fetish_history_route(fetish_id):
+        return fetish_history(ctx_factory(), fetish_id)
+
+    @bp.route('/api/admin/fetish_log_rows', methods=['GET'])
+    @require_admin
+    def fetish_log_rows_route():
+        return fetish_log_rows(ctx_factory())
+
+    @bp.route('/api/admin/performance', methods=['GET'])
+    @require_admin
+    def performance_route():
+        return performance(ctx_factory())
+
+    @bp.route('/api/admin/recent_fetish_ranking', methods=['GET'])
+    @require_admin
+    def recent_fetish_ranking_route():
+        return recent_fetish_ranking(ctx_factory())
+
+    @bp.route('/api/admin/export_stats_history', methods=['GET'])
+    @require_admin
+    def export_stats_history_route():
+        return export_stats_history(ctx_factory())
+
+    @bp.route('/api/admin/fetish_similarity', methods=['POST'])
+    @require_admin
+    def fetish_similarity_route():
+        return fetish_similarity(ctx_factory())
+
+    @bp.route('/api/admin/quality_report', methods=['GET'])
+    @require_admin
+    def quality_report_route():
+        return quality_report(ctx_factory())
+
+    @bp.route('/api/admin/maintenance_checklist', methods=['GET'])
+    @require_admin
+    def maintenance_checklist_route():
+        return maintenance_checklist(ctx_factory())
+
+    return bp
