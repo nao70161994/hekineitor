@@ -488,21 +488,6 @@ def _seo_context():
     )
 
 
-@app.route('/')
-def index():
-    return seo_routes.index(_seo_context())
-
-
-@app.route('/fetishes')
-def fetish_index():
-    return seo_routes.fetish_index(_seo_context())
-
-
-@app.route('/r')
-def result_share():
-    return seo_routes.result_share(_seo_context())
-
-
 def _clean_probability(raw):
     return share_service.clean_probability(raw)
 
@@ -531,15 +516,7 @@ def _render_ogp_svg():
                     headers=seo_routes.ogp_cache_headers())
 
 
-@app.route('/ogp.png')
-def ogp_png_image():
-    return seo_routes.ogp_png_image(_seo_context())
-
-
-@app.route('/ogp')
-def ogp_image():
-    return seo_routes.ogp_svg_image(_seo_context())
-
+app.register_blueprint(seo_routes.create_blueprint(_seo_context))
 
 
 @app.route('/manifest.json')
@@ -555,26 +532,6 @@ def sw():
 @app.route('/offline')
 def offline():
     return system_routes.offline(_system_context())
-
-
-@app.route('/fetish/<int:fetish_id>')
-def fetish_detail(fetish_id):
-    return seo_routes.fetish_detail(_seo_context(), fetish_id)
-
-
-@app.route('/stats')
-def stats_page():
-    return seo_routes.stats_page(_seo_context())
-
-
-@app.route('/robots.txt')
-def robots_txt():
-    return seo_routes.robots_txt(_seo_context())
-
-
-@app.route('/sitemap.xml')
-def sitemap_xml():
-    return seo_routes.sitemap_xml(_seo_context())
 
 
 def _game_context():

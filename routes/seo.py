@@ -1,3 +1,4 @@
+from flask import Blueprint
 import html as _html
 import urllib.parse
 
@@ -230,3 +231,46 @@ def sitemap_xml(ctx):
         lines.append(f'  <url><loc>{_html.escape(url, quote=True)}</loc><priority>{priority}</priority></url>')
     lines.append('</urlset>')
     return ctx.Response('\n'.join(lines), mimetype='application/xml')
+
+
+
+def create_blueprint(ctx_factory):
+    bp = Blueprint('seo', __name__)
+
+    @bp.route('/')
+    def index_route():
+        return index(ctx_factory())
+
+    @bp.route('/fetishes')
+    def fetish_index_route():
+        return fetish_index(ctx_factory())
+
+    @bp.route('/r')
+    def result_share_route():
+        return result_share(ctx_factory())
+
+    @bp.route('/ogp.png')
+    def ogp_png_image_route():
+        return ogp_png_image(ctx_factory())
+
+    @bp.route('/ogp')
+    def ogp_svg_image_route():
+        return ogp_svg_image(ctx_factory())
+
+    @bp.route('/fetish/<int:fetish_id>')
+    def fetish_detail_route(fetish_id):
+        return fetish_detail(ctx_factory(), fetish_id)
+
+    @bp.route('/stats')
+    def stats_page_route():
+        return stats_page(ctx_factory())
+
+    @bp.route('/robots.txt')
+    def robots_txt_route():
+        return robots_txt(ctx_factory())
+
+    @bp.route('/sitemap.xml')
+    def sitemap_xml_route():
+        return sitemap_xml(ctx_factory())
+
+    return bp
