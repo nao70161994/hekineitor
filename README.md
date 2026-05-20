@@ -19,6 +19,7 @@ SECRET_KEY=dev_secret_key_for_local flask --app app run
 - `ADMIN_USER`: 管理画面 Basic 認証ユーザー。未指定時は `admin`。
 - `ADMIN_PASS`: 管理画面 Basic 認証パスワード。本番運用では必須。
 - `AMAZON_ASSOCIATE_ID`: 作品リンクに付与する Amazon アソシエイト ID。
+- `OGP_FONT_PATH`: `/ogp.png` 生成で使う TrueType/OpenType フォントのパス。未指定時は Noto Sans CJK、DejaVuSans、Pillow 既定フォントの順でフォールバックします。
 - `APP_ENV`: 実行環境。`development` / `production` / `testing` で診断ログの既定保存先が変わります。
 - `FETISH_LOG_PATH`: PostgreSQL を使わない場合の診断ログ JSON 保存先。指定時は `APP_ENV` より優先されます。
 - `RATE_LIMIT_API_START_LIMIT` / `RATE_LIMIT_API_START_WINDOW`: `/api/start` のレート制限。
