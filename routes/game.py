@@ -440,4 +440,3 @@ def delete_fetish(ctx, fetish_id):
         owned.remove(fetish_id)
         ctx.session['owned_added_fetish_ids'] = sorted(owned)
     return ctx.jsonify({'status': 'deleted'})
-

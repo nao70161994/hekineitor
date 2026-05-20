@@ -34,4 +34,3 @@ def result_tagline(name, prob):
     if p >= 50:
         return f"「{name}」の気配があります。"
     return f"「{name}」かもしれません。"
-

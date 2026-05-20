@@ -216,4 +216,3 @@ def render_svg(name, prob):
   <text x="910" y="480" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#333">質問に答えるだけで診断</text>
 </svg>'''
     return svg
-

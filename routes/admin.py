@@ -535,4 +535,3 @@ def fetish_similarity(ctx):
     if result is None:
         return ctx.jsonify({'status': 'error', 'message': '性癖が見つかりません'}), 404
     return ctx.jsonify({'status': 'ok', **result})
-
