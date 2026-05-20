@@ -1,3 +1,4 @@
+from flask import Blueprint
 def question_payload(engine, question_id, question_text, count, total, *, hint=None, progress_message=None, contradictions=None):
     q_data = engine.questions[question_id]
     payload = {
@@ -440,3 +441,50 @@ def delete_fetish(ctx, fetish_id):
         owned.remove(fetish_id)
         ctx.session['owned_added_fetish_ids'] = sorted(owned)
     return ctx.jsonify({'status': 'deleted'})
+
+
+
+def create_blueprint(ctx_factory):
+    bp = Blueprint('game', __name__)
+
+    @bp.route('/api/start', methods=['POST'])
+    def start_route():
+        return start(ctx_factory())
+
+    @bp.route('/api/resume', methods=['POST'])
+    def resume_route():
+        return resume(ctx_factory())
+
+    @bp.route('/api/continue', methods=['POST'])
+    def continue_game_route():
+        return continue_game(ctx_factory())
+
+    @bp.route('/api/answer', methods=['POST'])
+    def answer_route():
+        return answer(ctx_factory())
+
+    @bp.route('/api/back', methods=['POST'])
+    def back_route():
+        return back(ctx_factory())
+
+    @bp.route('/api/confirm', methods=['POST'])
+    def confirm_route():
+        return confirm(ctx_factory())
+
+    @bp.route('/api/teach', methods=['POST'])
+    def teach_route():
+        return teach(ctx_factory())
+
+    @bp.route('/api/add_fetish', methods=['POST'])
+    def add_fetish_route():
+        return add_fetish(ctx_factory())
+
+    @bp.route('/api/finalize_added', methods=['POST'])
+    def finalize_added_route():
+        return finalize_added(ctx_factory())
+
+    @bp.route('/api/fetish/<int:fetish_id>', methods=['DELETE'])
+    def delete_fetish_route(fetish_id):
+        return delete_fetish(ctx_factory(), fetish_id)
+
+    return bp

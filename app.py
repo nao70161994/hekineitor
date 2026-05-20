@@ -569,33 +569,8 @@ def _game_context():
     )
 
 
-@app.route('/api/start', methods=['POST'])
-def start():
-    return game_routes.start(_game_context())
-
-
-@app.route('/api/resume', methods=['POST'])
-def resume():
-    return game_routes.resume(_game_context())
-
-
-@app.route('/api/continue', methods=['POST'])
-def continue_game():
-    return game_routes.continue_game(_game_context())
-
-
 def _progress_message(count, top_p, second_p, focus_thr=FOCUS_THRESHOLD):
     return question_selection_service.progress_message(count, top_p, second_p, focus_thr)
-
-
-@app.route('/api/answer', methods=['POST'])
-def answer():
-    return game_routes.answer(_game_context())
-
-
-@app.route('/api/back', methods=['POST'])
-def back():
-    return game_routes.back(_game_context())
 
 
 PROFILE_MIN_RATIO = 0.25   # best_p に対する比率の下限
@@ -656,24 +631,7 @@ def _make_guess(answers):
     return jsonify(result)
 
 
-@app.route('/api/confirm', methods=['POST'])
-def confirm():
-    return game_routes.confirm(_game_context())
-
-
-@app.route('/api/teach', methods=['POST'])
-def teach():
-    return game_routes.teach(_game_context())
-
-
-@app.route('/api/add_fetish', methods=['POST'])
-def add_fetish():
-    return game_routes.add_fetish(_game_context())
-
-
-@app.route('/api/finalize_added', methods=['POST'])
-def finalize_added():
-    return game_routes.finalize_added(_game_context())
+app.register_blueprint(game_routes.create_blueprint(_game_context))
 
 
 def _admin_context():
@@ -738,11 +696,6 @@ def _admin_guard_response():
     if request.method in {'POST', 'PUT', 'PATCH', 'DELETE'} and not _check_admin_csrf():
         return jsonify({'status': 'error', 'message': 'CSRF token が不正です'}), 403
     return None
-
-
-@app.route('/api/fetish/<int:fetish_id>', methods=['DELETE'])
-def delete_fetish(fetish_id):
-    return game_routes.delete_fetish(_game_context(), fetish_id)
 
 
 def _require_admin(f):
