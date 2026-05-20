@@ -162,3 +162,34 @@ async function loadPerformance() {
     <code style="color:#f5a623;">${escapeHtml(m.ms)} ms</code>
   </div>`).join('');
 }
+
+
+function renderWorksQueueSamples(samples) {
+  const labels = {missing_url: 'URLなし', search_url: '検索URL', missing_asin: 'ASINなし'};
+  return Object.entries(samples || {}).map(([key, rows]) => {
+    const body = (rows || []).map(r => `<div style="border-top:1px solid #222;padding:5px 0;">
+      <code style="color:#f5a623;">${escapeHtml(labels[key] || key)}</code>
+      <span style="color:#ccc;">${escapeHtml(r.fetish_name)}</span>
+      <span>${escapeHtml(r.title)}</span>
+      ${r.url ? `<span style="color:#666;">${escapeHtml(r.url)}</span>` : ''}
+    </div>`).join('') || '<div style="color:#555;">該当なし</div>';
+    return `<div style="margin-top:8px;"><strong style="color:#ccc;">${escapeHtml(labels[key] || key)}</strong>${body}</div>`;
+  }).join('');
+}
+
+async function loadWorksLinkQueue() {
+  const el = document.getElementById('works-link-queue-result');
+  if (!el) return;
+  el.textContent = '確認中...';
+  const res = await adminFetch('/api/admin/works_link_queue', {method: 'GET', headers: {}});
+  if (!res) return;
+  const data = await res.json();
+  if (!res.ok) {
+    el.style.color = '#e74c3c';
+    el.textContent = data.message || 'キュー取得に失敗しました';
+    return;
+  }
+  el.style.color = '#aaa';
+  const counts = data.counts || {};
+  el.innerHTML = `<div>合計 <strong style="color:#f5a623;">${Number.parseInt(data.total || 0, 10)}</strong> 件 / URLなし ${Number.parseInt(counts.missing_url || 0, 10)} / 検索URL ${Number.parseInt(counts.search_url || 0, 10)} / ASINなし ${Number.parseInt(counts.missing_asin || 0, 10)}</div>` + renderWorksQueueSamples(data.samples || {});
+}

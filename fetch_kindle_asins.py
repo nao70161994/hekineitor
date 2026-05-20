@@ -21,11 +21,16 @@ import http.cookiejar
 import unicodedata
 from pathlib import Path
 
-from storage import atomic_write_json
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
 
-DATA_DIR     = Path(__file__).parent / 'data'
+from storage import atomic_write_json
+from services.works_links import summarize_backfill_candidates
+
+DATA_DIR     = SCRIPT_DIR / 'data'
 FETISHES     = DATA_DIR / 'fetishes.json'
-PROGRESS     = Path(__file__).parent / 'kindle_asin_progress.json'
+PROGRESS     = SCRIPT_DIR / 'kindle_asin_progress.json'
 DRY_RUN      = '--dry-run' in sys.argv
 
 ASSOCIATE_ID = os.environ.get('AMAZON_ASSOCIATE_ID', 'hekinator-22')
@@ -175,6 +180,17 @@ def lookup_known_asin(title: str, exact: dict, canonical: dict) -> str | None:
         if key and key in canonical_title(title):
             return candidate
     return None
+
+
+def print_dry_run_report(fetishes, progress):
+    report = summarize_backfill_candidates(fetishes, progress, associate_id=ASSOCIATE_ID)
+    print(f"直リンク化候補: {report['count']} 件")
+    for item in report['samples']:
+        print(
+            f"  - {item['fetish_name']} / {item['title']} "
+            f"[{item['current_status']}] -> {item['direct_url']}"
+        )
+    return report
 
 
 def main():

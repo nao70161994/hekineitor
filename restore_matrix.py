@@ -4,6 +4,10 @@ import os
 import sys
 from datetime import datetime, timezone
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+
 from storage import atomic_write_json
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')

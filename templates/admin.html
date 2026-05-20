@@ -430,6 +430,12 @@ window.ADMIN_CONFIG = {
   <a href="/api/admin/works_review" target="_blank" class="btn-action" style="font-size:0.78rem;padding:4px 12px;text-decoration:none;">作品リンク確認</a>
 </div>
 <details style="margin-bottom:16px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">作品URL修正キュー</summary>
+<p style="color:#555;font-size:0.78rem;margin:8px 0;">URLなし、Amazon検索URL、ASINなしの作品を一覧化します。</p>
+<button class="btn-action" data-action="load-works-link-queue" style="font-size:0.76rem;padding:3px 10px;">キュー確認</button>
+<div id="works-link-queue-result" style="font-size:0.8rem;color:#aaa;margin-top:8px;"></div>
+</details>
+<details style="margin-bottom:16px;">
 <summary style="color:#f5a623;font-size:0.85rem;cursor:pointer;">Matrix JSONインポート</summary>
 <p style="color:#555;font-size:0.78rem;margin:8px 0;">先にdry-runで検証してから本インポートします。本インポート時は現在のmatrixを自動バックアップします。</p>
 <input id="matrix-import-file" type="file" accept="application/json,.json"

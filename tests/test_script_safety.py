@@ -113,6 +113,20 @@ class FetchKindleAsinsScriptTests(unittest.TestCase):
         )
 
 
+
+    def test_dry_run_report_lists_direct_link_candidates(self):
+        fetch_kindle = load_module('fetch_kindle_report_under_test', ROOT / 'fetch_kindle_asins.py')
+        fetishes = [{
+            'id': 1,
+            'name': 'テスト',
+            'works': [{'title': '作品A', 'url': 'https://www.amazon.co.jp/s?k=%E4%BD%9C%E5%93%81A'}],
+        }]
+        report = fetch_kindle.print_dry_run_report(fetishes, {'作品A': 'B000000000'})
+        self.assertEqual(report['count'], 1)
+        self.assertEqual(report['samples'][0]['asin'], 'B000000000')
+        self.assertIn('/dp/B000000000', report['samples'][0]['direct_url'])
+
+
 class RuntimeConfigTests(unittest.TestCase):
     def test_fetish_log_path_prefers_environment_override(self):
         config = load_module('config_under_test_override', ROOT / 'config.py')
@@ -152,6 +166,25 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertIn('data/fetish_log.json', gitignore)
         self.assertIn('data/fetish_log.local.json', gitignore)
         self.assertIn('data/fetish_log.production.json', gitignore)
+
+
+
+    def test_work_link_queue_classifies_maintenance_items(self):
+        from services.works_links import collect_work_link_queue
+        data = collect_work_link_queue([{
+            'id': 1,
+            'name': 'テスト',
+            'works': [
+                'URLなし作品',
+                {'title': '検索作品', 'url': 'https://www.amazon.co.jp/s?k=x'},
+                {'title': 'ASINなし作品', 'url': 'https://www.amazon.co.jp/gp/product/noasin'},
+                {'title': 'OK作品', 'url': 'https://www.amazon.co.jp/dp/B000000000'},
+            ],
+        }])
+        self.assertEqual(data['counts']['missing_url'], 1)
+        self.assertEqual(data['counts']['search_url'], 1)
+        self.assertEqual(data['counts']['missing_asin'], 1)
+        self.assertEqual(data['total'], 3)
 
 
 class WorksLinksScriptTests(unittest.TestCase):
