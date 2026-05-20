@@ -519,21 +519,6 @@ def _render_ogp_svg():
 app.register_blueprint(seo_routes.create_blueprint(_seo_context))
 
 
-@app.route('/manifest.json')
-def manifest():
-    return system_routes.manifest(_system_context())
-
-
-@app.route('/sw.js')
-def sw():
-    return system_routes.service_worker(_system_context())
-
-
-@app.route('/offline')
-def offline():
-    return system_routes.offline(_system_context())
-
-
 def _game_context():
     return SimpleNamespace(
         engine=engine,
@@ -855,6 +840,7 @@ def _system_context():
     )
 
 
+app.register_blueprint(system_routes.create_public_blueprint(_system_context))
 app.register_blueprint(system_routes.create_health_blueprint(_system_context))
 
 

@@ -121,3 +121,22 @@ def create_health_blueprint(ctx_factory):
         return health(ctx_factory())
 
     return bp
+
+
+
+def create_public_blueprint(ctx_factory):
+    bp = Blueprint('system_public', __name__)
+
+    @bp.route('/manifest.json')
+    def manifest_route():
+        return manifest(ctx_factory())
+
+    @bp.route('/sw.js')
+    def service_worker_route():
+        return service_worker(ctx_factory())
+
+    @bp.route('/offline')
+    def offline_route():
+        return offline(ctx_factory())
+
+    return bp
