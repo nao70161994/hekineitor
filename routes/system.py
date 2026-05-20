@@ -1,3 +1,4 @@
+from flask import Blueprint
 def health(ctx):
     db_ok = False
     matrix_rows = len(ctx.engine.matrix.get('yes', []))
@@ -109,3 +110,14 @@ def server_error():
 
 def service_unavailable():
     return error_page('サービス停止中', '🛠️', '503', 'ただいまメンテナンス中です。しばらくしてからお試しください。'), 503
+
+
+
+def create_health_blueprint(ctx_factory):
+    bp = Blueprint('system_health', __name__)
+
+    @bp.route('/health')
+    def health_route():
+        return health(ctx_factory())
+
+    return bp

@@ -971,9 +971,7 @@ def _system_context():
     )
 
 
-@app.route('/health')
-def health():
-    return system_routes.health(_system_context())
+app.register_blueprint(system_routes.create_health_blueprint(_system_context))
 
 
 @app.route('/api/admin/merge_fetishes', methods=['POST'])
