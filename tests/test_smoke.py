@@ -51,6 +51,38 @@ class TestSmoke(unittest.TestCase):
         with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'admin.css'), 'rb') as f:
             self.assertIn(b'.btn-save', f.read())
 
+    def test_client_module_scripts_are_loaded_in_dependency_order(self):
+        res = self.client.get('/')
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        expected = [
+            '/static/game_state.js',
+            '/static/api_client.js',
+            '/static/renderers.js',
+            '/static/app.js',
+            '/static/ui.js',
+            '/static/game_flow.js',
+            '/static/draft.js',
+            '/static/teach.js',
+            '/static/history.js',
+            '/static/feedback.js',
+            '/static/share.js',
+            '/static/pwa.js',
+            '/static/events.js',
+        ]
+        positions = []
+        for script in expected:
+            self.assertIn(script, body)
+            positions.append(body.index(script))
+        self.assertEqual(positions, sorted(positions))
+
+    def test_result_share_uses_png_og_image(self):
+        res = self.client.get('/r?f=Test&p=88&d=desc')
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        self.assertIn('/ogp.png?f=Test&amp;p=88', body)
+        self.assertNotIn('/ogp?f=Test&amp;p=88', body)
+
     def test_start_api_smoke(self):
         res = self.client.post('/api/start')
         self.assertEqual(res.status_code, 200)
