@@ -50,37 +50,16 @@ function _updateExcludeButtons() {
   if (window.HekiUi) window.HekiUi.updateExcludeButtons();
 }
 
-let _fetching = window.gameState?.fetching || false;
 function setFetching(value) {
-  _fetching = value;
-  if (window.HekiState) window.HekiState.setFetching(value);
-  else if (window.gameState) window.gameState.fetching = value;
+  if (window.HekiNetwork) window.HekiNetwork.setFetching(value);
 }
 
 async function apiFetch(url, body, timeoutMs = 30000) {
-  try {
-    if (window.HekiApiClient?.requestJson) {
-      return await window.HekiApiClient.requestJson(url, body, {timeoutMs});
-    }
-    const res = await window.HekiApiClient.fetchJson(url, body, {timeoutMs});
-    if (!res.ok) throw new Error(`サーバーエラー (${res.status})`);
-    return await res.json();
-  } catch (e) {
-    if (e.status === 440 || e.message === 'session_expired') {
-      showSessionExpired();
-      throw new Error('session_expired');
-    }
-    const msg = e.name === 'AbortError'
-      ? 'サーバーへの接続がタイムアウトしました。しばらくしてから再試行してください。'
-      : (e.message === 'network' ? '通信エラーが発生しました。リロードしてください。' : e.message || '通信エラーが発生しました。リロードしてください。');
-    showToast(msg, '#c0392b');
-    throw e;
-  }
+  if (window.HekiNetwork) return window.HekiNetwork.apiFetch(url, body, timeoutMs);
 }
 
-
 function setAnswerButtons(disabled) {
-  document.querySelectorAll('#question-screen .btn').forEach(b => b.disabled = disabled);
+  if (window.HekiNetwork) window.HekiNetwork.setAnswerButtons(disabled);
 }
 
 function startExcluding() {

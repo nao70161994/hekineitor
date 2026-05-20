@@ -62,6 +62,7 @@ class TestSmoke(unittest.TestCase):
             '/static/renderers.js',
             '/static/app.js',
             '/static/compat.js',
+            '/static/network.js',
             '/static/ui.js',
             '/static/game_flow.js',
             '/static/draft.js',
