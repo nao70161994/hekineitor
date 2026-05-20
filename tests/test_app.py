@@ -5,6 +5,7 @@ import re
 import time
 import tempfile
 import unittest
+import struct
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -228,6 +229,32 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         # テスト後ロールバック（DB・JSONファイルも含む完全削除）
         app_engine.delete_fetish(data['fetish_id'])
 
+    def test_delete_owned_added_fetish_endpoint(self):
+        from app import engine as app_engine
+        idx, db_id = app_engine.add_fetish('テスト削除_owned_endpoint', 'テスト用', {})
+        try:
+            with self.client.session_transaction() as sess:
+                sess['owned_added_fetish_ids'] = [db_id]
+            res = self.client.delete(f'/api/fetish/{db_id}')
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.get_json()['status'], 'deleted')
+            self.assertIsNone(app_engine.index_of(db_id))
+            with self.client.session_transaction() as sess:
+                self.assertEqual(sess.get('owned_added_fetish_ids'), [])
+        finally:
+            cleanup_idx = app_engine.index_of(db_id)
+            if cleanup_idx is not None:
+                app_engine.fetishes.pop(cleanup_idx)
+                app_engine.matrix['yes'].pop(cleanup_idx)
+                app_engine.matrix['total'].pop(cleanup_idx)
+                app_engine._save_fetishes_file()
+
+    def test_delete_seed_fetish_rejected_even_for_admin(self):
+        headers = self._admin_headers()
+        res = self.client.delete('/api/fetish/0', json={'confirm_text': 'DELETE'}, headers=headers)
+        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.get_json()['status'], 'error')
+
     # ── finalize_added ─────────────────────────────────────
     def test_finalize_added_existing_fetish(self):
         res = self.client.post('/api/finalize_added',
@@ -351,7 +378,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             sess['answers'] = {str(i): 1.0 for i in range(4)}
             sess['asked'] = list(range(5))
             sess['idk_streak'] = 0
-        with patch.object(app_module.engine, 'top_guess', return_value=[(0, 0.40), (1, 0.30)]), \
+        with patch.object(app_module.engine, 'top_guess', return_value=[(0, 0.36), (1, 0.22)]), \
                 patch.object(app_module.engine, 'best_question', return_value=5) as best_question, \
                 patch.object(app_module.engine, 'best_disambiguating_question', return_value=6) as disambiguating:
             res = self.client.post('/api/answer', json={'question_id': 4, 'answer': 1.0})
@@ -359,8 +386,24 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         data = res.get_json()
         self.assertEqual(data['action'], 'question')
         self.assertEqual(data['question_id'], 5)
+        self.assertEqual(data.get('progress_message'), 'かなり見えてきました')
         best_question.assert_called_once()
         disambiguating.assert_not_called()
+
+    def test_progress_message_for_close_candidates(self):
+        import app as app_module
+        with self.client.session_transaction() as sess:
+            sess['started'] = True
+            sess['answers'] = {str(i): 1.0 for i in range(2)}
+            sess['asked'] = [0, 1, 2]
+            sess['idk_streak'] = 0
+        with patch.object(app_module.engine, 'top_guess', return_value=[(0, 0.42), (1, 0.39)]), \
+                patch.object(app_module.engine, 'best_question', return_value=3):
+            res = self.client.post('/api/answer', json={'question_id': 2, 'answer': 1.0})
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['action'], 'question')
+        self.assertEqual(data.get('progress_message'), '候補が2つに割れています')
 
     def test_hard_limit_forces_guess_even_when_low_confidence(self):
         import app as app_module
@@ -783,6 +826,18 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('total', data)
         self.assertIn('pages', data)
 
+
+    def test_admin_works_link_queue_endpoint(self):
+        headers = self._admin_headers()
+        res = self.client.get('/api/admin/works_link_queue', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertIn('missing_url', data['counts'])
+        self.assertIn('search_url', data['counts'])
+        self.assertIn('missing_asin', data['counts'])
+        self.assertIn('samples', data)
+
     def test_admin_performance_endpoint(self):
         headers = self._admin_headers()
         res = self.client.get('/api/admin/performance', headers=headers)
@@ -1048,14 +1103,38 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('へきネイターで診断したら「NTR」だった', body)
         self.assertIn('友達にも診断させる', body)
         self.assertIn('og:url', body)
+        self.assertIn('/ogp.png?f=NTR&amp;p=82', body)
         self.assertEqual(res.headers.get('X-Robots-Tag'), 'noindex, follow')
         self.assertIn('name="robots" content="noindex,follow"', body)
+
+    def test_ogp_png_image(self):
+        res = self.client.get('/ogp.png?f=NTR&p=82')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.mimetype, 'image/png')
+        self.assertTrue(res.data.startswith(b'\x89PNG\r\n\x1a\n'))
+        width, height = struct.unpack('>II', res.data[16:24])
+        self.assertEqual((width, height), (1200, 630))
+
+    def test_ogp_font_path_env_is_preferred(self):
+        import app as app_module
+        with patch.dict(os.environ, {'OGP_FONT_PATH': '/tmp/custom-ogp-font.ttf'}):
+            self.assertEqual(next(app_module._ogp_font_candidates()), '/tmp/custom-ogp-font.ttf')
 
     def test_result_share_clamps_probability(self):
         res = self.client.get('/r?f=NTR&p=999&d=テスト')
         body = res.data.decode('utf-8')
         self.assertIn('100', body)
         self.assertNotIn('999', body)
+
+    def test_result_feedback_cta_is_simplified(self):
+        res = self.client.get('/')
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        self.assertIn('data-action="quick-feedback" data-feedback="yes"', body)
+        self.assertIn('data-action="quick-feedback" data-feedback="maybe"', body)
+        self.assertIn('data-action="quick-feedback" data-feedback="no"', body)
+        self.assertIn('detail-feedback-panel hidden', body)
+        self.assertIn('詳細に○△×を付ける', body)
 
     def test_public_index_links_to_crawlable_pages(self):
         res = self.client.get('/')

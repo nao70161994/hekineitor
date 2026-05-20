@@ -1,0 +1,443 @@
+def question_payload(engine, question_id, question_text, count, total, *, hint=None, progress_message=None, contradictions=None):
+    q_data = engine.questions[question_id]
+    payload = {
+        'action': 'question',
+        'question_id': question_id,
+        'question': question_text,
+        'count': count,
+        'total': total,
+        'axis': engine._question_axis(question_id),
+        'q_hint': q_data.get('hint', ''),
+    }
+    if hint:
+        payload['hint'] = hint
+    if progress_message:
+        payload['progress_message'] = progress_message
+    if contradictions:
+        payload['contradictions'] = contradictions
+    return payload
+
+
+def _parse_exclude_ids(raw_ids):
+    ids = []
+    for value in raw_ids or []:
+        try:
+            ids.append(int(value))
+        except (ValueError, TypeError):
+            pass
+    return ids
+
+
+def _question_text(ctx, question_id):
+    q_data = ctx.engine.questions[question_id]
+    variants = q_data.get('variants', [])
+    text = ctx.random_choice([q_data['text']] + variants) if variants else q_data['text']
+    return q_data, text
+
+
+def start(ctx):
+    limited = ctx.rate_limit('api_start', 120)
+    if limited:
+        return limited
+    data = ctx.request.get_json(silent=True) or {}
+    ctx.session.clear()
+    ctx.session['answers'] = {}
+    ctx.session['asked'] = []
+    ctx.session['started'] = True
+    ctx.session['exclude_ids'] = _parse_exclude_ids(data.get('exclude_ids', []))
+    question_id = ctx.best_question(ctx.engine, {}, set())
+    ctx.session['asked'].append(question_id)
+    q_data, q_text = _question_text(ctx, question_id)
+    return ctx.jsonify({
+        'question_id': question_id,
+        'question': q_text,
+        'count': 0,
+        'total': ctx.soft_max_questions,
+        'axis': ctx.engine._question_axis(question_id),
+        'q_hint': q_data.get('hint', ''),
+    })
+
+
+def resume(ctx):
+    data = ctx.request.get_json(silent=True) or {}
+    ctx.session.clear()
+    ctx.session['started'] = True
+    ctx.session['answers'] = {}
+    ctx.session['asked'] = []
+    ctx.session['idk_streak'] = 0
+    ctx.session['exclude_ids'] = _parse_exclude_ids(data.get('exclude_ids', []))
+    for item in data.get('pairs', []):
+        try:
+            question_id = int(item['q_id'])
+            answer = float(item['answer'])
+        except (KeyError, ValueError, TypeError):
+            continue
+        if answer not in (1, 0.5, 0, -0.5, -1):
+            continue
+        if question_id < 0 or question_id >= len(ctx.engine.questions):
+            continue
+        ctx.session['answers'][str(question_id)] = answer
+        if question_id not in ctx.session['asked']:
+            ctx.session['asked'].append(question_id)
+        ctx.session['idk_streak'] = ctx.session['idk_streak'] + 1 if answer == 0 else 0
+
+    answers = ctx.session['answers']
+    asked = ctx.session['asked']
+    if not answers:
+        question_id = ctx.best_question(ctx.engine, {}, set())
+        ctx.session['asked'].append(question_id)
+        q_data, q_text = _question_text(ctx, question_id)
+        return ctx.jsonify(question_payload(ctx.engine, question_id, q_text, 0, ctx.soft_max_questions))
+
+    next_q = ctx.best_question(ctx.engine, answers, set(asked), idk_streak=ctx.session['idk_streak'])
+    if next_q is None:
+        return ctx.make_guess(answers)
+    asked.append(next_q)
+    ctx.session['asked'] = asked
+    _, q_text = _question_text(ctx, next_q)
+    return ctx.jsonify(question_payload(
+        ctx.engine,
+        next_q,
+        q_text,
+        len(asked) - 1,
+        ctx.question_total_for_count(len(asked) - 1),
+    ))
+
+
+def continue_game(ctx):
+    if not ctx.session.get('started'):
+        return ctx.jsonify({'status': 'session_expired'}), 440
+    answers = ctx.session.get('answers', {})
+    asked = ctx.session.get('asked', [])
+    top2 = ctx.top_guess(ctx.engine, answers, n=2)
+    top_p = top2[0][1] if top2 else 0.0
+    ctx.session['continue_thr'] = min(top_p + 0.20, 0.95)
+    ctx.session['continued'] = True
+    next_q = ctx.best_question(ctx.engine, answers, set(asked), idk_streak=0)
+    if next_q is None:
+        return ctx.jsonify({'status': 'no_question'})
+    asked.append(next_q)
+    ctx.session['asked'] = asked
+    _, q_text = _question_text(ctx, next_q)
+    return ctx.jsonify(question_payload(ctx.engine, next_q, q_text, len(asked) - 1, ctx.hard_max_questions))
+
+
+def back(ctx):
+    if not ctx.session.get('started'):
+        return ctx.jsonify({'status': 'session_expired'}), 440
+    asked = ctx.session.get('asked', [])
+    answers = ctx.session.get('answers', {})
+    if len(asked) < 2:
+        return ctx.jsonify({'status': 'no_history'})
+    asked.pop()
+    previous_q = asked[-1]
+    answers.pop(str(previous_q), None)
+    asked.pop()
+    ctx.session['asked'] = asked
+    ctx.session['answers'] = answers
+    ctx.session['idk_streak'] = 0
+    return ctx.jsonify({
+        'question_id': previous_q,
+        'question': ctx.engine.questions[previous_q]['text'],
+        'count': len(asked),
+        'total': ctx.question_total_for_count(len(asked)),
+    })
+
+
+def answer(ctx):
+    limited = ctx.rate_limit('api_answer', 240)
+    if limited:
+        return limited
+    if not ctx.session.get('started'):
+        return ctx.jsonify({'status': 'session_expired'}), 440
+    data = ctx.request.get_json(silent=True) or {}
+    if 'question_id' not in data or 'answer' not in data:
+        return ctx.jsonify({'status': 'error', 'message': 'question_id と answer が必要です'}), 400
+    try:
+        question_id = int(data['question_id'])
+        answer_value = float(data['answer'])
+    except (ValueError, TypeError):
+        return ctx.jsonify({'status': 'error', 'message': '不正な値です'}), 400
+    if answer_value not in (1, 0.5, 0, -0.5, -1):
+        return ctx.jsonify({'status': 'error', 'message': '不正な回答値です'}), 400
+    if question_id < 0 or question_id >= len(ctx.engine.questions):
+        return ctx.jsonify({'status': 'error', 'message': '不正な質問IDです'}), 400
+
+    answers = ctx.session.get('answers', {})
+    asked = ctx.session.get('asked', [])
+    answers[str(question_id)] = answer_value
+    ctx.session['answers'] = answers
+    if question_id not in asked:
+        asked.append(question_id)
+
+    idk_streak = ctx.session.get('idk_streak', 0)
+    idk_streak = idk_streak + 1 if answer_value == 0 else 0
+    ctx.session['idk_streak'] = idk_streak
+
+    try:
+        top2 = ctx.top_guess(ctx.engine, answers, n=2)
+        top_p = top2[0][1]
+        second_p = top2[1][1] if len(top2) > 1 else 0.0
+        count = len(asked)
+
+        guess_threshold = ctx.engine.config.get('guess_threshold', ctx.guess_threshold)
+        if ctx.session.get('continued'):
+            guess_threshold = ctx.session.get('continue_thr', min(guess_threshold + 0.20, 0.95))
+        gap_ratio = top_p / max(second_p, 0.001)
+        early_stop = (count >= 4 and top_p >= 0.70 and gap_ratio >= 3.0) or (count >= 8 and top_p >= 0.55 and gap_ratio >= 2.5)
+        effective_threshold = guess_threshold if (gap_ratio >= 1.8 or count >= 10) else min(guess_threshold + 0.10, 0.90)
+        extend_low_confidence = ctx.should_extend_low_confidence(count, top_p, second_p, guess_threshold)
+        should_guess = (
+            idk_streak >= 4
+            or top_p >= effective_threshold
+            or count >= ctx.hard_max_questions
+            or early_stop
+            or (count >= ctx.soft_max_questions and not extend_low_confidence)
+        )
+        if should_guess:
+            return ctx.make_guess(answers)
+
+        next_q = ctx.select_next_question(
+            answers,
+            asked,
+            idk_streak=idk_streak,
+            disambiguate=extend_low_confidence or count >= ctx.soft_max_questions,
+        )
+        if next_q is None:
+            return ctx.make_guess(answers)
+
+        asked.append(next_q)
+        ctx.session['asked'] = asked
+
+        focus_threshold = ctx.engine.config.get('focus_threshold', ctx.focus_threshold)
+        hint = '答えが見えてきました…もう少しです' if top_p >= focus_threshold else None
+        progress_message = ctx.progress_message(count, top_p, second_p, focus_thr=focus_threshold)
+        if extend_low_confidence:
+            hint = '候補が接戦です。もう少し絞り込みます'
+            progress_message = progress_message or 'AIが少し迷っています'
+            ctx.session['low_confidence_extended'] = True
+
+        _, question_text = _question_text(ctx, next_q)
+        contradictions = ctx.engine.detect_contradictions(answers)
+        return ctx.jsonify(question_payload(
+            ctx.engine,
+            next_q,
+            question_text,
+            count,
+            ctx.question_total_for_count(count),
+            hint=hint,
+            progress_message=progress_message,
+            contradictions=contradictions,
+        ))
+    except Exception:
+        ctx.logger.exception('answer() 推論エラー')
+        return ctx.jsonify({'status': 'session_expired', 'restart': True}), 440
+
+
+def teach(ctx):
+    data = ctx.request.get_json(silent=True) or {}
+    if 'fetish_id' not in data:
+        return ctx.jsonify({'status': 'error', 'message': 'fetish_id が必要です'}), 400
+    try:
+        fetish_db_id = int(data['fetish_id'])
+    except (ValueError, TypeError):
+        return ctx.jsonify({'status': 'error', 'message': '不正な fetish_id です'}), 400
+    fetish_idx = ctx.engine.index_of(fetish_db_id)
+    if fetish_idx is None:
+        return ctx.jsonify({'status': 'error', 'message': '存在しない fetish_id です'}), 400
+    answers = ctx.session.get('answers', {})
+    try:
+        total_n = max(1, int(data.get('total_n', 1)))
+    except (ValueError, TypeError):
+        return ctx.jsonify({'status': 'error', 'message': '不正な total_n です'}), 400
+    ctx.learn_positive(ctx.engine, answers, fetish_idx, strength_factor=ctx.learn_factor(answers, total_n))
+    ctx.engine.log_correct(ctx.engine.fetishes[fetish_idx]['id'])
+    return ctx.jsonify({'status': 'learned', 'fetish_name': ctx.engine.fetishes[fetish_idx]['name']})
+
+
+def confirm(ctx):
+    data = ctx.request.get_json(silent=True) or {}
+    if 'correct' not in data or 'fetish_id' not in data:
+        return ctx.jsonify({'status': 'error', 'message': 'correct と fetish_id が必要です'}), 400
+    try:
+        fetish_db_id = int(data['fetish_id'])
+    except (ValueError, TypeError):
+        return ctx.jsonify({'status': 'error', 'message': '不正な fetish_id です'}), 400
+    fetish_idx = ctx.engine.index_of(fetish_db_id)
+    if fetish_idx is None:
+        return ctx.jsonify({'status': 'error', 'message': '存在しない fetish_id です'}), 400
+    answers = ctx.session.get('answers', {})
+
+    if data['correct']:
+        learn_idxs = [fetish_idx]
+        for compound_id in data.get('compound_ids', []):
+            try:
+                compound_idx = ctx.engine.index_of(int(compound_id))
+                if compound_idx is not None and compound_idx != fetish_idx:
+                    learn_idxs.append(compound_idx)
+            except (ValueError, TypeError):
+                pass
+        factor = ctx.learn_factor(answers, total_n=len(learn_idxs))
+        for idx in learn_idxs:
+            ctx.learn_positive(ctx.engine, answers, idx, strength_factor=factor)
+            ctx.engine.log_correct(ctx.engine.fetishes[idx]['id'])
+        for i in range(len(learn_idxs)):
+            for j in range(i + 1, len(learn_idxs)):
+                ctx.learn_cooccurrence(ctx.engine, answers, learn_idxs[i], learn_idxs[j], factor * 0.3)
+        ctx.record_guess_quality_feedback(True)
+        return ctx.jsonify({'status': 'learned'})
+
+    compound_db_ids = set()
+    for compound_id in data.get('compound_ids', []):
+        try:
+            compound_db_ids.add(int(compound_id))
+        except (ValueError, TypeError):
+            pass
+    presented_db_ids = {fetish_db_id} | compound_db_ids
+    maybe_db_ids = ctx.parse_id_list(data.get('maybe_ids')) & presented_db_ids
+    explicit_wrong_ids = ctx.parse_id_list(data.get('wrong_ids')) & presented_db_ids
+    wrong_db_ids = explicit_wrong_ids if ('wrong_ids' in data or 'maybe_ids' in data) else set(presented_db_ids)
+
+    factor = ctx.learn_factor(answers, total_n=max(1, len(maybe_db_ids)))
+    for maybe_id in maybe_db_ids:
+        maybe_idx = ctx.engine.index_of(maybe_id)
+        if maybe_idx is not None:
+            ctx.learn_near_miss(ctx.engine, answers, maybe_idx, strength_factor=factor)
+
+    if not data.get('add_only', False):
+        for wrong_id in wrong_db_ids:
+            ctx.engine.log_wrong(wrong_id)
+        ctx.record_guess_quality_feedback(False)
+
+    probs = ctx.posteriors(ctx.engine, answers)
+    candidates = []
+    for idx, fetish in enumerate(ctx.engine.fetishes):
+        if fetish['id'] in presented_db_ids:
+            continue
+        candidates.append((probs[idx], fetish))
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    sorted_fetishes = [dict(fetish, prob=round(probability * 100, 1)) for probability, fetish in candidates[:20]]
+
+    if not data.get('add_only', False):
+        ctx.session['wrong_db_ids'] = sorted(wrong_db_ids)
+        ctx.session['near_miss_db_ids'] = sorted(maybe_db_ids)
+        ctx.session['candidate_db_ids'] = [fetish['id'] for fetish in sorted_fetishes]
+        ctx.session['candidate_negative_factor'] = 0.15 if maybe_db_ids else 0.3
+    else:
+        ctx.session['wrong_db_ids'] = []
+        ctx.session['near_miss_db_ids'] = []
+        ctx.session['candidate_db_ids'] = []
+        ctx.session['candidate_negative_factor'] = 0.3
+    return ctx.jsonify({'status': 'wrong', 'fetishes': sorted_fetishes})
+
+
+def add_fetish(ctx):
+    data = ctx.request.get_json(silent=True) or {}
+    name = data.get('name', '').strip()
+    desc = data.get('desc', '').strip()
+    confirmed = data.get('confirmed', False)
+    answers = ctx.session.get('answers', {})
+    if not name:
+        return ctx.jsonify({'status': 'error', 'message': '名前を入力してください'}), 400
+    if len(name) > 100:
+        return ctx.jsonify({'status': 'error', 'message': '名前は100文字以内で入力してください'}), 400
+    if len(desc) > 500:
+        return ctx.jsonify({'status': 'error', 'message': '説明は500文字以内で入力してください'}), 400
+    existing = next((fetish for fetish in ctx.engine.fetishes if fetish['name'] == name), None)
+    if existing:
+        return ctx.jsonify({
+            'status': 'learned',
+            'fetish_name': existing['name'],
+            'fetish_id': existing['id'],
+            'is_new': False,
+        })
+    if confirmed:
+        if not desc:
+            desc = name
+        _, db_id = ctx.engine.add_fetish(name, desc, answers)
+        owned = set(ctx.session.get('owned_added_fetish_ids', []))
+        owned.add(db_id)
+        ctx.session['owned_added_fetish_ids'] = sorted(owned)
+        return ctx.jsonify({'status': 'learned', 'fetish_name': name, 'fetish_id': db_id, 'is_new': True})
+    similar = ctx.find_similar(name, ctx.engine.fetishes)
+    if similar:
+        return ctx.jsonify({'status': 'similar', 'candidates': similar})
+    return ctx.jsonify({'status': 'needs_desc'})
+
+
+def finalize_added(ctx):
+    data = ctx.request.get_json(silent=True) or {}
+    items = data.get('items', [])
+    if not isinstance(items, list):
+        return ctx.jsonify({'status': 'error', 'message': 'items はリストで指定してください'}), 400
+    answers = ctx.session.get('answers', {})
+    total_n = max(1, len([item for item in items if isinstance(item, dict)]))
+    factor = ctx.learn_factor(answers, total_n)
+    correct_db_ids = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        try:
+            db_id = int(item.get('id'))
+            is_new = bool(item.get('is_new'))
+        except (ValueError, TypeError):
+            continue
+        idx = ctx.engine.index_of(db_id)
+        if idx is None:
+            continue
+        correct_db_ids.add(db_id)
+        if is_new:
+            ctx.engine.boost_learn_new(idx, answers)
+        else:
+            ctx.learn_positive(ctx.engine, answers, idx, strength_factor=factor)
+
+    correct_idxs = [ctx.engine.index_of(db_id) for db_id in correct_db_ids
+                    if ctx.engine.index_of(db_id) is not None]
+    for i in range(len(correct_idxs)):
+        for j in range(i + 1, len(correct_idxs)):
+            ctx.learn_cooccurrence(ctx.engine, answers, correct_idxs[i], correct_idxs[j], factor * 0.3)
+
+    wrong_db_ids = ctx.session.pop('wrong_db_ids', [])
+    for wrong_id in wrong_db_ids:
+        if wrong_id not in correct_db_ids:
+            wrong_idx = ctx.engine.index_of(wrong_id)
+            if wrong_idx is not None:
+                ctx.learn_negative(ctx.engine, answers, wrong_idx)
+
+    candidate_db_ids = ctx.session.pop('candidate_db_ids', [])
+    near_miss_db_ids = set(ctx.session.pop('near_miss_db_ids', []))
+    already_learned = set(wrong_db_ids) | correct_db_ids | near_miss_db_ids
+    unselected = [cid for cid in candidate_db_ids if cid not in already_learned]
+    n_unsel = max(1, len(unselected))
+    candidate_negative_factor = ctx.session.pop('candidate_negative_factor', 0.3)
+    for cid in unselected:
+        candidate_idx = ctx.engine.index_of(cid)
+        if candidate_idx is not None:
+            ctx.learn_negative(
+                ctx.engine,
+                answers,
+                candidate_idx,
+                strength_factor=factor * candidate_negative_factor / (n_unsel ** 0.5),
+            )
+    return ctx.jsonify({'status': 'done'})
+
+
+def delete_fetish(ctx, fetish_id):
+    owned = set(ctx.session.get('owned_added_fetish_ids', []))
+    if fetish_id not in owned:
+        guard = ctx.admin_guard_response()
+        if guard:
+            return guard
+        confirm_error = ctx.require_confirm('DELETE')
+        if confirm_error:
+            return confirm_error
+    if fetish_id < ctx.player_fetish_base_id:
+        return ctx.jsonify({'status': 'error', 'message': 'シード性癖は削除できません'}), 403
+    ok = ctx.engine.delete_fetish(fetish_id)
+    if not ok:
+        return ctx.jsonify({'status': 'error', 'message': '見つかりません'}), 404
+    if fetish_id in owned:
+        owned.remove(fetish_id)
+        ctx.session['owned_added_fetish_ids'] = sorted(owned)
+    return ctx.jsonify({'status': 'deleted'})
+

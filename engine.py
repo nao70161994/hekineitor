@@ -13,6 +13,9 @@ from storage import get_conn as _storage_get_conn
 from storage import put_conn as _storage_put_conn
 from storage import use_db as _storage_use_db
 from work_utils import parse_work_item, parse_works_list, work_title
+import engine_inference
+import engine_learning
+import engine_question_selection
 
 try:
     import psycopg2.extras
@@ -1407,192 +1410,37 @@ class Engine:
 
     # ── 推論 ───────────────────────────────────────────────
     def _prob(self, f, q):
-        y = self.matrix['yes'][f][q]
-        t = self.matrix['total'][f][q]
-        if t == 0:
-            return 0.5
-        return max(min(y / t, 0.999), 0.001)
+        return engine_inference.probability(self, f, q)
 
     def posteriors(self, answers):
-        self._reload_matrix_if_stale()
-        nf = len(self.fetishes)
-        nq = len(self.questions)
-        dyn = self._get_dynamic_prior_weights()
-        log_p = [math.log(max(dyn.get(self.fetishes[f]['id'],
-                                    FETISH_PRIOR_WEIGHTS.get(self.fetishes[f]['id'], 1.0)),
-                              1e-9))
-                 for f in range(nf)]
-        for q_str, ans in answers.items():
-            try:
-                q = int(q_str)
-            except (ValueError, TypeError):
-                continue
-            if not (0 <= q < nq):
-                continue
-            if ans == 0:
-                # 「わからない」= その質問に馴染みがない → P(yes) が高い性癖を微弱に下げる
-                for f in range(nf):
-                    p = self._prob(f, q)
-                    log_p[f] -= 0.05 * abs(p - 0.5)
-                continue
-            weight = abs(ans)
-            for f in range(nf):
-                p = self._prob(f, q)
-                log_p[f] += weight * (math.log(p) if ans > 0 else math.log(1 - p))
-        mx = max(log_p)
-        probs = [math.exp(lp - mx) for lp in log_p]
-        s = sum(probs)
-        return [p / s for p in probs]
+        return engine_inference.posteriors(self, answers, fetish_prior_weights=FETISH_PRIOR_WEIGHTS)
 
     def _question_axis(self, q):
-        for name, r in QUESTION_AXES:
-            if q in r:
-                return name
-        return None
+        return engine_question_selection.question_axis(q, QUESTION_AXES)
 
     def best_question(self, answers, asked, idk_streak=0):
-        probs      = self.posteriors(answers)
-        nf         = len(self.fetishes)
-        asked_list = list(asked)
-
-        # 終盤モード: 上位 FOCUS_TOP_N 件に絞った確率で情報利得を計算
-        focus_threshold = self.config.get('focus_threshold', FOCUS_THRESHOLD)
-        ucb_c           = self.config.get('ucb_explore_c',  UCB_EXPLORE_C)
-        top_p = max(probs)
-        if top_p >= focus_threshold:
-            ranked = sorted(range(nf), key=lambda i: probs[i], reverse=True)
-            focus  = set(ranked[:FOCUS_TOP_N])
-            wp     = [probs[f] if f in focus else 0.0 for f in range(nf)]
-            s      = sum(wp)
-            wp     = [p / s for p in wp]
-        else:
-            wp = probs
-
-        h0         = self._entropy(wp)
-        asked_axes = {self._question_axis(qa) for qa in asked_list}
-        asked_axes.discard(None)
-        all_axis_names = {name for name, _ in QUESTION_AXES}
-
-        # 軸フィルタリング: idk連続なら直近idkが集中している軸を避ける
-        if idk_streak >= 2:
-            recent_idk_axes = []
-            for qa in reversed(asked_list):
-                a = answers.get(str(qa))
-                if a == 0:
-                    ax = self._question_axis(qa)
-                    if ax:
-                        recent_idk_axes.append(ax)
-                    if len(recent_idk_axes) >= idk_streak:
-                        break
-                else:
-                    break
-            if recent_idk_axes and len(set(recent_idk_axes)) == 1:
-                axis_filter = all_axis_names - {recent_idk_axes[0]}
-            else:
-                axis_filter = {'abstract', 'personality'}
-        elif len(asked_list) < 3 and (all_axis_names - asked_axes):
-            axis_filter = all_axis_names - asked_axes
-        else:
-            axis_filter = None
-
-        early_game = len(asked_list) < EARLY_RANDOM_DEPTH
-        # 相関ペナルティ用: 中心化ベクトル (P - 0.5) を使用
-        q_vecs = {}
-        for qa in asked_list:
-            v = [self._prob(f, qa) - 0.5 for f in range(nf)]
-            n = math.sqrt(sum(a**2 for a in v)) or 1e-9
-            q_vecs[qa] = (v, n)
-
-        best_filtered_q, best_filtered_s = None, -1.0
-        best_any_q,      best_any_s      = None, -1.0
-        early_cands = []  # (weighted_score, q) — 序盤ランダム用
-
-        for q in range(len(self.questions)):
-            if q in asked or q in self.disabled_questions:
-                continue
-            p_yes = sum(wp[f] * self._prob(f, q) for f in range(nf))
-            p_no  = 1.0 - p_yes
-            if p_yes < 0.01 or p_no < 0.01:
-                continue
-            py = [wp[f] * self._prob(f, q) for f in range(nf)]
-            sy = sum(py); py = [v / sy for v in py]
-            pn = [wp[f] * (1 - self._prob(f, q)) for f in range(nf)]
-            sn = sum(pn); pn = [v / sn for v in pn]
-            score = h0 - (p_yes * self._entropy(py) + p_no * self._entropy(pn))
-            if asked_list:
-                v_q = [self._prob(f, q) - 0.5 for f in range(nf)]
-                n_q = math.sqrt(sum(a**2 for a in v_q)) or 1e-9
-                max_sim = 0.0
-                for v_qa, n_qa in q_vecs.values():
-                    sim = sum(a * b for a, b in zip(v_q, v_qa)) / (n_q * n_qa)
-                    if sim > max_sim:
-                        max_sim = sim
-                score *= (1.0 - 0.4 * max_sim)
-            ask_count = sum(self.matrix['total'][f][q] for f in range(nf))
-            score += ucb_c / math.sqrt(ask_count / max(nf, 1) + 1)
-            axis_name = self._question_axis(q)
-            weighted = score * AXIS_INDIRECT_BONUS.get(axis_name, 1.0)
-            if axis_filter is None or axis_name in axis_filter:
-                if weighted > best_filtered_s:
-                    best_filtered_s = weighted
-                    best_filtered_q = q
-                if early_game:
-                    early_cands.append((weighted, q))
-            if weighted > best_any_s:
-                best_any_s = weighted
-                best_any_q = q
-
-        # 序盤: 上位 K 件からランダムに選んで毎ゲームの多様性を確保
-        if early_game and early_cands:
-            early_cands.sort(reverse=True)
-            pool = [q for _, q in early_cands[:EARLY_RANDOM_TOP_K]]
-            return random.choice(pool)
-
-        # 軸フィルタで該当が無ければ全体ベストにフォールバック
-        return best_filtered_q if best_filtered_q is not None else best_any_q
+        return engine_question_selection.best_question(
+            self,
+            answers,
+            asked,
+            idk_streak=idk_streak,
+            question_axes=QUESTION_AXES,
+            focus_threshold_default=FOCUS_THRESHOLD,
+            ucb_explore_c=UCB_EXPLORE_C,
+            focus_top_n=FOCUS_TOP_N,
+            early_random_depth=EARLY_RANDOM_DEPTH,
+            early_random_top_k=EARLY_RANDOM_TOP_K,
+            axis_indirect_bonus=AXIS_INDIRECT_BONUS,
+        )
 
     def best_disambiguating_question(self, answers, asked, candidate_count=3, idk_streak=0):
-        """上位候補同士の P(yes) 差が大きい質問を選ぶ。"""
-        probs = self.posteriors(answers)
-        nf = len(self.fetishes)
-        asked_ints = set()
-        for q in asked:
-            try:
-                asked_ints.add(int(q))
-            except (ValueError, TypeError):
-                pass
-
-        ranked = sorted(range(nf), key=lambda i: probs[i], reverse=True)
-        top = ranked[:max(2, min(candidate_count, nf))]
-        if len(top) < 2:
-            return self.best_question(answers, asked_ints, idk_streak=idk_streak)
-
-        top_total = sum(probs[f] for f in top) or 1e-9
-        top_weights = {f: probs[f] / top_total for f in top}
-        best_q, best_score = None, 0.0
-
-        for q in range(len(self.questions)):
-            if q in asked_ints or q in self.disabled_questions:
-                continue
-            p_yes = sum(top_weights[f] * self._prob(f, q) for f in top)
-            p_no = 1.0 - p_yes
-            if p_yes < 0.01 or p_no < 0.01:
-                continue
-
-            separation = 0.0
-            for pos, fa in enumerate(top):
-                for fb in top[pos + 1:]:
-                    pair_weight = top_weights[fa] * top_weights[fb]
-                    separation += pair_weight * abs(self._prob(fa, q) - self._prob(fb, q))
-            balance = 1.0 - abs(0.5 - p_yes) * 2.0
-            score = separation * (0.5 + 0.5 * balance)
-            if score > best_score:
-                best_score = score
-                best_q = q
-
-        if best_q is None:
-            return self.best_question(answers, asked_ints, idk_streak=idk_streak)
-        return best_q
+        return engine_question_selection.best_disambiguating_question(
+            self,
+            answers,
+            asked,
+            candidate_count=candidate_count,
+            idk_streak=idk_streak,
+        )
 
     def get_matrix_heatmap(self, n_fetishes=20, n_questions=20):
         """上位N性癖×上位N質問の P(yes) ヒートマップデータを返す。"""
@@ -1740,30 +1588,10 @@ class Engine:
         return build_quality_report(self)
 
     def top_guess(self, answers, n=1):
-        probs   = self.posteriors(answers)
-        ranked  = sorted(range(len(probs)), key=lambda i: probs[i], reverse=True)
-        top     = ranked[:n]
-        if n == 1:
-            return top[0], probs[top[0]]
-        return [(f, probs[f]) for f in top]
+        return engine_inference.top_guess(self, answers, n=n)
 
     def get_answer_contributions(self, answers, fetish_idx, top_n=3):
-        """その性癖への寄与度が高かった回答をtop_n件返す。"""
-        nq = len(self.questions)
-        contribs = []
-        for q_str, ans in answers.items():
-            try:
-                q = int(q_str)
-            except (ValueError, TypeError):
-                continue
-            if ans == 0 or not (0 <= q < nq):
-                continue
-            p = self._prob(fetish_idx, q)
-            weight = abs(ans)
-            log_c = weight * (math.log(max(p, 0.001)) if ans > 0 else math.log(max(1 - p, 0.001)))
-            contribs.append({'q_id': q, 'text': self.questions[q]['text'], 'ans': ans, 'contrib': log_c})
-        contribs.sort(key=lambda x: x['contrib'], reverse=True)
-        return [{'q_id': c['q_id'], 'text': c['text'], 'ans': c['ans']} for c in contribs[:top_n]]
+        return engine_inference.answer_contributions(self, answers, fetish_idx, top_n=top_n)
 
     def detect_contradictions(self, answers):
         """高相関な質問ペアで逆方向の回答があれば最大2件返す。"""
@@ -1794,142 +1622,20 @@ class Engine:
         return result
 
     def learn(self, answers, fetish_idx, strength_factor=1.0):
-        """strength_factor: 確信度が低いほど大きく（最大2.0）、高いほど小さく（最小0.5）。"""
-        neg_weight  = 0.3
-        disc_scales = self._get_disc_scales()
-        all_updates = {}
-
-        idx_to_db_id = {}
-        with self._lock:
-            nf = len(self.fetishes)
-            nq = len(self.questions)
-            if not (0 <= fetish_idx < nf):
-                return
-            for q_str, ans in answers.items():
-                try:
-                    q = int(q_str)
-                except (ValueError, TypeError):
-                    continue
-                if ans == 0 or not (0 <= q < nq):
-                    continue
-                strength = abs(ans)
-                # 蓄積データが多いほど1セッションの影響を小さくする（汚染対策）
-                scale = min(1.0, PSEUDO / max(self.matrix['total'][fetish_idx][q], PSEUDO))
-                # 識別力が高い質問ほど学習に重みを付ける（disc スケーリング）
-                effective = strength * scale * strength_factor * disc_scales[q]
-
-                delta_yes = effective if ans > 0 else 0.0
-                self.matrix['total'][fetish_idx][q] += effective
-                self.matrix['yes'][fetish_idx][q]   += delta_yes
-                all_updates.setdefault(fetish_idx, []).append((q, delta_yes, effective))
-
-                for f in range(nf):
-                    if f == fetish_idx:
-                        continue
-                    w = neg_weight * effective
-                    neg_yes = w * (0.0 if ans > 0 else 1.0)
-                    self.matrix['total'][f][q] += w
-                    self.matrix['yes'][f][q]   += neg_yes
-                    all_updates.setdefault(f, []).append((q, neg_yes, w))
-
-            idx_to_db_id = {i: f['id'] for i, f in enumerate(self.fetishes)}
-
-        self._save_async(all_updates, idx_to_db_id)
-        self._increment_learn_count()
+        return engine_learning.learn(self, answers, fetish_idx, strength_factor=strength_factor, pseudo=PSEUDO)
 
     def learn_cooccurrence(self, answers, idx_a, idx_b, factor=0.25):
-        """共起した2性癖を互いに相手の回答パターンで弱く強化する。"""
-        nf = len(self.fetishes)
-        nq = len(self.questions)
-        if not (0 <= idx_a < nf and 0 <= idx_b < nf and idx_a != idx_b):
-            return
-        all_updates  = {}
-        idx_to_db_id = {}
-        with self._lock:
-            for q_str, ans in answers.items():
-                try:
-                    q = int(q_str)
-                except (ValueError, TypeError):
-                    continue
-                if ans == 0 or not (0 <= q < nq):
-                    continue
-                for target, src in ((idx_a, idx_b), (idx_b, idx_a)):
-                    # target の矩陣を src のパターン方向に弱く引き寄せる
-                    p_src = self._prob(src, q)
-                    synthetic_ans = 1.0 if p_src >= 0.5 else -1.0
-                    if synthetic_ans * ans < 0:  # 方向が逆なら skip
-                        continue
-                    scale = min(1.0, PSEUDO / max(self.matrix['total'][target][q], PSEUDO))
-                    eff = abs(p_src - 0.5) * factor * scale
-                    if eff < 0.005:
-                        continue
-                    dy = eff if synthetic_ans > 0 else 0.0
-                    self.matrix['yes'][target][q]   += dy
-                    self.matrix['total'][target][q] += eff
-                    all_updates.setdefault(target, []).append((q, dy, eff))
-            idx_to_db_id = {i: f['id'] for i, f in enumerate(self.fetishes)}
-
-        self._save_async(all_updates, idx_to_db_id)
+        return engine_learning.learn_cooccurrence(self, answers, idx_a, idx_b, factor=factor, pseudo=PSEUDO)
 
     def learn_near_miss(self, answers, fetish_idx, strength_factor=1.0):
-        """「近い」フィードバック用の弱い正学習。ほかの性癖へ負学習は入れない。"""
-        near_str     = 0.35 * strength_factor
-        disc_scales  = self._get_disc_scales()
-        all_updates  = {}
-        idx_to_db_id = {}
-        with self._lock:
-            nf = len(self.fetishes)
-            nq = len(self.questions)
-            if not (0 <= fetish_idx < nf):
-                return
-            for q_str, ans in answers.items():
-                try:
-                    q = int(q_str)
-                except (ValueError, TypeError):
-                    continue
-                if ans == 0 or not (0 <= q < nq):
-                    continue
-                strength = abs(ans) * near_str
-                scale = min(1.0, PSEUDO / max(self.matrix['total'][fetish_idx][q], PSEUDO))
-                effective = strength * scale * disc_scales[q]
-                dy = effective if ans > 0 else 0.0
-                self.matrix['yes'][fetish_idx][q]   += dy
-                self.matrix['total'][fetish_idx][q] += effective
-                all_updates.setdefault(fetish_idx, []).append((q, dy, effective))
-            idx_to_db_id = {i: f['id'] for i, f in enumerate(self.fetishes)}
-
-        self._save_async(all_updates, idx_to_db_id)
-        self._increment_learn_count()
+        return engine_learning.learn_near_miss(
+            self, answers, fetish_idx, strength_factor=strength_factor, pseudo=PSEUDO
+        )
 
     def learn_negative(self, answers, fetish_idx, strength_factor=1.0):
-        """fetish_idx が外れだった弱いネガティブ更新。learn() の約1/5の強度。"""
-        neg_str      = 0.2 * strength_factor
-        all_updates  = {}
-        idx_to_db_id = {}
-        with self._lock:
-            nf = len(self.fetishes)
-            nq = len(self.questions)
-            if not (0 <= fetish_idx < nf):
-                return
-            for q_str, ans in answers.items():
-                try:
-                    q = int(q_str)
-                except (ValueError, TypeError):
-                    continue
-                if ans == 0 or not (0 <= q < nq):
-                    continue
-                strength = abs(ans) * neg_str
-                scale = min(1.0, PSEUDO / max(self.matrix['total'][fetish_idx][q], PSEUDO))
-                effective = strength * scale
-                # yes回答 → このfetishはyesしにくい方向: total++, yes据え置き
-                # no回答  → このfetishはnoしにくい方向: yes++, total++
-                dy = 0.0 if ans > 0 else effective
-                self.matrix['yes'][fetish_idx][q]   += dy
-                self.matrix['total'][fetish_idx][q] += effective
-                all_updates.setdefault(fetish_idx, []).append((q, dy, effective))
-            idx_to_db_id = {i: f['id'] for i, f in enumerate(self.fetishes)}
-
-        self._save_async(all_updates, idx_to_db_id)
+        return engine_learning.learn_negative(
+            self, answers, fetish_idx, strength_factor=strength_factor, pseudo=PSEUDO
+        )
 
     def _learn_silent(self, answers, fetish_idx, cold_start=False):
         """learn() without incrementing learn_count (used for initial boost).

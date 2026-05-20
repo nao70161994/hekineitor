@@ -12,16 +12,28 @@ import secrets
 import json as _json
 import time as _time
 import random as _random
+from types import SimpleNamespace
 from flask import Flask, render_template, request, jsonify, session, Response
 from flask.sessions import SessionInterface, SessionMixin
 from werkzeug.datastructures import CallbackDict
 from engine import (Engine, PLAYER_FETISH_BASE_ID, _get_conn, _put_conn, _use_db,
-                    FOCUS_THRESHOLD, get_compound_works,
+                    FOCUS_THRESHOLD, FETISH_RELATIONS, get_compound_works,
                     list_compound_works, set_compound_works, delete_compound_works,
                     parse_works_list)
 from audit import recent_audit, write_audit
 from storage import atomic_write_json, data_path, load_json_file
 from work_utils import safe_work_url, work_title
+from routes import admin as admin_routes
+from routes import game as game_routes
+from routes import seo as seo_routes
+from routes import system as system_routes
+from services import inference as inference_service
+from services import learning as learning_service
+from services import question_selection as question_selection_service
+from services import ogp as ogp_service
+from services import share as share_service
+from services import admin_helpers as admin_helper_service
+from services import works_links as works_links_service
 
 # ── サーバーサイドセッション ──────────────────────────────
 _SESSION_TTL    = 86400  # 24時間
@@ -337,7 +349,7 @@ def _find_similar(name, fetishes):
 
 
 def _question_total_for_count(count):
-    return HARD_MAX_QUESTIONS if count >= SOFT_MAX_QUESTIONS else SOFT_MAX_QUESTIONS
+    return question_selection_service.question_total_for_count(count, SOFT_MAX_QUESTIONS, HARD_MAX_QUESTIONS)
 
 
 def _should_extend_low_confidence(count, top_p, second_p, guess_thr):
@@ -365,8 +377,8 @@ def _record_guess_quality_feedback(correct):
 
 def _select_next_question(answers, asked, idk_streak=0, disambiguate=False):
     if disambiguate:
-        return engine.best_disambiguating_question(answers, set(asked), idk_streak=idk_streak)
-    return engine.best_question(answers, set(asked), idk_streak=idk_streak)
+        return question_selection_service.best_disambiguating_question(engine, answers, set(asked), idk_streak=idk_streak)
+    return question_selection_service.best_question(engine, answers, set(asked), idk_streak=idk_streak)
 
 
 def _snapshot_current_matrix(reason):
@@ -444,671 +456,191 @@ def _prune_matrix_import_backups():
 
 
 def _bounded_int(value, default, min_value=1, max_value=100):
-    try:
-        n = int(value)
-    except (TypeError, ValueError):
-        n = default
-    return max(min_value, min(max_value, n))
+    return admin_helper_service.bounded_int(value, default, min_value, max_value)
 
 
 def _build_fetish_log_rows():
-    fetish_log = engine.get_fetish_log()
-    rows = []
-    for f in engine.fetishes:
-        lg = fetish_log.get(f['id'], {'guessed': 0, 'correct': 0, 'wrong': 0})
-        guessed = lg['guessed']
-        correct = lg['correct']
-        wrong = lg['wrong']
-        acc = round(correct / guessed * 100) if guessed else None
-        rows.append({
-            'id': f['id'], 'name': f['name'],
-            'guessed': guessed, 'correct': correct, 'wrong': wrong, 'acc': acc,
-        })
-    rows.sort(key=lambda r: -r['guessed'])
-    return rows
+    return admin_helper_service.build_fetish_log_rows(engine)
 
 
 def _paged_fetish_log_rows(rows, args):
-    q = (args.get('q') or '').strip().lower()
-    min_guessed = _bounded_int(args.get('min_guessed'), 0, 0, 1000000)
-    acc_filter = args.get('acc_filter') or 'all'
-    sort_key = args.get('sort') or 'guessed'
-    order = args.get('order') or 'desc'
-    page = _bounded_int(args.get('page'), 1, 1, 1000000)
-    per_page = _bounded_int(args.get('per_page'), 50, 10, 200)
+    return admin_helper_service.paged_fetish_log_rows(rows, args)
 
-    def include(row):
-        acc = row['acc']
-        return (
-            q in row['name'].lower()
-            and row['guessed'] >= min_guessed
-            and (
-                acc_filter == 'all'
-                or (acc_filter == 'low' and acc is not None and acc < 50)
-                or (acc_filter == 'high' and acc is not None and acc >= 70)
-                or (acc_filter == 'none' and acc is None)
-            )
-        )
 
-    filtered = [row for row in rows if include(row)]
-    key_map = {
-        'name': lambda r: r['name'],
-        'guessed': lambda r: r['guessed'],
-        'correct': lambda r: r['correct'],
-        'wrong': lambda r: r['wrong'],
-        'acc': lambda r: -1 if r['acc'] is None else r['acc'],
-    }
-    filtered.sort(key=key_map.get(sort_key, key_map['guessed']), reverse=(order != 'asc'))
-    total = len(filtered)
-    start = (page - 1) * per_page
-    return {
-        'rows': filtered[start:start + per_page],
-        'page': page,
-        'per_page': per_page,
-        'total': total,
-        'pages': max(1, (total + per_page - 1) // per_page),
-    }
+def _seo_context():
+    return SimpleNamespace(
+        engine=engine,
+        request=request,
+        Response=Response,
+        render_template=render_template,
+        public_base_url=public_base_url,
+        work_title=work_title,
+        player_fetish_base_id=PLAYER_FETISH_BASE_ID,
+        display_version=DISPLAY_VERSION,
+        clean_probability=_clean_probability,
+        result_share_text=_result_share_text,
+        result_tagline=_result_tagline,
+        generate_ogp_png=_generate_ogp_png,
+        render_ogp_svg=_render_ogp_svg,
+        safe_work_url=safe_work_url,
+        amazon_associate_id=AMAZON_ASSOCIATE_ID,
+        fetish_relations=FETISH_RELATIONS,
+        error_page=_ERROR_PAGE,
+    )
 
 
 @app.route('/')
 def index():
-    base_url = public_base_url()
-    public_fetish_count = len([f for f in engine.fetishes if f['id'] < PLAYER_FETISH_BASE_ID])
-    return render_template('index.html',
-                           display_version=DISPLAY_VERSION,
-                           amazon_associate_id=AMAZON_ASSOCIATE_ID,
-                           base_url=base_url,
-                           public_fetish_count=public_fetish_count)
+    return seo_routes.index(_seo_context())
 
 
 @app.route('/fetishes')
 def fetish_index():
-    base_url = public_base_url()
-    fetish_log = engine.get_fetish_log()
-    rows = []
-    for f in engine.fetishes:
-        if f['id'] >= PLAYER_FETISH_BASE_ID:
-            continue
-        works = [work_title(w) for w in f.get('works', [])][:3]
-        lg = fetish_log.get(f['id'], {'guessed': 0, 'correct': 0, 'wrong': 0})
-        rows.append({
-            'id': f['id'],
-            'name': f['name'],
-            'desc': f['desc'],
-            'works': works,
-            'guessed': lg.get('guessed', 0),
-        })
-    rows.sort(key=lambda r: (-r['guessed'], r['id']))
-    page_url = f"{base_url}/fetishes"
-    json_ld = {
-        '@context': 'https://schema.org',
-        '@type': 'CollectionPage',
-        'name': '性癖一覧 - へきネイター',
-        'description': 'へきネイターで診断できる性癖の一覧。各性癖の意味、関連作品、診断ページへの入口をまとめています。',
-        'url': page_url,
-        'mainEntity': {
-            '@type': 'ItemList',
-            'numberOfItems': len(rows),
-            'itemListElement': [
-                {
-                    '@type': 'ListItem',
-                    'position': i + 1,
-                    'url': f"{base_url}/fetish/{row['id']}",
-                    'name': row['name'],
-                }
-                for i, row in enumerate(rows[:50])
-            ],
-        },
-    }
-    return render_template('fetishes.html',
-                           fetishes=rows,
-                           display_version=DISPLAY_VERSION,
-                           base_url=base_url,
-                           page_url=page_url,
-                           json_ld=json_ld)
+    return seo_routes.fetish_index(_seo_context())
 
 
 @app.route('/r')
 def result_share():
-    name = request.args.get('f', '')[:60]
-    prob = _clean_probability(request.args.get('p', ''))
-    desc = request.args.get('d', '')[:120]
-    base_url = public_base_url()
-    og_image = f"{base_url}/ogp?f={urllib.parse.quote(name)}&p={prob}"
-    share_url = f"{base_url}/r?f={urllib.parse.quote(name)}&p={urllib.parse.quote(prob)}&d={urllib.parse.quote(desc)}"
-    share_text = _result_share_text(name, prob)
-    result_tagline = _result_tagline(name, prob)
-    body = render_template('result_share.html',
-                           fetish_name=name, probability=prob, desc=desc,
-                           display_version=DISPLAY_VERSION,
-                           og_image=og_image,
-                           share_url=share_url,
-                           share_text=share_text,
-                           result_tagline=result_tagline)
-    return Response(body, headers={'X-Robots-Tag': 'noindex, follow'})
+    return seo_routes.result_share(_seo_context())
 
 
 def _clean_probability(raw):
-    try:
-        value = max(0, min(float(str(raw)[:8]), 100))
-    except (TypeError, ValueError):
-        return ''
-    return f"{value:.1f}".rstrip('0').rstrip('.')
+    return share_service.clean_probability(raw)
 
 
 def _result_share_text(name, prob):
-    try:
-        p = float(prob)
-    except (TypeError, ValueError):
-        p = 0
-    if p >= 90:
-        return f"へきネイターに性癖を完全に見破られた: {name} {prob}%"
-    if p >= 75:
-        return f"へきネイターで診断したら「{name}」だった。これ当たってる？ {prob}%"
-    if p >= 50:
-        return f"へきネイターの診断結果は「{name}」。否定しきれない {prob}%"
-    return f"へきネイターに「{name}」って言われた。これは当たってる？"
+    return share_service.result_share_text(name, prob)
 
 
 def _result_tagline(name, prob):
-    if not name:
-        return ''
-    try:
-        p = float(prob)
-    except (TypeError, ValueError):
-        p = 0
-    if p >= 90:
-        return f"「{name}」がかなり濃く出ています。"
-    if p >= 75:
-        return f"「{name}」に強く反応するタイプです。"
-    if p >= 50:
-        return f"「{name}」の気配があります。"
-    return f"「{name}」かもしれません。"
+    return share_service.result_tagline(name, prob)
+
+
+def _ogp_font_candidates():
+    return ogp_service._ogp_font_candidates()
+
+
+def _generate_ogp_png(name, prob):
+    return ogp_service.generate_png(name, prob)
+
+
+def _render_ogp_svg():
+    name = request.args.get('f', '???')[:30]
+    prob = request.args.get('p', '')[:5]
+    svg = ogp_service.render_svg(name, prob)
+    return Response(svg, mimetype='image/svg+xml',
+                    headers=seo_routes.ogp_cache_headers())
+
+
+@app.route('/ogp.png')
+def ogp_png_image():
+    return seo_routes.ogp_png_image(_seo_context())
 
 
 @app.route('/ogp')
 def ogp_image():
-    """診断結果のOGP画像をSVGで動的生成する（1200×630 Twitter推奨サイズ）。"""
-    name = request.args.get('f', '???')[:30]
-    prob = request.args.get('p', '')[:5]
-    try:
-        bar_w = max(8, min(int(float(prob) * 5.6), 560)) if prob else 0
-        prob_val = float(prob) if prob else 0
-    except ValueError:
-        bar_w = 0
-        prob_val = 0
-    # 名前の折り返し（12文字で改行）
-    if len(name) > 12:
-        line1, line2 = name[:12], name[12:24]
-        if len(name) > 24:
-            line2 = name[12:23] + '…'
-    else:
-        line1, line2 = name, ''
-    line1 = _html.escape(line1, quote=False)
-    line2 = _html.escape(line2, quote=False)
-    prob_text = _html.escape(prob, quote=False)
-    fs_name = 72 if len(line1) <= 8 else 60
-    y1 = 260 if line2 else 290
-    y2 = y1 + fs_name + 12
-    bar_color = '#f5a623' if prob_val >= 75 else ('#e94560' if prob_val >= 50 else '#5b8dd9')
-    svg = f'''<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0.6" y2="1">
-      <stop offset="0%" stop-color="#0d1b2a"/>
-      <stop offset="100%" stop-color="#16213e"/>
-    </linearGradient>
-    <linearGradient id="bar" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#e94560"/>
-      <stop offset="100%" stop-color="#f5a623"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#e94560" stop-opacity="0.15"/>
-      <stop offset="100%" stop-color="#f5a623" stop-opacity="0.05"/>
-    </linearGradient>
-  </defs>
-  <rect width="1200" height="630" fill="url(#bg)"/>
-  <rect x="0" y="0" width="1200" height="8" fill="url(#bar)"/>
-  <rect x="60" y="60" width="580" height="510" rx="20" fill="url(#accent)"/>
-  <rect x="60" y="60" width="580" height="510" rx="20" fill="none" stroke="#e94560" stroke-width="1" stroke-opacity="0.3"/>
-  <text x="350" y="130" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#888">🔮 へきネイター診断結果</text>
-  <text x="350" y="{y1}" text-anchor="middle" font-family="sans-serif" font-size="{fs_name}" font-weight="bold" fill="#e94560">{line1}</text>
-  {'<text x="350" y="' + str(y2) + '" text-anchor="middle" font-family="sans-serif" font-size="' + str(fs_name) + '" font-weight="bold" fill="#e94560">' + line2 + '</text>' if line2 else ''}
-  {'<text x="350" y="' + str((y2 if line2 else y1)+70) + '" text-anchor="middle" font-family="sans-serif" font-size="36" fill="' + bar_color + '">一致度 ' + prob_text + '%</text>' if prob else ''}
-  <rect x="130" y="490" width="440" height="12" rx="6" fill="#1a1a3e"/>
-  <rect x="130" y="490" width="{bar_w}" height="12" rx="6" fill="url(#bar)"/>
-  <rect x="680" y="60" width="460" height="510" rx="20" fill="#0a0f1e" fill-opacity="0.6"/>
-  <text x="910" y="160" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#555">あなたの性癖は？</text>
-  <text x="910" y="320" text-anchor="middle" font-family="sans-serif" font-size="80" fill="#e94560" opacity="0.15">?</text>
-  <text x="910" y="440" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#444">hekineitor.onrender.com</text>
-  <text x="910" y="480" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#333">質問に答えるだけで診断</text>
-</svg>'''
-    return Response(svg, mimetype='image/svg+xml',
-                    headers={'Cache-Control': 'public, max-age=3600'})
+    return seo_routes.ogp_svg_image(_seo_context())
+
 
 
 @app.route('/manifest.json')
 def manifest():
-    path = os.path.join(app.static_folder, 'manifest.json')
-    with open(path, encoding='utf-8') as f:
-        body = f.read()
-    return Response(body, mimetype='application/manifest+json',
-                    headers={'Cache-Control': 'no-cache'})
+    return system_routes.manifest(_system_context())
 
 
 @app.route('/sw.js')
 def sw():
-    return render_template('sw.js', version=APP_VERSION), 200, {
-        'Content-Type': 'application/javascript',
-        'Cache-Control': 'no-cache',
-    }
+    return system_routes.service_worker(_system_context())
 
 
 @app.route('/offline')
 def offline():
-    return render_template('offline.html')
+    return system_routes.offline(_system_context())
 
 
 @app.route('/fetish/<int:fetish_id>')
 def fetish_detail(fetish_id):
-    idx = engine.index_of(fetish_id)
-    if idx is None:
-        return _ERROR_PAGE.format(
-            title='見つかりません', emoji='🔍', code='404',
-            message='その性癖は存在しないか、削除されました。'
-        ), 404
-    f = engine.fetishes[idx]
-    # 関連性癖
-    from engine import FETISH_RELATIONS, work_title
-    related = []
-    for rid in FETISH_RELATIONS.get(fetish_id, []):
-        ri = engine.index_of(rid)
-        if ri is not None:
-            related.append({'id': rid, 'name': engine.fetishes[ri]['name']})
-    # 作品リスト（アフィリエイトリンク付き）
-    works = []
-    for w in f.get('works', []):
-        title = work_title(w)
-        url = w.get('url', '') if isinstance(w, dict) else ''
-        url = safe_work_url(url)
-        if url and AMAZON_ASSOCIATE_ID and 'tag=' not in url:
-            sep = '&' if '?' in url else '?'
-            url = url + f'{sep}tag={urllib.parse.quote(AMAZON_ASSOCIATE_ID)}'
-        works.append({'title': title, 'url': url})
-    # 特徴的な質問 TOP5（P(yes)が高い質問）
-    nq = len(engine.questions)
-    char_qs = []
-    if idx < len(engine.matrix['yes']):
-        row_yes = engine.matrix['yes'][idx]
-        row_tot = engine.matrix['total'][idx]
-        scores = []
-        for qi in range(nq):
-            p = row_yes[qi] / row_tot[qi] if row_tot[qi] > 0 else 0.5
-            if abs(p - 0.5) > 0.08:
-                scores.append((p, qi))
-        scores.sort(reverse=True)
-        for p, qi in scores[:5]:
-            char_qs.append({'text': engine.questions[qi]['text'], 'p': round(p * 100)})
-    # 診断実績
-    fetish_log = engine.get_fetish_log()
-    lg = fetish_log.get(fetish_id, {'guessed': 0, 'correct': 0, 'wrong': 0})
-    acc = round(lg['correct'] / lg['guessed'] * 100) if lg['guessed'] else None
-    base_url = public_base_url()
-    og_image = f"{base_url}/ogp?f={urllib.parse.quote(f['name'])}&p=90"
-    work_names = [w['title'] for w in works[:6]]
-    seo_desc = (
-        f"{f['name']}とは、{f['desc']} へきネイターでこの性癖に当てはまるか診断できます。"
-    )[:155]
-    page_url = f"{base_url}/fetish/{fetish_id}"
-    json_ld = {
-        '@context': 'https://schema.org',
-        '@type': 'Article',
-        'headline': f"{f['name']}とは？性癖診断とおすすめ作品",
-        'description': seo_desc,
-        'url': page_url,
-        'isPartOf': {
-            '@type': 'WebSite',
-            'name': 'へきネイター',
-            'url': base_url,
-        },
-        'about': {
-            '@type': 'Thing',
-            'name': f['name'],
-            'description': f['desc'],
-        },
-    }
-    if work_names:
-        json_ld['mentions'] = [{'@type': 'CreativeWork', 'name': title} for title in work_names]
-    return render_template('fetish.html',
-        fetish=f,
-        works=works,
-        work_names=work_names,
-        related=related,
-        char_qs=char_qs,
-        log=lg,
-        acc=acc,
-        display_version=DISPLAY_VERSION,
-        og_image=og_image,
-        base_url=base_url,
-        page_url=page_url,
-        seo_desc=seo_desc,
-        json_ld=json_ld,
-    )
+    return seo_routes.fetish_detail(_seo_context(), fetish_id)
 
 
 @app.route('/stats')
 def stats_page():
-    fetish_log = engine.get_fetish_log()
-    s = engine.get_stats()
-    rows = []
-    for f in engine.fetishes:
-        if f['id'] >= PLAYER_FETISH_BASE_ID:
-            continue
-        lg = fetish_log.get(f['id'], {'guessed': 0, 'correct': 0, 'wrong': 0})
-        g, c, w = lg['guessed'], lg['correct'], lg['wrong']
-        acc = round(c / g * 100) if g else None
-        rows.append({'id': f['id'], 'name': f['name'], 'guessed': g, 'correct': c, 'wrong': w, 'acc': acc})
-    rows.sort(key=lambda r: -r['guessed'])
-    top10 = [r for r in rows if r['guessed'] > 0][:10]
-    total_guessed = sum(r['guessed'] for r in rows)
-    total_correct = sum(r['correct'] for r in rows)
-    overall_acc = round(total_correct / total_guessed * 100) if total_guessed else None
-    ranked = [r for r in rows if r['guessed'] >= 3 and r['acc'] is not None]
-    top_acc = sorted(ranked, key=lambda r: -r['acc'])[:5]
-    base_url = public_base_url()
-    page_url = f"{base_url}/stats"
-    return render_template('stats.html',
-        top10=top10,
-        play_count=s['play_count'],
-        learn_count=s['learn_count'],
-        total_guessed=total_guessed,
-        overall_acc=overall_acc,
-        top_acc=top_acc,
-        total_fetishes=len([f for f in engine.fetishes if f['id'] < PLAYER_FETISH_BASE_ID]),
-        display_version=DISPLAY_VERSION,
-        base_url=base_url,
-        page_url=page_url,
-    )
+    return seo_routes.stats_page(_seo_context())
 
 
 @app.route('/robots.txt')
 def robots_txt():
-    host = public_base_url()
-    txt = f"""User-agent: *
-Disallow: /admin
-Disallow: /api/
-Allow: /
-Sitemap: {host}/sitemap.xml
-"""
-    return Response(txt, mimetype='text/plain')
+    return seo_routes.robots_txt(_seo_context())
 
 
 @app.route('/sitemap.xml')
 def sitemap_xml():
-    host = public_base_url()
-    urls = [host + '/', host + '/fetishes', host + '/stats']
-    for f in engine.fetishes:
-        if f['id'] < 10000:
-            urls.append(f"{host}/fetish/{f['id']}")
-    lines = ['<?xml version="1.0" encoding="UTF-8"?>',
-             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
-    for u in urls:
-        priority = '1.0' if u == host + '/' else ('0.8' if u in (host + '/fetishes', host + '/stats') else '0.6')
-        lines.append(f'  <url><loc>{_html.escape(u, quote=True)}</loc><priority>{priority}</priority></url>')
-    lines.append('</urlset>')
-    return Response('\n'.join(lines), mimetype='application/xml')
+    return seo_routes.sitemap_xml(_seo_context())
+
+
+def _game_context():
+    return SimpleNamespace(
+        engine=engine,
+        request=request,
+        session=session,
+        jsonify=jsonify,
+        rate_limit=_rate_limit,
+        random_choice=_random.choice,
+        best_question=question_selection_service.best_question,
+        top_guess=inference_service.top_guess,
+        make_guess=_make_guess,
+        question_total_for_count=_question_total_for_count,
+        soft_max_questions=SOFT_MAX_QUESTIONS,
+        hard_max_questions=HARD_MAX_QUESTIONS,
+        guess_threshold=GUESS_THRESHOLD,
+        focus_threshold=FOCUS_THRESHOLD,
+        should_extend_low_confidence=_should_extend_low_confidence,
+        select_next_question=_select_next_question,
+        progress_message=_progress_message,
+        logger=app.logger,
+        learn_factor=_learn_factor,
+        learn_positive=learning_service.learn_positive,
+        learn_cooccurrence=learning_service.learn_cooccurrence,
+        learn_near_miss=learning_service.learn_near_miss,
+        learn_negative=learning_service.learn_negative,
+        posteriors=inference_service.posteriors,
+        parse_id_list=_parse_id_list,
+        record_guess_quality_feedback=_record_guess_quality_feedback,
+        find_similar=_find_similar,
+        admin_guard_response=_admin_guard_response,
+        require_confirm=_require_confirm,
+        player_fetish_base_id=PLAYER_FETISH_BASE_ID,
+    )
 
 
 @app.route('/api/start', methods=['POST'])
 def start():
-    limited = _rate_limit('api_start', 120)
-    if limited:
-        return limited
-    data = request.get_json(silent=True) or {}
-    exclude_ids = []
-    for eid in data.get('exclude_ids', []):
-        try:
-            exclude_ids.append(int(eid))
-        except (ValueError, TypeError):
-            pass
-    session.clear()
-    session['answers']     = {}
-    session['asked']       = []
-    session['started']     = True
-    session['exclude_ids'] = exclude_ids
-    q = engine.best_question({}, set())
-    session['asked'].append(q)
-    q_data = engine.questions[q]
-    q_variants = q_data.get('variants', [])
-    q_text = _random.choice([q_data['text']] + q_variants) if q_variants else q_data['text']
-    return jsonify({
-        'question_id': q,
-        'question':    q_text,
-        'count':       0,
-        'total':       SOFT_MAX_QUESTIONS,
-        'axis':        engine._question_axis(q),
-        'q_hint':      q_data.get('hint', ''),
-    })
+    return game_routes.start(_game_context())
 
 
 @app.route('/api/resume', methods=['POST'])
 def resume():
-    """localStorageに保存した回答ペアからセッションを復元して次の質問を返す。"""
-    data  = request.get_json(silent=True) or {}
-    pairs = data.get('pairs', [])
-    exclude_ids = []
-    for eid in data.get('exclude_ids', []):
-        try:
-            exclude_ids.append(int(eid))
-        except (ValueError, TypeError):
-            pass
-    session.clear()
-    session['started']     = True
-    session['answers']     = {}
-    session['asked']       = []
-    session['idk_streak']  = 0
-    session['exclude_ids'] = exclude_ids
-    for item in pairs:
-        try:
-            q_idx = int(item['q_id'])
-            ans   = float(item['answer'])
-        except (KeyError, ValueError, TypeError):
-            continue
-        if ans not in (1, 0.5, 0, -0.5, -1):
-            continue
-        if q_idx < 0 or q_idx >= len(engine.questions):
-            continue
-        session['answers'][str(q_idx)] = ans
-        if q_idx not in session['asked']:
-            session['asked'].append(q_idx)
-        session['idk_streak'] = session['idk_streak'] + 1 if ans == 0 else 0
-    answers = session['answers']
-    asked   = session['asked']
-    if not answers:
-        q = engine.best_question({}, set())
-        session['asked'].append(q)
-        q_data = engine.questions[q]
-        q_variants = q_data.get('variants', [])
-        q_text = _random.choice([q_data['text']] + q_variants) if q_variants else q_data['text']
-        return jsonify({'action': 'question', 'question_id': q,
-                        'question': q_text,
-                        'count': 0, 'total': SOFT_MAX_QUESTIONS,
-                        'axis': engine._question_axis(q),
-                        'q_hint': q_data.get('hint', '')})
-    next_q = engine.best_question(answers, set(asked), idk_streak=session['idk_streak'])
-    if next_q is None:
-        return _make_guess(answers)
-    asked.append(next_q)
-    session['asked'] = asked
-    nq_data = engine.questions[next_q]
-    nq_variants = nq_data.get('variants', [])
-    nq_text = _random.choice([nq_data['text']] + nq_variants) if nq_variants else nq_data['text']
-    return jsonify({'action': 'question', 'question_id': next_q,
-                    'question': nq_text,
-                    'count': len(asked) - 1, 'total': _question_total_for_count(len(asked) - 1),
-                    'axis': engine._question_axis(next_q),
-                    'q_hint': nq_data.get('hint', '')})
+    return game_routes.resume(_game_context())
 
 
 @app.route('/api/continue', methods=['POST'])
 def continue_game():
-    """診断確定後に「もう少し続ける」ボタンで追加質問を開始する。"""
-    if not session.get('started'):
-        return jsonify({'status': 'session_expired'}), 440
-    answers = session.get('answers', {})
-    asked   = session.get('asked', [])
-    top2    = engine.top_guess(answers, n=2)
-    top_p   = top2[0][1] if top2 else 0.0
-    session['continue_thr'] = min(top_p + 0.20, 0.95)
-    session['continued']    = True
-    next_q = engine.best_question(answers, set(asked), idk_streak=0)
-    if next_q is None:
-        return jsonify({'status': 'no_question'})
-    asked.append(next_q)
-    session['asked'] = asked
-    cq_data = engine.questions[next_q]
-    cq_variants = cq_data.get('variants', [])
-    cq_text = _random.choice([cq_data['text']] + cq_variants) if cq_variants else cq_data['text']
-    return jsonify({'action': 'question', 'question_id': next_q,
-                    'question': cq_text,
-                    'count': len(asked) - 1, 'total': HARD_MAX_QUESTIONS,
-                    'axis': engine._question_axis(next_q),
-                    'q_hint': cq_data.get('hint', '')})
+    return game_routes.continue_game(_game_context())
+
+
+def _progress_message(count, top_p, second_p, focus_thr=FOCUS_THRESHOLD):
+    return question_selection_service.progress_message(count, top_p, second_p, focus_thr)
 
 
 @app.route('/api/answer', methods=['POST'])
 def answer():
-    limited = _rate_limit('api_answer', 240)
-    if limited:
-        return limited
-    if not session.get('started'):
-        return jsonify({'status': 'session_expired'}), 440
-    data = request.get_json(silent=True) or {}
-    if 'question_id' not in data or 'answer' not in data:
-        return jsonify({'status': 'error', 'message': 'question_id と answer が必要です'}), 400
-    try:
-        q_idx = int(data['question_id'])
-        ans   = float(data['answer'])
-    except (ValueError, TypeError):
-        return jsonify({'status': 'error', 'message': '不正な値です'}), 400
-    if ans not in (1, 0.5, 0, -0.5, -1):
-        return jsonify({'status': 'error', 'message': '不正な回答値です'}), 400
-    if q_idx < 0 or q_idx >= len(engine.questions):
-        return jsonify({'status': 'error', 'message': '不正な質問IDです'}), 400
-
-    answers = session.get('answers', {})
-    asked   = session.get('asked', [])
-
-    answers[str(q_idx)] = ans
-    session['answers']  = answers
-
-    # back() 後の再回答でも q_idx を asked に含める（重複質問防止）
-    if q_idx not in asked:
-        asked.append(q_idx)
-
-    # 「わからない」連続カウント
-    idk_streak = session.get('idk_streak', 0)
-    idk_streak = idk_streak + 1 if ans == 0 else 0
-    session['idk_streak'] = idk_streak
-
-    try:
-        top2 = engine.top_guess(answers, n=2)
-        top_p    = top2[0][1]
-        second_p = top2[1][1] if len(top2) > 1 else 0.0
-        count = len(asked)
-
-        # 終了条件: idk連続4回 / hard上限 / 通常閾値 / 早期打ち切り（比率ベース）
-        guess_thr = engine.config.get('guess_threshold', GUESS_THRESHOLD)
-        if session.get('continued'):
-            guess_thr = session.get('continue_thr', min(guess_thr + 0.20, 0.95))
-        gap_ratio  = top_p / max(second_p, 0.001)
-        early_stop = (count >= 4 and top_p >= 0.70 and gap_ratio >= 3.0) or \
-                     (count >= 8 and top_p >= 0.55 and gap_ratio >= 2.5)
-        # 接戦（1位と2位が近い）かつ問数が少ない場合は閾値を引き上げて続行
-        effective_thr = guess_thr if (gap_ratio >= 1.8 or count >= 10) \
-                        else min(guess_thr + 0.10, 0.90)
-        extend_low_confidence = _should_extend_low_confidence(count, top_p, second_p, guess_thr)
-        should_guess = (
-            idk_streak >= 4
-            or top_p >= effective_thr
-            or count >= HARD_MAX_QUESTIONS
-            or early_stop
-            or (count >= SOFT_MAX_QUESTIONS and not extend_low_confidence)
-        )
-        if should_guess:
-            return _make_guess(answers)
-
-        next_q = _select_next_question(
-            answers,
-            asked,
-            idk_streak=idk_streak,
-            disambiguate=extend_low_confidence or count >= SOFT_MAX_QUESTIONS,
-        )
-        if next_q is None:
-            return _make_guess(answers)
-
-        asked.append(next_q)
-        session['asked'] = asked
-
-        focus_thr = engine.config.get('focus_threshold', FOCUS_THRESHOLD)
-        hint = '答えが見えてきました…もう少しです' if top_p >= focus_thr else None
-        if extend_low_confidence:
-            hint = '候補が接戦です。もう少し絞り込みます'
-            session['low_confidence_extended'] = True
-
-        aq_data = engine.questions[next_q]
-        aq_variants = aq_data.get('variants', [])
-        aq_text = _random.choice([aq_data['text']] + aq_variants) if aq_variants else aq_data['text']
-
-        resp = {
-            'action':      'question',
-            'question_id': next_q,
-            'question':    aq_text,
-            'count':       count,
-            'total':       _question_total_for_count(count),
-            'axis':        engine._question_axis(next_q),
-            'q_hint':      aq_data.get('hint', ''),
-        }
-        if hint:
-            resp['hint'] = hint
-        contradictions = engine.detect_contradictions(answers)
-        if contradictions:
-            resp['contradictions'] = contradictions
-        return jsonify(resp)
-    except Exception:
-        app.logger.exception('answer() 推論エラー')
-        return jsonify({'status': 'session_expired', 'restart': True}), 440
+    return game_routes.answer(_game_context())
 
 
 @app.route('/api/back', methods=['POST'])
 def back():
-    if not session.get('started'):
-        return jsonify({'status': 'session_expired'}), 440
-    asked   = session.get('asked', [])
-    answers = session.get('answers', {})
+    return game_routes.back(_game_context())
 
-    if len(asked) < 2:
-        return jsonify({'status': 'no_history'})
-
-    # asked[-1] = 現在表示中（未回答）、asked[-2] = 直前に回答済み
-    asked.pop()                          # 現在の質問を除去
-    prev_q = asked[-1]
-    answers.pop(str(prev_q), None)       # 直前の回答を取り消し
-    asked.pop()                          # 直前の質問も除去（再回答時に再追加）
-
-    session['asked']      = asked
-    session['answers']    = answers
-    session['idk_streak'] = 0
-
-    return jsonify({
-        'question_id': prev_q,
-        'question':    engine.questions[prev_q]['text'],
-        'count':       len(asked),
-        'total':       _question_total_for_count(len(asked)),
-    })
-
-
-import math as _math
 
 PROFILE_MIN_RATIO = 0.25   # best_p に対する比率の下限
 PROFILE_MIN_PROB  = 0.08   # 絶対確率の下限
@@ -1116,18 +648,8 @@ COMPOUND_RATIO    = 0.55   # 2位がこの比率以上なら複合
 TRIPLE_RATIO      = 0.45   # 3位がこの比率以上なら三重複合
 
 def _learn_factor(answers, total_n=1):
-    """確信度スケーリング × √n 分散: 不確実なほど強く、多く選ぶほど弱く。"""
-    probs  = engine.posteriors(answers)
-    thr    = engine.config.get('guess_threshold', GUESS_THRESHOLD)
-    top_p  = max(probs) if probs else thr
-    if top_p >= thr:
-        # 診断閾値以上: top_p=thr→1.0、top_p=1.0→0.5 に線形マッピング
-        conf = max(0.5, 1.0 - 0.5 * (top_p - thr) / max(1.0 - thr, 1e-9))
-    else:
-        # 閾値未満（max_questions 到達など）: 不確実なほど強く（最大2.0）
-        conf = min(2.0, thr / max(top_p, 0.1))
-    n_scale = 1.0 / _math.sqrt(max(total_n, 1))
-    return max(0.3, min(2.0, conf * n_scale))
+    threshold = engine.config.get('guess_threshold', GUESS_THRESHOLD)
+    return learning_service.learn_factor(engine, inference_service.posteriors, answers, threshold, total_n)
 
 
 def _parse_id_list(value):
@@ -1142,112 +664,22 @@ def _parse_id_list(value):
     return parsed
 
 
+def _inference_context():
+    return SimpleNamespace(
+        engine=engine,
+        session=session,
+        work_title=work_title,
+        get_compound_works=get_compound_works,
+        profile_min_ratio=PROFILE_MIN_RATIO,
+        profile_min_prob=PROFILE_MIN_PROB,
+        compound_ratio=COMPOUND_RATIO,
+        triple_ratio=TRIPLE_RATIO,
+    )
+
+
 def _compute_guess(answers):
-    """診断結果を返す（play_count はインクリメントしない、純粋計算）。
-    レスポンスの fetish_id 系は全てDB id（永続的・プレイヤー追加性癖でも安全）。"""
-    probs   = engine.posteriors(answers)
-    exclude_ids = set(session.get('exclude_ids', []))
-    ranked  = sorted(range(len(probs)), key=lambda i: probs[i], reverse=True)
-    # exclude_ids に該当するものを末尾に退ける（除外優先、0件なら通常通り）
-    if exclude_ids:
-        ranked = [i for i in ranked if engine.fetishes[i]['id'] not in exclude_ids] + \
-                 [i for i in ranked if engine.fetishes[i]['id'] in exclude_ids]
-    best_i  = ranked[0]
-    best_p  = probs[best_i]
-    best_f  = engine.fetishes[best_i]
-    best_db = best_f['id']
-
-    compound_ratio = engine.config.get('compound_ratio', COMPOUND_RATIO)
-    triple_ratio   = engine.config.get('triple_ratio',   TRIPLE_RATIO)
-    compound = []
-    compound_db_ids = set()
-    if len(ranked) > 1 and probs[ranked[1]] >= best_p * compound_ratio:
-        c = engine.fetishes[ranked[1]]
-        compound.append({'fetish_id': c['id'],
-                         'fetish_name': c['name'],
-                         'probability': round(probs[ranked[1]] * 100, 1)})
-        compound_db_ids.add(c['id'])
-        if len(ranked) > 2 and probs[ranked[2]] >= best_p * triple_ratio:
-            c = engine.fetishes[ranked[2]]
-            compound.append({'fetish_id': c['id'],
-                             'fetish_name': c['name'],
-                             'probability': round(probs[ranked[2]] * 100, 1)})
-            compound_db_ids.add(c['id'])
-
-    threshold = max(best_p * PROFILE_MIN_RATIO, PROFILE_MIN_PROB)
-    profile = []
-    for fi in ranked[1:]:
-        f_dict = engine.fetishes[fi]
-        if f_dict['id'] == best_db or f_dict['id'] in compound_db_ids:
-            continue
-        if probs[fi] >= threshold:
-            profile.append({'fetish_id': f_dict['id'],
-                            'fetish_name': f_dict['name'],
-                            'probability': round(probs[fi] * 100, 1)})
-
-    profile_db_ids = {p['fetish_id'] for p in profile}
-    related_seen   = profile_db_ids | compound_db_ids | {best_db}
-    related        = []
-    for src_db in [best_db] + list(compound_db_ids):
-        for r in engine.get_related(src_db):
-            if r['fetish_id'] not in related_seen:
-                related.append(r)
-                related_seen.add(r['fetish_id'])
-
-    # 上位5件の確率バー用
-    top_chart = []
-    for fi in ranked[:5]:
-        f_dict = engine.fetishes[fi]
-        top_chart.append({'fetish_name': f_dict['name'], 'probability': round(probs[fi] * 100, 1)})
-
-    reasons = engine.get_answer_contributions(answers, best_i)
-
-    # 作品レコメンド: 複合特化作品を優先し、その後各性癖の個別作品をマージ
-    # works は文字列 or dict の混在があるため、タイトル文字列でdedup管理
-    from engine import work_title
-    seen_titles: set = set()
-    cross_works: list = []   # 複合に特化した作品（複数性癖の要素を兼ね備えた作品）
-    merged_works: list = []  # 個別作品のマージ
-
-    def _add_work(w, target):
-        t = work_title(w)
-        if t and t not in seen_titles:
-            seen_titles.add(t)
-            target.append(w)
-
-    if compound:
-        for c in compound:
-            for w in get_compound_works(best_db, c['fetish_id']):
-                _add_work(w, cross_works)
-        # 三重複合の場合、compound同士のペアも確認
-        c_ids = [c['fetish_id'] for c in compound]
-        for i in range(len(c_ids)):
-            for j in range(i + 1, len(c_ids)):
-                for w in get_compound_works(c_ids[i], c_ids[j]):
-                    _add_work(w, cross_works)
-
-    for w in best_f.get('works', []):
-        _add_work(w, merged_works)
-    for c in compound:
-        ci = engine.index_of(c['fetish_id'])
-        if ci is not None:
-            for w in engine.fetishes[ci].get('works', []):
-                _add_work(w, merged_works)
-
-    return {
-        'action':       'guess',
-        'fetish_id':    best_db,
-        'fetish_name':  best_f['name'],
-        'fetish_desc':  best_f['desc'],
-        'probability':  round(best_p * 100, 1),
-        'compound':     compound,
-        'profile':      profile,
-        'related':      related,
-        'top_chart':    top_chart,
-        'reasons':      reasons,
-        'works':        merged_works,
-        'cross_works':  cross_works,
-    }
+    """診断結果を返す（play_count はインクリメントしない、純粋計算）。"""
+    return inference_service.compute_guess(_inference_context(), answers)
 
 
 def _make_guess(answers):
@@ -1270,196 +702,68 @@ def _make_guess(answers):
 
 @app.route('/api/confirm', methods=['POST'])
 def confirm():
-    data = request.get_json(silent=True) or {}
-    if 'correct' not in data or 'fetish_id' not in data:
-        return jsonify({'status': 'error', 'message': 'correct と fetish_id が必要です'}), 400
-    try:
-        f_db_id = int(data['fetish_id'])
-    except (ValueError, TypeError):
-        return jsonify({'status': 'error', 'message': '不正な fetish_id です'}), 400
-    f_idx = engine.index_of(f_db_id)
-    if f_idx is None:
-        return jsonify({'status': 'error', 'message': '存在しない fetish_id です'}), 400
-    correct = data['correct']
-    answers = session.get('answers', {})
-
-    if correct:
-        learn_idxs = [f_idx]
-        for cid in data.get('compound_ids', []):
-            try:
-                c_idx = engine.index_of(int(cid))
-                if c_idx is not None and c_idx != f_idx:
-                    learn_idxs.append(c_idx)
-            except (ValueError, TypeError):
-                pass
-        factor = _learn_factor(answers, total_n=len(learn_idxs))
-        for idx in learn_idxs:
-            engine.learn(answers, idx, strength_factor=factor)
-            engine.log_correct(engine.fetishes[idx]['id'])
-        # 複合正解: 共起パターンを相互強化
-        for i in range(len(learn_idxs)):
-            for j in range(i + 1, len(learn_idxs)):
-                engine.learn_cooccurrence(answers, learn_idxs[i], learn_idxs[j], factor * 0.3)
-        _record_guess_quality_feedback(True)
-        return jsonify({'status': 'learned'})
-    else:
-        compound_db_ids = set()
-        for cid in data.get('compound_ids', []):
-            try:
-                compound_db_ids.add(int(cid))
-            except (ValueError, TypeError):
-                pass
-        presented_db_ids = {f_db_id} | compound_db_ids
-        maybe_db_ids = _parse_id_list(data.get('maybe_ids')) & presented_db_ids
-        explicit_wrong_ids = _parse_id_list(data.get('wrong_ids')) & presented_db_ids
-        if 'wrong_ids' in data or 'maybe_ids' in data:
-            wrong_db_ids = explicit_wrong_ids
-        else:
-            wrong_db_ids = set(presented_db_ids)
-
-        factor = _learn_factor(answers, total_n=max(1, len(maybe_db_ids)))
-        for mid in maybe_db_ids:
-            m_idx = engine.index_of(mid)
-            if m_idx is not None:
-                engine.learn_near_miss(answers, m_idx, strength_factor=factor)
-
-        if not data.get('add_only', False):
-            for wid in wrong_db_ids:
-                engine.log_wrong(wid)
-            _record_guess_quality_feedback(False)
-        probs = engine.posteriors(answers)
-        excluded_db_ids = set(presented_db_ids)
-        candidates = []
-        for i, f in enumerate(engine.fetishes):
-            if f['id'] in excluded_db_ids:
-                continue
-            candidates.append((probs[i], f))
-        candidates.sort(key=lambda t: t[0], reverse=True)
-        sorted_fetishes = [dict(f, prob=round(p * 100, 1)) for p, f in candidates[:20]]
-        # add_only=True は正解追加目的のリスト取得なので wrong_db_ids を設定しない
-        if not data.get('add_only', False):
-            session['wrong_db_ids'] = sorted(wrong_db_ids)
-            session['near_miss_db_ids'] = sorted(maybe_db_ids)
-            session['candidate_db_ids'] = [f['id'] for f in sorted_fetishes]
-            session['candidate_negative_factor'] = 0.15 if maybe_db_ids else 0.3
-        else:
-            session['wrong_db_ids'] = []
-            session['near_miss_db_ids'] = []
-            session['candidate_db_ids'] = []
-            session['candidate_negative_factor'] = 0.3
-        return jsonify({'status': 'wrong', 'fetishes': sorted_fetishes})
+    return game_routes.confirm(_game_context())
 
 
 @app.route('/api/teach', methods=['POST'])
 def teach():
-    data = request.get_json(silent=True) or {}
-    if 'fetish_id' not in data:
-        return jsonify({'status': 'error', 'message': 'fetish_id が必要です'}), 400
-    try:
-        f_db_id = int(data['fetish_id'])
-    except (ValueError, TypeError):
-        return jsonify({'status': 'error', 'message': '不正な fetish_id です'}), 400
-    f_idx = engine.index_of(f_db_id)
-    if f_idx is None:
-        return jsonify({'status': 'error', 'message': '存在しない fetish_id です'}), 400
-    answers  = session.get('answers', {})
-    try:
-        total_n = max(1, int(data.get('total_n', 1)))
-    except (ValueError, TypeError):
-        return jsonify({'status': 'error', 'message': '不正な total_n です'}), 400
-    engine.learn(answers, f_idx, strength_factor=_learn_factor(answers, total_n))
-    engine.log_correct(engine.fetishes[f_idx]['id'])
-    return jsonify({'status': 'learned', 'fetish_name': engine.fetishes[f_idx]['name']})
+    return game_routes.teach(_game_context())
 
 
 @app.route('/api/add_fetish', methods=['POST'])
 def add_fetish():
-    data        = request.get_json(silent=True) or {}
-    name      = data.get('name', '').strip()
-    desc      = data.get('desc', '').strip()
-    confirmed = data.get('confirmed', False)
-    answers   = session.get('answers', {})
-    if not name:
-        return jsonify({'status': 'error', 'message': '名前を入力してください'}), 400
-    if len(name) > 100:
-        return jsonify({'status': 'error', 'message': '名前は100文字以内で入力してください'}), 400
-    if len(desc) > 500:
-        return jsonify({'status': 'error', 'message': '説明は500文字以内で入力してください'}), 400
-    existing = next((f for f in engine.fetishes if f['name'] == name), None)
-    if existing:
-        # 学習は /api/finalize_added にまとめる（完了ボタン押下時）
-        return jsonify({'status': 'learned', 'fetish_name': existing['name'],
-                        'fetish_id': existing['id'], 'is_new': False})
-    if confirmed:
-        if not desc:
-            desc = name
-        _, db_id = engine.add_fetish(name, desc, answers)
-        owned = set(session.get('owned_added_fetish_ids', []))
-        owned.add(db_id)
-        session['owned_added_fetish_ids'] = sorted(owned)
-        return jsonify({'status': 'learned', 'fetish_name': name,
-                        'fetish_id': db_id, 'is_new': True})
-    similar = _find_similar(name, engine.fetishes)
-    if similar:
-        return jsonify({'status': 'similar', 'candidates': similar})
-    return jsonify({'status': 'needs_desc'})
+    return game_routes.add_fetish(_game_context())
 
 
 @app.route('/api/finalize_added', methods=['POST'])
 def finalize_added():
-    data  = request.get_json(silent=True) or {}
-    items = data.get('items', [])
-    if not isinstance(items, list):
-        return jsonify({'status': 'error', 'message': 'items はリストで指定してください'}), 400
-    answers  = session.get('answers', {})
-    total_n  = max(1, len([i for i in items if isinstance(i, dict)]))
-    factor   = _learn_factor(answers, total_n)
-    correct_db_ids = set()
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        try:
-            db_id  = int(item.get('id'))
-            is_new = bool(item.get('is_new'))
-        except (ValueError, TypeError):
-            continue
-        idx = engine.index_of(db_id)
-        if idx is None:
-            continue
-        correct_db_ids.add(db_id)
-        if is_new:
-            engine.boost_learn_new(idx, answers)
-        else:
-            engine.learn(answers, idx, strength_factor=factor)
-    # 複合正解の共起強化
-    correct_idxs = [engine.index_of(db_id) for db_id in correct_db_ids
-                    if engine.index_of(db_id) is not None]
-    for i in range(len(correct_idxs)):
-        for j in range(i + 1, len(correct_idxs)):
-            engine.learn_cooccurrence(answers, correct_idxs[i], correct_idxs[j], factor * 0.3)
-    # 外れた診断に対するネガティブ学習（正解として選ばれなかったもののみ）
-    wrong_db_ids = session.pop('wrong_db_ids', [])
-    for wid in wrong_db_ids:
-        if wid not in correct_db_ids:
-            w_idx = engine.index_of(wid)
-            if w_idx is not None:
-                engine.learn_negative(answers, w_idx)
-    # 候補リストに表示されたが選ばれなかった性癖に弱い負学習（wrong_db_ids より弱め）
-    candidate_db_ids = session.pop('candidate_db_ids', [])
-    near_miss_db_ids = set(session.pop('near_miss_db_ids', []))
-    already_learned = set(wrong_db_ids) | correct_db_ids | near_miss_db_ids
-    unselected = [cid for cid in candidate_db_ids if cid not in already_learned]
-    n_unsel = max(1, len(unselected))
-    candidate_negative_factor = session.pop('candidate_negative_factor', 0.3)
-    for cid in unselected:
-        c_idx = engine.index_of(cid)
-        if c_idx is not None:
-            engine.learn_negative(
-                answers,
-                c_idx,
-                strength_factor=factor * candidate_negative_factor / (n_unsel ** 0.5),
-            )
-    return jsonify({'status': 'done'})
+    return game_routes.finalize_added(_game_context())
+
+
+def _admin_context():
+    return SimpleNamespace(
+        engine=engine,
+        request=request,
+        jsonify=jsonify,
+        Response=Response,
+        render_template=render_template,
+        session=session,
+        csrf_token=_csrf_token,
+        bounded_int=_bounded_int,
+        build_fetish_log_rows=_build_fetish_log_rows,
+        paged_fetish_log_rows=_paged_fetish_log_rows,
+        perf_counter=_time.perf_counter,
+        best_question=question_selection_service.best_question,
+        build_admin_maintenance_checklist=_build_admin_maintenance_checklist,
+        recent_audit=recent_audit,
+        json_dumps=_json.dumps,
+        environ=os.environ,
+        use_db=_use_db,
+        list_matrix_import_backups=_list_matrix_import_backups,
+        should_enforce_runtime_guard=_should_enforce_runtime_guard,
+        parse_works_list=parse_works_list,
+        list_compound_works=list_compound_works,
+        set_compound_works=set_compound_works,
+        delete_compound_works=delete_compound_works,
+        cleanup_sessions=cleanup_sessions,
+        player_fetish_base_id=PLAYER_FETISH_BASE_ID,
+        strftime=_time.strftime,
+        gmtime=_time.gmtime,
+        require_confirm=_require_confirm,
+        snapshot_current_matrix=_snapshot_current_matrix,
+        matrix_import_completeness_error=_matrix_import_completeness_error,
+        matrix_import_expected_rows=_matrix_import_expected_rows,
+        write_audit=write_audit,
+        load_json_file=load_json_file,
+        data_path=data_path,
+        app_dir=os.path.dirname(__file__),
+        relpath=os.path.relpath,
+        basename=os.path.basename,
+        join_path=os.path.join,
+        path_exists=os.path.exists,
+        re_search=re.search,
+        html_escape=_html.escape,
+    )
 
 
 def _admin_guard_response():
@@ -1482,23 +786,7 @@ def _admin_guard_response():
 
 @app.route('/api/fetish/<int:fetish_id>', methods=['DELETE'])
 def delete_fetish(fetish_id):
-    owned = set(session.get('owned_added_fetish_ids', []))
-    if fetish_id not in owned:
-        guard = _admin_guard_response()
-        if guard:
-            return guard
-        confirm_error = _require_confirm('DELETE')
-        if confirm_error:
-            return confirm_error
-    if fetish_id < PLAYER_FETISH_BASE_ID:
-        return jsonify({'status': 'error', 'message': 'シード性癖は削除できません'}), 403
-    ok = engine.delete_fetish(fetish_id)
-    if not ok:
-        return jsonify({'status': 'error', 'message': '見つかりません'}), 404
-    if fetish_id in owned:
-        owned.remove(fetish_id)
-        session['owned_added_fetish_ids'] = sorted(owned)
-    return jsonify({'status': 'deleted'})
+    return game_routes.delete_fetish(_game_context(), fetish_id)
 
 
 def _require_admin(f):
@@ -1547,41 +835,12 @@ def _most_similar_fetishes(fetish_ids, limit=1):
 
 
 def _build_work_maintenance_summary(sample_limit=8):
-    missing_work_fetishes = []
-    missing_url_works = []
-    unsafe_url_works = []
-    total_works = 0
-    for fetish in engine.fetishes:
-        works = fetish.get('works') or []
-        if not works:
-            missing_work_fetishes.append({
-                'fetish_id': fetish['id'],
-                'fetish_name': fetish['name'],
-            })
-            continue
-        for work in works:
-            total_works += 1
-            title = work_title(work)
-            url = work.get('url', '') if isinstance(work, dict) else ''
-            row = {
-                'fetish_id': fetish['id'],
-                'fetish_name': fetish['name'],
-                'title': title,
-            }
-            if not url:
-                missing_url_works.append(row)
-            elif not safe_work_url(url):
-                unsafe_url_works.append({**row, 'url': str(url)})
-    return {
-        'total_works': total_works,
-        'missing_work_fetish_count': len(missing_work_fetishes),
-        'missing_url_work_count': len(missing_url_works),
-        'unsafe_url_work_count': len(unsafe_url_works),
-        'missing_work_fetishes': missing_work_fetishes[:sample_limit],
-        'missing_url_works': missing_url_works[:sample_limit],
-        'unsafe_url_works': unsafe_url_works[:sample_limit],
-        'works_review_url': '/api/admin/works_review',
-    }
+    return works_links_service.build_work_maintenance_summary(
+        engine.fetishes,
+        work_title_fn=work_title,
+        safe_work_url_fn=safe_work_url,
+        sample_limit=sample_limit,
+    )
 
 
 def _build_admin_maintenance_checklist():
@@ -1662,622 +921,223 @@ def _build_admin_maintenance_checklist():
 @app.route('/admin')
 @_require_admin
 def admin():
-    stats = engine.get_learning_stats()
-    s = engine.get_stats()
-    player_fetishes = [f for f in engine.fetishes if f['id'] >= PLAYER_FETISH_BASE_ID]
-    question_stats   = engine.get_question_stats()
-    corr_stats       = engine.get_correlation_stats(top_n=30)
-    fetish_log_rows  = _build_fetish_log_rows()
-    fetish_log_page  = _paged_fetish_log_rows(fetish_log_rows, request.args)
-    domain_suggestions = engine.get_top_questions_per_fetish(top_n=5)
-    stats_history  = engine.get_stats_history(days=30)
-    matrix_heatmap = engine.get_matrix_heatmap(n_fetishes=20, n_questions=20)
-    axis_stats     = engine.get_axis_stats()
-    quality_report = engine.get_quality_report()
-    maintenance_checklist = _build_admin_maintenance_checklist()
-    return render_template('admin.html', stats=stats, play_count=s['play_count'],
-                           learn_count=s['learn_count'], player_fetishes=player_fetishes,
-                           question_stats=question_stats, corr_stats=corr_stats,
-                           fetish_log_rows=fetish_log_rows,
-                           fetish_log_page=fetish_log_page,
-                           domain_suggestions=domain_suggestions,
-                           engine_config=engine.config,
-                           config_defaults=engine._CONFIG_DEFAULTS,
-                           stats_history=stats_history,
-                           matrix_heatmap=matrix_heatmap,
-                           axis_stats=axis_stats,
-                           quality_report=quality_report,
-                           maintenance_checklist=maintenance_checklist,
-                           csrf_token=_csrf_token(),
-                           csrf_expires_at=int(session.get('admin_csrf_issued_at', 0) + int(os.environ.get('ADMIN_CSRF_TTL_SECONDS', '7200'))),
-                           audit_rows=recent_audit(20),
-                           matrix_backups=_list_matrix_import_backups())
+    return admin_routes.admin_page(_admin_context())
 
 
 @app.route('/api/admin/toggle_question/<int:q_id>', methods=['POST'])
 @_require_admin
 def toggle_question(q_id):
-    if q_id < 0 or q_id >= len(engine.questions):
-        return jsonify({'status': 'error', 'message': '不正な質問IDです'}), 400
-    disabled = engine.toggle_question_disabled(q_id)
-    return jsonify({'status': 'ok', 'disabled': disabled})
+    return admin_routes.toggle_question(_admin_context(), q_id)
 
 
 @app.route('/api/admin/params', methods=['POST'])
 @_require_admin
 def update_params():
-    data = request.get_json(silent=True) or {}
-    updated = {}
-    errors  = []
-    for key, val in data.items():
-        try:
-            engine.set_config(key, val)
-            updated[key] = engine.config[key]
-        except (ValueError, KeyError) as e:
-            errors.append(str(e))
-    return jsonify({'status': 'ok', 'updated': updated, 'errors': errors})
+    return admin_routes.update_params(_admin_context())
 
 
 @app.route('/api/admin/cleanup_sessions', methods=['POST'])
 @_require_admin
 def admin_cleanup_sessions():
-    deleted = cleanup_sessions()
-    return jsonify({'status': 'ok', 'deleted': deleted})
+    return admin_routes.cleanup_sessions(_admin_context())
 
 
 @app.route('/api/admin/add_fetish', methods=['POST'])
 @_require_admin
 def admin_add_fetish():
-    data = request.get_json(silent=True) or {}
-    name = data.get('name', '').strip()
-    desc = data.get('desc', '').strip()
-    if not name:
-        return jsonify({'status': 'error', 'message': '名前を入力してください'}), 400
-    if len(name) > 100:
-        return jsonify({'status': 'error', 'message': '名前は100文字以内'}), 400
-    if len(desc) > 500:
-        return jsonify({'status': 'error', 'message': '説明は500文字以内'}), 400
-    existing = next((f for f in engine.fetishes if f['name'] == name), None)
-    if existing:
-        return jsonify({'status': 'exists', 'fetish_id': existing['id'], 'fetish_name': existing['name']})
-    if not desc:
-        desc = name
-    _, db_id = engine.add_fetish(name, desc, {})
-    return jsonify({'status': 'created', 'fetish_id': db_id, 'fetish_name': name})
+    return admin_routes.add_fetish(_admin_context())
 
 
 @app.route('/api/admin/capture_priors', methods=['POST'])
 @_require_admin
 def admin_capture_priors():
-    engine.capture_learned_priors()
-    return jsonify({'status': 'ok'})
+    return admin_routes.capture_priors(_admin_context())
 
 
 @app.route('/api/admin/promote_fetish/<int:fetish_id>', methods=['POST'])
 @_require_admin
 def admin_promote_fetish(fetish_id):
-    if fetish_id < PLAYER_FETISH_BASE_ID:
-        return jsonify({'status': 'error', 'message': 'シード性癖は格上げ不要です'}), 400
-    new_id = engine.promote_fetish(fetish_id)
-    if new_id is None:
-        return jsonify({'status': 'error', 'message': '見つかりません'}), 404
-    return jsonify({'status': 'promoted', 'old_id': fetish_id, 'new_id': new_id})
+    return admin_routes.promote_fetish(_admin_context(), fetish_id)
 
 
 @app.route('/api/admin/edit_question/<int:q_idx>', methods=['POST'])
 @_require_admin
 def admin_edit_question(q_idx):
-    data = request.get_json(silent=True) or {}
-    text = (data.get('text') or '').strip()
-    if not text:
-        return jsonify({'status': 'error', 'message': 'text が必要です'}), 400
-    if len(text) > 120:
-        return jsonify({'status': 'error', 'message': '質問は120文字以内'}), 400
-    ok = engine.edit_question(q_idx, text)
-    if not ok:
-        return jsonify({'status': 'error', 'message': '不正なインデックスです'}), 404
-    return jsonify({'status': 'ok', 'q_idx': q_idx, 'text': text})
+    return admin_routes.edit_question(_admin_context(), q_idx)
 
 
 @app.route('/api/admin/edit_fetish/<int:fetish_id>', methods=['POST'])
 @_require_admin
 def admin_edit_fetish(fetish_id):
-    data = request.get_json(silent=True) or {}
-    name = data.get('name', '').strip() or None
-    desc = data.get('desc', '').strip() if 'desc' in data else None
-    works = None
-    if 'works' in data:
-        raw = data['works']
-        if isinstance(raw, str):
-            raw = [w.strip() for w in raw.split(',') if w.strip()]
-        elif not isinstance(raw, list):
-            return jsonify({'status': 'error', 'message': 'works はリストまたは文字列で指定してください'}), 400
-        works = parse_works_list(raw)
-    if name is not None and len(name) > 50:
-        return jsonify({'status': 'error', 'message': '名前は50文字以内'}), 400
-    if works is not None and len(works) > 10:
-        return jsonify({'status': 'error', 'message': '作品は10件以内'}), 400
-    ok = engine.edit_fetish(fetish_id, name=name, desc=desc, works=works)
-    if not ok:
-        return jsonify({'status': 'error', 'message': '見つかりません'}), 404
-    idx = engine.index_of(fetish_id)
-    f = engine.fetishes[idx]
-    return jsonify({'status': 'ok', 'name': f['name'], 'desc': f['desc'], 'works': f.get('works', [])})
+    return admin_routes.edit_fetish(_admin_context(), fetish_id)
 
 
 @app.route('/api/admin/compound_works', methods=['GET'])
 @_require_admin
 def admin_list_compound_works():
-    items = list_compound_works()
-    # 各ペアに性癖名を付与
-    result = []
-    for item in items:
-        ia = engine.index_of(item['id_a'])
-        ib = engine.index_of(item['id_b'])
-        name_a = engine.fetishes[ia]['name'] if ia is not None else f"id={item['id_a']}"
-        name_b = engine.fetishes[ib]['name'] if ib is not None else f"id={item['id_b']}"
-        result.append({**item, 'name_a': name_a, 'name_b': name_b})
-    return jsonify(result)
+    return admin_routes.list_compound_works(_admin_context())
 
 
 @app.route('/api/admin/compound_works', methods=['POST'])
 @_require_admin
 def admin_set_compound_works():
-    data = request.get_json(silent=True) or {}
-    try:
-        id_a = int(data['id_a'])
-        id_b = int(data['id_b'])
-    except (KeyError, ValueError, TypeError):
-        return jsonify({'status': 'error', 'message': 'id_a と id_b が必要です'}), 400
-    if id_a == id_b:
-        return jsonify({'status': 'error', 'message': '同じIDは指定できません'}), 400
-    raw = data.get('works', [])
-    if isinstance(raw, str):
-        raw = [w.strip() for w in raw.split(',') if w.strip()]
-    works = parse_works_list(raw)
-    if not works:
-        return jsonify({'status': 'error', 'message': '作品を1件以上入力してください'}), 400
-    if len(works) > 10:
-        return jsonify({'status': 'error', 'message': '作品は10件以内'}), 400
-    key = set_compound_works(id_a, id_b, works)
-    return jsonify({'status': 'ok', 'key': key, 'works': works})
+    return admin_routes.set_compound_works(_admin_context())
 
 
 @app.route('/api/admin/compound_works/<path:key>', methods=['DELETE'])
 @_require_admin
 def admin_delete_compound_works(key):
-    parts = key.split(',')
-    if len(parts) != 2:
-        return jsonify({'status': 'error', 'message': '不正なキーです'}), 400
-    try:
-        id_a, id_b = int(parts[0]), int(parts[1])
-    except ValueError:
-        return jsonify({'status': 'error', 'message': '不正なキーです'}), 400
-    ok = delete_compound_works(id_a, id_b)
-    if not ok:
-        return jsonify({'status': 'error', 'message': '見つかりません'}), 404
-    return jsonify({'status': 'deleted', 'key': key})
+    return admin_routes.delete_compound_works(_admin_context(), key)
+
+
+def _system_context():
+    return SimpleNamespace(
+        engine=engine,
+        jsonify=jsonify,
+        Response=Response,
+        render_template=render_template,
+        static_folder=app.static_folder,
+        app_version=APP_VERSION,
+        environ=os.environ,
+        use_db=_use_db,
+        get_conn=_get_conn,
+        put_conn=_put_conn,
+        data_path=data_path,
+        app_dir=os.path.dirname(__file__),
+        join_path=os.path.join,
+        path_exists=os.path.exists,
+        path_getmtime=os.path.getmtime,
+        error_counts=_ERROR_COUNTS,
+        app_started_at=APP_STARTED_AT,
+        time=_time.time,
+        local_session_count=_local_session_count,
+        recent_audit=recent_audit,
+    )
 
 
 @app.route('/health')
 def health():
-    db_ok = False
-    matrix_rows = len(engine.matrix.get('yes', []))
-    matrix_cols = len(engine.matrix.get('yes', [[]])[0]) if matrix_rows else 0
-    matrix_ok = (
-        matrix_rows == len(engine.fetishes) and
-        matrix_cols == len(engine.questions) and
-        len(engine.matrix.get('total', [])) == len(engine.fetishes) and
-        all(len(row) == len(engine.questions) for row in engine.matrix.get('yes', [])) and
-        all(len(row) == len(engine.questions) for row in engine.matrix.get('total', []))
-    )
-    backup_path = os.path.join(os.path.dirname(__file__), 'data', 'matrix_backup.json')
-    backup_mtime = None
-    if os.path.exists(backup_path):
-        backup_mtime = int(os.path.getmtime(backup_path))
-    matrix_path = data_path('matrix.json')
-    matrix_mtime = int(os.path.getmtime(matrix_path)) if os.path.exists(matrix_path) else None
-    if _use_db():
-        conn = None
-        try:
-            conn = _get_conn()
-            conn.cursor().execute('SELECT 1')
-            db_ok = True
-        except Exception:
-            pass
-        finally:
-            if conn is not None:
-                _put_conn(conn)
-    error_total = _ERROR_COUNTS['4xx'] + _ERROR_COUNTS['5xx']
-    degraded_reasons = []
-    if not matrix_ok:
-        degraded_reasons.append('matrix_shape')
-    if _ERROR_COUNTS['5xx'] >= int(os.environ.get('HEALTH_5XX_DEGRADED_THRESHOLD', '5')):
-        degraded_reasons.append('5xx_threshold')
-    if error_total >= int(os.environ.get('HEALTH_ERROR_DEGRADED_THRESHOLD', '50')):
-        degraded_reasons.append('error_threshold')
-    if _use_db() and not db_ok:
-        degraded_reasons.append('db_unavailable')
-    return jsonify({
-        'status': 'ok' if not degraded_reasons else 'degraded',
-        'degraded_reasons': degraded_reasons,
-        'db': db_ok,
-        'storage': 'postgres' if _use_db() else 'local_json',
-        'fetishes': len(engine.fetishes),
-        'questions': len(engine.questions),
-        'matrix': {'rows': matrix_rows, 'cols': matrix_cols, 'ok': matrix_ok},
-        'backup': {'matrix_backup_mtime': backup_mtime},
-        'runtime': {
-            'started_at': APP_STARTED_AT,
-            'uptime_seconds': int(_time.time()) - APP_STARTED_AT,
-            'local_sessions': _local_session_count(),
-            'error_counts': dict(_ERROR_COUNTS),
-        },
-        'persistence': {
-            'matrix_saved_mtime': matrix_mtime,
-            'audit_entries': len(recent_audit(500)),
-        },
-    })
+    return system_routes.health(_system_context())
 
 
 @app.route('/api/admin/merge_fetishes', methods=['POST'])
 @_require_admin
 def admin_merge_fetishes():
-    data     = request.get_json(silent=True) or {}
-    id_keep  = data.get('id_keep')
-    id_rm    = data.get('id_remove')
-    new_name = (data.get('new_name') or '').strip() or None
-    new_desc = (data.get('new_desc') or '').strip() or None
-    if id_keep is None or id_rm is None:
-        return jsonify({'status': 'error', 'message': 'id_keep と id_remove が必要です'}), 400
-    try:
-        id_keep = int(id_keep)
-        id_rm = int(id_rm)
-    except (TypeError, ValueError):
-        return jsonify({'status': 'error', 'message': 'id_keep と id_remove は整数で指定してください'}), 400
-    confirm_error = _require_confirm('MERGE')
-    if confirm_error:
-        return confirm_error
-    ok = engine.merge_fetishes(id_keep, id_rm, new_name=new_name, new_desc=new_desc)
-    if not ok:
-        return jsonify({'status': 'error', 'message': '性癖が見つかりません'}), 404
-    idx  = engine.index_of(id_keep)
-    name = engine.fetishes[idx]['name'] if idx is not None else '(unknown)'
-    return jsonify({'status': 'merged', 'id_keep': id_keep, 'name': name})
+    return admin_routes.merge_fetishes(_admin_context())
 
 
 @app.route('/api/admin/works_review', methods=['GET'])
 @_require_admin
 def admin_works_review():
-    import re as _re
-    rows = []
-    for fe in engine.fetishes:
-        for w in fe.get('works', []):
-            title = w['title'] if isinstance(w, dict) else w
-            url   = w.get('url', '') if isinstance(w, dict) else ''
-            asin  = ''
-            if url:
-                m = _re.search(r'/dp/([A-Z0-9]{10})', url)
-                asin = m.group(1) if m else ''
-            rows.append((fe['name'], title, asin, url))
-    html = '''<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
-<title>作品リンク確認</title>
-<style>
-body{font-family:sans-serif;font-size:13px;background:#111;color:#ddd;padding:16px;}
-table{border-collapse:collapse;width:100%;}
-th{background:#222;padding:6px 10px;text-align:left;position:sticky;top:0;z-index:1;}
-td{padding:5px 10px;border-bottom:1px solid #222;vertical-align:top;}
-tr:hover td{background:#1a1a1a;}
-a{color:#7af0a0;}
-.no-url{color:#e94560;}
-input{background:#222;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:4px;margin-bottom:10px;width:300px;}
-</style></head><body>
-<h2>作品リンク確認（''' + str(len(rows)) + '''件）</h2>
-<input type="text" id="q" placeholder="性癖名や作品名で絞り込み...">
-<table id="tbl">
-<tr><th>性癖</th><th>作品タイトル</th><th>ASIN</th><th>リンク</th></tr>'''
-    for fetish_name, title, asin, url in rows:
-        fetish_name_e = _html.escape(str(fetish_name))
-        title_e = _html.escape(str(title))
-        asin_e = _html.escape(str(asin))
-        if url:
-            url_e = _html.escape(str(url), quote=True)
-            link = f'<a href="{url_e}" target="_blank" rel="noopener">Kindle</a>'
-        else:
-            link = '<span class="no-url">URLなし</span>'
-        html += f'<tr><td>{fetish_name_e}</td><td>{title_e}</td><td>{asin_e}</td><td>{link}</td></tr>'
-    html += '''</table>
-<script>
-document.getElementById("q").addEventListener("input", () => {
-  const q = document.getElementById("q").value.toLowerCase();
-  document.querySelectorAll("#tbl tr:not(:first-child)").forEach(tr => {
-    tr.style.display = tr.textContent.toLowerCase().includes(q) ? "" : "none";
-  });
-});
-</script>
-</body></html>'''
-    return Response(html, mimetype='text/html')
+    return admin_routes.works_review(_admin_context())
+
+
+@app.route('/api/admin/works_link_queue', methods=['GET'])
+def admin_works_link_queue():
+    guard = _admin_guard_response()
+    if guard:
+        return guard
+    try:
+        sample_limit = max(1, min(int(request.args.get('sample_limit', 20)), 100))
+    except ValueError:
+        sample_limit = 20
+    return jsonify(admin_routes.works_link_queue_payload(engine, sample_limit=sample_limit))
 
 
 @app.route('/api/admin/export_matrix', methods=['GET'])
 @_require_admin
 def admin_export_matrix():
-    fetishes  = engine.fetishes
-    questions = engine.questions
-    rows = []
-    for fi, f in enumerate(fetishes):
-        for qi, q in enumerate(questions):
-            y = engine.matrix['yes'][fi][qi]
-            t = engine.matrix['total'][fi][qi]
-            rows.append({'fetish_id': f['id'], 'fetish_name': f['name'],
-                         'question_id': qi, 'question_text': q['text'],
-                         'yes': round(y, 4), 'total': round(t, 4)})
-    exported_at = _time.strftime('%Y-%m-%dT%H:%M:%SZ', _time.gmtime())
-    payload = _json.dumps({
-        'exported_at': exported_at,
-        'metadata': {
-            'exported_at': exported_at,
-            'fetish_count': len(fetishes),
-            'question_count': len(questions),
-            'matrix_row_count': len(rows),
-        },
-        'fetishes': fetishes,
-        'matrix_rows': rows,
-    }, ensure_ascii=False, indent=2)
-    return Response(payload, mimetype='application/json',
-                    headers={'Content-Disposition': 'attachment; filename="matrix_export.json"'})
+    return admin_routes.export_matrix(_admin_context())
 
 
 @app.route('/api/admin/import_matrix', methods=['POST'])
 @_require_admin
 def admin_import_matrix():
-    data = request.get_json(silent=True) or {}
-    rows = data.get('matrix_rows', [])
-    if not rows:
-        return jsonify({'status': 'error', 'message': 'matrix_rows が空です'}), 400
-    try:
-        report = engine.validate_matrix_rows(rows)
-        complete_error = _matrix_import_completeness_error(report)
-        if complete_error:
-            return complete_error
-        confirm_error = _require_confirm('IMPORT')
-        if confirm_error:
-            return confirm_error
-        backup_path = _snapshot_current_matrix('before_import_matrix')
-        count = engine.import_matrix(rows)
-    except ValueError as e:
-        write_audit('import_matrix', 'error', {'message': str(e)}, request)
-        return jsonify({'status': 'error', 'message': str(e)}), 400
-    write_audit('import_matrix', 'ok', {
-        'imported_rows': count,
-        'input_rows': report['input_rows'],
-        'skipped_rows': report['skipped_rows'],
-        'backup_path': os.path.relpath(backup_path, os.path.dirname(__file__)),
-    }, request)
-    return jsonify({
-        'status': 'ok',
-        'imported_rows': count,
-        'backup_path': os.path.relpath(backup_path, os.path.dirname(__file__)),
-    })
+    return admin_routes.import_matrix(_admin_context())
 
 
 @app.route('/api/admin/import_matrix/dry_run', methods=['POST'])
 @_require_admin
 def admin_import_matrix_dry_run():
-    data = request.get_json(silent=True) or {}
-    rows = data.get('matrix_rows', [])
-    if not rows:
-        return jsonify({'status': 'error', 'message': 'matrix_rows が空です'}), 400
-    try:
-        report = engine.validate_matrix_rows(rows)
-    except ValueError as e:
-        write_audit('import_matrix_dry_run', 'error', {'message': str(e)}, request)
-        return jsonify({'status': 'error', 'message': str(e)}), 400
-    write_audit('import_matrix_dry_run', 'ok', report, request)
-    expected_rows = _matrix_import_expected_rows()
-    return jsonify({
-        'status': 'ok',
-        **report,
-        'expected_rows': expected_rows,
-        'complete': report['skipped_rows'] == 0 and report['valid_rows'] == expected_rows,
-    })
+    return admin_routes.import_matrix_dry_run(_admin_context())
 
 
 @app.route('/api/admin/matrix_backups', methods=['GET'])
 @_require_admin
 def admin_matrix_backups():
-    return jsonify({'status': 'ok', 'backups': _list_matrix_import_backups()})
+    return admin_routes.matrix_backups(_admin_context())
 
 
 @app.route('/api/admin/matrix_backups/<path:name>/restore', methods=['POST'])
 @_require_admin
 def admin_restore_matrix_backup(name):
-    safe_name = os.path.basename(name)
-    if safe_name != name or not safe_name.endswith('.json'):
-        return jsonify({'status': 'error', 'message': '不正なバックアップ名です'}), 400
-    path = os.path.join(data_path('matrix_import_backups'), safe_name)
-    if not os.path.exists(path):
-        return jsonify({'status': 'error', 'message': 'バックアップが見つかりません'}), 404
-    payload = load_json_file(os.path.join('matrix_import_backups', safe_name), default={})
-    rows = payload.get('matrix_rows', []) if isinstance(payload, dict) else []
-    if not rows:
-        return jsonify({'status': 'error', 'message': 'matrix_rows が見つかりません'}), 400
-    try:
-        report = engine.validate_matrix_rows(rows)
-        complete_error = _matrix_import_completeness_error(report)
-        if complete_error:
-            return complete_error
-        confirm_error = _require_confirm('RESTORE')
-        if confirm_error:
-            return confirm_error
-        snapshot = _snapshot_current_matrix('before_restore_matrix_backup')
-        count = engine.import_matrix(rows)
-    except ValueError as e:
-        write_audit('restore_matrix_backup', 'error', {'name': safe_name, 'message': str(e)}, request)
-        return jsonify({'status': 'error', 'message': str(e)}), 400
-    write_audit('restore_matrix_backup', 'ok', {
-        'name': safe_name,
-        'restored_rows': count,
-        'input_rows': report['input_rows'],
-        'skipped_rows': report['skipped_rows'],
-        'pre_restore_backup': os.path.relpath(snapshot, os.path.dirname(__file__)),
-    }, request)
-    return jsonify({
-        'status': 'ok',
-        'restored_rows': count,
-        'pre_restore_backup': os.path.relpath(snapshot, os.path.dirname(__file__)),
-    })
+    return admin_routes.restore_matrix_backup(_admin_context(), name)
 
 
 @app.route('/api/admin/export_log', methods=['GET'])
 @_require_admin
 def admin_export_log():
-    log = engine.get_fetish_log()
-    fetish_map = {f['id']: f['name'] for f in engine.fetishes}
-    lines = ['id,name,guessed,correct,wrong,accuracy']
-    for fid, entry in sorted(log.items(), key=lambda kv: -kv[1].get('guessed', 0)):
-        name    = fetish_map.get(fid, str(fid))
-        guessed = entry.get('guessed', 0)
-        correct = entry.get('correct', 0)
-        wrong   = entry.get('wrong', 0)
-        acc     = f"{round(correct/guessed*100,1)}" if guessed else ''
-        name_esc = '"' + name.replace('"', '""') + '"'
-        lines.append(f'{fid},{name_esc},{guessed},{correct},{wrong},{acc}')
-    csv_body = '\n'.join(lines)
-    return Response(csv_body, mimetype='text/csv; charset=utf-8',
-                    headers={'Content-Disposition': 'attachment; filename="fetish_log.csv"'})
+    return admin_routes.export_log(_admin_context())
 
 
 @app.route('/api/admin/audit_log', methods=['GET'])
 @_require_admin
 def admin_export_audit_log():
-    rows = recent_audit(_bounded_int(request.args.get('limit'), 500, 1, 500))
-    if request.args.get('format') == 'csv':
-        lines = ['ts,action,status,method,path,remote_addr,detail']
-        for row in rows:
-            detail = _json.dumps(row.get('detail', {}), ensure_ascii=False)
-            vals = [
-                str(row.get('ts', '')),
-                row.get('action', ''),
-                row.get('status', ''),
-                row.get('method', ''),
-                row.get('path', ''),
-                row.get('remote_addr', ''),
-                detail,
-            ]
-            escaped = ['"' + str(v).replace('"', '""') + '"' for v in vals]
-            lines.append(','.join(escaped))
-        return Response('\n'.join(lines), mimetype='text/csv; charset=utf-8',
-                        headers={'Content-Disposition': 'attachment; filename="admin_audit_log.csv"'})
-    return jsonify({'status': 'ok', 'audit_log': rows})
+    return admin_routes.audit_log(_admin_context())
 
 
 @app.route('/api/admin/preflight', methods=['GET'])
 @_require_admin
 def admin_preflight():
-    checks = []
-
-    def add_check(name, ok, detail=''):
-        checks.append({'name': name, 'ok': bool(ok), 'detail': detail})
-
-    add_check('secret_key_configured', bool(os.environ.get('SECRET_KEY')),
-              'SECRET_KEY is set' if os.environ.get('SECRET_KEY') else 'SECRET_KEY is using local development fallback')
-    add_check('admin_pass_configured', bool(os.environ.get('ADMIN_PASS')),
-              'ADMIN_PASS is set' if os.environ.get('ADMIN_PASS') else 'ADMIN_PASS is missing')
-    add_check('storage_available', True, 'postgres' if _use_db() else 'local_json')
-    add_check('matrix_shape', len(engine.matrix.get('yes', [])) == len(engine.fetishes),
-              f"{len(engine.matrix.get('yes', []))} matrix rows / {len(engine.fetishes)} fetishes")
-    add_check('matrix_backups_retained', len(_list_matrix_import_backups()) <= int(os.environ.get('MATRIX_IMPORT_BACKUP_KEEP', '20')),
-              f"{len(_list_matrix_import_backups())} import backups present")
-    add_check('csrf_enabled', _should_enforce_runtime_guard('csrf'), 'enabled for non-test runtime')
-    add_check('rate_limit_enabled', _should_enforce_runtime_guard('rate_limit'), 'enabled for non-test runtime')
-    ok = all(c['ok'] for c in checks)
-    return jsonify({'status': 'ok' if ok else 'warning', 'checks': checks})
+    return admin_routes.preflight(_admin_context())
 
 
 @app.route('/api/admin/fetish_history/<int:fetish_id>', methods=['GET'])
 @_require_admin
 def admin_fetish_history(fetish_id):
-    days = _bounded_int(request.args.get('days'), 30, 1, 90)
-    history = engine.get_fetish_history(fetish_id, days=days)
-    return jsonify(history)
+    return admin_routes.fetish_history(_admin_context(), fetish_id)
 
 
 @app.route('/api/admin/fetish_log_rows', methods=['GET'])
 @_require_admin
 def admin_fetish_log_rows():
-    return jsonify({'status': 'ok', **_paged_fetish_log_rows(_build_fetish_log_rows(), request.args)})
+    return admin_routes.fetish_log_rows(_admin_context())
 
 
 @app.route('/api/admin/performance', methods=['GET'])
 @_require_admin
 def admin_performance():
-    measurements = []
-
-    def measure(name, fn):
-        start = _time.perf_counter()
-        result = fn()
-        elapsed = (_time.perf_counter() - start) * 1000
-        measurements.append({'name': name, 'ms': round(elapsed, 3)})
-        return result
-
-    measure('get_question_stats', engine.get_question_stats)
-    measure('get_learning_stats', engine.get_learning_stats)
-    measure('get_fetish_log', engine.get_fetish_log)
-    measure('best_question_empty', lambda: engine.best_question({}, set()))
-    return jsonify({'status': 'ok', 'measurements': measurements})
+    return admin_routes.performance(_admin_context())
 
 
 @app.route('/api/admin/recent_fetish_ranking', methods=['GET'])
 @_require_admin
 def admin_recent_fetish_ranking():
-    days = _bounded_int(request.args.get('days'), 7, 1, 90)
-    top_n = _bounded_int(request.args.get('top_n'), 10, 1, 50)
-    ranking = engine.get_recent_fetish_ranking(days=days, top_n=top_n)
-    return jsonify({'ranking': ranking, 'days': days})
+    return admin_routes.recent_fetish_ranking(_admin_context())
 
 
 @app.route('/api/admin/export_stats_history', methods=['GET'])
 @_require_admin
 def admin_export_stats_history():
-    history = engine.get_stats_history(days=90)
-    lines = ['date,play,learn,correct,wrong']
-    for row in history:
-        lines.append(f"{row['date']},{row.get('play',0)},{row.get('learn',0)},"
-                     f"{row.get('correct',0)},{row.get('wrong',0)}")
-    return Response('\n'.join(lines), mimetype='text/csv; charset=utf-8',
-                    headers={'Content-Disposition': 'attachment; filename="stats_history.csv"'})
+    return admin_routes.export_stats_history(_admin_context())
 
 
 @app.route('/api/admin/fetish_similarity', methods=['POST'])
 @_require_admin
 def admin_fetish_similarity():
-    data = request.get_json(silent=True) or {}
-    id_a = data.get('id_a')
-    id_b = data.get('id_b')
-    if id_a is None or id_b is None:
-        return jsonify({'status': 'error', 'message': 'id_a と id_b が必要です'}), 400
-    try:
-        id_a = int(id_a)
-        id_b = int(id_b)
-    except (TypeError, ValueError):
-        return jsonify({'status': 'error', 'message': 'id_a と id_b は整数で指定してください'}), 400
-    result = engine.fetish_similarity(id_a, id_b)
-    if result is None:
-        return jsonify({'status': 'error', 'message': '性癖が見つかりません'}), 404
-    return jsonify({'status': 'ok', **result})
+    return admin_routes.fetish_similarity(_admin_context())
 
 
 @app.route('/api/admin/quality_report', methods=['GET'])
 @_require_admin
 def admin_quality_report():
-    return jsonify(engine.get_quality_report())
+    return admin_routes.quality_report(_admin_context())
 
 
 @app.route('/api/admin/maintenance_checklist', methods=['GET'])
 @_require_admin
 def admin_maintenance_checklist():
-    return jsonify(_build_admin_maintenance_checklist())
+    return admin_routes.maintenance_checklist(_admin_context())
 
 
 _ERROR_PAGE = '''<!DOCTYPE html>
