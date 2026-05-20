@@ -28,7 +28,7 @@ class TestSmoke(unittest.TestCase):
         self.assertNotIn(b'onclick=', res.data)
         self.assertNotIn(b'oninput=', res.data)
         self.assertNotIn(b'onchange=', res.data)
-        with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'app.js'), 'rb') as f:
+        with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'compat.js'), 'rb') as f:
             self.assertIn(b'function startGame', f.read())
         with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'app.css'), 'rb') as f:
             self.assertIn(b'.btn-start', f.read())
@@ -60,6 +60,7 @@ class TestSmoke(unittest.TestCase):
             '/static/api_client.js',
             '/static/renderers.js',
             '/static/app.js',
+            '/static/compat.js',
             '/static/ui.js',
             '/static/game_flow.js',
             '/static/draft.js',
