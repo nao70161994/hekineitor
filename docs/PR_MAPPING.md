@@ -72,10 +72,13 @@
 - `97bbaac` - Runtime guard policy moved to service.
 - `9d13374` - Public base URL helper moved to share service.
 - `76e5e20` - Stale app test helper wrappers removed.
+- `aa7ba05` - Game flow closures moved to owning services.
+- `351ca1d` - OGP SVG response assembly moved to SEO route.
+- `687facf` - Quality feedback recorder moved to service.
 
 ## Next PRs
 
-1. Move remaining matrix/question/learning dependency closures into typed service helpers where it reduces `app.py` noise.
+1. Move remaining matrix/admin/system dependency closures into typed service helpers where it reduces `app.py` noise.
 3. Manual mobile/OGP/PWA QA pass against a deployed URL.
 4. Browser E2E runner decision after manual QA gaps are confirmed.
 5. Engine package compatibility layer preparation only; no package conversion yet.
