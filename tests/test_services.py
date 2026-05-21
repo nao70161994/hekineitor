@@ -234,6 +234,25 @@ class TestServices(unittest.TestCase):
         self.assertFalse(question_selection.should_extend_low_confidence(30, 0.7, 0.6, 0.75, 20, 30))
 
 
+    def test_question_selection_factories_bind_route_defaults(self):
+        total = question_selection.make_question_total_for_count(20, 30)
+        extend = question_selection.make_low_confidence_extender(20, 30)
+        self.assertEqual(total(19), 20)
+        self.assertEqual(total(20), 30)
+        self.assertTrue(extend(20, 0.7, 0.6, 0.75))
+
+        class Engine:
+            def best_question(self, answers, asked, *, idk_streak=0):
+                return ('best', tuple(sorted(asked)), idk_streak)
+
+            def best_disambiguating_question(self, answers, asked, *, candidate_count=3, idk_streak=0):
+                return ('disambig', tuple(sorted(asked)), candidate_count, idk_streak)
+
+        selector = question_selection.make_next_question_selector(Engine())
+        self.assertEqual(selector({}, [2, 1], idk_streak=1), ('best', (1, 2), 1))
+        self.assertEqual(selector({}, [2], idk_streak=3, disambiguate=True), ('disambig', (2,), 3, 3))
+
+
     def test_ids_parse_id_list_ignores_invalid_values(self):
         self.assertEqual(ids.parse_id_list(['1', 2, 'bad', None]), {1, 2})
         self.assertEqual(ids.parse_id_list('1,2'), set())

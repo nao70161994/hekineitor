@@ -28,3 +28,11 @@ def learn_factor(engine, posteriors_fn, answers, guess_threshold, total_n=1):
         conf = min(2.0, guess_threshold / max(top_p, 0.1))
     n_scale = 1.0 / math.sqrt(max(total_n, 1))
     return max(0.3, min(2.0, conf * n_scale))
+
+
+
+def make_learn_factor(engine, posteriors_fn, default_guess_threshold):
+    def _learn_factor(answers, total_n=1):
+        threshold = engine.config.get('guess_threshold', default_guess_threshold)
+        return learn_factor(engine, posteriors_fn, answers, threshold, total_n)
+    return _learn_factor

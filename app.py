@@ -93,25 +93,11 @@ HARD_MAX_QUESTIONS = 30
 MAX_QUESTIONS   = SOFT_MAX_QUESTIONS
 
 
-def _question_total_for_count(count):
-    return question_selection_service.question_total_for_count(count, SOFT_MAX_QUESTIONS, HARD_MAX_QUESTIONS)
-
-
-def _should_extend_low_confidence(count, top_p, second_p, guess_thr):
-    return question_selection_service.should_extend_low_confidence(
-        count, top_p, second_p, guess_thr, SOFT_MAX_QUESTIONS, HARD_MAX_QUESTIONS,
-    )
-
 
 
 def _record_guess_quality_feedback(correct):
     return quality_stats_service.record_guess_quality_feedback(engine, session, correct)
 
-
-def _select_next_question(answers, asked, idk_streak=0, disambiguate=False):
-    if disambiguate:
-        return question_selection_service.best_disambiguating_question(engine, answers, set(asked), idk_streak=idk_streak)
-    return question_selection_service.best_question(engine, answers, set(asked), idk_streak=idk_streak)
 
 
 def _snapshot_current_matrix(reason):
@@ -199,17 +185,17 @@ def _game_context():
         best_question=question_selection_service.best_question,
         top_guess=inference_service.top_guess,
         make_guess=_make_guess,
-        question_total_for_count=_question_total_for_count,
+        question_total_for_count=question_selection_service.make_question_total_for_count(SOFT_MAX_QUESTIONS, HARD_MAX_QUESTIONS),
         soft_max_questions=SOFT_MAX_QUESTIONS,
         hard_max_questions=HARD_MAX_QUESTIONS,
         guess_threshold=GUESS_THRESHOLD,
         focus_threshold=FOCUS_THRESHOLD,
-        should_extend_low_confidence=_should_extend_low_confidence,
-        select_next_question=_select_next_question,
+        should_extend_low_confidence=question_selection_service.make_low_confidence_extender(SOFT_MAX_QUESTIONS, HARD_MAX_QUESTIONS),
+        select_next_question=question_selection_service.make_next_question_selector(engine),
         progress_message=question_selection_service.progress_message,
     )
     learning = context_service.game_learning(
-        learn_factor=_learn_factor,
+        learn_factor=learning_service.make_learn_factor(engine, inference_service.posteriors, GUESS_THRESHOLD),
         learn_positive=learning_service.learn_positive,
         learn_cooccurrence=learning_service.learn_cooccurrence,
         learn_near_miss=learning_service.learn_near_miss,
@@ -231,10 +217,6 @@ PROFILE_MIN_RATIO = 0.25   # best_p に対する比率の下限
 PROFILE_MIN_PROB  = 0.08   # 絶対確率の下限
 COMPOUND_RATIO    = 0.55   # 2位がこの比率以上なら複合
 TRIPLE_RATIO      = 0.45   # 3位がこの比率以上なら三重複合
-
-def _learn_factor(answers, total_n=1):
-    threshold = engine.config.get('guess_threshold', GUESS_THRESHOLD)
-    return learning_service.learn_factor(engine, inference_service.posteriors, answers, threshold, total_n)
 
 
 def _inference_context():
