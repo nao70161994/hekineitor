@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from services import admin_security, app_meta, matrix_backups, name_matching, quality_stats, rate_limit, response_hooks
+from services import admin_security, app_meta, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks
 
 
 class DummyRequest:
@@ -191,6 +191,13 @@ class TestServices(unittest.TestCase):
         self.assertNotIn('last_guess_quality', session)
         self.assertIn('q_low_conf_wrong', calls)
         self.assertIn('q_additional_wrong', calls)
+
+
+    def test_question_selection_low_confidence_extension_bounds(self):
+        self.assertFalse(question_selection.should_extend_low_confidence(19, 0.1, 0.09, 0.75, 20, 30))
+        self.assertTrue(question_selection.should_extend_low_confidence(20, 0.7, 0.6, 0.75, 20, 30))
+        self.assertTrue(question_selection.should_extend_low_confidence(20, 0.8, 0.7, 0.75, 20, 30))
+        self.assertFalse(question_selection.should_extend_low_confidence(30, 0.7, 0.6, 0.75, 20, 30))
 
 
 
