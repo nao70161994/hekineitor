@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from services import admin_security, app_meta, name_matching
+from services import admin_security, app_meta, name_matching, rate_limit
 
 
 class DummyRequest:
@@ -80,6 +80,33 @@ class TestServices(unittest.TestCase):
         )
         self.assertEqual(token, 'new-token')
         self.assertEqual(session['admin_csrf_issued_at'], 100)
+
+    def test_rate_limit_uses_forwarded_for_only_for_trusted_proxy(self):
+        req = DummyRequest(headers={'X-Forwarded-For': '203.0.113.9, 10.0.0.1'})
+        req.remote_addr = '127.0.0.1'
+        self.assertEqual(
+            rate_limit.client_ip(req, {'TRUSTED_PROXY_IPS': '127.0.0.1'}),
+            '203.0.113.9',
+        )
+        self.assertEqual(rate_limit.client_ip(req, {'TRUSTED_PROXY_IPS': ''}), '127.0.0.1')
+
+    def test_rate_limit_returns_retry_after_response(self):
+        req = DummyRequest()
+        req.remote_addr = '127.0.0.1'
+        buckets = {}
+        guard = lambda name: True
+        first = rate_limit.rate_limit(
+            'api_start', 1, req, {}, buckets, dummy_jsonify, guard,
+            window_seconds=60, time_fn=lambda: 100,
+        )
+        second = rate_limit.rate_limit(
+            'api_start', 1, req, {}, buckets, dummy_jsonify, guard,
+            window_seconds=60, time_fn=lambda: 101,
+        )
+        self.assertIsNone(first)
+        self.assertEqual(second[1], 429)
+        self.assertEqual(second[2]['Retry-After'], '59')
+
 
 
 if __name__ == '__main__':
