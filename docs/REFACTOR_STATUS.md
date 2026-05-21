@@ -11,7 +11,7 @@
 - Commit history has been split into reviewable units.
 - Public, game, admin, and system routes are registered through Blueprints.
 - `static/app.js` is reduced to a bootstrap stub.
-- Client compatibility exports now live beside their owning modules; `static/compat.js` is a deprecated shim and is no longer loaded by the main page.
+- Client compatibility exports now live beside their owning modules; the deprecated `static/compat.js` shim has been removed.
 - Route context object construction is delegated through `services/context.py`, keeping `app.py` closer to dependency wiring only.
 - Context dependencies are grouped by route domain before being flattened for existing route handlers.
 - Admin maintenance assembly now lives in `services/admin_helpers.py`.
@@ -24,7 +24,6 @@
 
 - Continue thinning the context/facade objects passed from `app.py` by grouping dependencies per route domain.
 - Package `engine.py` as a directory while preserving import compatibility.
-- Decide whether to delete the unused deprecated `static/compat.js` file after a release window.
 - Expand browser-oriented E2E coverage beyond Flask smoke paths when a lightweight browser runner is available.
 - Complete manual QA for mobile CTA, OGP previews, and install/update behavior.
 

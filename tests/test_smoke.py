@@ -169,10 +169,7 @@ class TestSmoke(unittest.TestCase):
         body = self.client.get('/').data.decode('utf-8')
         self.assertNotIn('/static/compat.js', body)
 
-        with open(os.path.join(root, 'static', 'compat.js'), 'rb') as f:
-            compat = f.read()
-        self.assertNotIn(b'function startGame', compat)
-        self.assertIn(b'Deprecated compatibility shim', compat)
+        self.assertFalse(os.path.exists(os.path.join(root, 'static', 'compat.js')))
 
         with open(os.path.join(root, 'static', 'game_state.js'), 'rb') as f:
             state = f.read()

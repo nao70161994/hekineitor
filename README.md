@@ -85,7 +85,6 @@ GitHub Actions:
 - `analytics.py`: 管理画面向け品質レポート。
 - `static/app.js`: 互換 bootstrap stub。
 - `static/game_flow.js`, `static/feedback.js`, `static/draft.js`, `static/share.js`: メイン画面の主要 client modules。
-- `static/compat.js`: 現在は読み込まれない deprecated shim。
 - `static/app.css`: メイン画面 CSS。
 - `static/admin.js`: 管理画面 JS。
 - `static/admin_ops.js`: 管理画面の import / backup / preflight 操作用 JS。
