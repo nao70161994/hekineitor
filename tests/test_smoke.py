@@ -63,7 +63,6 @@ class TestSmoke(unittest.TestCase):
             '/static/utils.js',
             '/static/renderers.js',
             '/static/app.js',
-            '/static/compat.js',
             '/static/network.js',
             '/static/ui.js',
             '/static/game_flow.js',
@@ -166,6 +165,9 @@ class TestSmoke(unittest.TestCase):
                 body = f.read()
             for marker in markers:
                 self.assertIn(marker, body, relpath)
+
+        body = self.client.get('/').data.decode('utf-8')
+        self.assertNotIn('/static/compat.js', body)
 
         with open(os.path.join(root, 'static', 'compat.js'), 'rb') as f:
             compat = f.read()

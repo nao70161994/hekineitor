@@ -1,1 +1,1 @@
-// Compatibility functions live in static/compat.js.
+// Client entrypoint is split across focused static modules.
