@@ -1,9 +1,7 @@
 import os
 import re
-import hashlib
 import html as _html
 import ipaddress
-import unicodedata
 import json as _json
 import time as _time
 import random as _random
@@ -28,6 +26,8 @@ from services import admin_helpers as admin_helper_service
 from services import context as context_service
 from services import server_session as server_session_service
 from services import admin_security as admin_security_service
+from services import app_meta as app_meta_service
+from services import name_matching as name_matching_service
 
 # ─────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -138,17 +138,7 @@ def _require_confirm(expected):
 def _csrf_token():
     return admin_security_service.csrf_token(session, os.environ, now_fn=_time.time)
 
-def _app_version():
-    h = hashlib.md5()
-    for path in ['app.py', 'engine.py', 'templates/index.html']:
-        try:
-            with open(os.path.join(os.path.dirname(__file__), path), 'rb') as f:
-                h.update(f.read())
-        except OSError:
-            pass
-    return h.hexdigest()[:8]
-
-APP_VERSION       = _app_version()
+APP_VERSION       = app_meta_service.app_version(os.path.dirname(__file__))
 DISPLAY_VERSION   = 'v1.9.2'
 AMAZON_ASSOCIATE_ID = os.environ.get('AMAZON_ASSOCIATE_ID', '')
 engine = Engine()
@@ -177,38 +167,8 @@ HARD_MAX_QUESTIONS = 30
 MAX_QUESTIONS   = SOFT_MAX_QUESTIONS
 
 
-def _normalize_name(s):
-    s = unicodedata.normalize('NFKC', s)
-    s = s.lower()
-    s = re.sub(r'[\s\u3000・･（）()「」『』【】〔〕\-_～~、。×]', '', s)
-    return s
-
-def _levenshtein(a, b):
-    if len(a) < len(b):
-        a, b = b, a
-    if not b:
-        return len(a)
-    prev = list(range(len(b) + 1))
-    for ca in a:
-        curr = [prev[0] + 1]
-        for j, cb in enumerate(b):
-            curr.append(min(prev[j] + (ca != cb), curr[-1] + 1, prev[j + 1] + 1))
-        prev = curr
-    return prev[-1]
-
 def _find_similar(name, fetishes):
-    norm_new = _normalize_name(name)
-    results = []
-    for f in fetishes:
-        norm_f = _normalize_name(f['name'])
-        if norm_new == norm_f:
-            continue
-        if norm_new in norm_f or norm_f in norm_new:
-            results.append(f)
-            continue
-        if len(norm_new) <= 12 and len(norm_f) <= 12 and _levenshtein(norm_new, norm_f) <= 2:
-            results.append(f)
-    return results[:5]
+    return name_matching_service.find_similar(name, fetishes)
 
 
 def _question_total_for_count(count):
