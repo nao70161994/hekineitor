@@ -172,6 +172,34 @@ class TestSmoke(unittest.TestCase):
         self.assertNotIn(b'function startGame', compat)
         self.assertIn(b'window.setLastFetishName', compat)
 
+    def test_resume_feedback_draft_static_contracts(self):
+        root = os.path.dirname(os.path.dirname(__file__))
+        with open(os.path.join(root, 'static', 'draft.js'), 'rb') as f:
+            draft = f.read()
+        self.assertIn(b"const DRAFT_KEY = 'heki_draft'", draft)
+        self.assertIn(b"apiFetch('/api/resume'", draft)
+        self.assertIn(b'localStorage.setItem(DRAFT_KEY', draft)
+
+        with open(os.path.join(root, 'static', 'feedback.js'), 'rb') as f:
+            feedback = f.read()
+        self.assertIn(b"apiFetch('/api/confirm'", feedback)
+        self.assertIn(b"apiFetch('/api/finalize_added'", feedback)
+        self.assertIn('ありがとうございます。'.encode('utf-8'), feedback)
+
+    def test_share_ogp_and_pwa_static_contracts(self):
+        root = os.path.dirname(os.path.dirname(__file__))
+        with open(os.path.join(root, 'static', 'share.js'), 'rb') as f:
+            share = f.read()
+        self.assertIn(b'/r?f=', share)
+        self.assertIn(b'navigator.share', share)
+        self.assertIn(b'twitter.com/intent/tweet', share)
+
+        with open(os.path.join(root, 'templates', 'sw.js'), 'rb') as f:
+            sw = f.read()
+        self.assertIn(b"const STATIC = ['/', '/manifest.json'", sw)
+        self.assertIn(b"url.pathname.includes('/admin')", sw)
+        self.assertIn(b"caches.match('/offline')", sw)
+
 
 if __name__ == '__main__':
     unittest.main()
