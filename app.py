@@ -11,7 +11,6 @@ import secrets
 import json as _json
 import time as _time
 import random as _random
-from types import SimpleNamespace
 from flask import Flask, render_template, request, jsonify, session, Response
 from flask.sessions import SessionInterface, SessionMixin
 from werkzeug.datastructures import CallbackDict
@@ -33,6 +32,7 @@ from services import ogp as ogp_service
 from services import share as share_service
 from services import admin_helpers as admin_helper_service
 from services import works_links as works_links_service
+from services import context as context_service
 
 # ── サーバーサイドセッション ──────────────────────────────
 _SESSION_TTL    = 86400  # 24時間
@@ -467,7 +467,7 @@ def _paged_fetish_log_rows(rows, args):
 
 
 def _seo_context():
-    return SimpleNamespace(
+    return context_service.build_seo_context(
         engine=engine,
         request=request,
         Response=Response,
@@ -520,7 +520,7 @@ app.register_blueprint(seo_routes.create_blueprint(_seo_context))
 
 
 def _game_context():
-    return SimpleNamespace(
+    return context_service.build_game_context(
         engine=engine,
         request=request,
         session=session,
@@ -581,7 +581,7 @@ def _parse_id_list(value):
 
 
 def _inference_context():
-    return SimpleNamespace(
+    return context_service.build_inference_context(
         engine=engine,
         session=session,
         work_title=work_title,
@@ -620,7 +620,7 @@ app.register_blueprint(game_routes.create_blueprint(_game_context))
 
 
 def _admin_context():
-    return SimpleNamespace(
+    return context_service.build_admin_context(
         engine=engine,
         request=request,
         jsonify=jsonify,
@@ -710,7 +710,7 @@ app.register_blueprint(admin_routes.create_blueprint(_admin_context, _require_ad
 
 
 def _system_context():
-    return SimpleNamespace(
+    return context_service.build_system_context(
         engine=engine,
         jsonify=jsonify,
         Response=Response,
