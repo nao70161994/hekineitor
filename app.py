@@ -29,6 +29,7 @@ from services import app_meta as app_meta_service
 from services import name_matching as name_matching_service
 from services import rate_limit as rate_limit_service
 from services import response_hooks as response_hooks_service
+from services import matrix_backups as matrix_backup_service
 
 # ─────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -145,77 +146,40 @@ def _select_next_question(answers, asked, idk_streak=0, disambiguate=False):
 
 
 def _snapshot_current_matrix(reason):
-    rows = []
-    fetishes = [{'id': f['id'], 'name': f['name']} for f in engine.fetishes]
-    for fi, f in enumerate(engine.fetishes):
-        for qi, q in enumerate(engine.questions):
-            rows.append({
-                'fetish_id': f['id'],
-                'fetish_name': f['name'],
-                'question_id': qi,
-                'question_text': q['text'],
-                'yes': round(engine.matrix['yes'][fi][qi], 4),
-                'total': round(engine.matrix['total'][fi][qi], 4),
-            })
-    snapshot = {
-        'created_at': int(_time.time()),
-        'reason': reason,
-        'fetishes': fetishes,
-        'matrix_rows': rows,
-    }
-    backup_dir = data_path('matrix_import_backups')
-    os.makedirs(backup_dir, exist_ok=True)
-    path = os.path.join(backup_dir, f'matrix_before_{_time.time_ns()}.json')
-    atomic_write_json(path, snapshot, ensure_ascii=False, indent=2)
-    _prune_matrix_import_backups()
-    return path
+    return matrix_backup_service.snapshot_current_matrix(
+        engine,
+        reason,
+        data_path=data_path,
+        atomic_write_json=atomic_write_json,
+        time_module=_time,
+        prune_fn=_prune_matrix_import_backups,
+        os_module=os,
+    )
 
 
 def _matrix_import_expected_rows():
-    return len(engine.fetishes) * len(engine.questions)
+    return matrix_backup_service.expected_rows(engine)
 
 
 def _matrix_import_completeness_error(report):
-    expected_rows = _matrix_import_expected_rows()
-    if report.get('skipped_rows') != 0 or report.get('valid_rows') != expected_rows:
-        return jsonify({
-            'status': 'error',
-            'message': 'matrix_rows は現在の全 fetish/question 組み合わせを含む必要があります',
-            **report,
-            'expected_rows': expected_rows,
-        }), 400
-    return None
+    return matrix_backup_service.completeness_error(
+        report, _matrix_import_expected_rows(), jsonify,
+    )
 
 
 def _list_matrix_import_backups(limit=50):
-    backup_dir = data_path('matrix_import_backups')
-    if not os.path.isdir(backup_dir):
-        return []
-    rows = []
-    for name in sorted(os.listdir(backup_dir), reverse=True):
-        if not name.endswith('.json'):
-            continue
-        path = os.path.join(backup_dir, name)
-        try:
-            stat = os.stat(path)
-        except OSError:
-            continue
-        rows.append({'name': name, 'mtime': int(stat.st_mtime), 'size': stat.st_size})
-    return rows if limit is None else rows[:limit]
+    return matrix_backup_service.list_backups(
+        data_path=data_path, os_module=os, limit=limit,
+    )
 
 
 def _prune_matrix_import_backups():
-    try:
-        keep = int(os.environ.get('MATRIX_IMPORT_BACKUP_KEEP', '20'))
-    except ValueError:
-        keep = 20
-    keep = max(1, min(keep, 200))
-    backups = _list_matrix_import_backups(limit=None)
-    for row in backups[keep:]:
-        try:
-            os.remove(os.path.join(data_path('matrix_import_backups'), row['name']))
-        except OSError:
-            pass
+    return matrix_backup_service.prune_backups(
+        environ=os.environ,
+        data_path=data_path,
+        os_module=os,
+        list_fn=_list_matrix_import_backups,
+    )
 
 
 def _bounded_int(value, default, min_value=1, max_value=100):

@@ -1,0 +1,71 @@
+def snapshot_current_matrix(engine, reason, *, data_path, atomic_write_json, time_module, prune_fn, os_module):
+    rows = []
+    fetishes = [{'id': fetish['id'], 'name': fetish['name']} for fetish in engine.fetishes]
+    for fetish_index, fetish in enumerate(engine.fetishes):
+        for question_index, question in enumerate(engine.questions):
+            rows.append({
+                'fetish_id': fetish['id'],
+                'fetish_name': fetish['name'],
+                'question_id': question_index,
+                'question_text': question['text'],
+                'yes': round(engine.matrix['yes'][fetish_index][question_index], 4),
+                'total': round(engine.matrix['total'][fetish_index][question_index], 4),
+            })
+    snapshot = {
+        'created_at': int(time_module.time()),
+        'reason': reason,
+        'fetishes': fetishes,
+        'matrix_rows': rows,
+    }
+    backup_dir = data_path('matrix_import_backups')
+    os_module.makedirs(backup_dir, exist_ok=True)
+    path = os_module.path.join(backup_dir, f'matrix_before_{time_module.time_ns()}.json')
+    atomic_write_json(path, snapshot, ensure_ascii=False, indent=2)
+    prune_fn()
+    return path
+
+
+def expected_rows(engine):
+    return len(engine.fetishes) * len(engine.questions)
+
+
+def completeness_error(report, expected_row_count, jsonify):
+    if report.get('skipped_rows') != 0 or report.get('valid_rows') != expected_row_count:
+        return jsonify({
+            'status': 'error',
+            'message': 'matrix_rows は現在の全 fetish/question 組み合わせを含む必要があります',
+            **report,
+            'expected_rows': expected_row_count,
+        }), 400
+    return None
+
+
+def list_backups(*, data_path, os_module, limit=50):
+    backup_dir = data_path('matrix_import_backups')
+    if not os_module.path.isdir(backup_dir):
+        return []
+    rows = []
+    for name in sorted(os_module.listdir(backup_dir), reverse=True):
+        if not name.endswith('.json'):
+            continue
+        path = os_module.path.join(backup_dir, name)
+        try:
+            stat = os_module.stat(path)
+        except OSError:
+            continue
+        rows.append({'name': name, 'mtime': int(stat.st_mtime), 'size': stat.st_size})
+    return rows if limit is None else rows[:limit]
+
+
+def prune_backups(*, environ, data_path, os_module, list_fn):
+    try:
+        keep = int(environ.get('MATRIX_IMPORT_BACKUP_KEEP', '20'))
+    except ValueError:
+        keep = 20
+    keep = max(1, min(keep, 200))
+    backups = list_fn(limit=None)
+    for row in backups[keep:]:
+        try:
+            os_module.remove(os_module.path.join(data_path('matrix_import_backups'), row['name']))
+        except OSError:
+            pass
