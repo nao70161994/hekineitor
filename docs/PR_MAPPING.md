@@ -29,10 +29,15 @@
 - `d0630d8` - Admin routes registered through Blueprint.
 - `4134089` - Public system routes registered through Blueprint.
 
+
+- `04638c9` - Feedback, teach, history, and draft compatibility exports moved to owning client modules.
+- `1d0bd1e` - Remaining client compatibility exports moved to owning modules; `compat.js` reduced to the result-name shim.
+- `7214301` - Route context builders extracted into `services/context.py`.
+
 ## Next PRs
 
-1. Context facade thinning.
+1. Deeper context facade thinning by route domain.
 2. Engine package compatibility layer.
-3. Client compatibility wrapper reduction.
-4. Browser E2E coverage for share, resume, feedback, and PWA.
+3. Final client compatibility shim decision.
+4. Browser E2E coverage with a lightweight runner when available.
 5. Manual mobile/OGP/PWA QA pass.

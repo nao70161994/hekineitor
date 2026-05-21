@@ -10,14 +10,16 @@
 - Client code is split into focused modules under `static/`.
 - Commit history has been split into reviewable units.
 - Public, game, admin, and system routes are registered through Blueprints.
-- `static/app.js` is reduced to a bootstrap stub; compatibility wrappers live in `static/compat.js`.
+- `static/app.js` is reduced to a bootstrap stub.
+- Most client compatibility exports now live beside their owning modules; `static/compat.js` only retains the last result-name compatibility state.
+- Route context object construction is delegated through `services/context.py`, keeping `app.py` closer to dependency wiring only.
 
 ## Still Open
 
-- Thin the context/facade objects passed from `app.py`.
+- Continue thinning the context/facade objects passed from `app.py` by grouping dependencies per route domain.
 - Package `engine.py` as a directory while preserving import compatibility.
-- Reduce or delete the remaining compatibility wrappers in `static/compat.js`.
-- Add browser-oriented E2E coverage for share, feedback, resume, and PWA flows.
+- Decide whether to keep `static/compat.js` as a permanent one-line compatibility shim or move the final `lastFetishName` state behind `HekiState`.
+- Expand browser-oriented E2E coverage beyond Flask smoke paths when a lightweight browser runner is available.
 - Complete manual QA for mobile CTA, OGP previews, and install/update behavior.
 
 ## Guardrails
@@ -25,4 +27,4 @@
 - Do not change question selection behavior or diagnosis thresholds during refactor PRs.
 - Keep public API response shapes compatible unless a migration PR explicitly says otherwise.
 - Prefer moving code behind adapters before deleting compatibility wrappers.
-- Run `git diff --check`, `node --check static/app.js`, and `pytest` after each refactor unit.
+- Run `git diff --check`, full `node --check` for static JS, and `pytest` after each refactor unit.
