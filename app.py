@@ -6,14 +6,11 @@ import functools
 import html as _html
 import ipaddress
 import unicodedata
-import uuid
 import secrets
 import json as _json
 import time as _time
 import random as _random
 from flask import Flask, render_template, request, jsonify, session, Response
-from flask.sessions import SessionInterface, SessionMixin
-from werkzeug.datastructures import CallbackDict
 from engine import (Engine, PLAYER_FETISH_BASE_ID, _get_conn, _put_conn, _use_db,
                     FOCUS_THRESHOLD, FETISH_RELATIONS, get_compound_works,
                     list_compound_works, set_compound_works, delete_compound_works,
@@ -32,107 +29,7 @@ from services import ogp as ogp_service
 from services import share as share_service
 from services import admin_helpers as admin_helper_service
 from services import context as context_service
-
-# ── サーバーサイドセッション ──────────────────────────────
-_SESSION_TTL    = 86400  # 24時間
-_LOCAL_SESSIONS = {}     # ローカル用インメモリストア {sid: (data, updated_at)}
-
-def _session_load(sid):
-    if _use_db():
-        conn = _get_conn()
-        try:
-            cur = conn.cursor()
-            cur.execute('SELECT data, updated_at FROM sessions WHERE session_id = %s', (sid,))
-            row = cur.fetchone()
-            if row and _time.time() - row[1] < _SESSION_TTL:
-                return _json.loads(row[0])
-        finally:
-            _put_conn(conn)
-    else:
-        entry = _LOCAL_SESSIONS.get(sid)
-        if entry and _time.time() - entry[1] < _SESSION_TTL:
-            return dict(entry[0])
-    return None
-
-def _session_save(sid, data):
-    now = _time.time()
-    if _use_db():
-        conn = _get_conn()
-        try:
-            with conn:
-                cur = conn.cursor()
-                cur.execute('''
-                    INSERT INTO sessions (session_id, data, updated_at) VALUES (%s, %s, %s)
-                    ON CONFLICT (session_id) DO UPDATE
-                    SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at
-                ''', (sid, _json.dumps(data, ensure_ascii=False), now))
-                # 1%の確率で期限切れセッションを掃除
-                if _random.random() < 0.01:
-                    cur.execute('DELETE FROM sessions WHERE updated_at < %s',
-                                (now - _SESSION_TTL,))
-        finally:
-            _put_conn(conn)
-    else:
-        _LOCAL_SESSIONS[sid] = (data, now)
-        if len(_LOCAL_SESSIONS) > 2000:
-            cutoff = now - _SESSION_TTL
-            for k in [k for k, v in _LOCAL_SESSIONS.items() if v[1] < cutoff]:
-                del _LOCAL_SESSIONS[k]
-
-def cleanup_sessions():
-    """期限切れセッションを全削除（管理APIから呼び出し可）。"""
-    cutoff = _time.time() - _SESSION_TTL
-    if _use_db():
-        conn = _get_conn()
-        try:
-            with conn:
-                cur = conn.cursor()
-                cur.execute('DELETE FROM sessions WHERE updated_at < %s', (cutoff,))
-                return cur.rowcount
-        finally:
-            _put_conn(conn)
-    else:
-        old = [k for k, v in _LOCAL_SESSIONS.items() if v[1] < cutoff]
-        for k in old:
-            del _LOCAL_SESSIONS[k]
-        return len(old)
-
-
-def _local_session_count():
-    if _use_db():
-        return None
-    return len(_LOCAL_SESSIONS)
-
-class _ServerSession(CallbackDict, SessionMixin):
-    def __init__(self, initial=None, sid=None, is_new=False):
-        def on_update(self):
-            self.modified = True
-        super().__init__(initial or {}, on_update)
-        self.sid      = sid
-        self.is_new   = is_new
-        self.modified = False
-
-class _ServerSessionInterface(SessionInterface):
-    _cookie = 'heki_sid'
-
-    def open_session(self, app, request):
-        sid = request.cookies.get(self._cookie)
-        if sid:
-            data = _session_load(sid)
-            if data is not None:
-                return _ServerSession(data, sid=sid)
-        return _ServerSession(sid=str(uuid.uuid4()), is_new=True)
-
-    def save_session(self, app, session, response):
-        if not session.modified and not session.is_new:
-            return
-        _session_save(session.sid, dict(session))
-        secure = bool(os.environ.get('DATABASE_URL'))
-        response.set_cookie(
-            self._cookie, session.sid,
-            httponly=True, secure=secure, samesite='Lax',
-            max_age=_SESSION_TTL,
-        )
+from services import server_session as server_session_service
 
 # ─────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -148,7 +45,7 @@ elif len(_secret) < 16:
     import sys
     print('WARNING: SECRET_KEY が短すぎます（16文字以上推奨）。', file=sys.stderr)
 app.secret_key = _secret
-app.session_interface = _ServerSessionInterface()
+app.session_interface = server_session_service.ServerSessionInterface()
 
 
 @app.after_request
@@ -651,7 +548,7 @@ def _admin_context():
         use_db=_use_db,
         list_matrix_import_backups=_list_matrix_import_backups,
         should_enforce_runtime_guard=_should_enforce_runtime_guard,
-        cleanup_sessions=cleanup_sessions,
+        cleanup_sessions=server_session_service.cleanup_sessions,
         player_fetish_base_id=PLAYER_FETISH_BASE_ID,
         strftime=_time.strftime,
         gmtime=_time.gmtime,
@@ -723,7 +620,7 @@ def _system_context():
         error_counts=_ERROR_COUNTS,
         app_started_at=APP_STARTED_AT,
         time=_time.time,
-        local_session_count=_local_session_count,
+        local_session_count=server_session_service.local_session_count,
         recent_audit=recent_audit,
     )
     storage = context_service.system_storage(
