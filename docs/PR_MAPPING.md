@@ -64,6 +64,11 @@
 - `21d9e55` - ID parsing service tests added.
 - `afd21f0` - Progress message wrapper removed.
 
+- `2d70754` - Guess orchestration moved to inference service.
+- `7defadf` - Inference guess orchestration test added.
+- `b4782e7` - Named SEO context builder introduced.
+- `9c4189a` - Redundant app helper wrappers removed.
+
 ## Next PRs
 
 1. Move individual context dependency groups into typed service helpers where it reduces `app.py` noise.

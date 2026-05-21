@@ -20,6 +20,8 @@
 - Response hooks and matrix import backup helpers are split into services.
 - Guess quality stats and ID list parsing are split into small services.
 - Redundant share/progress wrappers have been removed from `app.py`.
+- Guess orchestration is now handled by `services/inference.py`.
+- Redundant app helper wrappers for name matching and admin paging were removed.
 - App versioning and name matching helpers are pure service modules with direct regression tests.
 - Lightweight E2E strategy is documented in `docs/LIGHTWEIGHT_E2E.md`.
 
