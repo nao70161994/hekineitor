@@ -55,6 +55,15 @@
 - `2633e2e` - Matrix backup helpers moved to service.
 - `b3a86fb` - Matrix backup service tests added.
 
+- `75877f9` - Guess quality stats moved to service.
+- `c01220c` - Quality stats service tests added.
+- `7d78d97` - Low-confidence extension helper moved to question selection service.
+- `f514923` - Low-confidence helper tests added.
+- `9ebabe5` - Redundant share context wrappers removed.
+- `f2a3f68` - ID list parsing moved to service.
+- `21d9e55` - ID parsing service tests added.
+- `afd21f0` - Progress message wrapper removed.
+
 ## Next PRs
 
 1. Move individual context dependency groups into typed service helpers where it reduces `app.py` noise.

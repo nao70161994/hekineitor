@@ -18,6 +18,8 @@
 - Server session storage and admin security helpers are split into services.
 - Runtime rate limiting and trusted proxy client IP handling are split into a service.
 - Response hooks and matrix import backup helpers are split into services.
+- Guess quality stats and ID list parsing are split into small services.
+- Redundant share/progress wrappers have been removed from `app.py`.
 - App versioning and name matching helpers are pure service modules with direct regression tests.
 - Lightweight E2E strategy is documented in `docs/LIGHTWEIGHT_E2E.md`.
 
