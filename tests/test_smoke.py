@@ -30,7 +30,7 @@ class TestSmoke(unittest.TestCase):
         self.assertNotIn(b'onchange=', res.data)
         with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'game_flow.js'), 'rb') as f:
             self.assertIn(b'window.startGame', f.read())
-        with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'compat.js'), 'rb') as f:
+        with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'game_state.js'), 'rb') as f:
             self.assertIn(b'window.setLastFetishName', f.read())
         with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'app.css'), 'rb') as f:
             self.assertIn(b'.btn-start', f.read())
@@ -170,7 +170,11 @@ class TestSmoke(unittest.TestCase):
         with open(os.path.join(root, 'static', 'compat.js'), 'rb') as f:
             compat = f.read()
         self.assertNotIn(b'function startGame', compat)
-        self.assertIn(b'window.setLastFetishName', compat)
+        self.assertIn(b'Deprecated compatibility shim', compat)
+
+        with open(os.path.join(root, 'static', 'game_state.js'), 'rb') as f:
+            state = f.read()
+        self.assertIn(b'window.setLastFetishName', state)
 
     def test_resume_feedback_draft_static_contracts(self):
         root = os.path.dirname(os.path.dirname(__file__))

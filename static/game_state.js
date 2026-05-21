@@ -2,10 +2,12 @@ window.gameState = window.gameState || {
   fetching: false,
   guessData: null,
   excludedIds: [],
+  lastFetishName: '',
 };
 
 window.HekiState = (() => {
   const state = window.gameState;
+  if (state.lastFetishName == null) state.lastFetishName = '';
 
   function setFetching(value) {
     state.fetching = Boolean(value);
@@ -33,5 +35,13 @@ window.HekiState = (() => {
     return state.guessData;
   }
 
-  return {setFetching, setExcludedIds, getExcludedIds, resetExcludedIds, setGuessData};
+  function setLastFetishName(value) {
+    state.lastFetishName = value || '';
+    window.lastFetishName = state.lastFetishName;
+    return state.lastFetishName;
+  }
+
+  return {setFetching, setExcludedIds, getExcludedIds, resetExcludedIds, setGuessData, setLastFetishName};
 })();
+
+window.setLastFetishName = value => window.HekiState.setLastFetishName(value);
