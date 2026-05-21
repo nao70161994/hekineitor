@@ -196,10 +196,10 @@ def _seo_context():
         work_title=work_title,
         player_fetish_base_id=PLAYER_FETISH_BASE_ID,
         display_version=DISPLAY_VERSION,
-        clean_probability=_clean_probability,
-        result_share_text=_result_share_text,
-        result_tagline=_result_tagline,
-        generate_ogp_png=_generate_ogp_png,
+        clean_probability=share_service.clean_probability,
+        result_share_text=share_service.result_share_text,
+        result_tagline=share_service.result_tagline,
+        generate_ogp_png=ogp_service.generate_png,
         render_ogp_svg=_render_ogp_svg,
         safe_work_url=safe_work_url,
         amazon_associate_id=AMAZON_ASSOCIATE_ID,
@@ -208,24 +208,8 @@ def _seo_context():
     )
 
 
-def _clean_probability(raw):
-    return share_service.clean_probability(raw)
-
-
-def _result_share_text(name, prob):
-    return share_service.result_share_text(name, prob)
-
-
-def _result_tagline(name, prob):
-    return share_service.result_tagline(name, prob)
-
-
 def _ogp_font_candidates():
     return ogp_service._ogp_font_candidates()
-
-
-def _generate_ogp_png(name, prob):
-    return ogp_service.generate_png(name, prob)
 
 
 def _render_ogp_svg():
