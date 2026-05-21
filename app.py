@@ -28,6 +28,7 @@ from services import admin_security as admin_security_service
 from services import app_meta as app_meta_service
 from services import name_matching as name_matching_service
 from services import rate_limit as rate_limit_service
+from services import response_hooks as response_hooks_service
 
 # ─────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -48,36 +49,7 @@ app.session_interface = server_session_service.ServerSessionInterface()
 
 @app.after_request
 def _record_status_counts(response):
-    if 400 <= response.status_code < 500:
-        _ERROR_COUNTS['4xx'] += 1
-    elif response.status_code >= 500:
-        _ERROR_COUNTS['5xx'] += 1
-    is_admin_mutation = (
-        request.path.startswith('/api/admin/')
-        or (request.path.startswith('/api/fetish/') and request.method == 'DELETE')
-    )
-    if (
-        is_admin_mutation
-        and request.method in {'POST', 'PUT', 'PATCH', 'DELETE'}
-        and 'import_matrix' not in request.path
-    ):
-        try:
-            write_audit('admin_api', 'ok' if response.status_code < 400 else 'error', {
-                'status_code': response.status_code,
-            }, request)
-        except Exception:
-            pass
-    response.headers.setdefault('X-Content-Type-Options', 'nosniff')
-    response.headers.setdefault('X-Frame-Options', 'DENY')
-    response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
-    response.headers.setdefault('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
-    response.headers.setdefault(
-        'Content-Security-Policy',
-        "default-src 'self'; img-src 'self' data: https:; "
-        "script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
-        "connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
-    )
-    return response
+    return response_hooks_service.after_request(response, request, _ERROR_COUNTS, write_audit)
 
 
 def _client_ip():
