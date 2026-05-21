@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from services import admin_security, app_meta, name_matching, rate_limit
+from services import admin_security, app_meta, name_matching, rate_limit, response_hooks
 
 
 class DummyRequest:
@@ -106,6 +106,35 @@ class TestServices(unittest.TestCase):
         self.assertIsNone(first)
         self.assertEqual(second[1], 429)
         self.assertEqual(second[2]['Retry-After'], '59')
+
+
+    def test_response_hooks_set_security_headers_and_count_errors(self):
+        class Response:
+            status_code = 404
+            headers = {}
+
+        counts = {'4xx': 0, '5xx': 0}
+        response_hooks.record_status_counts(Response, counts)
+        response_hooks.apply_security_headers(Response)
+        self.assertEqual(counts['4xx'], 1)
+        self.assertEqual(Response.headers['X-Content-Type-Options'], 'nosniff')
+        self.assertIn("default-src 'self'", Response.headers['Content-Security-Policy'])
+
+    def test_response_hooks_audit_admin_mutations_only(self):
+        calls = []
+        req = DummyRequest(method='POST')
+        req.path = '/api/admin/cleanup_sessions'
+        response = type('Response', (), {'status_code': 200})()
+        response_hooks.write_admin_audit(
+            response, req, lambda *args: calls.append(args),
+        )
+        self.assertEqual(calls[0][0], 'admin_api')
+        self.assertEqual(calls[0][1], 'ok')
+
+        calls.clear()
+        req.path = '/api/admin/import_matrix'
+        response_hooks.write_admin_audit(response, req, lambda *args: calls.append(args))
+        self.assertEqual(calls, [])
 
 
 
