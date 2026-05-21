@@ -151,7 +151,7 @@ def _seo_context():
         result_share_text=share_service.result_share_text,
         result_tagline=share_service.result_tagline,
         generate_ogp_png=ogp_service.generate_png,
-        render_ogp_svg=_render_ogp_svg,
+        render_ogp_svg=ogp_service.render_svg,
         safe_work_url=safe_work_url,
         amazon_associate_id=AMAZON_ASSOCIATE_ID,
         fetish_relations=FETISH_RELATIONS,
@@ -159,13 +159,6 @@ def _seo_context():
     )
 
 
-
-def _render_ogp_svg():
-    name = request.args.get('f', '???')[:30]
-    prob = request.args.get('p', '')[:5]
-    svg = ogp_service.render_svg(name, prob)
-    return Response(svg, mimetype='image/svg+xml',
-                    headers=seo_routes.ogp_cache_headers())
 
 
 app.register_blueprint(seo_routes.create_blueprint(_seo_context))

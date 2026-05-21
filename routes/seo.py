@@ -173,7 +173,10 @@ def ogp_png_image(ctx):
 
 
 def ogp_svg_image(ctx):
-    return ctx.render_ogp_svg()
+    name = ctx.request.args.get('f', '???')[:30]
+    probability = ctx.request.args.get('p', '')[:5]
+    body = ctx.render_ogp_svg(name, probability)
+    return ctx.Response(body, mimetype='image/svg+xml', headers=ogp_cache_headers())
 
 
 def stats_page(ctx):
