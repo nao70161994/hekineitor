@@ -49,6 +49,23 @@ class TestServices(unittest.TestCase):
             second = app_meta.app_version(tmp, paths=('app.py',))
         self.assertNotEqual(first, second)
 
+    def test_secret_key_requires_value_with_database_url(self):
+        with open(os.devnull, 'w') as stderr:
+            with self.assertRaises(RuntimeError):
+                app_meta.secret_key({'DATABASE_URL': 'postgres://db'}, stderr=stderr)
+
+    def test_secret_key_uses_dev_fallback_with_warning(self):
+        warnings = []
+        with open(os.devnull, 'w') as stderr:
+            secret = app_meta.secret_key({}, stderr=stderr, warn_fn=lambda *args, **kwargs: warnings.append(args))
+        self.assertEqual(secret, app_meta.DEV_SECRET_KEY)
+        self.assertEqual(warnings[0][0], app_meta.SECRET_KEY_MISSING_WARNING)
+
+    def test_secret_key_returns_configured_value(self):
+        with open(os.devnull, 'w') as stderr:
+            secret = app_meta.secret_key({'SECRET_KEY': 'long_enough_secret'}, stderr=stderr)
+        self.assertEqual(secret, 'long_enough_secret')
+
     def test_confirm_text_accepts_body_or_header(self):
         self.assertEqual(
             admin_security.confirmation_text(DummyRequest(json_data={'confirm_text': 'OK'})),

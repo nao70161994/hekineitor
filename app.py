@@ -35,18 +35,7 @@ from services import ids as ids_service
 
 # ─────────────────────────────────────────────────────────
 app = Flask(__name__)
-_secret = os.environ.get('SECRET_KEY')
-if not _secret:
-    if os.environ.get('DATABASE_URL'):
-        raise RuntimeError('本番環境では SECRET_KEY 環境変数の設定が必須です')
-    import sys, warnings
-    print('WARNING: SECRET_KEY が未設定です。本番環境では環境変数に設定してください。', file=sys.stderr)
-    warnings.warn('SECRET_KEY が未設定です。本番環境では環境変数に設定してください。', stacklevel=1)
-    _secret = 'hekineitor_dev_secret_2024'
-elif len(_secret) < 16:
-    import sys
-    print('WARNING: SECRET_KEY が短すぎます（16文字以上推奨）。', file=sys.stderr)
-app.secret_key = _secret
+app.secret_key = app_meta_service.secret_key(os.environ)
 app.session_interface = server_session_service.ServerSessionInterface()
 
 
