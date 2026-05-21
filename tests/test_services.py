@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from services import admin_security, app_meta, ids, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks
+from services import admin_security, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks
 
 
 class DummyRequest:
@@ -203,6 +203,51 @@ class TestServices(unittest.TestCase):
     def test_ids_parse_id_list_ignores_invalid_values(self):
         self.assertEqual(ids.parse_id_list(['1', 2, 'bad', None]), {1, 2})
         self.assertEqual(ids.parse_id_list('1,2'), set())
+
+
+    def test_inference_make_guess_records_side_effects(self):
+        calls = []
+
+        class Engine:
+            fetishes = [{'id': 7, 'name': 'A', 'desc': '', 'works': []}]
+            questions = []
+            config = {}
+
+            def increment_play_count(self):
+                calls.append('increment')
+
+            def posteriors(self, answers):
+                return [0.9]
+
+            def get_related(self, source_db_id):
+                return []
+
+            def get_answer_contributions(self, answers, fetish_idx):
+                return []
+
+            def log_guessed(self, fetish_id):
+                calls.append(('guessed', fetish_id))
+
+        ctx = type('Ctx', (), {})()
+        ctx.engine = Engine()
+        ctx.session = {}
+        ctx.soft_max_questions = 20
+        ctx.mark_guess_quality = lambda engine, session, answers, soft: calls.append('quality')
+        ctx.inference_context = lambda: type('InferenceCtx', (), {
+            'engine': ctx.engine,
+            'session': ctx.session,
+            'work_title': lambda work: str(work),
+            'get_compound_works': lambda a, b: [],
+            'profile_min_ratio': 0.25,
+            'profile_min_prob': 0.08,
+            'compound_ratio': 0.55,
+            'triple_ratio': 0.45,
+        })()
+        ctx.jsonify = lambda payload: payload
+
+        result = inference.make_guess(ctx, {})
+        self.assertEqual(result['fetish_id'], 7)
+        self.assertEqual(calls, ['increment', 'quality', ('guessed', 7)])
 
 
 
