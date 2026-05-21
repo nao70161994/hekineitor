@@ -1,12 +1,9 @@
 import os
 import re
-import hmac
 import hashlib
-import functools
 import html as _html
 import ipaddress
 import unicodedata
-import secrets
 import json as _json
 import time as _time
 import random as _random
@@ -30,6 +27,7 @@ from services import share as share_service
 from services import admin_helpers as admin_helper_service
 from services import context as context_service
 from services import server_session as server_session_service
+from services import admin_security as admin_security_service
 
 # ─────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -133,42 +131,12 @@ def _rate_limit(scope, limit, window_seconds=60):
     return None
 
 
-def _confirmation_text():
-    data = request.get_json(silent=True) or {}
-    return (data.get('confirm_text') or request.headers.get('X-Confirm-Text') or '').strip()
-
-
 def _require_confirm(expected):
-    if _confirmation_text() != expected:
-        return jsonify({
-            'status': 'error',
-            'message': f'確認のため「{expected}」と入力してください',
-            'required_confirm_text': expected,
-        }), 400
-    return None
+    return admin_security_service.require_confirm(request, jsonify, expected)
 
 
 def _csrf_token():
-    token = session.get('admin_csrf_token')
-    issued_at = session.get('admin_csrf_issued_at', 0)
-    ttl = int(os.environ.get('ADMIN_CSRF_TTL_SECONDS', '7200'))
-    if not token or _time.time() - issued_at > ttl:
-        token = secrets.token_urlsafe(32)
-        session['admin_csrf_token'] = token
-        session['admin_csrf_issued_at'] = _time.time()
-    return token
-
-
-def _check_admin_csrf():
-    if not _should_enforce_runtime_guard('csrf'):
-        return True
-    expected = session.get('admin_csrf_token')
-    issued_at = session.get('admin_csrf_issued_at', 0)
-    ttl = int(os.environ.get('ADMIN_CSRF_TTL_SECONDS', '7200'))
-    if not issued_at or _time.time() - issued_at > ttl:
-        return False
-    supplied = request.headers.get('X-CSRF-Token', '')
-    return bool(expected and supplied and hmac.compare_digest(expected, supplied))
+    return admin_security_service.csrf_token(session, os.environ, now_fn=_time.time)
 
 def _app_version():
     h = hashlib.md5()
@@ -578,34 +546,15 @@ def _admin_context():
 
 
 def _admin_guard_response():
-    limited = _rate_limit('admin_api', 120)
-    if limited:
-        return limited
-    admin_user = os.environ.get('ADMIN_USER', 'admin')
-    admin_pass = os.environ.get('ADMIN_PASS', '')
-    if not admin_pass:
-        return Response('ADMIN_PASS が未設定です', 503)
-    auth = request.authorization
-    if not auth or not hmac.compare_digest(auth.username, admin_user) \
-            or not hmac.compare_digest(auth.password, admin_pass):
-        return Response('認証が必要です', 401,
-                        {'WWW-Authenticate': 'Basic realm="Admin"'})
-    if request.method in {'POST', 'PUT', 'PATCH', 'DELETE'} and not _check_admin_csrf():
-        return jsonify({'status': 'error', 'message': 'CSRF token が不正です'}), 403
-    return None
+    return admin_security_service.admin_guard_response(
+        request, os.environ, session, Response, jsonify, _rate_limit, _should_enforce_runtime_guard,
+    )
 
 
-def _require_admin(f):
-    @functools.wraps(f)
-    def decorated(*args, **kwargs):
-        guard = _admin_guard_response()
-        if guard:
-            return guard
-        return f(*args, **kwargs)
-    return decorated
-
-
-app.register_blueprint(admin_routes.create_blueprint(_admin_context, _require_admin))
+app.register_blueprint(admin_routes.create_blueprint(
+    _admin_context,
+    admin_security_service.require_admin_decorator(_admin_guard_response),
+))
 
 
 def _system_context():
