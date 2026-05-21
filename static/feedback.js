@@ -183,3 +183,9 @@ window.HekiFeedback = (() => {
 
   return {resultFeedbackIds, toggleDetailFeedback, quickFeedback, setItemState, submitConfirm};
 })();
+
+window._resultFeedbackIds = () => window.HekiFeedback.resultFeedbackIds();
+window.toggleDetailFeedback = () => window.HekiFeedback.toggleDetailFeedback();
+window.quickFeedback = kind => window.HekiFeedback.quickFeedback(kind);
+window.setItemState = (id, state, btn) => window.HekiFeedback.setItemState(id, state, btn);
+window.submitConfirm = () => window.HekiFeedback.submitConfirm();

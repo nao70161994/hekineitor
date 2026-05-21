@@ -58,3 +58,9 @@ window.HekiDraft = (() => {
 
   return {push, saveDraft, clearDraft, checkDraft, resumeGame};
 })();
+
+window._pushDraft = (questionId, answer) => window.HekiDraft.push(questionId, answer);
+window._saveDraft = () => window.HekiDraft.saveDraft();
+window._clearDraft = () => window.HekiDraft.clearDraft();
+window._checkDraft = () => window.HekiDraft.checkDraft();
+window.resumeGame = () => window.HekiDraft.resumeGame();

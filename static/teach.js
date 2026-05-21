@@ -221,3 +221,14 @@ window.HekiTeach = (() => {
     deleteAddedItem,
   };
 })();
+
+window.skipTeach = () => window.HekiTeach.skipTeach();
+window.toggleTeachItem = (id, name, el) => window.HekiTeach.toggleTeachItem(id, name, el);
+window.updateTeachSubmitBtn = () => window.HekiTeach.updateTeachSubmitBtn();
+window.submitTeach = () => window.HekiTeach.submitTeach();
+window.addFetishStep1 = () => window.HekiTeach.addFetishStep1();
+window.pickSimilar = (id, name) => window.HekiTeach.pickSimilar(id, name);
+window.addFetishConfirmNew = () => window.HekiTeach.addFetishConfirmNew();
+window.addFetishStep2 = skip => window.HekiTeach.addFetishStep2(skip);
+window.addFetishMore = () => window.HekiTeach.addFetishMore();
+window.addFetishDone = () => window.HekiTeach.addFetishDone();

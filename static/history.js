@@ -78,3 +78,8 @@ window.HekiHistory = (() => {
 
   return {saveHistory, updateHistoryBadge, toggleHistory, retryExcluding};
 })();
+
+window.saveHistory = (name, prob, fetishId) => window.HekiHistory.saveHistory(name, prob, fetishId);
+window._updateHistoryBadge = () => window.HekiHistory.updateHistoryBadge();
+window.toggleHistory = () => window.HekiHistory.toggleHistory();
+window.retryExcluding = historyIndex => window.HekiHistory.retryExcluding(historyIndex);

@@ -93,64 +93,6 @@ async function continueGame() {
   if (window.HekiGameFlow) return window.HekiGameFlow.continueGame();
 }
 
-function _resultFeedbackIds() {
-  return window.HekiFeedback ? window.HekiFeedback.resultFeedbackIds() : [];
-}
-
-function toggleDetailFeedback() {
-  if (window.HekiFeedback) window.HekiFeedback.toggleDetailFeedback();
-}
-
-async function quickFeedback(kind) {
-  if (window.HekiFeedback) return window.HekiFeedback.quickFeedback(kind);
-}
-
-function setItemState(id, state, btn) {
-  if (window.HekiFeedback) window.HekiFeedback.setItemState(id, state, btn);
-}
-
-async function submitConfirm() {
-  if (window.HekiFeedback) return window.HekiFeedback.submitConfirm();
-}
-
-
-function toggleTeachItem(id, name, el) {
-  if (window.HekiTeach) window.HekiTeach.toggleTeachItem(id, name, el);
-}
-
-function updateTeachSubmitBtn() {
-  if (window.HekiTeach) window.HekiTeach.updateTeachSubmitBtn();
-}
-
-async function submitTeach() {
-  if (window.HekiTeach) return window.HekiTeach.submitTeach();
-}
-
-async function addFetishStep1() {
-  if (window.HekiTeach) return window.HekiTeach.addFetishStep1();
-}
-
-function pickSimilar(id, name) {
-  if (window.HekiTeach) window.HekiTeach.pickSimilar(id, name);
-}
-
-function addFetishConfirmNew() {
-  if (window.HekiTeach) window.HekiTeach.addFetishConfirmNew();
-}
-
-async function addFetishStep2(skip) {
-  if (window.HekiTeach) return window.HekiTeach.addFetishStep2(skip);
-}
-
-function addFetishMore() {
-  if (window.HekiTeach) window.HekiTeach.addFetishMore();
-}
-
-async function addFetishDone() {
-  if (window.HekiTeach) return window.HekiTeach.addFetishDone();
-}
-
-
 function _buildShareText(name, prob, guessData) {
   return window.HekiShare ? window.HekiShare.buildShareText(name, prob, guessData) : '';
 }
@@ -161,38 +103,4 @@ function shareResult() {
 
 function dismissInstall() {
   if (window.HekiPwa) window.HekiPwa.dismissInstall();
-}
-
-function _pushDraft(questionId, answer) {
-  if (window.HekiDraft) window.HekiDraft.push(questionId, answer);
-}
-
-function _saveDraft() {
-  if (window.HekiDraft) window.HekiDraft.saveDraft();
-}
-
-function _clearDraft() {
-  if (window.HekiDraft) window.HekiDraft.clearDraft();
-}
-
-function _checkDraft() {
-  if (window.HekiDraft) window.HekiDraft.checkDraft();
-}
-
-async function resumeGame() {
-  if (window.HekiDraft) return window.HekiDraft.resumeGame();
-}
-
-// 機能3: 診断履歴
-function saveHistory(name, prob, fetish_id) {
-  if (window.HekiHistory) window.HekiHistory.saveHistory(name, prob, fetish_id);
-}
-function _updateHistoryBadge() {
-  if (window.HekiHistory) window.HekiHistory.updateHistoryBadge();
-}
-function toggleHistory() {
-  if (window.HekiHistory) window.HekiHistory.toggleHistory();
-}
-function retryExcluding(historyIndex) {
-  if (window.HekiHistory) window.HekiHistory.retryExcluding(historyIndex);
 }
