@@ -46,6 +46,9 @@
 - `c9b2b6c` - App metadata and name matching helpers moved to services.
 - `d69d5cb` - Direct service helper regression tests added.
 
+- `72e84ef` - Runtime rate limiting moved to service.
+- `f693d9f` - Rate limit service regression tests added.
+
 ## Next PRs
 
 1. Move individual context dependency groups into typed service helpers where it reduces `app.py` noise.
