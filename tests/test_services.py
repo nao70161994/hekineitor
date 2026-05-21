@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from services import admin_security, app_meta, matrix_backups, name_matching, rate_limit, response_hooks
+from services import admin_security, app_meta, matrix_backups, name_matching, quality_stats, rate_limit, response_hooks
 
 
 class DummyRequest:
@@ -168,6 +168,29 @@ class TestServices(unittest.TestCase):
             list_fn=lambda limit=None: [{'name': f'b{i}.json'} for i in range(4)],
         )
         self.assertEqual(removed, ['matrix_import_backups/b2.json', 'matrix_import_backups/b3.json'])
+
+
+    def test_quality_stats_records_guess_and_feedback_keys(self):
+        calls = []
+
+        class Engine:
+            def _record_daily_stat(self, key):
+                calls.append(key)
+
+        session = {'low_confidence_extended': True}
+        quality_stats.mark_guess_quality(Engine(), session, {str(i): 1 for i in range(22)}, 20)
+        self.assertEqual(session['last_guess_quality'], {
+            'low_confidence_extended': True,
+            'additional_questions': 2,
+        })
+        self.assertIn('q_low_conf_guess', calls)
+        self.assertIn('q_additional_guess', calls)
+        self.assertEqual(calls.count('q_additional_question'), 2)
+
+        quality_stats.record_guess_quality_feedback(Engine(), session, correct=False)
+        self.assertNotIn('last_guess_quality', session)
+        self.assertIn('q_low_conf_wrong', calls)
+        self.assertIn('q_additional_wrong', calls)
 
 
 
