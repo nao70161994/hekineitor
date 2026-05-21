@@ -40,6 +40,12 @@
 
 - `fa1473f` - Last result-name state moved into `HekiState`; `compat.js` script tag removed; file kept as a deprecated shim.
 
+- `bc21703` - Deprecated client compat shim removed from page loading.
+- `d86326e` - Server session storage moved to service.
+- `feab302` - Admin security helpers moved to service.
+- `c9b2b6c` - App metadata and name matching helpers moved to services.
+- `d69d5cb` - Direct service helper regression tests added.
+
 ## Next PRs
 
 1. Move individual context dependency groups into typed service helpers where it reduces `app.py` noise.

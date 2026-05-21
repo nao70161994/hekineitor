@@ -15,13 +15,15 @@
 - Route context object construction is delegated through `services/context.py`, keeping `app.py` closer to dependency wiring only.
 - Context dependencies are grouped by route domain before being flattened for existing route handlers.
 - Admin maintenance assembly now lives in `services/admin_helpers.py`.
+- Server session storage and admin security helpers are split into services.
+- App versioning and name matching helpers are pure service modules with direct regression tests.
 - Lightweight E2E strategy is documented in `docs/LIGHTWEIGHT_E2E.md`.
 
 ## Still Open
 
 - Continue thinning the context/facade objects passed from `app.py` by grouping dependencies per route domain.
 - Package `engine.py` as a directory while preserving import compatibility.
-- Decide whether to remove the now-empty `static/compat.js` script tag in a dedicated compatibility cleanup PR.
+- Decide whether to delete the unused deprecated `static/compat.js` file after a release window.
 - Expand browser-oriented E2E coverage beyond Flask smoke paths when a lightweight browser runner is available.
 - Complete manual QA for mobile CTA, OGP previews, and install/update behavior.
 
