@@ -30,3 +30,10 @@ def progress_message(count, top_p, second_p, focus_thr):
             return 'AIが少し迷っています'
         return 'かなり見えてきました'
     return ''
+
+
+def should_extend_low_confidence(count, top_p, second_p, guess_threshold, soft_max_questions, hard_max_questions):
+    if count < soft_max_questions or count >= hard_max_questions:
+        return False
+    gap_points = top_p - second_p
+    return top_p < guess_threshold or gap_points < 0.20

@@ -118,10 +118,9 @@ def _question_total_for_count(count):
 
 
 def _should_extend_low_confidence(count, top_p, second_p, guess_thr):
-    if count < SOFT_MAX_QUESTIONS or count >= HARD_MAX_QUESTIONS:
-        return False
-    gap_points = top_p - second_p
-    return top_p < guess_thr or gap_points < 0.20
+    return question_selection_service.should_extend_low_confidence(
+        count, top_p, second_p, guess_thr, SOFT_MAX_QUESTIONS, HARD_MAX_QUESTIONS,
+    )
 
 
 def _record_quality_stat(key, count=1):
