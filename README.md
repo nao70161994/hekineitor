@@ -76,7 +76,7 @@ GitHub Actions:
 
 - `app.py`: Flask アプリ初期化、セッション、Blueprint wiring。
 - `routes/`: public / game API / admin / system routes。
-- `services/`: OGP、share、context、admin helper、admin security、server session、rate limit、app metadata、name matching、inference/learning/question selection facade。
+- `services/`: OGP、share、context、admin helper、admin security、server session、rate limit、response hooks、matrix backups、app metadata、name matching、inference/learning/question selection facade。
 - `engine.py`: 推論、学習、matrix 操作の互換 facade。
 - `storage.py`: DB/ローカル JSON の設定と DB 接続。
 - `matrix_service.py`: matrix import の検証・更新対象抽出。

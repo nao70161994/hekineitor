@@ -49,6 +49,12 @@
 - `72e84ef` - Runtime rate limiting moved to service.
 - `f693d9f` - Rate limit service regression tests added.
 
+- `ee9a1fd` - Deprecated client compat shim file removed.
+- `2dea3fd` - Response hooks moved to service.
+- `cb8dbf0` - Response hook service tests added.
+- `2633e2e` - Matrix backup helpers moved to service.
+- `b3a86fb` - Matrix backup service tests added.
+
 ## Next PRs
 
 1. Move individual context dependency groups into typed service helpers where it reduces `app.py` noise.
