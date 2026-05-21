@@ -15,6 +15,10 @@ def _merge_domains(*domains, **kwargs):
     return SimpleNamespace(**values)
 
 
+def seo_context(**kwargs):
+    return build_seo_context(**kwargs)
+
+
 def build_seo_context(*domains, **kwargs):
     return _merge_domains(*domains, **kwargs)
 

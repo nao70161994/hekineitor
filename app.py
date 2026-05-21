@@ -188,7 +188,7 @@ def _paged_fetish_log_rows(rows, args):
 
 
 def _seo_context():
-    return context_service.build_seo_context(
+    return context_service.seo_context(
         engine=engine,
         request=request,
         Response=Response,
