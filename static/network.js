@@ -34,3 +34,7 @@ window.HekiNetwork = (() => {
 
   return {setFetching, apiFetch, setAnswerButtons};
 })();
+
+window.setFetching = value => window.HekiNetwork.setFetching(value);
+window.apiFetch = (url, body, timeoutMs = 30000) => window.HekiNetwork.apiFetch(url, body, timeoutMs);
+window.setAnswerButtons = disabled => window.HekiNetwork.setAnswerButtons(disabled);

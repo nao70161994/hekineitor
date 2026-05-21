@@ -17,3 +17,6 @@ window.HekiUtils = (() => {
 
   return {escapeHtml, safeExternalUrl};
 })();
+
+window.escapeHtml = value => window.HekiUtils.escapeHtml(value);
+window.safeExternalUrl = value => window.HekiUtils.safeExternalUrl(value);

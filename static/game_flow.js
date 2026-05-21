@@ -181,3 +181,12 @@ async function continueGame() {
 
   return {startExcluding, startGame, showQuestion, goBack, sendAnswer, showGuess, quickRetry, continueGame};
 })();
+
+window.startExcluding = () => window.HekiGameFlow.startExcluding();
+window.startGame = excludeIds => window.HekiGameFlow.startGame(excludeIds);
+window.showQuestion = data => window.HekiGameFlow.showQuestion(data);
+window.goBack = () => window.HekiGameFlow.goBack();
+window.sendAnswer = ans => window.HekiGameFlow.sendAnswer(ans);
+window.quickRetry = () => window.HekiGameFlow.quickRetry();
+window.showGuess = data => window.HekiGameFlow.showGuess(data);
+window.continueGame = () => window.HekiGameFlow.continueGame();

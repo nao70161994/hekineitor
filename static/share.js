@@ -39,3 +39,7 @@ window.HekiShare = (() => {
 
   return {buildShareText, setDiagnosedName, shareResult};
 })();
+
+window.setDiagnosedName = value => window.HekiShare.setDiagnosedName(value);
+window._buildShareText = (name, prob, guessData) => window.HekiShare.buildShareText(name, prob, guessData);
+window.shareResult = () => window.HekiShare.shareResult();

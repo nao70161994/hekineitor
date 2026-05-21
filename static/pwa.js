@@ -86,3 +86,5 @@ window.HekiPwa = (() => {
   init();
   return {dismissInstall};
 })();
+
+window.dismissInstall = () => window.HekiPwa.dismissInstall();

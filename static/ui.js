@@ -129,3 +129,13 @@ function updateExcludeButtons() {
     updateExcludeButtons,
   };
 })();
+
+window.show = id => window.HekiUi.show(id);
+window.setGenieState = state => window.HekiUi.setGenieState(state);
+window.showStart = () => window.HekiUi.showStart();
+window.showSessionExpired = () => window.HekiUi.showSessionExpired();
+window.confirmRestart = () => window.HekiUi.confirmRestart();
+window.closeModal = id => window.HekiUi.closeModal(id);
+window.doRestart = () => window.HekiUi.doRestart();
+window.showToast = (msg, color, durationMs = 3000) => window.HekiUi.showToast(msg, color, durationMs);
+window._updateExcludeButtons = () => window.HekiUi.updateExcludeButtons();

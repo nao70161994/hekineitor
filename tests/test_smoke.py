@@ -28,8 +28,10 @@ class TestSmoke(unittest.TestCase):
         self.assertNotIn(b'onclick=', res.data)
         self.assertNotIn(b'oninput=', res.data)
         self.assertNotIn(b'onchange=', res.data)
+        with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'game_flow.js'), 'rb') as f:
+            self.assertIn(b'window.startGame', f.read())
         with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'compat.js'), 'rb') as f:
-            self.assertIn(b'function startGame', f.read())
+            self.assertIn(b'window.setLastFetishName', f.read())
         with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'app.css'), 'rb') as f:
             self.assertIn(b'.btn-start', f.read())
 
