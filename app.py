@@ -110,10 +110,6 @@ HARD_MAX_QUESTIONS = 30
 MAX_QUESTIONS   = SOFT_MAX_QUESTIONS
 
 
-def _find_similar(name, fetishes):
-    return name_matching_service.find_similar(name, fetishes)
-
-
 def _question_total_for_count(count):
     return question_selection_service.question_total_for_count(count, SOFT_MAX_QUESTIONS, HARD_MAX_QUESTIONS)
 
@@ -173,18 +169,6 @@ def _prune_matrix_import_backups():
         os_module=os,
         list_fn=_list_matrix_import_backups,
     )
-
-
-def _bounded_int(value, default, min_value=1, max_value=100):
-    return admin_helper_service.bounded_int(value, default, min_value, max_value)
-
-
-def _build_fetish_log_rows():
-    return admin_helper_service.build_fetish_log_rows(engine)
-
-
-def _paged_fetish_log_rows(rows, args):
-    return admin_helper_service.paged_fetish_log_rows(rows, args)
 
 
 def _seo_context():
@@ -256,7 +240,7 @@ def _game_context():
         posteriors=inference_service.posteriors,
         parse_id_list=ids_service.parse_id_list,
         record_guess_quality_feedback=_record_guess_quality_feedback,
-        find_similar=_find_similar,
+        find_similar=name_matching_service.find_similar,
     )
     admin_bridge = context_service.game_admin_bridge(
         admin_guard_response=_admin_guard_response,
@@ -319,9 +303,9 @@ def _admin_context():
         require_confirm=_require_confirm,
     )
     reporting = context_service.admin_reporting(
-        bounded_int=_bounded_int,
-        build_fetish_log_rows=_build_fetish_log_rows,
-        paged_fetish_log_rows=_paged_fetish_log_rows,
+        bounded_int=admin_helper_service.bounded_int,
+        build_fetish_log_rows=lambda: admin_helper_service.build_fetish_log_rows(engine),
+        paged_fetish_log_rows=admin_helper_service.paged_fetish_log_rows,
         perf_counter=_time.perf_counter,
         best_question=question_selection_service.best_question,
         build_admin_maintenance_checklist=admin_helper_service.make_admin_maintenance_checklist(
