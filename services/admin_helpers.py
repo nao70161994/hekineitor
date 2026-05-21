@@ -178,3 +178,23 @@ def build_admin_maintenance_checklist(engine, works_summary_fn):
         'low_questions': low_questions,
         'works': works,
     }
+
+
+def build_work_maintenance_summary(engine, work_title_fn, safe_work_url_fn, sample_limit=8):
+    from services import works_links
+
+    return works_links.build_work_maintenance_summary(
+        engine.fetishes,
+        work_title_fn=work_title_fn,
+        safe_work_url_fn=safe_work_url_fn,
+        sample_limit=sample_limit,
+    )
+
+
+def make_admin_maintenance_checklist(engine, work_title_fn, safe_work_url_fn):
+    def checklist():
+        return build_admin_maintenance_checklist(
+            engine,
+            lambda: build_work_maintenance_summary(engine, work_title_fn, safe_work_url_fn),
+        )
+    return checklist

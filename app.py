@@ -31,7 +31,6 @@ from services import question_selection as question_selection_service
 from services import ogp as ogp_service
 from services import share as share_service
 from services import admin_helpers as admin_helper_service
-from services import works_links as works_links_service
 from services import context as context_service
 
 # ── サーバーサイドセッション ──────────────────────────────
@@ -646,7 +645,9 @@ def _admin_context():
         paged_fetish_log_rows=_paged_fetish_log_rows,
         perf_counter=_time.perf_counter,
         best_question=question_selection_service.best_question,
-        build_admin_maintenance_checklist=_build_admin_maintenance_checklist,
+        build_admin_maintenance_checklist=admin_helper_service.make_admin_maintenance_checklist(
+            engine, work_title, safe_work_url,
+        ),
         use_db=_use_db,
         list_matrix_import_backups=_list_matrix_import_backups,
         should_enforce_runtime_guard=_should_enforce_runtime_guard,
@@ -705,19 +706,6 @@ def _require_admin(f):
             return guard
         return f(*args, **kwargs)
     return decorated
-
-
-def _build_work_maintenance_summary(sample_limit=8):
-    return works_links_service.build_work_maintenance_summary(
-        engine.fetishes,
-        work_title_fn=work_title,
-        safe_work_url_fn=safe_work_url,
-        sample_limit=sample_limit,
-    )
-
-
-def _build_admin_maintenance_checklist():
-    return admin_helper_service.build_admin_maintenance_checklist(engine, _build_work_maintenance_summary)
 
 
 app.register_blueprint(admin_routes.create_blueprint(_admin_context, _require_admin))
