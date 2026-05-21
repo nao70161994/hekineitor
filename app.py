@@ -289,17 +289,16 @@ def _inference_context():
     )
 
 
-def _compute_guess(answers):
-    """診断結果を返す（play_count はインクリメントしない、純粋計算）。"""
-    return inference_service.compute_guess(_inference_context(), answers)
-
-
 def _make_guess(answers):
-    engine.increment_play_count()
-    result = _compute_guess(answers)
-    quality_stats_service.mark_guess_quality(engine, session, answers, SOFT_MAX_QUESTIONS)
-    engine.log_guessed(result['fetish_id'])
-    return jsonify(result)
+    guess_context = context_service.game_guess(
+        engine=engine,
+        session=session,
+        jsonify=jsonify,
+        soft_max_questions=SOFT_MAX_QUESTIONS,
+        inference_context=_inference_context,
+        mark_guess_quality=quality_stats_service.mark_guess_quality,
+    )
+    return inference_service.make_guess(guess_context, answers)
 
 
 app.register_blueprint(game_routes.create_blueprint(_game_context))

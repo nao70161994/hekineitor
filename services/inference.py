@@ -114,3 +114,11 @@ def compute_guess(ctx, answers):
         'works': merged_works,
         'cross_works': cross_works,
     }
+
+
+def make_guess(ctx, answers):
+    ctx.engine.increment_play_count()
+    result = compute_guess(ctx.inference_context(), answers)
+    ctx.mark_guess_quality(ctx.engine, ctx.session, answers, ctx.soft_max_questions)
+    ctx.engine.log_guessed(result['fetish_id'])
+    return ctx.jsonify(result)

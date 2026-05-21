@@ -35,6 +35,10 @@ def game_admin_bridge(**kwargs):
     return domain(**kwargs)
 
 
+def game_guess(**kwargs):
+    return domain(**kwargs)
+
+
 def build_game_context(*domains, **kwargs):
     return _merge_domains(*domains, **kwargs)
 
