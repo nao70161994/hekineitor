@@ -1,7 +1,6 @@
 import os
 import re
 import html as _html
-import ipaddress
 import json as _json
 import time as _time
 import random as _random
@@ -28,6 +27,7 @@ from services import server_session as server_session_service
 from services import admin_security as admin_security_service
 from services import app_meta as app_meta_service
 from services import name_matching as name_matching_service
+from services import rate_limit as rate_limit_service
 
 # ─────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -81,54 +81,22 @@ def _record_status_counts(response):
 
 
 def _client_ip():
-    remote_addr = request.remote_addr or 'unknown'
-    trusted = app.config.get('TRUSTED_PROXY_IPS')
-    if trusted is None:
-        trusted = os.environ.get('TRUSTED_PROXY_IPS', '')
-    if isinstance(trusted, str):
-        trusted = [item.strip() for item in trusted.split(',') if item.strip()]
-    if trusted:
-        try:
-            remote_ip = ipaddress.ip_address(remote_addr)
-            proxy_trusted = any(
-                remote_ip in ipaddress.ip_network(entry, strict=False)
-                for entry in trusted
-            )
-        except ValueError:
-            proxy_trusted = remote_addr in trusted
-        if proxy_trusted:
-            forwarded = request.headers.get('X-Forwarded-For', '')
-            return (forwarded.split(',')[0].strip() or remote_addr)
-    return remote_addr
+    return rate_limit_service.client_ip(request, app.config, os.environ)
 
 
 def _rate_limit(scope, limit, window_seconds=60):
-    if not _should_enforce_runtime_guard('rate_limit'):
-        return None
-    overrides = app.config.get('RATE_LIMIT_OVERRIDES') or {}
-    if scope in overrides:
-        limit, window_seconds = overrides[scope]
-    else:
-        env_prefix = 'RATE_LIMIT_' + scope.upper()
-        try:
-            limit = int(os.environ.get(env_prefix + '_LIMIT', limit))
-            window_seconds = int(os.environ.get(env_prefix + '_WINDOW', window_seconds))
-        except ValueError:
-            pass
-    now = _time.time()
-    key = (scope, _client_ip())
-    bucket = [ts for ts in _RATE_LIMIT_BUCKETS.get(key, []) if now - ts < window_seconds]
-    if len(bucket) >= limit:
-        _RATE_LIMIT_BUCKETS[key] = bucket
-        retry_after = max(1, int(window_seconds - (now - bucket[0])))
-        return jsonify({
-            'status': 'error',
-            'message': f'リクエストが多すぎます。{retry_after}秒後に再試行してください。',
-            'retry_after': retry_after,
-        }), 429, {'Retry-After': str(retry_after)}
-    bucket.append(now)
-    _RATE_LIMIT_BUCKETS[key] = bucket
-    return None
+    return rate_limit_service.rate_limit(
+        scope,
+        limit,
+        request,
+        app.config,
+        _RATE_LIMIT_BUCKETS,
+        jsonify,
+        _should_enforce_runtime_guard,
+        window_seconds=window_seconds,
+        environ=os.environ,
+        time_fn=_time.time,
+    )
 
 
 def _require_confirm(expected):
