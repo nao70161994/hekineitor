@@ -88,6 +88,29 @@ class TestSmoke(unittest.TestCase):
         self.assertIn('/ogp.png?f=Test&amp;p=88', body)
         self.assertNotIn('/ogp?f=Test&amp;p=88', body)
 
+    def test_legacy_svg_ogp_endpoint_still_works(self):
+        res = self.client.get('/ogp?f=SvgTest&p=77')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.mimetype, 'image/svg+xml')
+        self.assertIn(b'SvgTest', res.data)
+
+    def test_share_page_keeps_social_metadata(self):
+        res = self.client.get('/r?f=ShareTest&p=91&d=hello')
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        self.assertIn('property="og:image"', body)
+        self.assertIn('name="twitter:card" content="summary_large_image"', body)
+        self.assertIn('ShareTest', body)
+
+    def test_service_worker_keeps_static_and_offline_cache_paths(self):
+        res = self.client.get('/sw.js')
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        self.assertIn("'/manifest.json'", body)
+        self.assertIn("'/offline'", body)
+        self.assertIn("url.pathname.startsWith('/static/')", body)
+        self.assertIn("url.pathname.includes('/api/')", body)
+
     def test_url_map_keeps_public_game_and_admin_routes(self):
         rules = {rule.rule for rule in app.url_map.iter_rules()}
         expected = {
