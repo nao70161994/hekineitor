@@ -520,13 +520,16 @@ app.register_blueprint(seo_routes.create_blueprint(_seo_context))
 
 
 def _game_context():
-    return context_service.build_game_context(
+    runtime = context_service.game_runtime(
         engine=engine,
         request=request,
         session=session,
         jsonify=jsonify,
         rate_limit=_rate_limit,
         random_choice=_random.choice,
+        logger=app.logger,
+    )
+    question_flow = context_service.game_question_flow(
         best_question=question_selection_service.best_question,
         top_guess=inference_service.top_guess,
         make_guess=_make_guess,
@@ -538,7 +541,8 @@ def _game_context():
         should_extend_low_confidence=_should_extend_low_confidence,
         select_next_question=_select_next_question,
         progress_message=_progress_message,
-        logger=app.logger,
+    )
+    learning = context_service.game_learning(
         learn_factor=_learn_factor,
         learn_positive=learning_service.learn_positive,
         learn_cooccurrence=learning_service.learn_cooccurrence,
@@ -548,10 +552,13 @@ def _game_context():
         parse_id_list=_parse_id_list,
         record_guess_quality_feedback=_record_guess_quality_feedback,
         find_similar=_find_similar,
+    )
+    admin_bridge = context_service.game_admin_bridge(
         admin_guard_response=_admin_guard_response,
         require_confirm=_require_confirm,
         player_fetish_base_id=PLAYER_FETISH_BASE_ID,
     )
+    return context_service.build_game_context(runtime, question_flow, learning, admin_bridge)
 
 
 def _progress_message(count, top_p, second_p, focus_thr=FOCUS_THRESHOLD):
@@ -620,7 +627,7 @@ app.register_blueprint(game_routes.create_blueprint(_game_context))
 
 
 def _admin_context():
-    return context_service.build_admin_context(
+    runtime = context_service.admin_runtime(
         engine=engine,
         request=request,
         jsonify=jsonify,
@@ -628,33 +635,36 @@ def _admin_context():
         render_template=render_template,
         session=session,
         csrf_token=_csrf_token,
+        recent_audit=recent_audit,
+        json_dumps=_json.dumps,
+        environ=os.environ,
+        require_confirm=_require_confirm,
+    )
+    reporting = context_service.admin_reporting(
         bounded_int=_bounded_int,
         build_fetish_log_rows=_build_fetish_log_rows,
         paged_fetish_log_rows=_paged_fetish_log_rows,
         perf_counter=_time.perf_counter,
         best_question=question_selection_service.best_question,
         build_admin_maintenance_checklist=_build_admin_maintenance_checklist,
-        recent_audit=recent_audit,
-        json_dumps=_json.dumps,
-        environ=os.environ,
         use_db=_use_db,
         list_matrix_import_backups=_list_matrix_import_backups,
         should_enforce_runtime_guard=_should_enforce_runtime_guard,
-        parse_works_list=parse_works_list,
-        list_compound_works=list_compound_works,
-        set_compound_works=set_compound_works,
-        delete_compound_works=delete_compound_works,
         cleanup_sessions=cleanup_sessions,
         player_fetish_base_id=PLAYER_FETISH_BASE_ID,
         strftime=_time.strftime,
         gmtime=_time.gmtime,
-        require_confirm=_require_confirm,
-        snapshot_current_matrix=_snapshot_current_matrix,
-        matrix_import_completeness_error=_matrix_import_completeness_error,
-        matrix_import_expected_rows=_matrix_import_expected_rows,
+    )
+    maintenance = context_service.admin_maintenance(
+        parse_works_list=parse_works_list,
+        list_compound_works=list_compound_works,
+        set_compound_works=set_compound_works,
+        delete_compound_works=delete_compound_works,
         write_audit=write_audit,
         load_json_file=load_json_file,
         data_path=data_path,
+    )
+    matrix_tools = context_service.admin_matrix_tools(
         app_dir=os.path.dirname(__file__),
         relpath=os.path.relpath,
         basename=os.path.basename,
@@ -662,7 +672,11 @@ def _admin_context():
         path_exists=os.path.exists,
         re_search=re.search,
         html_escape=_html.escape,
+        snapshot_current_matrix=_snapshot_current_matrix,
+        matrix_import_completeness_error=_matrix_import_completeness_error,
+        matrix_import_expected_rows=_matrix_import_expected_rows,
     )
+    return context_service.build_admin_context(runtime, reporting, maintenance, matrix_tools)
 
 
 def _admin_guard_response():
@@ -710,7 +724,7 @@ app.register_blueprint(admin_routes.create_blueprint(_admin_context, _require_ad
 
 
 def _system_context():
-    return context_service.build_system_context(
+    runtime = context_service.system_runtime(
         engine=engine,
         jsonify=jsonify,
         Response=Response,
@@ -718,6 +732,13 @@ def _system_context():
         static_folder=app.static_folder,
         app_version=APP_VERSION,
         environ=os.environ,
+        error_counts=_ERROR_COUNTS,
+        app_started_at=APP_STARTED_AT,
+        time=_time.time,
+        local_session_count=_local_session_count,
+        recent_audit=recent_audit,
+    )
+    storage = context_service.system_storage(
         use_db=_use_db,
         get_conn=_get_conn,
         put_conn=_put_conn,
@@ -726,12 +747,8 @@ def _system_context():
         join_path=os.path.join,
         path_exists=os.path.exists,
         path_getmtime=os.path.getmtime,
-        error_counts=_ERROR_COUNTS,
-        app_started_at=APP_STARTED_AT,
-        time=_time.time,
-        local_session_count=_local_session_count,
-        recent_audit=recent_audit,
     )
+    return context_service.build_system_context(runtime, storage)
 
 
 app.register_blueprint(system_routes.create_public_blueprint(_system_context))
