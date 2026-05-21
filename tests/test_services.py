@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from services import admin_security, app_meta, name_matching, rate_limit, response_hooks
+from services import admin_security, app_meta, matrix_backups, name_matching, rate_limit, response_hooks
 
 
 class DummyRequest:
@@ -135,6 +135,39 @@ class TestServices(unittest.TestCase):
         req.path = '/api/admin/import_matrix'
         response_hooks.write_admin_audit(response, req, lambda *args: calls.append(args))
         self.assertEqual(calls, [])
+
+
+    def test_matrix_backup_completeness_error_shape(self):
+        result = matrix_backups.completeness_error(
+            {'skipped_rows': 0, 'valid_rows': 1},
+            2,
+            dummy_jsonify,
+        )
+        self.assertEqual(result[1], 400)
+        self.assertEqual(result[0]['expected_rows'], 2)
+
+    def test_matrix_backup_prune_keeps_configured_count(self):
+        removed = []
+
+        class DummyPath:
+            @staticmethod
+            def join(*parts):
+                return '/'.join(parts)
+
+        class DummyOs:
+            path = DummyPath
+
+            @staticmethod
+            def remove(path):
+                removed.append(path)
+
+        matrix_backups.prune_backups(
+            environ={'MATRIX_IMPORT_BACKUP_KEEP': '2'},
+            data_path=lambda name: name,
+            os_module=DummyOs,
+            list_fn=lambda limit=None: [{'name': f'b{i}.json'} for i in range(4)],
+        )
+        self.assertEqual(removed, ['matrix_import_backups/b2.json', 'matrix_import_backups/b3.json'])
 
 
 
