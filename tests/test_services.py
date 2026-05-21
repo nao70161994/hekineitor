@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from services import admin_security, app_meta, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks
+from services import admin_security, app_meta, ids, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks
 
 
 class DummyRequest:
@@ -198,6 +198,11 @@ class TestServices(unittest.TestCase):
         self.assertTrue(question_selection.should_extend_low_confidence(20, 0.7, 0.6, 0.75, 20, 30))
         self.assertTrue(question_selection.should_extend_low_confidence(20, 0.8, 0.7, 0.75, 20, 30))
         self.assertFalse(question_selection.should_extend_low_confidence(30, 0.7, 0.6, 0.75, 20, 30))
+
+
+    def test_ids_parse_id_list_ignores_invalid_values(self):
+        self.assertEqual(ids.parse_id_list(['1', 2, 'bad', None]), {1, 2})
+        self.assertEqual(ids.parse_id_list('1,2'), set())
 
 
 
