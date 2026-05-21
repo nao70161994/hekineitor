@@ -13,6 +13,9 @@
 - `static/app.js` is reduced to a bootstrap stub.
 - Most client compatibility exports now live beside their owning modules; `static/compat.js` only retains the last result-name compatibility state.
 - Route context object construction is delegated through `services/context.py`, keeping `app.py` closer to dependency wiring only.
+- Context dependencies are grouped by route domain before being flattened for existing route handlers.
+- Admin maintenance assembly now lives in `services/admin_helpers.py`.
+- Lightweight E2E strategy is documented in `docs/LIGHTWEIGHT_E2E.md`.
 
 ## Still Open
 

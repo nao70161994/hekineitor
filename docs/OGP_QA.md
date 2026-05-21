@@ -28,3 +28,8 @@
 - Very long Japanese name.
 - Environment without Pillow.
 - Environment without Noto CJK fonts.
+
+## Current Automation
+
+- Smoke tests verify `/ogp.png` returns PNG, `/ogp` still returns SVG, and result share pages use PNG `og:image`.
+- External X / LINE / Discord preview rendering still requires a deployed URL and manual verification.

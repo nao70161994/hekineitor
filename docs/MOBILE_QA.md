@@ -26,3 +26,8 @@
 - On Android Chrome, confirm install prompt/banner behavior.
 - On iOS Safari, confirm install guidance copy appears when applicable.
 - After a service worker update, confirm update prompt reloads cleanly.
+
+## Current Automation
+
+- Flask smoke covers result CTA markup, resume API, feedback API, manifest, service worker, and offline routes.
+- Real tap target size, native share sheet, and install prompt behavior remain manual QA items.

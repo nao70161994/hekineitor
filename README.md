@@ -74,15 +74,26 @@ GitHub Actions:
 
 ## コード構成
 
-- `app.py`: Flask ルーティング、セッション、API。
-- `engine.py`: 推論、学習、matrix 操作。
+- `app.py`: Flask アプリ初期化、セッション、Blueprint wiring。
+- `routes/`: public / game API / admin / system routes。
+- `services/`: OGP、share、context、admin helper、inference/learning/question selection facade。
+- `engine.py`: 推論、学習、matrix 操作の互換 facade。
 - `storage.py`: DB/ローカル JSON の設定と DB 接続。
 - `matrix_service.py`: matrix import の検証・更新対象抽出。
 - `audit.py`: 管理APIの監査ログ。
 - `work_utils.py`: 作品データの正規化と URL 検証。
 - `analytics.py`: 管理画面向け品質レポート。
-- `static/app.js`: メイン画面 JS。
+- `static/app.js`: 互換 bootstrap stub。
+- `static/game_flow.js`, `static/feedback.js`, `static/draft.js`, `static/share.js`: メイン画面の主要 client modules。
+- `static/compat.js`: 段階移行用の最小互換 shim。
 - `static/app.css`: メイン画面 CSS。
 - `static/admin.js`: 管理画面 JS。
 - `static/admin_ops.js`: 管理画面の import / backup / preflight 操作用 JS。
 - `static/admin.css`: 管理画面 CSS。
+
+## QA / smoke 方針
+
+- `tests/test_smoke.py` は公開ルート、share/OGP/PWA、client wrapper export の軽量回帰を固定します。
+- `tests/test_e2e_smoke.py` は Flask test client で診断、resume、feedback、share、PWA の代表導線を確認します。
+- 実ブラウザ依存はまだ導入していません。方針は `docs/LIGHTWEIGHT_E2E.md` を参照してください。
+- モバイル、LINE/X/Discord OGP preview、PWA install/update は `docs/MOBILE_QA.md` と `docs/OGP_QA.md` に従って手動確認します。

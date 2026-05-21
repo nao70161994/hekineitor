@@ -34,10 +34,14 @@
 - `1d0bd1e` - Remaining client compatibility exports moved to owning modules; `compat.js` reduced to the result-name shim.
 - `7214301` - Route context builders extracted into `services/context.py`.
 
+- `bc44867` - Route context dependencies grouped by domain.
+- `44db57e` - Admin maintenance assembly moved to helper service.
+- `def4021` - Resume, feedback, share, OGP, and PWA static smoke coverage added.
+
 ## Next PRs
 
-1. Deeper context facade thinning by route domain.
-2. Engine package compatibility layer.
-3. Final client compatibility shim decision.
-4. Browser E2E coverage with a lightweight runner when available.
-5. Manual mobile/OGP/PWA QA pass.
+1. Move individual context dependency groups into typed service helpers where it reduces `app.py` noise.
+2. Final client compatibility shim decision.
+3. Manual mobile/OGP/PWA QA pass against a deployed URL.
+4. Browser E2E runner decision after manual QA gaps are confirmed.
+5. Engine package compatibility layer preparation only; no package conversion yet.
