@@ -31,6 +31,7 @@ from services import rate_limit as rate_limit_service
 from services import response_hooks as response_hooks_service
 from services import matrix_backups as matrix_backup_service
 from services import quality_stats as quality_stats_service
+from services import ids as ids_service
 
 # ─────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -253,7 +254,7 @@ def _game_context():
         learn_near_miss=learning_service.learn_near_miss,
         learn_negative=learning_service.learn_negative,
         posteriors=inference_service.posteriors,
-        parse_id_list=_parse_id_list,
+        parse_id_list=ids_service.parse_id_list,
         record_guess_quality_feedback=_record_guess_quality_feedback,
         find_similar=_find_similar,
     )
@@ -277,18 +278,6 @@ TRIPLE_RATIO      = 0.45   # 3位がこの比率以上なら三重複合
 def _learn_factor(answers, total_n=1):
     threshold = engine.config.get('guess_threshold', GUESS_THRESHOLD)
     return learning_service.learn_factor(engine, inference_service.posteriors, answers, threshold, total_n)
-
-
-def _parse_id_list(value):
-    if not isinstance(value, list):
-        return set()
-    parsed = set()
-    for item in value:
-        try:
-            parsed.add(int(item))
-        except (ValueError, TypeError):
-            continue
-    return parsed
 
 
 def _inference_context():
