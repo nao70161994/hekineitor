@@ -95,10 +95,6 @@ MAX_QUESTIONS   = SOFT_MAX_QUESTIONS
 
 
 
-def _record_guess_quality_feedback(correct):
-    return quality_stats_service.record_guess_quality_feedback(engine, session, correct)
-
-
 
 def _snapshot_current_matrix(reason):
     return matrix_backup_service.snapshot_current_matrix(
@@ -195,7 +191,7 @@ def _game_context():
         learn_negative=learning_service.learn_negative,
         posteriors=inference_service.posteriors,
         parse_id_list=ids_service.parse_id_list,
-        record_guess_quality_feedback=_record_guess_quality_feedback,
+        record_guess_quality_feedback=quality_stats_service.make_guess_quality_feedback_recorder(engine, session),
         find_similar=name_matching_service.find_similar,
     )
     admin_bridge = context_service.game_admin_bridge(

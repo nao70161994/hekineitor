@@ -227,6 +227,20 @@ class TestServices(unittest.TestCase):
         self.assertIn('q_additional_wrong', calls)
 
 
+    def test_quality_feedback_recorder_binds_engine_and_session(self):
+        calls = []
+
+        class Engine:
+            def _record_daily_stat(self, key):
+                calls.append(key)
+
+        session = {'last_guess_quality': {'low_confidence_extended': True, 'additional_questions': 0}}
+        recorder = quality_stats.make_guess_quality_feedback_recorder(Engine(), session)
+        recorder(True)
+        self.assertIn('q_low_conf_correct', calls)
+        self.assertNotIn('last_guess_quality', session)
+
+
     def test_question_selection_low_confidence_extension_bounds(self):
         self.assertFalse(question_selection.should_extend_low_confidence(19, 0.1, 0.09, 0.75, 20, 30))
         self.assertTrue(question_selection.should_extend_low_confidence(20, 0.7, 0.6, 0.75, 20, 30))
