@@ -68,10 +68,14 @@
 - `7defadf` - Inference guess orchestration test added.
 - `b4782e7` - Named SEO context builder introduced.
 - `9c4189a` - Redundant app helper wrappers removed.
+- `f925f84` - Secret key setup moved to app metadata service.
+- `97bbaac` - Runtime guard policy moved to service.
+- `9d13374` - Public base URL helper moved to share service.
+- `76e5e20` - Stale app test helper wrappers removed.
 
 ## Next PRs
 
-1. Move individual context dependency groups into typed service helpers where it reduces `app.py` noise.
+1. Move remaining matrix/question/learning dependency closures into typed service helpers where it reduces `app.py` noise.
 3. Manual mobile/OGP/PWA QA pass against a deployed URL.
 4. Browser E2E runner decision after manual QA gaps are confirmed.
 5. Engine package compatibility layer preparation only; no package conversion yet.

@@ -21,13 +21,17 @@
 - Guess quality stats and ID list parsing are split into small services.
 - Redundant share/progress wrappers have been removed from `app.py`.
 - Guess orchestration is now handled by `services/inference.py`.
+- Flask secret key setup is isolated in `services/app_meta.py` with direct regression coverage.
+- Runtime guard policy for CSRF and rate limiting is isolated in `services/runtime_guards.py`.
+- Public base URL resolution for SEO/share routes lives in `services/share.py`.
+- Stale app-level test helper wrappers were removed; tests now target owning services directly.
 - Redundant app helper wrappers for name matching and admin paging were removed.
 - App versioning and name matching helpers are pure service modules with direct regression tests.
 - Lightweight E2E strategy is documented in `docs/LIGHTWEIGHT_E2E.md`.
 
 ## Still Open
 
-- Continue thinning the context/facade objects passed from `app.py` by grouping dependencies per route domain.
+- Continue thinning the context/facade objects passed from `app.py` by moving remaining matrix/question/learning closures behind focused services.
 - Package `engine.py` as a directory while preserving import compatibility.
 - Expand browser-oriented E2E coverage beyond Flask smoke paths when a lightweight browser runner is available.
 - Complete manual QA for mobile CTA, OGP previews, and install/update behavior.
