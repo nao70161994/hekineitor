@@ -29,6 +29,7 @@ from services import app_meta as app_meta_service
 from services import name_matching as name_matching_service
 from services import rate_limit as rate_limit_service
 from services import response_hooks as response_hooks_service
+from services import runtime_guards as runtime_guards_service
 from services import matrix_backups as matrix_backup_service
 from services import quality_stats as quality_stats_service
 from services import ids as ids_service
@@ -87,11 +88,7 @@ _RATE_LIMIT_BUCKETS = {}
 
 
 def _should_enforce_runtime_guard(name):
-    if name == 'csrf':
-        return (not app.config.get('TESTING')) or app.config.get('ENFORCE_CSRF')
-    if name == 'rate_limit':
-        return (not app.config.get('TESTING')) or app.config.get('ENFORCE_RATE_LIMIT')
-    return not app.config.get('TESTING')
+    return runtime_guards_service.should_enforce(app.config, name)
 
 GUESS_THRESHOLD = 0.75
 SOFT_MAX_QUESTIONS = 20

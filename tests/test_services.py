@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from services import admin_security, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks
+from services import admin_security, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards
 
 
 class DummyRequest:
@@ -123,6 +123,14 @@ class TestServices(unittest.TestCase):
         self.assertIsNone(first)
         self.assertEqual(second[1], 429)
         self.assertEqual(second[2]['Retry-After'], '59')
+
+
+    def test_runtime_guards_keep_testing_overrides(self):
+        self.assertFalse(runtime_guards.should_enforce({'TESTING': True}, 'other'))
+        self.assertFalse(runtime_guards.should_enforce({'TESTING': True}, 'csrf'))
+        self.assertTrue(runtime_guards.should_enforce({'TESTING': True, 'ENFORCE_CSRF': True}, 'csrf'))
+        self.assertTrue(runtime_guards.should_enforce({'TESTING': True, 'ENFORCE_RATE_LIMIT': True}, 'rate_limit'))
+        self.assertTrue(runtime_guards.should_enforce({'TESTING': False}, 'rate_limit'))
 
 
     def test_response_hooks_set_security_headers_and_count_errors(self):
