@@ -30,6 +30,7 @@ from services import name_matching as name_matching_service
 from services import rate_limit as rate_limit_service
 from services import response_hooks as response_hooks_service
 from services import matrix_backups as matrix_backup_service
+from services import quality_stats as quality_stats_service
 
 # ─────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -124,19 +125,11 @@ def _should_extend_low_confidence(count, top_p, second_p, guess_thr):
 
 
 def _record_quality_stat(key, count=1):
-    for _ in range(max(0, int(count or 0))):
-        engine._record_daily_stat(key)
+    return quality_stats_service.record_quality_stat(engine, key, count)
 
 
 def _record_guess_quality_feedback(correct):
-    quality = session.pop('last_guess_quality', None) or {}
-    if not quality:
-        return
-    suffix = 'correct' if correct else 'wrong'
-    if quality.get('low_confidence_extended'):
-        _record_quality_stat(f'q_low_conf_{suffix}')
-    if quality.get('additional_questions', 0) > 0:
-        _record_quality_stat(f'q_additional_{suffix}')
+    return quality_stats_service.record_guess_quality_feedback(engine, session, correct)
 
 
 def _select_next_question(answers, asked, idk_streak=0, disambiguate=False):
@@ -336,17 +329,7 @@ def _compute_guess(answers):
 def _make_guess(answers):
     engine.increment_play_count()
     result = _compute_guess(answers)
-    additional_questions = max(0, len(answers or {}) - SOFT_MAX_QUESTIONS)
-    low_confidence_extended = bool(session.get('low_confidence_extended'))
-    session['last_guess_quality'] = {
-        'low_confidence_extended': low_confidence_extended,
-        'additional_questions': additional_questions,
-    }
-    if low_confidence_extended:
-        _record_quality_stat('q_low_conf_guess')
-    if additional_questions > 0:
-        _record_quality_stat('q_additional_guess')
-        _record_quality_stat('q_additional_question', additional_questions)
+    quality_stats_service.mark_guess_quality(engine, session, answers, SOFT_MAX_QUESTIONS)
     engine.log_guessed(result['fetish_id'])
     return jsonify(result)
 
