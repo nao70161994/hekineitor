@@ -127,6 +127,28 @@ class TestSmoke(unittest.TestCase):
         self.assertIn('question_id', data)
         self.assertIn('question', data)
 
+    def test_client_compat_exports_live_with_owning_modules(self):
+        root = os.path.dirname(os.path.dirname(__file__))
+        expectations = {
+            'static/game_flow.js': [b'window.startGame', b'window.sendAnswer', b'window.continueGame'],
+            'static/feedback.js': [b'window.quickFeedback', b'window.submitConfirm'],
+            'static/teach.js': [b'window.submitTeach', b'window.addFetishStep1'],
+            'static/history.js': [b'window.toggleHistory', b'window.retryExcluding'],
+            'static/draft.js': [b'window.resumeGame', b'window._checkDraft'],
+            'static/share.js': [b'window.shareResult', b'window.setDiagnosedName'],
+            'static/pwa.js': [b'window.dismissInstall'],
+        }
+        for relpath, markers in expectations.items():
+            with open(os.path.join(root, relpath), 'rb') as f:
+                body = f.read()
+            for marker in markers:
+                self.assertIn(marker, body, relpath)
+
+        with open(os.path.join(root, 'static', 'compat.js'), 'rb') as f:
+            compat = f.read()
+        self.assertNotIn(b'function startGame', compat)
+        self.assertIn(b'window.setLastFetishName', compat)
+
 
 if __name__ == '__main__':
     unittest.main()
