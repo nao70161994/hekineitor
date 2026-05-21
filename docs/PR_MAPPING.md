@@ -38,10 +38,12 @@
 - `44db57e` - Admin maintenance assembly moved to helper service.
 - `def4021` - Resume, feedback, share, OGP, and PWA static smoke coverage added.
 
+- `fa1473f` - Last result-name state moved into `HekiState`; `compat.js` kept as a deprecated shim.
+
 ## Next PRs
 
 1. Move individual context dependency groups into typed service helpers where it reduces `app.py` noise.
-2. Final client compatibility shim decision.
+2. Remove the deprecated `static/compat.js` script tag only after a separate smoke-only cleanup review.
 3. Manual mobile/OGP/PWA QA pass against a deployed URL.
 4. Browser E2E runner decision after manual QA gaps are confirmed.
 5. Engine package compatibility layer preparation only; no package conversion yet.
