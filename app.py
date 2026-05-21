@@ -245,7 +245,7 @@ def _game_context():
         focus_threshold=FOCUS_THRESHOLD,
         should_extend_low_confidence=_should_extend_low_confidence,
         select_next_question=_select_next_question,
-        progress_message=_progress_message,
+        progress_message=question_selection_service.progress_message,
     )
     learning = context_service.game_learning(
         learn_factor=_learn_factor,
@@ -264,10 +264,6 @@ def _game_context():
         player_fetish_base_id=PLAYER_FETISH_BASE_ID,
     )
     return context_service.build_game_context(runtime, question_flow, learning, admin_bridge)
-
-
-def _progress_message(count, top_p, second_p, focus_thr=FOCUS_THRESHOLD):
-    return question_selection_service.progress_message(count, top_p, second_p, focus_thr)
 
 
 PROFILE_MIN_RATIO = 0.25   # best_p に対する比率の下限
