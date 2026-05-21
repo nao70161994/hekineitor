@@ -12,6 +12,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 os.environ.setdefault('SECRET_KEY', 'test_secret_key_for_testing')
 
 from app import app
+from services import ogp as ogp_service
+from services import quality_stats as quality_stats_service
 import engine as eng_module
 from engine import PLAYER_FETISH_BASE_ID, _use_db
 
@@ -1007,9 +1009,9 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         import app as app_module
         from app import engine as app_engine
         fid = app_engine.fetishes[0]['id']
-        app_module._record_quality_stat('q_low_conf_guess')
-        app_module._record_quality_stat('q_additional_guess')
-        app_module._record_quality_stat('q_additional_question', 2)
+        quality_stats_service.record_quality_stat(app_engine, 'q_low_conf_guess')
+        quality_stats_service.record_quality_stat(app_engine, 'q_additional_guess')
+        quality_stats_service.record_quality_stat(app_engine, 'q_additional_question', 2)
         with self.client.session_transaction() as sess:
             sess['answers'] = {}
             sess['last_guess_quality'] = {
@@ -1116,9 +1118,8 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual((width, height), (1200, 630))
 
     def test_ogp_font_path_env_is_preferred(self):
-        import app as app_module
         with patch.dict(os.environ, {'OGP_FONT_PATH': '/tmp/custom-ogp-font.ttf'}):
-            self.assertEqual(next(app_module._ogp_font_candidates()), '/tmp/custom-ogp-font.ttf')
+            self.assertEqual(next(ogp_service._ogp_font_candidates()), '/tmp/custom-ogp-font.ttf')
 
     def test_result_share_clamps_probability(self):
         res = self.client.get('/r?f=NTR&p=999&d=テスト')

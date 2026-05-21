@@ -103,9 +103,6 @@ def _should_extend_low_confidence(count, top_p, second_p, guess_thr):
     )
 
 
-def _record_quality_stat(key, count=1):
-    return quality_stats_service.record_quality_stat(engine, key, count)
-
 
 def _record_guess_quality_feedback(correct):
     return quality_stats_service.record_guess_quality_feedback(engine, session, correct)
@@ -175,9 +172,6 @@ def _seo_context():
         error_page=system_routes.ERROR_PAGE,
     )
 
-
-def _ogp_font_candidates():
-    return ogp_service._ogp_font_candidates()
 
 
 def _render_ogp_svg():
