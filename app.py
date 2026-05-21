@@ -78,10 +78,7 @@ engine = Engine()
 
 
 def public_base_url():
-    configured = os.environ.get('SITE_BASE_URL', '').strip().rstrip('/')
-    if configured:
-        return configured
-    return request.host_url.rstrip('/')
+    return share_service.public_base_url(os.environ, request)
 APP_STARTED_AT = int(_time.time())
 _ERROR_COUNTS = {'4xx': 0, '5xx': 0}
 _RATE_LIMIT_BUCKETS = {}

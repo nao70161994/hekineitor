@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from services import admin_security, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards
+from services import admin_security, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, share
 
 
 class DummyRequest:
@@ -131,6 +131,15 @@ class TestServices(unittest.TestCase):
         self.assertTrue(runtime_guards.should_enforce({'TESTING': True, 'ENFORCE_CSRF': True}, 'csrf'))
         self.assertTrue(runtime_guards.should_enforce({'TESTING': True, 'ENFORCE_RATE_LIMIT': True}, 'rate_limit'))
         self.assertTrue(runtime_guards.should_enforce({'TESTING': False}, 'rate_limit'))
+
+
+    def test_public_base_url_prefers_configured_site_base_url(self):
+        request = type('Request', (), {'host_url': 'http://localhost:5000/'})()
+        self.assertEqual(
+            share.public_base_url({'SITE_BASE_URL': 'https://example.com/'}, request),
+            'https://example.com',
+        )
+        self.assertEqual(share.public_base_url({}, request), 'http://localhost:5000')
 
 
     def test_response_hooks_set_security_headers_and_count_errors(self):

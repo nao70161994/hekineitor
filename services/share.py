@@ -34,3 +34,11 @@ def result_tagline(name, prob):
     if p >= 50:
         return f"「{name}」の気配があります。"
     return f"「{name}」かもしれません。"
+
+
+
+def public_base_url(environ, request):
+    configured = environ.get('SITE_BASE_URL', '').strip().rstrip('/')
+    if configured:
+        return configured
+    return request.host_url.rstrip('/')
