@@ -45,10 +45,6 @@ def _record_status_counts(response):
     return response_hooks_service.after_request(response, request, _ERROR_COUNTS, write_audit)
 
 
-def _client_ip():
-    return rate_limit_service.client_ip(request, app.config, os.environ)
-
-
 def _rate_limit(scope, limit, window_seconds=60):
     return rate_limit_service.rate_limit(
         scope,
@@ -105,11 +101,6 @@ def _matrix_backup_operations():
     )
 
 
-
-
-
-
-
 def _seo_context():
     return context_service.seo_context(
         engine=engine,
@@ -130,8 +121,6 @@ def _seo_context():
         fetish_relations=FETISH_RELATIONS,
         error_page=system_routes.ERROR_PAGE,
     )
-
-
 
 
 app.register_blueprint(seo_routes.create_blueprint(_seo_context))
