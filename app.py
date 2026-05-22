@@ -40,7 +40,7 @@ def _record_status_counts(response):
     return response_hooks_service.after_request(response, request, _ERROR_COUNTS, write_audit)
 
 
-def _runtime():
+def _flask_runtime():
     return runtime_service.flask_runtime(
         request=request,
         session=session,
@@ -67,7 +67,7 @@ _ERROR_COUNTS = {'4xx': 0, '5xx': 0}
 _RATE_LIMIT_BUCKETS = {}
 
 
-def _filesystem():
+def _filesystem_context():
     return filesystem_context_service.filesystem_context(
         app_dir=os.path.dirname(__file__),
         os_module=os,
@@ -79,10 +79,10 @@ def _filesystem():
     )
 
 
-def _matrix_backup_operations():
+def _matrix_operations():
     return matrix_backup_service.operations_for_filesystem(
         engine=engine,
-        filesystem=_filesystem(),
+        filesystem=_filesystem_context(),
         time_module=_time,
         jsonify=jsonify,
         environ=os.environ,
@@ -112,7 +112,7 @@ app.register_blueprint(seo_routes.create_blueprint(_seo_context))
 def _game_context():
     return game_context_service.build(
         engine=engine,
-        flask_runtime=_runtime(),
+        flask_runtime=_flask_runtime(),
         random_choice=_random.choice,
         logger=app.logger,
         player_fetish_base_id=PLAYER_FETISH_BASE_ID,
@@ -131,7 +131,7 @@ app.register_blueprint(game_routes.create_blueprint(_game_context))
 def _admin_context():
     return admin_context_service.build(
         engine=engine,
-        flask_runtime=_runtime(),
+        flask_runtime=_flask_runtime(),
         render_template=render_template,
         recent_audit=recent_audit,
         json_dumps=_json.dumps,
@@ -139,7 +139,7 @@ def _admin_context():
         work_title=work_title,
         safe_work_url=safe_work_url,
         use_db=_use_db,
-        matrix_ops=_matrix_backup_operations(),
+        matrix_ops=_matrix_operations(),
         cleanup_sessions=server_session_service.cleanup_sessions,
         player_fetish_base_id=PLAYER_FETISH_BASE_ID,
         strftime=_time.strftime,
@@ -149,13 +149,13 @@ def _admin_context():
         set_compound_works=set_compound_works,
         delete_compound_works=delete_compound_works,
         write_audit=write_audit,
-        filesystem=_filesystem(),
+        filesystem=_filesystem_context(),
     )
 
 
 app.register_blueprint(admin_routes.create_blueprint(
     _admin_context,
-    runtime_service.require_admin_decorator(lambda: _runtime().admin_guard_response()),
+    runtime_service.require_admin_decorator(lambda: _flask_runtime().admin_guard_response()),
 ))
 
 
@@ -176,7 +176,7 @@ def _system_context():
         use_db=_use_db,
         get_conn=_get_conn,
         put_conn=_put_conn,
-        filesystem=_filesystem(),
+        filesystem=_filesystem_context(),
     )
 
 

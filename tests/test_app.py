@@ -682,7 +682,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             'expected_rows': lambda self: len(rows),
             'list_backups': lambda self, limit=50: [],
         })()
-        with patch('app._matrix_backup_operations', return_value=ops):
+        with patch('app._matrix_operations', return_value=ops):
             res = self.client.post('/api/admin/import_matrix',
                 json={'matrix_rows': rows, 'confirm_text': 'IMPORT'},
                 headers=headers)
@@ -734,7 +734,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
                 'expected_rows': lambda self: len(rows),
                 'list_backups': lambda self, limit=50: [],
             })()
-            with patch('app._matrix_backup_operations', return_value=ops):
+            with patch('app._matrix_operations', return_value=ops):
                 res = self.client.post(f'/api/admin/matrix_backups/{backup_name}/restore',
                     json={'confirm_text': 'RESTORE'}, headers=headers)
             self.assertEqual(res.status_code, 200)
