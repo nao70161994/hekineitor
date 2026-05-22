@@ -16,24 +16,19 @@ from routes import admin as admin_routes
 from routes import game as game_routes
 from routes import seo as seo_routes
 from routes import system as system_routes
-from services import inference as inference_service
-from services import learning as learning_service
-from services import question_selection as question_selection_service
 from services import ogp as ogp_service
 from services import share as share_service
 from services import context as context_service
+from services import game_context as game_context_service
 from services import admin_context as admin_context_service
 from services import system_context as system_context_service
 from services import server_session as server_session_service
 from services import admin_security as admin_security_service
 from services import app_meta as app_meta_service
-from services import name_matching as name_matching_service
 from services import rate_limit as rate_limit_service
 from services import response_hooks as response_hooks_service
 from services import runtime_guards as runtime_guards_service
 from services import matrix_backups as matrix_backup_service
-from services import quality_stats as quality_stats_service
-from services import ids as ids_service
 
 # ─────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -128,7 +123,7 @@ app.register_blueprint(seo_routes.create_blueprint(_seo_context))
 
 
 def _game_context():
-    runtime = context_service.game_runtime(
+    return game_context_service.build(
         engine=engine,
         request=request,
         session=session,
@@ -136,68 +131,16 @@ def _game_context():
         rate_limit=_rate_limit,
         random_choice=_random.choice,
         logger=app.logger,
-    )
-    question_flow = context_service.game_question_flow(
-        best_question=question_selection_service.best_question,
-        top_guess=inference_service.top_guess,
-        make_guess=_make_guess,
-        question_total_for_count=question_selection_service.make_question_total_for_count(SOFT_MAX_QUESTIONS, HARD_MAX_QUESTIONS),
+        admin_guard_response=_admin_guard_response,
+        require_confirm=_require_confirm,
+        player_fetish_base_id=PLAYER_FETISH_BASE_ID,
         soft_max_questions=SOFT_MAX_QUESTIONS,
         hard_max_questions=HARD_MAX_QUESTIONS,
         guess_threshold=GUESS_THRESHOLD,
         focus_threshold=FOCUS_THRESHOLD,
-        should_extend_low_confidence=question_selection_service.make_low_confidence_extender(SOFT_MAX_QUESTIONS, HARD_MAX_QUESTIONS),
-        select_next_question=question_selection_service.make_next_question_selector(engine),
-        progress_message=question_selection_service.progress_message,
-    )
-    learning = context_service.game_learning(
-        learn_factor=learning_service.make_learn_factor(engine, inference_service.posteriors, GUESS_THRESHOLD),
-        learn_positive=learning_service.learn_positive,
-        learn_cooccurrence=learning_service.learn_cooccurrence,
-        learn_near_miss=learning_service.learn_near_miss,
-        learn_negative=learning_service.learn_negative,
-        posteriors=inference_service.posteriors,
-        parse_id_list=ids_service.parse_id_list,
-        record_guess_quality_feedback=quality_stats_service.make_guess_quality_feedback_recorder(engine, session),
-        find_similar=name_matching_service.find_similar,
-    )
-    admin_bridge = context_service.game_admin_bridge(
-        admin_guard_response=_admin_guard_response,
-        require_confirm=_require_confirm,
-        player_fetish_base_id=PLAYER_FETISH_BASE_ID,
-    )
-    return context_service.build_game_context(runtime, question_flow, learning, admin_bridge)
-
-
-PROFILE_MIN_RATIO = 0.25   # best_p に対する比率の下限
-PROFILE_MIN_PROB  = 0.08   # 絶対確率の下限
-COMPOUND_RATIO    = 0.55   # 2位がこの比率以上なら複合
-TRIPLE_RATIO      = 0.45   # 3位がこの比率以上なら三重複合
-
-
-def _inference_context():
-    return context_service.build_inference_context(
-        engine=engine,
-        session=session,
         work_title=work_title,
         get_compound_works=get_compound_works,
-        profile_min_ratio=PROFILE_MIN_RATIO,
-        profile_min_prob=PROFILE_MIN_PROB,
-        compound_ratio=COMPOUND_RATIO,
-        triple_ratio=TRIPLE_RATIO,
     )
-
-
-def _make_guess(answers):
-    guess_context = context_service.game_guess(
-        engine=engine,
-        session=session,
-        jsonify=jsonify,
-        soft_max_questions=SOFT_MAX_QUESTIONS,
-        inference_context=_inference_context,
-        mark_guess_quality=quality_stats_service.mark_guess_quality,
-    )
-    return inference_service.make_guess(guess_context, answers)
 
 
 app.register_blueprint(game_routes.create_blueprint(_game_context))

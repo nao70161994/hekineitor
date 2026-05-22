@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from services import admin_context, admin_security, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, share, system_context
+from services import admin_context, admin_security, game_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, share, system_context
 
 
 class DummyRequest:
@@ -231,6 +231,57 @@ class TestServices(unittest.TestCase):
         self.assertEqual(ctx.app_version, 'abc')
         self.assertEqual(ctx.local_session_count(), 2)
         self.assertEqual(ctx.app_dir, '/app')
+
+
+    def test_game_context_builder_groups_game_dependencies(self):
+        class Engine:
+            fetishes = [{'id': 7, 'name': 'A', 'desc': '', 'works': []}]
+            questions = [{'text': 'Q'}]
+            config = {}
+
+            def best_question(self, answers, asked, *, idk_streak=0):
+                return 0
+
+            def best_disambiguating_question(self, answers, asked, *, candidate_count=3, idk_streak=0):
+                return 0
+
+            def posteriors(self, answers):
+                return [0.9]
+
+            def increment_play_count(self):
+                pass
+
+            def get_related(self, source_db_id):
+                return []
+
+            def get_answer_contributions(self, answers, fetish_idx):
+                return []
+
+            def log_guessed(self, fetish_id):
+                pass
+
+        ctx = game_context.build(
+            engine=Engine(),
+            request=DummyRequest(),
+            session={},
+            jsonify=dummy_jsonify,
+            rate_limit=lambda *args, **kwargs: None,
+            random_choice=lambda values: values[0],
+            logger=type('Logger', (), {'exception': lambda self, message: None})(),
+            admin_guard_response=lambda: None,
+            require_confirm=lambda expected: None,
+            player_fetish_base_id=1000,
+            soft_max_questions=20,
+            hard_max_questions=30,
+            guess_threshold=0.75,
+            focus_threshold=0.5,
+            work_title=lambda work: str(work),
+            get_compound_works=lambda a, b: [],
+        )
+        self.assertEqual(ctx.question_total_for_count(20), 30)
+        self.assertEqual(ctx.select_next_question({}, [], idk_streak=0), 0)
+        self.assertEqual(ctx.parse_id_list(['1', 'bad']), {1})
+        self.assertEqual(ctx.player_fetish_base_id, 1000)
 
 
     def test_response_hooks_set_security_headers_and_count_errors(self):
