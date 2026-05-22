@@ -16,10 +16,9 @@ from routes import admin as admin_routes
 from routes import game as game_routes
 from routes import seo as seo_routes
 from routes import system as system_routes
-from services import ogp as ogp_service
 from services import share as share_service
-from services import context as context_service
 from services import game_context as game_context_service
+from services import seo_context as seo_context_service
 from services import admin_context as admin_context_service
 from services import system_context as system_context_service
 from services import server_session as server_session_service
@@ -98,20 +97,15 @@ def _matrix_backup_operations():
 
 
 def _seo_context():
-    return context_service.seo_context(
+    return seo_context_service.build(
         engine=engine,
         request=request,
-        Response=Response,
+        response_cls=Response,
         render_template=render_template,
         public_base_url=public_base_url,
         work_title=work_title,
         player_fetish_base_id=PLAYER_FETISH_BASE_ID,
         display_version=DISPLAY_VERSION,
-        clean_probability=share_service.clean_probability,
-        result_share_text=share_service.result_share_text,
-        result_tagline=share_service.result_tagline,
-        generate_ogp_png=ogp_service.generate_png,
-        render_ogp_svg=ogp_service.render_svg,
         safe_work_url=safe_work_url,
         amazon_associate_id=AMAZON_ASSOCIATE_ID,
         fetish_relations=FETISH_RELATIONS,

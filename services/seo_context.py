@@ -1,0 +1,37 @@
+from services import context, ogp, share
+
+
+def build(
+    *,
+    engine,
+    request,
+    response_cls,
+    render_template,
+    public_base_url,
+    work_title,
+    player_fetish_base_id,
+    display_version,
+    safe_work_url,
+    amazon_associate_id,
+    fetish_relations,
+    error_page,
+):
+    return context.seo_context(
+        engine=engine,
+        request=request,
+        Response=response_cls,
+        render_template=render_template,
+        public_base_url=public_base_url,
+        work_title=work_title,
+        player_fetish_base_id=player_fetish_base_id,
+        display_version=display_version,
+        clean_probability=share.clean_probability,
+        result_share_text=share.result_share_text,
+        result_tagline=share.result_tagline,
+        generate_ogp_png=ogp.generate_png,
+        render_ogp_svg=ogp.render_svg,
+        safe_work_url=safe_work_url,
+        amazon_associate_id=amazon_associate_id,
+        fetish_relations=fetish_relations,
+        error_page=error_page,
+    )

@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from services import admin_context, admin_security, game_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, share, system_context
+from services import admin_context, admin_security, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, share, system_context
 
 
 class DummyRequest:
@@ -282,6 +282,28 @@ class TestServices(unittest.TestCase):
         self.assertEqual(ctx.select_next_question({}, [], idk_streak=0), 0)
         self.assertEqual(ctx.parse_id_list(['1', 'bad']), {1})
         self.assertEqual(ctx.player_fetish_base_id, 1000)
+
+
+    def test_seo_context_builder_groups_share_and_ogp_dependencies(self):
+        ctx = seo_context.build(
+            engine=object(),
+            request=DummyRequest(),
+            response_cls=object,
+            render_template=lambda *args, **kwargs: '',
+            public_base_url=lambda: 'https://example.com',
+            work_title=lambda work: str(work),
+            player_fetish_base_id=1000,
+            display_version='v-test',
+            safe_work_url=lambda url: url,
+            amazon_associate_id='assoc',
+            fetish_relations={1: [2]},
+            error_page='error',
+        )
+        self.assertEqual(ctx.public_base_url(), 'https://example.com')
+        self.assertEqual(ctx.clean_probability('88.0'), '88')
+        self.assertIn('へきネイター', ctx.result_share_text('A', '88'))
+        self.assertEqual(ctx.player_fetish_base_id, 1000)
+        self.assertEqual(ctx.fetish_relations, {1: [2]})
 
 
     def test_response_hooks_set_security_headers_and_count_errors(self):
