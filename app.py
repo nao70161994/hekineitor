@@ -152,15 +152,7 @@ def _admin_context():
         set_compound_works=set_compound_works,
         delete_compound_works=delete_compound_works,
         write_audit=write_audit,
-        load_json_file=load_json_file,
-        data_path=data_path,
-        app_dir=os.path.dirname(__file__),
-        relpath=os.path.relpath,
-        basename=os.path.basename,
-        join_path=os.path.join,
-        path_exists=os.path.exists,
-        re_search=re.search,
-        html_escape=_html.escape,
+        filesystem=_filesystem(),
     )
 
 
@@ -187,11 +179,7 @@ def _system_context():
         use_db=_use_db,
         get_conn=_get_conn,
         put_conn=_put_conn,
-        data_path=data_path,
-        app_dir=os.path.dirname(__file__),
-        join_path=os.path.join,
-        path_exists=os.path.exists,
-        path_getmtime=os.path.getmtime,
+        filesystem=_filesystem(),
     )
 
 

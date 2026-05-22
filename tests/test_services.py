@@ -228,15 +228,21 @@ class TestServices(unittest.TestCase):
             set_compound_works=lambda a, b, works: 'key',
             delete_compound_works=lambda a, b: True,
             write_audit=lambda *args: None,
-            load_json_file=lambda path, default=None: default,
-            data_path=lambda name: name,
-            app_dir='/app',
-            relpath=lambda path, base: path,
-            basename=lambda path: path,
-            join_path=lambda *parts: '/'.join(parts),
-            path_exists=lambda path: True,
-            re_search=lambda pattern, value: None,
-            html_escape=lambda value, quote=True: value,
+            filesystem=filesystem_context.filesystem_context(
+                app_dir='/app',
+                os_module=type('Os', (), {'path': type('Path', (), {
+                    'join': staticmethod(lambda *parts: '/'.join(parts)),
+                    'exists': staticmethod(lambda path: True),
+                    'getmtime': staticmethod(lambda path: 0),
+                    'relpath': staticmethod(lambda path, base: path),
+                    'basename': staticmethod(lambda path: path),
+                })})(),
+                re_module=type('Re', (), {'search': staticmethod(lambda pattern, value: None)})(),
+                html_escape=lambda value, quote=True: value,
+                data_path=lambda name: name,
+                atomic_write_json=lambda path, data, **kwargs: None,
+                load_json_file=lambda path, default=None: default,
+            ),
         )
         self.assertEqual(ctx.csrf_token(), 'csrf')
         self.assertEqual(ctx.list_matrix_import_backups(), ['backup'])
@@ -263,11 +269,21 @@ class TestServices(unittest.TestCase):
             use_db=lambda: False,
             get_conn=lambda: None,
             put_conn=lambda conn: None,
-            data_path=lambda name: name,
-            app_dir='/app',
-            join_path=lambda *parts: '/'.join(parts),
-            path_exists=lambda path: False,
-            path_getmtime=lambda path: 0,
+            filesystem=filesystem_context.filesystem_context(
+                app_dir='/app',
+                os_module=type('Os', (), {'path': type('Path', (), {
+                    'join': staticmethod(lambda *parts: '/'.join(parts)),
+                    'exists': staticmethod(lambda path: False),
+                    'getmtime': staticmethod(lambda path: 0),
+                    'relpath': staticmethod(lambda path, base: path),
+                    'basename': staticmethod(lambda path: path),
+                })})(),
+                re_module=type('Re', (), {'search': staticmethod(lambda pattern, value: None)})(),
+                html_escape=lambda value, quote=True: value,
+                data_path=lambda name: name,
+                atomic_write_json=lambda path, data, **kwargs: None,
+                load_json_file=lambda path, default=None: default,
+            ),
         )
         self.assertEqual(ctx.static_folder, '/static')
         self.assertEqual(ctx.app_version, 'abc')

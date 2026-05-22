@@ -18,11 +18,7 @@ def build(
     use_db,
     get_conn,
     put_conn,
-    data_path,
-    app_dir,
-    join_path,
-    path_exists,
-    path_getmtime,
+    filesystem,
 ):
     runtime = context.system_runtime(
         engine=engine,
@@ -42,10 +38,10 @@ def build(
         use_db=use_db,
         get_conn=get_conn,
         put_conn=put_conn,
-        data_path=data_path,
-        app_dir=app_dir,
-        join_path=join_path,
-        path_exists=path_exists,
-        path_getmtime=path_getmtime,
+        data_path=filesystem.data_path,
+        app_dir=filesystem.app_dir,
+        join_path=filesystem.join_path,
+        path_exists=filesystem.path_exists,
+        path_getmtime=filesystem.path_getmtime,
     )
     return context.build_system_context(runtime, storage)
