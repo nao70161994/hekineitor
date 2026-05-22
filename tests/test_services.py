@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from services import admin_context, admin_security, context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, system_context
+from services import admin_context, admin_security, context, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, system_context
 
 
 class DummyRequest:
@@ -403,6 +403,53 @@ class TestServices(unittest.TestCase):
             list_fn=lambda limit=None: [{'name': f'b{i}.json'} for i in range(4)],
         )
         self.assertEqual(removed, ['matrix_import_backups/b2.json', 'matrix_import_backups/b3.json'])
+
+
+    def test_filesystem_context_exposes_storage_and_path_helpers(self):
+        class DummyPath:
+            @staticmethod
+            def join(*parts):
+                return '/'.join(parts)
+
+            @staticmethod
+            def exists(path):
+                return path == 'exists'
+
+            @staticmethod
+            def getmtime(path):
+                return 123
+
+            @staticmethod
+            def relpath(path, base):
+                return path.replace(base + '/', '')
+
+            @staticmethod
+            def basename(path):
+                return path.split('/')[-1]
+
+        class DummyOs:
+            path = DummyPath
+
+        class DummyRe:
+            @staticmethod
+            def search(pattern, value):
+                return None
+
+        fs = filesystem_context.filesystem_context(
+            app_dir='/app',
+            os_module=DummyOs,
+            re_module=DummyRe,
+            html_escape=lambda value, quote=True: value,
+            data_path=lambda name: f'data/{name}',
+            atomic_write_json=lambda path, data, **kwargs: None,
+            load_json_file=lambda path, default=None: default,
+        )
+        self.assertEqual(fs.join_path('a', 'b'), 'a/b')
+        self.assertTrue(fs.path_exists('exists'))
+        self.assertEqual(fs.path_getmtime('x'), 123)
+        self.assertEqual(fs.relpath('/app/data/x', '/app'), 'data/x')
+        self.assertEqual(fs.basename('/app/data/x.json'), 'x.json')
+        self.assertEqual(fs.data_path('matrix.json'), 'data/matrix.json')
 
 
     def test_matrix_backup_operations_bind_dependencies(self):

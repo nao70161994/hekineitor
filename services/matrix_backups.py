@@ -113,3 +113,16 @@ class MatrixBackupOperations:
 
 def operations(**kwargs):
     return MatrixBackupOperations(**kwargs)
+
+
+
+def operations_for_filesystem(*, engine, filesystem, time_module, jsonify, environ):
+    return operations(
+        engine=engine,
+        data_path=filesystem.data_path,
+        atomic_write_json=filesystem.atomic_write_json,
+        time_module=time_module,
+        os_module=filesystem.os,
+        jsonify=jsonify,
+        environ=environ,
+    )

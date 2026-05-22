@@ -26,6 +26,7 @@ from services import app_meta as app_meta_service
 from services import response_hooks as response_hooks_service
 from services import matrix_backups as matrix_backup_service
 from services import runtime as runtime_service
+from services import filesystem_context as filesystem_context_service
 
 # ─────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -69,13 +70,23 @@ HARD_MAX_QUESTIONS = 30
 MAX_QUESTIONS   = SOFT_MAX_QUESTIONS
 
 
-def _matrix_backup_operations():
-    return matrix_backup_service.operations(
-        engine=engine,
+def _filesystem():
+    return filesystem_context_service.filesystem_context(
+        app_dir=os.path.dirname(__file__),
+        os_module=os,
+        re_module=re,
+        html_escape=_html.escape,
         data_path=data_path,
         atomic_write_json=atomic_write_json,
+        load_json_file=load_json_file,
+    )
+
+
+def _matrix_backup_operations():
+    return matrix_backup_service.operations_for_filesystem(
+        engine=engine,
+        filesystem=_filesystem(),
         time_module=_time,
-        os_module=os,
         jsonify=jsonify,
         environ=os.environ,
     )
