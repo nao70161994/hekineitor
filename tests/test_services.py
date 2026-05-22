@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from services import admin_context, admin_security, context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, share, system_context
+from services import admin_context, admin_security, context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, system_context
 
 
 class DummyRequest:
@@ -131,6 +131,31 @@ class TestServices(unittest.TestCase):
         self.assertTrue(runtime_guards.should_enforce({'TESTING': True, 'ENFORCE_CSRF': True}, 'csrf'))
         self.assertTrue(runtime_guards.should_enforce({'TESTING': True, 'ENFORCE_RATE_LIMIT': True}, 'rate_limit'))
         self.assertTrue(runtime_guards.should_enforce({'TESTING': False}, 'rate_limit'))
+
+
+    def test_flask_runtime_bundle_exposes_security_and_rate_limit_helpers(self):
+        req = DummyRequest(json_data={'confirm_text': 'OK'})
+        req.remote_addr = '127.0.0.1'
+        req.path = '/api/admin/test'
+        req.authorization = DummyAuth('admin', 'pass')
+        session = {}
+        runtime = runtime_service.flask_runtime(
+            request=req,
+            session=session,
+            response_cls=lambda body, status=200, headers=None: (body, status, headers),
+            jsonify=dummy_jsonify,
+            app_config={'TESTING': True, 'ENFORCE_RATE_LIMIT': True},
+            environ={'ADMIN_PASS': 'pass'},
+            buckets={},
+            time_fn=lambda: 100,
+        )
+        self.assertIsNone(runtime.require_confirm('OK'))
+        self.assertEqual(runtime.csrf_token(), session['admin_csrf_token'])
+        self.assertFalse(runtime.should_enforce_runtime_guard('csrf'))
+        self.assertIsNone(runtime.rate_limit('api_start', 1))
+        limited = runtime.rate_limit('api_start', 1)
+        self.assertEqual(limited[1], 429)
+        self.assertIsNone(runtime.admin_guard_response())
 
 
     def test_public_base_url_prefers_configured_site_base_url(self):

@@ -22,12 +22,10 @@ from services import seo_context as seo_context_service
 from services import admin_context as admin_context_service
 from services import system_context as system_context_service
 from services import server_session as server_session_service
-from services import admin_security as admin_security_service
 from services import app_meta as app_meta_service
-from services import rate_limit as rate_limit_service
 from services import response_hooks as response_hooks_service
-from services import runtime_guards as runtime_guards_service
 from services import matrix_backups as matrix_backup_service
+from services import runtime as runtime_service
 
 # ─────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -40,27 +38,17 @@ def _record_status_counts(response):
     return response_hooks_service.after_request(response, request, _ERROR_COUNTS, write_audit)
 
 
-def _rate_limit(scope, limit, window_seconds=60):
-    return rate_limit_service.rate_limit(
-        scope,
-        limit,
-        request,
-        app.config,
-        _RATE_LIMIT_BUCKETS,
-        jsonify,
-        _should_enforce_runtime_guard,
-        window_seconds=window_seconds,
+def _runtime():
+    return runtime_service.flask_runtime(
+        request=request,
+        session=session,
+        response_cls=Response,
+        jsonify=jsonify,
+        app_config=app.config,
         environ=os.environ,
+        buckets=_RATE_LIMIT_BUCKETS,
         time_fn=_time.time,
     )
-
-
-def _require_confirm(expected):
-    return admin_security_service.require_confirm(request, jsonify, expected)
-
-
-def _csrf_token():
-    return admin_security_service.csrf_token(session, os.environ, now_fn=_time.time)
 
 APP_VERSION       = app_meta_service.app_version(os.path.dirname(__file__))
 DISPLAY_VERSION   = 'v1.9.2'
@@ -74,9 +62,6 @@ APP_STARTED_AT = int(_time.time())
 _ERROR_COUNTS = {'4xx': 0, '5xx': 0}
 _RATE_LIMIT_BUCKETS = {}
 
-
-def _should_enforce_runtime_guard(name):
-    return runtime_guards_service.should_enforce(app.config, name)
 
 GUESS_THRESHOLD = 0.75
 SOFT_MAX_QUESTIONS = 20
@@ -122,11 +107,11 @@ def _game_context():
         request=request,
         session=session,
         jsonify=jsonify,
-        rate_limit=_rate_limit,
+        rate_limit=_runtime().rate_limit,
         random_choice=_random.choice,
         logger=app.logger,
-        admin_guard_response=_admin_guard_response,
-        require_confirm=_require_confirm,
+        admin_guard_response=_runtime().admin_guard_response,
+        require_confirm=_runtime().require_confirm,
         player_fetish_base_id=PLAYER_FETISH_BASE_ID,
         soft_max_questions=SOFT_MAX_QUESTIONS,
         hard_max_questions=HARD_MAX_QUESTIONS,
@@ -148,17 +133,17 @@ def _admin_context():
         response_cls=Response,
         render_template=render_template,
         session=session,
-        csrf_token=_csrf_token,
+        csrf_token=_runtime().csrf_token,
         recent_audit=recent_audit,
         json_dumps=_json.dumps,
         environ=os.environ,
-        require_confirm=_require_confirm,
+        require_confirm=_runtime().require_confirm,
         perf_counter=_time.perf_counter,
         work_title=work_title,
         safe_work_url=safe_work_url,
         use_db=_use_db,
         matrix_ops=_matrix_backup_operations(),
-        should_enforce_runtime_guard=_should_enforce_runtime_guard,
+        should_enforce_runtime_guard=_runtime().should_enforce_runtime_guard,
         cleanup_sessions=server_session_service.cleanup_sessions,
         player_fetish_base_id=PLAYER_FETISH_BASE_ID,
         strftime=_time.strftime,
@@ -180,15 +165,9 @@ def _admin_context():
     )
 
 
-def _admin_guard_response():
-    return admin_security_service.admin_guard_response(
-        request, os.environ, session, Response, jsonify, _rate_limit, _should_enforce_runtime_guard,
-    )
-
-
 app.register_blueprint(admin_routes.create_blueprint(
     _admin_context,
-    admin_security_service.require_admin_decorator(_admin_guard_response),
+    runtime_service.require_admin_decorator(lambda: _runtime().admin_guard_response()),
 ))
 
 
