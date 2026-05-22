@@ -28,13 +28,16 @@
 - Game flow question/learning closures are provided by owning services instead of app-level wrappers.
 - Legacy OGP SVG response assembly now lives in the SEO route while keeping `/ogp` behavior intact.
 - Guess quality feedback recording is bound through `services/quality_stats.py` instead of an app-level wrapper.
+- Matrix import backup operations are grouped behind `services/matrix_backups.py` adapter methods.
+- Admin matrix routes now receive matrix backup operations through the adapter instead of individual app wrappers.
+- Stale app-level client IP and matrix backup wrappers were removed after service coverage was added.
 - Redundant app helper wrappers for name matching and admin paging were removed.
 - App versioning and name matching helpers are pure service modules with direct regression tests.
 - Lightweight E2E strategy is documented in `docs/LIGHTWEIGHT_E2E.md`.
 
 ## Still Open
 
-- Continue thinning the context/facade objects passed from `app.py` by moving remaining matrix/admin/system closures behind focused services.
+- Continue thinning the context/facade objects passed from `app.py` by moving remaining admin/system closures behind focused services.
 - Package `engine.py` as a directory while preserving import compatibility.
 - Expand browser-oriented E2E coverage beyond Flask smoke paths when a lightweight browser runner is available.
 - Complete manual QA for mobile CTA, OGP previews, and install/update behavior.
