@@ -10,14 +10,9 @@ TRIPLE_RATIO = 0.45
 def build(
     *,
     engine,
-    request,
-    session,
-    jsonify,
-    rate_limit,
+    flask_runtime,
     random_choice,
     logger,
-    admin_guard_response,
-    require_confirm,
     player_fetish_base_id,
     soft_max_questions,
     hard_max_questions,
@@ -26,6 +21,9 @@ def build(
     work_title,
     get_compound_works,
 ):
+    request = flask_runtime.request
+    session = flask_runtime.session
+    jsonify = flask_runtime.jsonify
     def inference_context():
         return context.build_inference_context(
             engine=engine,
@@ -54,7 +52,7 @@ def build(
         request=request,
         session=session,
         jsonify=jsonify,
-        rate_limit=rate_limit,
+        rate_limit=flask_runtime.rate_limit,
         random_choice=random_choice,
         logger=logger,
     )
@@ -87,8 +85,8 @@ def build(
         find_similar=name_matching.find_similar,
     )
     admin_bridge = context.game_admin_bridge(
-        admin_guard_response=admin_guard_response,
-        require_confirm=require_confirm,
+        admin_guard_response=flask_runtime.admin_guard_response,
+        require_confirm=flask_runtime.require_confirm,
         player_fetish_base_id=player_fetish_base_id,
     )
     return context.build_game_context(runtime, question_flow, game_learning, admin_bridge)

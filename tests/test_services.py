@@ -26,6 +26,21 @@ def dummy_jsonify(payload):
     return payload
 
 
+def dummy_runtime(**overrides):
+    req = overrides.pop('request', DummyRequest())
+    req.remote_addr = getattr(req, 'remote_addr', '127.0.0.1')
+    return runtime_service.flask_runtime(
+        request=req,
+        session=overrides.pop('session', {}),
+        response_cls=overrides.pop('response_cls', object),
+        jsonify=overrides.pop('jsonify', dummy_jsonify),
+        app_config=overrides.pop('app_config', {'TESTING': True}),
+        environ=overrides.pop('environ', {}),
+        buckets=overrides.pop('buckets', {}),
+        time_fn=overrides.pop('time_fn', lambda: 100),
+    )
+
+
 class TestServices(unittest.TestCase):
     def test_name_matching_finds_close_names_without_exact_self_match(self):
         fetishes = [
@@ -195,22 +210,15 @@ class TestServices(unittest.TestCase):
 
         ctx = admin_context.build(
             engine=Engine(),
-            request=DummyRequest(),
-            jsonify=dummy_jsonify,
-            response_cls=object,
+            flask_runtime=dummy_runtime(session={'admin_csrf_token': 'csrf', 'admin_csrf_issued_at': 100}),
             render_template=lambda *args, **kwargs: '',
-            session={},
-            csrf_token=lambda: 'csrf',
             recent_audit=lambda limit: [],
             json_dumps=lambda data, **kwargs: str(data),
-            environ={},
-            require_confirm=lambda expected: None,
             perf_counter=lambda: 0,
             work_title=lambda work: str(work),
             safe_work_url=lambda url: url,
             use_db=lambda: False,
             matrix_ops=MatrixOps(),
-            should_enforce_runtime_guard=lambda name: True,
             cleanup_sessions=lambda: 0,
             player_fetish_base_id=1000,
             strftime=lambda fmt, t: 'now',
@@ -296,14 +304,9 @@ class TestServices(unittest.TestCase):
 
         ctx = game_context.build(
             engine=Engine(),
-            request=DummyRequest(),
-            session={},
-            jsonify=dummy_jsonify,
-            rate_limit=lambda *args, **kwargs: None,
+            flask_runtime=dummy_runtime(),
             random_choice=lambda values: values[0],
             logger=type('Logger', (), {'exception': lambda self, message: None})(),
-            admin_guard_response=lambda: None,
-            require_confirm=lambda expected: None,
             player_fetish_base_id=1000,
             soft_max_questions=20,
             hard_max_questions=30,

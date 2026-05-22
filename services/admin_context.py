@@ -4,22 +4,15 @@ from services import admin_helpers, context, question_selection
 def build(
     *,
     engine,
-    request,
-    jsonify,
-    response_cls,
+    flask_runtime,
     render_template,
-    session,
-    csrf_token,
     recent_audit,
     json_dumps,
-    environ,
-    require_confirm,
     perf_counter,
     work_title,
     safe_work_url,
     use_db,
     matrix_ops,
-    should_enforce_runtime_guard,
     cleanup_sessions,
     player_fetish_base_id,
     strftime,
@@ -39,6 +32,11 @@ def build(
     re_search,
     html_escape,
 ):
+    request = flask_runtime.request
+    jsonify = flask_runtime.jsonify
+    response_cls = flask_runtime.response_cls
+    session = flask_runtime.session
+    environ = flask_runtime.environ
     runtime = context.admin_runtime(
         engine=engine,
         request=request,
@@ -46,11 +44,11 @@ def build(
         Response=response_cls,
         render_template=render_template,
         session=session,
-        csrf_token=csrf_token,
+        csrf_token=flask_runtime.csrf_token,
         recent_audit=recent_audit,
         json_dumps=json_dumps,
         environ=environ,
-        require_confirm=require_confirm,
+        require_confirm=flask_runtime.require_confirm,
     )
     reporting = context.admin_reporting(
         bounded_int=admin_helpers.bounded_int,
@@ -63,7 +61,7 @@ def build(
         ),
         use_db=use_db,
         list_matrix_import_backups=matrix_ops.list_backups,
-        should_enforce_runtime_guard=should_enforce_runtime_guard,
+        should_enforce_runtime_guard=flask_runtime.should_enforce_runtime_guard,
         cleanup_sessions=cleanup_sessions,
         player_fetish_base_id=player_fetish_base_id,
         strftime=strftime,
