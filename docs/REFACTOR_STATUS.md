@@ -43,10 +43,13 @@
 - Filesystem/path/storage helpers are grouped behind `services/filesystem_context.py`.
 - Matrix backup operations can now be built from the filesystem bundle instead of app-level path arguments.
 - Admin and system context builders receive filesystem bundles instead of individual path/storage helpers.
+- Bootstrap configuration is grouped in `services/bootstrap.py`.
+- App composition-root responsibilities are documented in `docs/APP_BOOTSTRAP.md`.
+- App-level factories were renamed to clarify their roles: `_flask_runtime`, `_filesystem_context`, and `_matrix_operations`.
 
 ## Still Open
 
-- Continue extracting remaining app bootstrap constants only where it keeps route contracts clear.
+- Keep remaining `app.py` factories as explicit composition-root adapters unless a smaller safe boundary appears.
 - Package `engine.py` as a directory while preserving import compatibility.
 - Expand browser-oriented E2E coverage beyond Flask smoke paths when a lightweight browser runner is available.
 - Execute the manual QA backlog in `docs/QA_EXECUTION_LOG.md` for mobile CTA, OGP previews, and PWA install/update behavior.

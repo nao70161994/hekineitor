@@ -89,10 +89,12 @@
 - `e8de371` - Flask runtime bundle passed into game/admin contexts.
 - `940a54f` - Filesystem dependency bundle added.
 - `211326f` - Filesystem bundle passed into admin/system contexts.
+- `cb659ee` - App bootstrap config bundle added.
+- `c7ef15a` - App factory names clarified.
 
 ## Next PRs
 
-1. Extract remaining bootstrap constants only if it reduces `app.py` noise without obscuring configuration.
+1. Keep `app.py` as composition root; extract only if a dependency group has clear ownership outside Flask wiring.
 3. Execute `docs/QA_EXECUTION_LOG.md` manual mobile/OGP/PWA backlog against real devices and a deployed URL.
 4. Browser E2E runner decision after manual QA gaps are confirmed.
 5. Engine package compatibility layer preparation only; no package conversion yet.

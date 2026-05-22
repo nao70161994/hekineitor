@@ -12,6 +12,7 @@
 | Context builder services | `pytest tests/test_services.py` via full `pytest` | Passed locally | Admin/system/game/SEO builders and context flattener covered |
 | Flask runtime bundle | Full `pytest` | Passed locally | Rate limit, confirm, CSRF, and admin guard bundle covered |
 | Filesystem bundle | Full `pytest` | Passed locally | Matrix backup, admin, and system context path dependencies covered |
+| Bootstrap/config wiring | Full `pytest` | Passed locally | App bootstrap bundle and factory rename covered by route smoke tests |
 
 ## Manual QA Backlog
 
