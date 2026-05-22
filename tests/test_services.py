@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from services import admin_context, admin_security, context, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, system_context
+from services import admin_context, admin_security, bootstrap, context, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, system_context
 
 
 class DummyRequest:
@@ -63,6 +63,20 @@ class TestServices(unittest.TestCase):
                 f.write('b')
             second = app_meta.app_version(tmp, paths=('app.py',))
         self.assertNotEqual(first, second)
+
+    def test_app_bootstrap_groups_static_config(self):
+        config = bootstrap.app_bootstrap(
+            base_dir='/app',
+            environ={'AMAZON_ASSOCIATE_ID': 'assoc'},
+            app_version_fn=lambda base_dir: 'version',
+        )
+        self.assertEqual(config.app_version, 'version')
+        self.assertEqual(config.display_version, 'v1.9.2')
+        self.assertEqual(config.amazon_associate_id, 'assoc')
+        self.assertEqual(config.guess_threshold, 0.75)
+        self.assertEqual(config.soft_max_questions, 20)
+        self.assertEqual(config.hard_max_questions, 30)
+        self.assertEqual(config.max_questions, 20)
 
     def test_secret_key_requires_value_with_database_url(self):
         with open(os.devnull, 'w') as stderr:

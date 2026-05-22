@@ -23,6 +23,7 @@ from services import admin_context as admin_context_service
 from services import system_context as system_context_service
 from services import server_session as server_session_service
 from services import app_meta as app_meta_service
+from services import bootstrap as bootstrap_service
 from services import response_hooks as response_hooks_service
 from services import matrix_backups as matrix_backup_service
 from services import runtime as runtime_service
@@ -51,9 +52,11 @@ def _runtime():
         time_fn=_time.time,
     )
 
-APP_VERSION       = app_meta_service.app_version(os.path.dirname(__file__))
-DISPLAY_VERSION   = 'v1.9.2'
-AMAZON_ASSOCIATE_ID = os.environ.get('AMAZON_ASSOCIATE_ID', '')
+BOOTSTRAP = bootstrap_service.app_bootstrap(
+    base_dir=os.path.dirname(__file__),
+    environ=os.environ,
+    app_version_fn=app_meta_service.app_version,
+)
 engine = Engine()
 
 
@@ -62,12 +65,6 @@ def public_base_url():
 APP_STARTED_AT = int(_time.time())
 _ERROR_COUNTS = {'4xx': 0, '5xx': 0}
 _RATE_LIMIT_BUCKETS = {}
-
-
-GUESS_THRESHOLD = 0.75
-SOFT_MAX_QUESTIONS = 20
-HARD_MAX_QUESTIONS = 30
-MAX_QUESTIONS   = SOFT_MAX_QUESTIONS
 
 
 def _filesystem():
@@ -101,9 +98,9 @@ def _seo_context():
         public_base_url=public_base_url,
         work_title=work_title,
         player_fetish_base_id=PLAYER_FETISH_BASE_ID,
-        display_version=DISPLAY_VERSION,
+        display_version=BOOTSTRAP.display_version,
         safe_work_url=safe_work_url,
-        amazon_associate_id=AMAZON_ASSOCIATE_ID,
+        amazon_associate_id=BOOTSTRAP.amazon_associate_id,
         fetish_relations=FETISH_RELATIONS,
         error_page=system_routes.ERROR_PAGE,
     )
@@ -119,9 +116,9 @@ def _game_context():
         random_choice=_random.choice,
         logger=app.logger,
         player_fetish_base_id=PLAYER_FETISH_BASE_ID,
-        soft_max_questions=SOFT_MAX_QUESTIONS,
-        hard_max_questions=HARD_MAX_QUESTIONS,
-        guess_threshold=GUESS_THRESHOLD,
+        soft_max_questions=BOOTSTRAP.soft_max_questions,
+        hard_max_questions=BOOTSTRAP.hard_max_questions,
+        guess_threshold=BOOTSTRAP.guess_threshold,
         focus_threshold=FOCUS_THRESHOLD,
         work_title=work_title,
         get_compound_works=get_compound_works,
@@ -169,7 +166,7 @@ def _system_context():
         response_cls=Response,
         render_template=render_template,
         static_folder=app.static_folder,
-        app_version=APP_VERSION,
+        app_version=BOOTSTRAP.app_version,
         environ=os.environ,
         error_counts=_ERROR_COUNTS,
         app_started_at=APP_STARTED_AT,
