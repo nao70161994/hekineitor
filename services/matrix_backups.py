@@ -69,3 +69,47 @@ def prune_backups(*, environ, data_path, os_module, list_fn):
             os_module.remove(os_module.path.join(data_path('matrix_import_backups'), row['name']))
         except OSError:
             pass
+
+
+
+class MatrixBackupOperations:
+    def __init__(self, *, engine, data_path, atomic_write_json, time_module, os_module, jsonify, environ):
+        self.engine = engine
+        self.data_path = data_path
+        self.atomic_write_json = atomic_write_json
+        self.time_module = time_module
+        self.os_module = os_module
+        self.jsonify = jsonify
+        self.environ = environ
+
+    def snapshot_current_matrix(self, reason):
+        return snapshot_current_matrix(
+            self.engine,
+            reason,
+            data_path=self.data_path,
+            atomic_write_json=self.atomic_write_json,
+            time_module=self.time_module,
+            prune_fn=self.prune_backups,
+            os_module=self.os_module,
+        )
+
+    def expected_rows(self):
+        return expected_rows(self.engine)
+
+    def completeness_error(self, report):
+        return completeness_error(report, self.expected_rows(), self.jsonify)
+
+    def list_backups(self, limit=50):
+        return list_backups(data_path=self.data_path, os_module=self.os_module, limit=limit)
+
+    def prune_backups(self):
+        return prune_backups(
+            environ=self.environ,
+            data_path=self.data_path,
+            os_module=self.os_module,
+            list_fn=self.list_backups,
+        )
+
+
+def operations(**kwargs):
+    return MatrixBackupOperations(**kwargs)

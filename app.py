@@ -93,35 +93,32 @@ HARD_MAX_QUESTIONS = 30
 MAX_QUESTIONS   = SOFT_MAX_QUESTIONS
 
 
-
-
-
-def _snapshot_current_matrix(reason):
-    return matrix_backup_service.snapshot_current_matrix(
-        engine,
-        reason,
+def _matrix_backup_operations():
+    return matrix_backup_service.operations(
+        engine=engine,
         data_path=data_path,
         atomic_write_json=atomic_write_json,
         time_module=_time,
-        prune_fn=_prune_matrix_import_backups,
         os_module=os,
+        jsonify=jsonify,
+        environ=os.environ,
     )
+
+
+def _snapshot_current_matrix(reason):
+    return _matrix_backup_operations().snapshot_current_matrix(reason)
 
 
 def _matrix_import_expected_rows():
-    return matrix_backup_service.expected_rows(engine)
+    return _matrix_backup_operations().expected_rows()
 
 
 def _matrix_import_completeness_error(report):
-    return matrix_backup_service.completeness_error(
-        report, _matrix_import_expected_rows(), jsonify,
-    )
+    return _matrix_backup_operations().completeness_error(report)
 
 
 def _list_matrix_import_backups(limit=50):
-    return matrix_backup_service.list_backups(
-        data_path=data_path, os_module=os, limit=limit,
-    )
+    return _matrix_backup_operations().list_backups(limit=limit)
 
 
 def _prune_matrix_import_backups():

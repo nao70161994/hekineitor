@@ -204,6 +204,70 @@ class TestServices(unittest.TestCase):
         self.assertEqual(removed, ['matrix_import_backups/b2.json', 'matrix_import_backups/b3.json'])
 
 
+    def test_matrix_backup_operations_bind_dependencies(self):
+        class Engine:
+            fetishes = [{'id': 1, 'name': 'A'}]
+            questions = [{'text': 'Q'}]
+            matrix = {'yes': [[0.75]], 'total': [[1.0]]}
+
+        writes = []
+        removed = []
+
+        class DummyPath:
+            @staticmethod
+            def join(*parts):
+                return '/'.join(parts)
+
+            @staticmethod
+            def isdir(path):
+                return True
+
+        class DummyOs:
+            path = DummyPath
+
+            @staticmethod
+            def makedirs(path, exist_ok=False):
+                pass
+
+            @staticmethod
+            def listdir(path):
+                return ['b0.json', 'b1.json']
+
+            @staticmethod
+            def stat(path):
+                return type('Stat', (), {'st_mtime': 1, 'st_size': 2})()
+
+            @staticmethod
+            def remove(path):
+                removed.append(path)
+
+        class DummyTime:
+            @staticmethod
+            def time():
+                return 123
+
+            @staticmethod
+            def time_ns():
+                return 123000
+
+        ops = matrix_backups.operations(
+            engine=Engine(),
+            data_path=lambda name: name,
+            atomic_write_json=lambda path, data, **kwargs: writes.append((path, data)),
+            time_module=DummyTime,
+            os_module=DummyOs,
+            jsonify=dummy_jsonify,
+            environ={'MATRIX_IMPORT_BACKUP_KEEP': '1'},
+        )
+        self.assertEqual(ops.expected_rows(), 1)
+        path = ops.snapshot_current_matrix('test')
+        self.assertEqual(path, 'matrix_import_backups/matrix_before_123000.json')
+        self.assertEqual(writes[0][1]['matrix_rows'][0]['fetish_id'], 1)
+        self.assertEqual(removed, ['matrix_import_backups/b0.json'])
+        self.assertIsNone(ops.completeness_error({'skipped_rows': 0, 'valid_rows': 1}))
+        self.assertEqual(ops.completeness_error({'skipped_rows': 0, 'valid_rows': 0})[1], 400)
+
+
     def test_quality_stats_records_guess_and_feedback_keys(self):
         calls = []
 
