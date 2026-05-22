@@ -21,8 +21,8 @@ from services import learning as learning_service
 from services import question_selection as question_selection_service
 from services import ogp as ogp_service
 from services import share as share_service
-from services import admin_helpers as admin_helper_service
 from services import context as context_service
+from services import admin_context as admin_context_service
 from services import server_session as server_session_service
 from services import admin_security as admin_security_service
 from services import app_meta as app_meta_service
@@ -203,12 +203,11 @@ app.register_blueprint(game_routes.create_blueprint(_game_context))
 
 
 def _admin_context():
-    matrix_ops = _matrix_backup_operations()
-    runtime = context_service.admin_runtime(
+    return admin_context_service.build(
         engine=engine,
         request=request,
         jsonify=jsonify,
-        Response=Response,
+        response_cls=Response,
         render_template=render_template,
         session=session,
         csrf_token=_csrf_token,
@@ -216,25 +215,16 @@ def _admin_context():
         json_dumps=_json.dumps,
         environ=os.environ,
         require_confirm=_require_confirm,
-    )
-    reporting = context_service.admin_reporting(
-        bounded_int=admin_helper_service.bounded_int,
-        build_fetish_log_rows=lambda: admin_helper_service.build_fetish_log_rows(engine),
-        paged_fetish_log_rows=admin_helper_service.paged_fetish_log_rows,
         perf_counter=_time.perf_counter,
-        best_question=question_selection_service.best_question,
-        build_admin_maintenance_checklist=admin_helper_service.make_admin_maintenance_checklist(
-            engine, work_title, safe_work_url,
-        ),
+        work_title=work_title,
+        safe_work_url=safe_work_url,
         use_db=_use_db,
-        list_matrix_import_backups=matrix_ops.list_backups,
+        matrix_ops=_matrix_backup_operations(),
         should_enforce_runtime_guard=_should_enforce_runtime_guard,
         cleanup_sessions=server_session_service.cleanup_sessions,
         player_fetish_base_id=PLAYER_FETISH_BASE_ID,
         strftime=_time.strftime,
         gmtime=_time.gmtime,
-    )
-    maintenance = context_service.admin_maintenance(
         parse_works_list=parse_works_list,
         list_compound_works=list_compound_works,
         set_compound_works=set_compound_works,
@@ -242,8 +232,6 @@ def _admin_context():
         write_audit=write_audit,
         load_json_file=load_json_file,
         data_path=data_path,
-    )
-    matrix_tools = context_service.admin_matrix_tools(
         app_dir=os.path.dirname(__file__),
         relpath=os.path.relpath,
         basename=os.path.basename,
@@ -251,11 +239,7 @@ def _admin_context():
         path_exists=os.path.exists,
         re_search=re.search,
         html_escape=_html.escape,
-        snapshot_current_matrix=matrix_ops.snapshot_current_matrix,
-        matrix_import_completeness_error=matrix_ops.completeness_error,
-        matrix_import_expected_rows=matrix_ops.expected_rows,
     )
-    return context_service.build_admin_context(runtime, reporting, maintenance, matrix_tools)
 
 
 def _admin_guard_response():
