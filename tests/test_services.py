@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from services import admin_security, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, share
+from services import admin_context, admin_security, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, share, system_context
 
 
 class DummyRequest:
@@ -140,6 +140,97 @@ class TestServices(unittest.TestCase):
             'https://example.com',
         )
         self.assertEqual(share.public_base_url({}, request), 'http://localhost:5000')
+
+
+    def test_admin_context_builder_groups_route_dependencies(self):
+        class Engine:
+            fetishes = []
+
+        class MatrixOps:
+            def list_backups(self, limit=50):
+                return ['backup']
+
+            def snapshot_current_matrix(self, reason):
+                return reason
+
+            def completeness_error(self, report):
+                return None
+
+            def expected_rows(self):
+                return 0
+
+        ctx = admin_context.build(
+            engine=Engine(),
+            request=DummyRequest(),
+            jsonify=dummy_jsonify,
+            response_cls=object,
+            render_template=lambda *args, **kwargs: '',
+            session={},
+            csrf_token=lambda: 'csrf',
+            recent_audit=lambda limit: [],
+            json_dumps=lambda data, **kwargs: str(data),
+            environ={},
+            require_confirm=lambda expected: None,
+            perf_counter=lambda: 0,
+            work_title=lambda work: str(work),
+            safe_work_url=lambda url: url,
+            use_db=lambda: False,
+            matrix_ops=MatrixOps(),
+            should_enforce_runtime_guard=lambda name: True,
+            cleanup_sessions=lambda: 0,
+            player_fetish_base_id=1000,
+            strftime=lambda fmt, t: 'now',
+            gmtime=lambda: None,
+            parse_works_list=lambda raw: raw,
+            list_compound_works=lambda: [],
+            set_compound_works=lambda a, b, works: 'key',
+            delete_compound_works=lambda a, b: True,
+            write_audit=lambda *args: None,
+            load_json_file=lambda path, default=None: default,
+            data_path=lambda name: name,
+            app_dir='/app',
+            relpath=lambda path, base: path,
+            basename=lambda path: path,
+            join_path=lambda *parts: '/'.join(parts),
+            path_exists=lambda path: True,
+            re_search=lambda pattern, value: None,
+            html_escape=lambda value, quote=True: value,
+        )
+        self.assertEqual(ctx.csrf_token(), 'csrf')
+        self.assertEqual(ctx.list_matrix_import_backups(), ['backup'])
+        self.assertEqual(ctx.matrix_import_expected_rows(), 0)
+        self.assertEqual(ctx.player_fetish_base_id, 1000)
+
+    def test_system_context_builder_groups_runtime_and_storage_dependencies(self):
+        class Engine:
+            pass
+
+        ctx = system_context.build(
+            engine=Engine(),
+            jsonify=dummy_jsonify,
+            response_cls=object,
+            render_template=lambda *args, **kwargs: '',
+            static_folder='/static',
+            app_version='abc',
+            environ={},
+            error_counts={'4xx': 0, '5xx': 0},
+            app_started_at=10,
+            time_fn=lambda: 15,
+            local_session_count=lambda: 2,
+            recent_audit=lambda limit: [],
+            use_db=lambda: False,
+            get_conn=lambda: None,
+            put_conn=lambda conn: None,
+            data_path=lambda name: name,
+            app_dir='/app',
+            join_path=lambda *parts: '/'.join(parts),
+            path_exists=lambda path: False,
+            path_getmtime=lambda path: 0,
+        )
+        self.assertEqual(ctx.static_folder, '/static')
+        self.assertEqual(ctx.app_version, 'abc')
+        self.assertEqual(ctx.local_session_count(), 2)
+        self.assertEqual(ctx.app_dir, '/app')
 
 
     def test_response_hooks_set_security_headers_and_count_errors(self):
