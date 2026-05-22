@@ -79,10 +79,13 @@
 - `477cf55` - Admin context switched to matrix operations adapter.
 - `fb22233` - Matrix backup app wrappers removed.
 - `ed3abd0` - Stale client IP wrapper removed.
+- `51b9513` - Admin context builder moved to service.
+- `ad04076` - System context builder moved to service.
+- `d55bf1d` - Context builder service tests added.
 
 ## Next PRs
 
-1. Move remaining admin/system dependency closures into typed service helpers where it reduces `app.py` noise.
-3. Manual mobile/OGP/PWA QA pass against a deployed URL.
+1. Thin remaining game/SEO context wiring only where it reduces `app.py` noise without changing route contracts.
+3. Execute `docs/QA_EXECUTION_LOG.md` manual mobile/OGP/PWA backlog against real devices and a deployed URL.
 4. Browser E2E runner decision after manual QA gaps are confirmed.
 5. Engine package compatibility layer preparation only; no package conversion yet.

@@ -24,3 +24,7 @@ Use Flask test-client smoke tests and static JS contract checks as the default E
 ## When To Add Browser Automation
 
 Add a real browser runner only when we need to verify DOM layout, native share availability, service worker lifecycle, or mobile viewport interaction. Keep that PR separate from refactors.
+
+## Execution Log
+
+Current automated coverage and manual backlog are tracked in `docs/QA_EXECUTION_LOG.md`.

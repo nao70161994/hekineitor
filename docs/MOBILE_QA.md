@@ -31,3 +31,7 @@
 
 - Flask smoke covers result CTA markup, resume API, feedback API, manifest, service worker, and offline routes.
 - Real tap target size, native share sheet, and install prompt behavior remain manual QA items.
+
+## Execution Log
+
+See `docs/QA_EXECUTION_LOG.md` for the current run status. As of 2026-05-23, real-device tap target, native share sheet, and PWA install/update checks remain `Not run` and require manual verification.

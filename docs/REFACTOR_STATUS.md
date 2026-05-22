@@ -34,13 +34,14 @@
 - Redundant app helper wrappers for name matching and admin paging were removed.
 - App versioning and name matching helpers are pure service modules with direct regression tests.
 - Lightweight E2E strategy is documented in `docs/LIGHTWEIGHT_E2E.md`.
+- QA execution status is tracked in `docs/QA_EXECUTION_LOG.md` with manual mobile/OGP/PWA gaps marked explicitly.
 
 ## Still Open
 
-- Continue thinning the context/facade objects passed from `app.py` by moving remaining admin/system closures behind focused services.
+- Continue thinning the remaining game/SEO context wiring after admin/system builders have stabilized.
 - Package `engine.py` as a directory while preserving import compatibility.
 - Expand browser-oriented E2E coverage beyond Flask smoke paths when a lightweight browser runner is available.
-- Complete manual QA for mobile CTA, OGP previews, and install/update behavior.
+- Execute the manual QA backlog in `docs/QA_EXECUTION_LOG.md` for mobile CTA, OGP previews, and PWA install/update behavior.
 
 ## Guardrails
 

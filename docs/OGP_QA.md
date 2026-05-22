@@ -33,3 +33,7 @@
 
 - Smoke tests verify `/ogp.png` returns PNG, `/ogp` still returns SVG, and result share pages use PNG `og:image`.
 - External X / LINE / Discord preview rendering still requires a deployed URL and manual verification.
+
+## Execution Log
+
+See `docs/QA_EXECUTION_LOG.md` for the current run status. As of 2026-05-23, X / LINE / Discord external preview checks remain `Not run` because they require a deployed public URL.
