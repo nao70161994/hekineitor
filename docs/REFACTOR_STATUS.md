@@ -35,10 +35,13 @@
 - App versioning and name matching helpers are pure service modules with direct regression tests.
 - Lightweight E2E strategy is documented in `docs/LIGHTWEIGHT_E2E.md`.
 - QA execution status is tracked in `docs/QA_EXECUTION_LOG.md` with manual mobile/OGP/PWA gaps marked explicitly.
+- Game context construction now lives in `services/game_context.py`.
+- SEO context construction now lives in `services/seo_context.py`.
+- `services/context.py` is retained as a behavior-free compatibility flattener for route contexts.
 
 ## Still Open
 
-- Continue thinning the remaining game/SEO context wiring after admin/system builders have stabilized.
+- Continue thinning Flask runtime wrappers and consider dependency bundles for context builders.
 - Package `engine.py` as a directory while preserving import compatibility.
 - Expand browser-oriented E2E coverage beyond Flask smoke paths when a lightweight browser runner is available.
 - Execute the manual QA backlog in `docs/QA_EXECUTION_LOG.md` for mobile CTA, OGP previews, and PWA install/update behavior.

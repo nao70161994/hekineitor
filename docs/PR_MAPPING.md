@@ -82,10 +82,13 @@
 - `51b9513` - Admin context builder moved to service.
 - `ad04076` - System context builder moved to service.
 - `d55bf1d` - Context builder service tests added.
+- `01ca4ab` - Game context builder moved to service.
+- `ced6d3e` - SEO context builder moved to service.
+- `afed0f9` - Route context facade role documented.
 
 ## Next PRs
 
-1. Thin remaining game/SEO context wiring only where it reduces `app.py` noise without changing route contracts.
+1. Bundle repeated Flask runtime dependencies for context builders where it reduces `app.py` noise without changing route contracts.
 3. Execute `docs/QA_EXECUTION_LOG.md` manual mobile/OGP/PWA backlog against real devices and a deployed URL.
 4. Browser E2E runner decision after manual QA gaps are confirmed.
 5. Engine package compatibility layer preparation only; no package conversion yet.
