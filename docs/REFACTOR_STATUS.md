@@ -40,10 +40,13 @@
 - `services/context.py` is retained as a behavior-free compatibility flattener for route contexts.
 - Flask runtime/security helpers are grouped behind `services/runtime.py`.
 - Game and admin context builders receive the Flask runtime bundle instead of individual security/rate-limit wrappers.
+- Filesystem/path/storage helpers are grouped behind `services/filesystem_context.py`.
+- Matrix backup operations can now be built from the filesystem bundle instead of app-level path arguments.
+- Admin and system context builders receive filesystem bundles instead of individual path/storage helpers.
 
 ## Still Open
 
-- Continue bundling non-runtime dependency groups where it reduces `app.py` noise without hiding route contracts.
+- Continue extracting remaining app bootstrap constants only where it keeps route contracts clear.
 - Package `engine.py` as a directory while preserving import compatibility.
 - Expand browser-oriented E2E coverage beyond Flask smoke paths when a lightweight browser runner is available.
 - Execute the manual QA backlog in `docs/QA_EXECUTION_LOG.md` for mobile CTA, OGP previews, and PWA install/update behavior.

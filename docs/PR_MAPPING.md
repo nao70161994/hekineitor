@@ -87,10 +87,12 @@
 - `afed0f9` - Route context facade role documented.
 - `3e6cef7` - Flask runtime security bundle introduced.
 - `e8de371` - Flask runtime bundle passed into game/admin contexts.
+- `940a54f` - Filesystem dependency bundle added.
+- `211326f` - Filesystem bundle passed into admin/system contexts.
 
 ## Next PRs
 
-1. Bundle remaining filesystem/storage path dependencies where it reduces `app.py` noise without changing route contracts.
+1. Extract remaining bootstrap constants only if it reduces `app.py` noise without obscuring configuration.
 3. Execute `docs/QA_EXECUTION_LOG.md` manual mobile/OGP/PWA backlog against real devices and a deployed URL.
 4. Browser E2E runner decision after manual QA gaps are confirmed.
 5. Engine package compatibility layer preparation only; no package conversion yet.
