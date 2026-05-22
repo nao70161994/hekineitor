@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from services import admin_context, admin_security, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, share, system_context
+from services import admin_context, admin_security, context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, share, system_context
 
 
 class DummyRequest:
@@ -140,6 +140,15 @@ class TestServices(unittest.TestCase):
             'https://example.com',
         )
         self.assertEqual(share.public_base_url({}, request), 'http://localhost:5000')
+
+
+    def test_context_merge_keeps_later_domains_overriding_earlier_values(self):
+        first = context.domain(value='old', keep=True)
+        second = context.domain(value='new')
+        merged = context.build_game_context(first, second, extra='ok')
+        self.assertEqual(merged.value, 'new')
+        self.assertTrue(merged.keep)
+        self.assertEqual(merged.extra, 'ok')
 
 
     def test_admin_context_builder_groups_route_dependencies(self):

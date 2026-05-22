@@ -1,3 +1,10 @@
+"""Small compatibility layer for route context objects.
+
+Builders in `services/*_context.py` group dependencies by domain, then flatten
+them here because existing route handlers expect one attribute-based context.
+Keep this module behavior-free; domain-specific logic belongs in owning services.
+"""
+
 from types import SimpleNamespace
 
 
