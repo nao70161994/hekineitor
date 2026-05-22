@@ -964,40 +964,6 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             else:
                 os.environ['ADMIN_CSRF_TTL_SECONDS'] = old_ttl
 
-    def test_matrix_backup_prune_respects_keep_setting(self):
-        import app as app_module
-        old_keep = os.environ.get('MATRIX_IMPORT_BACKUP_KEEP')
-        try:
-            os.environ['MATRIX_IMPORT_BACKUP_KEEP'] = '2'
-            rows = [{'name': f'backup_{i}.json'} for i in range(4)]
-            with patch('app._list_matrix_import_backups', return_value=rows), \
-                    patch('app.os.remove') as remove:
-                app_module._prune_matrix_import_backups()
-            removed = [os.path.basename(call.args[0]) for call in remove.call_args_list]
-            self.assertEqual(removed, ['backup_2.json', 'backup_3.json'])
-        finally:
-            if old_keep is None:
-                os.environ.pop('MATRIX_IMPORT_BACKUP_KEEP', None)
-            else:
-                os.environ['MATRIX_IMPORT_BACKUP_KEEP'] = old_keep
-
-    def test_matrix_snapshot_names_are_unique_within_same_second(self):
-        import app as app_module
-        written = []
-
-        def fake_atomic_write(path, data, **kwargs):
-            written.append(path)
-
-        with patch('app.atomic_write_json', side_effect=fake_atomic_write), \
-                patch('app._prune_matrix_import_backups', return_value=None), \
-                patch.object(app_module._time, 'time', return_value=1234), \
-                patch.object(app_module._time, 'time_ns', side_effect=[1234000000000, 1234000000001]):
-            first = app_module._snapshot_current_matrix('test')
-            second = app_module._snapshot_current_matrix('test')
-
-        self.assertNotEqual(first, second)
-        self.assertEqual(written, [first, second])
-
     def test_recent_ranking_bounds_query_params(self):
         headers = self._admin_headers()
         res = self.client.get('/api/admin/recent_fetish_ranking?days=-1&top_n=999',

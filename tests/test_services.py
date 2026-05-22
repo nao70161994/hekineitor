@@ -268,6 +268,56 @@ class TestServices(unittest.TestCase):
         self.assertEqual(ops.completeness_error({'skipped_rows': 0, 'valid_rows': 0})[1], 400)
 
 
+    def test_matrix_backup_operations_use_time_ns_for_unique_snapshot_names(self):
+        class Engine:
+            fetishes = [{'id': 1, 'name': 'A'}]
+            questions = [{'text': 'Q'}]
+            matrix = {'yes': [[0.75]], 'total': [[1.0]]}
+
+        writes = []
+
+        class DummyPath:
+            @staticmethod
+            def join(*parts):
+                return '/'.join(parts)
+
+            @staticmethod
+            def isdir(path):
+                return False
+
+        class DummyOs:
+            path = DummyPath
+
+            @staticmethod
+            def makedirs(path, exist_ok=False):
+                pass
+
+        class DummyTime:
+            values = iter([1234000000000, 1234000000001])
+
+            @staticmethod
+            def time():
+                return 1234
+
+            @staticmethod
+            def time_ns():
+                return next(DummyTime.values)
+
+        ops = matrix_backups.operations(
+            engine=Engine(),
+            data_path=lambda name: name,
+            atomic_write_json=lambda path, data, **kwargs: writes.append(path),
+            time_module=DummyTime,
+            os_module=DummyOs,
+            jsonify=dummy_jsonify,
+            environ={},
+        )
+        first = ops.snapshot_current_matrix('test')
+        second = ops.snapshot_current_matrix('test')
+        self.assertNotEqual(first, second)
+        self.assertEqual(writes, [first, second])
+
+
     def test_quality_stats_records_guess_and_feedback_keys(self):
         calls = []
 

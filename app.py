@@ -105,29 +105,9 @@ def _matrix_backup_operations():
     )
 
 
-def _snapshot_current_matrix(reason):
-    return _matrix_backup_operations().snapshot_current_matrix(reason)
 
 
-def _matrix_import_expected_rows():
-    return _matrix_backup_operations().expected_rows()
 
-
-def _matrix_import_completeness_error(report):
-    return _matrix_backup_operations().completeness_error(report)
-
-
-def _list_matrix_import_backups(limit=50):
-    return _matrix_backup_operations().list_backups(limit=limit)
-
-
-def _prune_matrix_import_backups():
-    return matrix_backup_service.prune_backups(
-        environ=os.environ,
-        data_path=data_path,
-        os_module=os,
-        list_fn=_list_matrix_import_backups,
-    )
 
 
 def _seo_context():
