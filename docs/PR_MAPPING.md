@@ -85,10 +85,12 @@
 - `01ca4ab` - Game context builder moved to service.
 - `ced6d3e` - SEO context builder moved to service.
 - `afed0f9` - Route context facade role documented.
+- `3e6cef7` - Flask runtime security bundle introduced.
+- `e8de371` - Flask runtime bundle passed into game/admin contexts.
 
 ## Next PRs
 
-1. Bundle repeated Flask runtime dependencies for context builders where it reduces `app.py` noise without changing route contracts.
+1. Bundle remaining filesystem/storage path dependencies where it reduces `app.py` noise without changing route contracts.
 3. Execute `docs/QA_EXECUTION_LOG.md` manual mobile/OGP/PWA backlog against real devices and a deployed URL.
 4. Browser E2E runner decision after manual QA gaps are confirmed.
 5. Engine package compatibility layer preparation only; no package conversion yet.

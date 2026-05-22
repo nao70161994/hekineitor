@@ -38,10 +38,12 @@
 - Game context construction now lives in `services/game_context.py`.
 - SEO context construction now lives in `services/seo_context.py`.
 - `services/context.py` is retained as a behavior-free compatibility flattener for route contexts.
+- Flask runtime/security helpers are grouped behind `services/runtime.py`.
+- Game and admin context builders receive the Flask runtime bundle instead of individual security/rate-limit wrappers.
 
 ## Still Open
 
-- Continue thinning Flask runtime wrappers and consider dependency bundles for context builders.
+- Continue bundling non-runtime dependency groups where it reduces `app.py` noise without hiding route contracts.
 - Package `engine.py` as a directory while preserving import compatibility.
 - Expand browser-oriented E2E coverage beyond Flask smoke paths when a lightweight browser runner is available.
 - Execute the manual QA backlog in `docs/QA_EXECUTION_LOG.md` for mobile CTA, OGP previews, and PWA install/update behavior.

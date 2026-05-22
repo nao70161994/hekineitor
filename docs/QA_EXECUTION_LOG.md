@@ -10,6 +10,7 @@
 | Static JS syntax | `node --check static/*.js` equivalent list | Passed locally | No browser runtime dependency added |
 | Whitespace/diff safety | `git diff --check` | Passed locally | Commit-by-commit refactor checks |
 | Context builder services | `pytest tests/test_services.py` via full `pytest` | Passed locally | Admin/system/game/SEO builders and context flattener covered |
+| Flask runtime bundle | Full `pytest` | Passed locally | Rate limit, confirm, CSRF, and admin guard bundle covered |
 
 ## Manual QA Backlog
 
