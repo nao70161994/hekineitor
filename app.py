@@ -23,6 +23,7 @@ from services import ogp as ogp_service
 from services import share as share_service
 from services import context as context_service
 from services import admin_context as admin_context_service
+from services import system_context as system_context_service
 from services import server_session as server_session_service
 from services import admin_security as admin_security_service
 from services import app_meta as app_meta_service
@@ -255,21 +256,19 @@ app.register_blueprint(admin_routes.create_blueprint(
 
 
 def _system_context():
-    runtime = context_service.system_runtime(
+    return system_context_service.build(
         engine=engine,
         jsonify=jsonify,
-        Response=Response,
+        response_cls=Response,
         render_template=render_template,
         static_folder=app.static_folder,
         app_version=APP_VERSION,
         environ=os.environ,
         error_counts=_ERROR_COUNTS,
         app_started_at=APP_STARTED_AT,
-        time=_time.time,
+        time_fn=_time.time,
         local_session_count=server_session_service.local_session_count,
         recent_audit=recent_audit,
-    )
-    storage = context_service.system_storage(
         use_db=_use_db,
         get_conn=_get_conn,
         put_conn=_put_conn,
@@ -279,7 +278,6 @@ def _system_context():
         path_exists=os.path.exists,
         path_getmtime=os.path.getmtime,
     )
-    return context_service.build_system_context(runtime, storage)
 
 
 app.register_blueprint(system_routes.create_public_blueprint(_system_context))
