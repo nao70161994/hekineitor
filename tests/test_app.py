@@ -675,7 +675,14 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
     def test_import_matrix_creates_pre_import_backup(self):
         headers = self._admin_headers()
         rows = self._full_matrix_rows()
-        with patch('app._snapshot_current_matrix', return_value=os.path.join(DATA_DIR, 'matrix_import_backups', 'test.json')) as snapshot:
+        snapshot = unittest.mock.Mock(return_value=os.path.join(DATA_DIR, 'matrix_import_backups', 'test.json'))
+        ops = type('Ops', (), {
+            'snapshot_current_matrix': snapshot,
+            'completeness_error': lambda self, report: None,
+            'expected_rows': lambda self: len(rows),
+            'list_backups': lambda self, limit=50: [],
+        })()
+        with patch('app._matrix_backup_operations', return_value=ops):
             res = self.client.post('/api/admin/import_matrix',
                 json={'matrix_rows': rows, 'confirm_text': 'IMPORT'},
                 headers=headers)
@@ -720,7 +727,14 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         try:
             with open(backup_path, 'w', encoding='utf-8') as f:
                 json.dump(payload, f)
-            with patch('app._snapshot_current_matrix', return_value=os.path.join(backup_dir, 'pre_restore.json')):
+            snapshot = unittest.mock.Mock(return_value=os.path.join(backup_dir, 'pre_restore.json'))
+            ops = type('Ops', (), {
+                'snapshot_current_matrix': snapshot,
+                'completeness_error': lambda self, report: None,
+                'expected_rows': lambda self: len(rows),
+                'list_backups': lambda self, limit=50: [],
+            })()
+            with patch('app._matrix_backup_operations', return_value=ops):
                 res = self.client.post(f'/api/admin/matrix_backups/{backup_name}/restore',
                     json={'confirm_text': 'RESTORE'}, headers=headers)
             self.assertEqual(res.status_code, 200)

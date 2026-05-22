@@ -234,6 +234,7 @@ app.register_blueprint(game_routes.create_blueprint(_game_context))
 
 
 def _admin_context():
+    matrix_ops = _matrix_backup_operations()
     runtime = context_service.admin_runtime(
         engine=engine,
         request=request,
@@ -257,7 +258,7 @@ def _admin_context():
             engine, work_title, safe_work_url,
         ),
         use_db=_use_db,
-        list_matrix_import_backups=_list_matrix_import_backups,
+        list_matrix_import_backups=matrix_ops.list_backups,
         should_enforce_runtime_guard=_should_enforce_runtime_guard,
         cleanup_sessions=server_session_service.cleanup_sessions,
         player_fetish_base_id=PLAYER_FETISH_BASE_ID,
@@ -281,9 +282,9 @@ def _admin_context():
         path_exists=os.path.exists,
         re_search=re.search,
         html_escape=_html.escape,
-        snapshot_current_matrix=_snapshot_current_matrix,
-        matrix_import_completeness_error=_matrix_import_completeness_error,
-        matrix_import_expected_rows=_matrix_import_expected_rows,
+        snapshot_current_matrix=matrix_ops.snapshot_current_matrix,
+        matrix_import_completeness_error=matrix_ops.completeness_error,
+        matrix_import_expected_rows=matrix_ops.expected_rows,
     )
     return context_service.build_admin_context(runtime, reporting, maintenance, matrix_tools)
 
