@@ -14,6 +14,26 @@
 | Filesystem bundle | Full `pytest` | Passed locally | Matrix backup, admin, and system context path dependencies covered |
 | Bootstrap/config wiring | Full `pytest` | Passed locally | App bootstrap bundle and factory rename covered by route smoke tests |
 
+## QA Run - 2026-05-23 Local Route/API Smoke
+
+| Area | Item | Status | Environment | Notes |
+| --- | --- | --- | --- | --- |
+| OGP | `/ogp.png?f=QA&p=88` | Passed | Flask test client | Status 200, `image/png`, valid PNG signature |
+| PWA | `/manifest.json` | Passed | Flask test client | Status 200, manifest JSON includes `start_url` |
+| PWA | `/sw.js` | Passed | Flask test client | Status 200, service worker markers present |
+| PWA | `/offline` | Passed | Flask test client | Status 200, offline page body present |
+| Result Share | `/r?f=QA&p=88&d=desc` | Passed | Flask test client | Result page includes PNG OGP URL and share/feedback markers |
+| Resume | `/api/start` then `/api/resume` | Passed | Flask test client session | Resume accepted a recorded answer without API error |
+| Feedback | `/api/confirm` | Passed | Flask test client session | Feedback API returned a status payload after simulated result session |
+| Mobile CTA | Touch target and wrapping | Blocked | Requires iOS Safari / Android Chrome | TODO: run real-device tap and long-name wrapping procedure below |
+| Native Share | Web Share sheet | Blocked | Requires iOS Safari / Android Chrome | TODO: verify native share sheet and fallback behavior on devices |
+| OGP Preview | X / LINE / Discord unfurl | Blocked | Requires deployed public URL and external crawlers | TODO: paste deployed `/r?...` URL into each preview surface and confirm PNG card |
+| PWA | Install/update lifecycle | Blocked | Requires real browser profile / installed PWA | TODO: verify install prompt and service worker update behavior on mobile browsers |
+
+### QA Run Notes
+
+No critical bug was found in the locally verifiable route/API checks. The remaining blocked items require a real mobile browser, installed PWA lifecycle, or public URL crawled by X/LINE/Discord, so they were not marked as passed in this environment.
+
 ## Manual QA Backlog
 
 | Area | Item | Status | Required Environment | Notes |
