@@ -19,6 +19,7 @@ import engine_compound_works
 import engine_stats
 import engine_reporting
 import engine_admin_reports
+import engine_correlation
 from engine_constants import (
     AXIS_INDIRECT_BONUS,
     EARLY_RANDOM_DEPTH,
@@ -926,33 +927,9 @@ class Engine:
 
     def get_correlation_stats(self, top_n=30):
         """質問ベクトル間のコサイン類似度を計算し、上位ペアを返す（5分TTLキャッシュ）。"""
-        import math
-        now = time.monotonic()
-        if self._corr_cache and now - self._corr_cache_time < self._CORR_CACHE_TTL:
-            return self._corr_cache[:top_n]
-        nf = len(self.fetishes)
-        nq = len(self.questions)
-        vecs = []
-        for q in range(nq):
-            v = [self._prob(f, q) - 0.5 for f in range(nf)]
-            norm = math.sqrt(sum(x*x for x in v)) or 1e-9
-            vecs.append((v, norm))
-
-        pairs = []
-        for i in range(nq):
-            for j in range(i+1, nq):
-                vi, ni = vecs[i]
-                vj, nj = vecs[j]
-                cos = sum(a*b for a, b in zip(vi, vj)) / (ni * nj)
-                pairs.append({
-                    'q1_id': i, 'q1_text': self.questions[i]['text'],
-                    'q2_id': j, 'q2_text': self.questions[j]['text'],
-                    'cos': round(cos, 3),
-                })
-        pairs.sort(key=lambda x: -abs(x['cos']))
-        self._corr_cache      = pairs
-        self._corr_cache_time = now
-        return pairs[:top_n]
+        return engine_correlation.correlation_stats(
+            self, top_n=top_n, now=time.monotonic(), ttl=self._CORR_CACHE_TTL
+        )
 
     def get_quality_report(self):
         """診断品質改善に使う要注意項目を返す。"""
@@ -966,31 +943,7 @@ class Engine:
 
     def detect_contradictions(self, answers):
         """高相関な質問ペアで逆方向の回答があれば最大2件返す。"""
-        nq = len(self.questions)
-        answered = {}
-        for q_str, ans in answers.items():
-            try:
-                q = int(q_str)
-            except (ValueError, TypeError):
-                continue
-            if ans != 0 and 0 <= q < nq:
-                answered[q] = ans
-        result = []
-        for pair in self.get_correlation_stats(top_n=60):
-            if abs(pair['cos']) < 0.75:
-                break
-            q1, q2 = pair['q1_id'], pair['q2_id']
-            if q1 in answered and q2 in answered:
-                a1, a2 = answered[q1], answered[q2]
-                # 正の相関なのに符号が逆 → 矛盾
-                if pair['cos'] > 0.75 and a1 * a2 < 0:
-                    result.append({
-                        'q1': self.questions[q1]['text'], 'a1': a1,
-                        'q2': self.questions[q2]['text'], 'a2': a2,
-                    })
-                    if len(result) >= 2:
-                        break
-        return result
+        return engine_correlation.detect_contradictions(self, answers)
 
     def learn(self, answers, fetish_idx, strength_factor=1.0):
         return engine_learning.learn(self, answers, fetish_idx, strength_factor=strength_factor, pseudo=PSEUDO)

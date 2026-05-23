@@ -17,6 +17,7 @@ This plan prepares `engine.py` for package conversion without changing diagnosis
 - `engine_stats.py` contains local JSON stats, question flag, and fetish-log helpers while DB branches remain in `engine.py`.
 - `engine_reporting.py` contains read-only stats-history aggregation helpers for recent ranking, fetish history, and quality event summaries.
 - `engine_admin_reports.py` contains read-only admin matrix/question/fetish report helpers delegated by the `Engine` facade.
+- `engine_correlation.py` contains correlation-cache and contradiction helpers behind `Engine` facade delegates.
 - `tests/test_engine_inference_regression.py` snapshots representative top-guess IDs and probabilities before further package moves.
 - `tests/test_engine_question_selection_regression.py` snapshots deterministic question selection and disambiguation cases.
 - `tests/test_engine_persistence_regression.py` locks matrix snapshot, validation, local import/save, and DB overwrite-import contracts.

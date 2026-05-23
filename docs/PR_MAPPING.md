@@ -105,6 +105,7 @@
 - Local engine stats persistence helpers split and tested.
 - Engine stats-history reporting helpers split and tested.
 - Engine admin report helpers split behind facade delegates.
+- Engine correlation helpers split behind facade delegates.
 - App composition-root review documented.
 
 ## Next PRs
