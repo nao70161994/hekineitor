@@ -19,6 +19,7 @@ class TestEnginePackageDocs(unittest.TestCase):
             'ENGINE_PACKAGE_PLAN.md',
             'ENGINE_PACKAGE_REHEARSAL_CHECKLIST.md',
             'ENGINE_PACKAGE_PR_REVIEW.md',
+            'ENGINE_PACKAGE_PR_TEMPLATE.md',
             'ENGINE_PACKAGE_SWITCH_PLAN.md',
             'ENGINE_PRIVATE_HELPER_MAP.md',
         ]
@@ -44,3 +45,15 @@ class TestEnginePackageDocs(unittest.TestCase):
         self.assertIn('learning deltas', contract)
         self.assertIn('DB schema', contract)
         self.assertIn('session keys', contract)
+
+    def test_package_pr_template_locks_switch_evidence(self):
+        template = self.read_doc('ENGINE_PACKAGE_PR_TEMPLATE.md')
+        self.assertIn('atomic `engine.py` to `engine/` package switch PR', template)
+        self.assertIn('No inference probability', template)
+        self.assertIn('No learning delta', template)
+        self.assertIn('No DB schema', template)
+        self.assertIn('tests/test_engine_public_api_contract.py', template)
+        self.assertIn('tests/test_engine_inference_regression.py', template)
+        self.assertIn('git diff --check', template)
+        self.assertIn('pytest', template)
+        self.assertIn('Rollback Plan', template)

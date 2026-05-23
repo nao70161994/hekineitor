@@ -1,6 +1,6 @@
 # Engine Package Switch Plan
 
-This is the future atomic migration plan for replacing `engine.py` with an `engine/` package. Do not execute this plan in preparatory refactor PRs. Use `docs/ENGINE_PACKAGE_REHEARSAL_CHECKLIST.md` as the preflight checklist before the switch, and `docs/ENGINE_PACKAGE_PR_REVIEW.md` as the reviewer checklist.
+This is the future atomic migration plan for replacing `engine.py` with an `engine/` package. Do not execute this plan in preparatory refactor PRs. Use `docs/ENGINE_PACKAGE_REHEARSAL_CHECKLIST.md` as the preflight checklist before the switch, `docs/ENGINE_PACKAGE_PR_TEMPLATE.md` as the PR description template, and `docs/ENGINE_PACKAGE_PR_REVIEW.md` as the reviewer checklist.
 
 ## Preconditions
 
@@ -8,6 +8,7 @@ This is the future atomic migration plan for replacing `engine.py` with an `engi
 - `docs/ENGINE_FACADE_CONTRACT.md` matches the implemented public exports and state ownership.
 - `docs/ENGINE_PRIVATE_HELPER_MAP.md` has no unresolved helper moves that would be safer before the import-target switch.
 - Full `pytest`, static JS syntax checks, and route smoke tests pass on the branch immediately before the switch.
+- The PR description follows `docs/ENGINE_PACKAGE_PR_TEMPLATE.md` and states rollback instructions.
 
 ## Atomic Switch Outline
 

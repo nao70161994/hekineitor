@@ -1,6 +1,6 @@
 # Engine Package PR Review Checklist
 
-Use this checklist when reviewing the future atomic `engine.py` to `engine/` package PR. It focuses on reviewer-visible risk, not implementation brainstorming.
+Use this checklist when reviewing the future atomic `engine.py` to `engine/` package PR. The PR description should follow `docs/ENGINE_PACKAGE_PR_TEMPLATE.md`. This checklist focuses on reviewer-visible risk, not implementation brainstorming.
 
 ## Must Be True In The Switch PR
 

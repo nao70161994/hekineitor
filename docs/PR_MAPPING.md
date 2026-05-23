@@ -122,6 +122,7 @@
 - Engine package atomic switch plan documented with prep guard tests.
 - Engine package rehearsal checklist and rollback steps documented.
 - Engine package switch PR review checklist documented.
+- Engine package switch PR description template documented.
 - Engine private helper move map documented for package-prep review.
 - App composition-root review documented.
 
@@ -130,5 +131,5 @@
 1. Keep `app.py` as composition root; avoid further extraction unless a dependency group has clear ownership outside Flask wiring.
 2. Execute `docs/QA_EXECUTION_LOG.md` manual mobile/OGP/PWA backlog against real devices and a deployed URL.
 3. Browser E2E runner decision after manual QA gaps are confirmed.
-4. Design the `engine/` package compatibility facade and state ownership map; no package conversion yet.
+4. Prepare the future `engine/` package PR from `docs/ENGINE_PACKAGE_PR_TEMPLATE.md`; no package conversion yet.
 5. Keep DB and mutation behavior locked with tests while reducing remaining facade method bodies.
