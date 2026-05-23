@@ -16,6 +16,7 @@ def admin_page(ctx):
     axis_stats = ctx.engine.get_axis_stats()
     quality = ctx.engine.get_quality_report()
     maintenance = ctx.build_admin_maintenance_checklist()
+    share_events = ctx.share_event_report(limit=1000)
     return ctx.render_template(
         'admin.html',
         stats=stats,
@@ -34,6 +35,7 @@ def admin_page(ctx):
         axis_stats=axis_stats,
         quality_report=quality,
         maintenance_checklist=maintenance,
+        share_events=share_events,
         csrf_token=ctx.csrf_token(),
         csrf_expires_at=int(ctx.session.get('admin_csrf_issued_at', 0) + int(ctx.environ.get('ADMIN_CSRF_TTL_SECONDS', '7200'))),
         audit_rows=ctx.recent_audit(20),

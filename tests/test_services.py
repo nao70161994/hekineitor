@@ -72,6 +72,25 @@ class TestServices(unittest.TestCase):
         self.assertEqual(report['by_channel']['clipboard'], 2)
         self.assertEqual(report['success']['true'], 1)
         self.assertEqual(report['success']['false'], 1)
+        self.assertEqual(report['metrics']['copy_successes'], 1)
+        self.assertEqual(report['metrics']['copy_failures'], 1)
+        self.assertEqual(report['daily'][0]['copy_successes'], 1)
+
+    def test_share_events_daily_summary_groups_key_metrics(self):
+        events = [
+            {'timestamp': '2026-05-23T01:00:00+00:00', 'event_name': 'result_page_view'},
+            {'timestamp': '2026-05-23T02:00:00+00:00', 'event_name': 'ogp_png_view'},
+            {'timestamp': '2026-05-24T01:00:00+00:00', 'event_name': 'x_share_click'},
+            {'timestamp': '2026-05-24T02:00:00+00:00', 'event_name': 'web_share_success'},
+            {'timestamp': '2026-05-24T03:00:00+00:00', 'event_name': 'copy_success'},
+        ]
+        rows = share_events.daily_summary(events, days=7)
+        self.assertEqual([row['date'] for row in rows], ['2026-05-23', '2026-05-24'])
+        self.assertEqual(rows[0]['result_page_views'], 1)
+        self.assertEqual(rows[0]['ogp_views'], 1)
+        self.assertEqual(rows[1]['x_clicks'], 1)
+        self.assertEqual(rows[1]['web_share_successes'], 1)
+        self.assertEqual(rows[1]['copy_successes'], 1)
 
     def test_name_matching_finds_close_names_without_exact_self_match(self):
         fetishes = [

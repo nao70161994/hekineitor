@@ -126,6 +126,88 @@
 </details>
 {% endif %}
 
+{% if share_events %}
+<details open style="margin-bottom:24px;background:#101622;border:1px solid #263244;border-radius:8px;padding:12px 14px;">
+<summary style="color:#7ab7ff;font-size:0.9rem;cursor:pointer;">拡散イベント</summary>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-top:12px;">
+  <div>
+    <div style="font-size:1.35rem;color:#f5a623;font-weight:bold;">{{ share_events.metrics.share_button_clicks }}</div>
+    <div style="font-size:0.72rem;color:#888;">共有ボタン押下</div>
+  </div>
+  <div>
+    <div style="font-size:1.35rem;color:#7af0a0;font-weight:bold;">{{ share_events.metrics.web_share_successes }}</div>
+    <div style="font-size:0.72rem;color:#888;">Web Share成功</div>
+  </div>
+  <div>
+    <div style="font-size:1.35rem;color:#7af0a0;font-weight:bold;">{{ share_events.metrics.copy_successes }}</div>
+    <div style="font-size:0.72rem;color:#888;">コピー成功</div>
+  </div>
+  <div>
+    <div style="font-size:1.35rem;color:#5b8dd9;font-weight:bold;">{{ share_events.metrics.x_clicks }}</div>
+    <div style="font-size:0.72rem;color:#888;">Xクリック</div>
+  </div>
+  <div>
+    <div style="font-size:1.35rem;color:#e94560;font-weight:bold;">{{ share_events.metrics.ogp_views }}</div>
+    <div style="font-size:0.72rem;color:#888;">OGP表示</div>
+  </div>
+  <div>
+    <div style="font-size:1.35rem;color:#e94560;font-weight:bold;">{{ share_events.metrics.result_page_views }}</div>
+    <div style="font-size:0.72rem;color:#888;">結果ページ表示</div>
+  </div>
+  <div>
+    <div style="font-size:1.35rem;color:#e74c3c;font-weight:bold;">{{ share_events.success['false'] }}</div>
+    <div style="font-size:0.72rem;color:#888;">失敗/キャンセル</div>
+  </div>
+  <div>
+    <div style="font-size:1.35rem;color:#aaa;font-weight:bold;">{{ share_events.total }}</div>
+    <div style="font-size:0.72rem;color:#888;">読込対象イベント</div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:14px;">
+  <div>
+    <div style="font-size:0.78rem;color:#aaa;margin-bottom:6px;">日次イベント</div>
+    <table style="width:100%;border-collapse:collapse;font-size:0.74rem;">
+      <thead><tr style="color:#666;text-align:left;"><th>日付</th><th>合計</th><th>結果</th><th>OGP</th><th>X</th><th>Web</th><th>コピー</th></tr></thead>
+      <tbody>
+      {% for row in share_events.daily[-7:] %}
+      <tr style="border-top:1px solid #222;color:#aaa;">
+        <td>{{ row.date }}</td>
+        <td>{{ row.total }}</td>
+        <td>{{ row.result_page_views }}</td>
+        <td>{{ row.ogp_views }}</td>
+        <td>{{ row.x_clicks }}</td>
+        <td>{{ row.web_share_successes }}</td>
+        <td>{{ row.copy_successes }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" style="color:#555;padding-top:6px;">まだイベントがありません</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <div style="font-size:0.78rem;color:#aaa;margin-bottom:6px;">チャネル別</div>
+    <table style="width:100%;border-collapse:collapse;font-size:0.74rem;">
+      <thead><tr style="color:#666;text-align:left;"><th>チャネル</th><th>件数</th></tr></thead>
+      <tbody>
+      {% for channel, count in share_events.by_channel.items() %}
+      <tr style="border-top:1px solid #222;color:#aaa;"><td>{{ channel }}</td><td>{{ count }}</td></tr>
+      {% else %}
+      <tr><td colspan="2" style="color:#555;padding-top:6px;">データなし</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div style="margin-top:10px;font-size:0.73rem;color:#666;line-height:1.5;">
+      成功 {{ share_events.success['true'] }} / 失敗 {{ share_events.success['false'] }} / 不明 {{ share_events.success['unknown'] }}<br>
+      OGP内訳 PNG {{ share_events.metrics.ogp_png_views }} / SVG {{ share_events.metrics.ogp_svg_views }}
+    </div>
+  </div>
+</div>
+<div style="margin-top:10px;"><a href="/api/admin/share_events" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">JSONで確認</a></div>
+</details>
+{% endif %}
+
 {% if maintenance_checklist %}
 <details open style="margin-bottom:24px;background:#101622;border:1px solid #263244;border-radius:8px;padding:12px 14px;">
 <summary style="color:#f5a623;font-size:0.9rem;cursor:pointer;">メンテナンスチェックリスト</summary>

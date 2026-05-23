@@ -90,6 +90,7 @@
 - App composition-root responsibilities were reviewed against `docs/APP_BOOTSTRAP.md` after engine package planning.
 
 - Lightweight share event tracking now records non-PII share/result/OGP events to environment-separated JSONL logs with an admin summary endpoint.
+- Admin now renders a lightweight share analytics card backed by `/api/admin/share_events` daily/channel/KPI summaries.
 
 ## Still Open
 

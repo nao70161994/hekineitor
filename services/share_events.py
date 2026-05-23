@@ -88,6 +88,64 @@ def read_events(path=None, environ=None, limit=500):
     return events
 
 
+def _event_date(event):
+    timestamp = str(event.get('timestamp') or '')
+    if len(timestamp) >= 10:
+        return timestamp[:10]
+    return 'unknown'
+
+
+def _summary_metrics(by_event):
+    return {
+        'share_button_clicks': by_event.get('share_button_click', 0),
+        'result_page_views': by_event.get('result_page_view', 0),
+        'ogp_views': by_event.get('ogp_png_view', 0) + by_event.get('ogp_svg_view', 0),
+        'ogp_png_views': by_event.get('ogp_png_view', 0),
+        'ogp_svg_views': by_event.get('ogp_svg_view', 0),
+        'x_clicks': by_event.get('x_share_click', 0),
+        'web_share_successes': by_event.get('web_share_success', 0),
+        'web_share_failures': by_event.get('web_share_failure', 0),
+        'copy_successes': by_event.get('copy_success', 0),
+        'copy_failures': by_event.get('copy_failure', 0),
+    }
+
+
+def _empty_daily_row(date):
+    return {
+        'date': date,
+        'total': 0,
+        'share_button_clicks': 0,
+        'result_page_views': 0,
+        'ogp_views': 0,
+        'x_clicks': 0,
+        'web_share_successes': 0,
+        'copy_successes': 0,
+    }
+
+
+def daily_summary(events, days=14):
+    daily = {}
+    for event in events:
+        date = _event_date(event)
+        row = daily.setdefault(date, _empty_daily_row(date))
+        row['total'] += 1
+        name = event.get('event_name') or ''
+        if name == 'share_button_click':
+            row['share_button_clicks'] += 1
+        elif name == 'result_page_view':
+            row['result_page_views'] += 1
+        elif name in ('ogp_png_view', 'ogp_svg_view'):
+            row['ogp_views'] += 1
+        elif name == 'x_share_click':
+            row['x_clicks'] += 1
+        elif name == 'web_share_success':
+            row['web_share_successes'] += 1
+        elif name == 'copy_success':
+            row['copy_successes'] += 1
+    rows = [daily[key] for key in sorted(daily)]
+    return rows[-max(1, int(days or 14)):]
+
+
 def event_report(path=None, environ=None, limit=500):
     events = read_events(path=path, environ=environ, limit=limit)
     by_event = {}
@@ -110,5 +168,7 @@ def event_report(path=None, environ=None, limit=500):
         'by_event': by_event,
         'by_channel': by_channel,
         'success': success,
+        'metrics': _summary_metrics(by_event),
+        'daily': daily_summary(events, days=14),
         'recent': events[-20:],
     }
