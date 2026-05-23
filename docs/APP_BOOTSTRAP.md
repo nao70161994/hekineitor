@@ -38,3 +38,14 @@
 ## Config Bundle Decision
 
 `services/bootstrap.py` currently owns only stable bootstrap values. No additional context-builder config bundle is being introduced until a dependency group has clear ownership outside Flask wiring. This avoids hiding route contracts behind opaque configuration objects.
+
+## Review - 2026-05-23
+
+Current `app.py` responsibilities match this document. The remaining factories are intentionally request/process adapters rather than business logic:
+
+- `_flask_runtime()` binds Flask request/session proxies and should stay in the composition root.
+- `_filesystem_context()` binds process-local modules and storage helpers and should stay until a real storage object owns those dependencies.
+- `_matrix_operations()` is an admin adapter built from the filesystem context and remains a useful route-test patch point.
+- `_seo_context()`, `_game_context()`, `_admin_context()`, and `_system_context()` are thin calls into owning service builders.
+
+Do not extract more from `app.py` only to reduce line count. The next meaningful backend reduction should happen inside `engine.py`/engine helpers, not by hiding Flask wiring behind opaque global objects.

@@ -54,6 +54,7 @@
 - Scalar engine constants are split into `engine_constants.py` with `engine` re-export compatibility covered by tests.
 - Representative inference snapshots now lock top-guess IDs and probabilities before engine package work continues.
 - Deterministic question-selection snapshots now lock representative best-question and disambiguation outputs.
+- App composition-root responsibilities were reviewed against `docs/APP_BOOTSTRAP.md` after engine package planning.
 
 ## Still Open
 

@@ -98,6 +98,7 @@
 - Scalar engine constants split behind `engine` re-export compatibility.
 - Engine inference regression snapshots added.
 - Engine question-selection regression snapshots added.
+- App composition-root review documented.
 
 ## Next PRs
 
