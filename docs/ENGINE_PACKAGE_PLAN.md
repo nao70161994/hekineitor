@@ -1,11 +1,11 @@
 # Engine Package Plan
 
-This plan prepares `engine.py` for package conversion without changing diagnosis behavior, question selection, learning strength, storage schema, or public imports.
+This plan prepares `engine.py` for package conversion without changing diagnosis behavior, question selection, learning strength, storage schema, or public imports. See `docs/ENGINE_FACADE_CONTRACT.md` for the state ownership and public API contract that package conversion must preserve.
 
 ## Current State
 
 - `engine.py` is still the public module imported by routes, tests, and scripts.
-- `Engine` remains the public facade and owns mutable runtime state: fetishes, questions, matrix, config, caches, locks, and persistence helpers.
+- `Engine` remains the public facade and owns mutable runtime state: fetishes, questions, matrix, config, caches, locks, and persistence helpers. `docs/ENGINE_FACADE_CONTRACT.md` now lists this ownership explicitly.
 - Pure-ish helper modules already exist beside the facade:
   - `engine_inference.py` for posterior probability, top guesses, and answer contribution helpers.
   - `engine_question_selection.py` for question axis lookup and question choice helpers.
@@ -90,7 +90,7 @@ The final facade should own state and expose public methods, but method bodies s
 
 ## Regression Tests To Add Before Package Conversion
 
-- Public import contract for `engine` exports, including scalar and large data constants.
+- Public import and method-signature contract for `engine` exports, including scalar constants, large data constants, module helper functions, and public `Engine` methods.
 - Representative top-guess ID/probability snapshots for empty, strong-signal, and mixed-answer cases.
 - Deterministic question selection snapshots for empty, idk streak, and focused-answer cases.
 - Facade/helper parity for inference, question selection, positive learning, near-miss learning, negative learning, cooccurrence learning, and silent learning.
