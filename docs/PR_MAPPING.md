@@ -96,6 +96,7 @@
 - Engine package conversion plan documented in `docs/ENGINE_PACKAGE_PLAN.md`.
 - Compound works pure helpers split from `engine.py`.
 - Scalar engine constants split behind `engine` re-export compatibility.
+- Engine inference regression snapshots added.
 
 ## Next PRs
 

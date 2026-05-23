@@ -52,6 +52,7 @@
 - Engine package conversion is documented in `docs/ENGINE_PACKAGE_PLAN.md`; implementation is deferred until compatibility moves are narrower.
 - Compound works key/list helpers are split from `engine.py` while public functions and cache patch points stay compatible.
 - Scalar engine constants are split into `engine_constants.py` with `engine` re-export compatibility covered by tests.
+- Representative inference snapshots now lock top-guess IDs and probabilities before engine package work continues.
 
 ## Still Open
 
