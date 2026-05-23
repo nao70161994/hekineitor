@@ -10,7 +10,16 @@
 <body>
 <a class="skip-link" href="#perf-section">診断ログへ移動</a>
 <h1>管理画面</h1>
-<p class="sub"><a href="/">← ゲームに戻る</a>　<a href="/admin/test_play/start" rel="nofollow">🧪 学習OFFでテストプレイ開始</a></p>
+<p class="sub"><a href="/">← ゲームに戻る</a></p>
+<div style="margin:8px 0 20px;padding:10px 12px;border:1px solid {% if test_play_active %}#f5c542{% else %}#263244{% endif %};background:{% if test_play_active %}#2a250f{% else %}#101622{% endif %};border-radius:8px;color:{% if test_play_active %}#f5c542{% else %}#aaa{% endif %};font-size:0.82rem;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+  <strong>{% if test_play_active %}学習OFFテストプレイ中{% else %}通常モード{% endif %}</strong>
+  <span>{% if test_play_active %}このセッションの診断は学習に反映されません。{% else %}通常プレイは従来通り学習ONです。{% endif %}</span>
+  {% if test_play_active %}
+  <a href="/admin/test_play/stop" rel="nofollow" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">テストプレイ終了</a>
+  {% else %}
+  <a href="/admin/test_play/start" rel="nofollow" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">🧪 学習OFFでテストプレイ開始</a>
+  {% endif %}
+</div>
 
 <details style="margin-bottom:24px;">
 <summary style="color:#f5a623;font-size:0.9rem;cursor:pointer;margin-bottom:8px;">推論パラメータ設定</summary>

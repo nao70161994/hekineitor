@@ -188,6 +188,10 @@ class TestSmoke(unittest.TestCase):
         self.assertIn(b"apiFetch('/api/confirm'", feedback)
         self.assertIn(b"apiFetch('/api/finalize_added'", feedback)
         self.assertIn('ありがとうございます。'.encode('utf-8'), feedback)
+        self.assertIn('保存せず確認しました'.encode('utf-8'), feedback)
+        with open(os.path.join(root, 'static', 'teach.js'), 'rb') as f:
+            teach = f.read()
+        self.assertIn('保存せず確認しました'.encode('utf-8'), teach)
 
     def test_share_ogp_and_pwa_static_contracts(self):
         root = os.path.dirname(os.path.dirname(__file__))

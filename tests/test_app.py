@@ -279,8 +279,30 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
     def test_test_play_route_requires_admin(self):
         res = self.client.get('/admin/test_play/start')
         self.assertEqual(res.status_code, 401)
+        stop = self.client.get('/admin/test_play/stop')
+        self.assertEqual(stop.status_code, 401)
         with self.client.session_transaction() as sess:
             self.assertFalse(test_play_service.is_learning_disabled(sess))
+
+    def test_test_play_stop_disables_flag_and_admin_status_updates(self):
+        headers = self._admin_headers()
+        normal_admin = self.client.get('/admin', headers=headers)
+        self.assertIn('通常モード', normal_admin.data.decode('utf-8'))
+        self.assertIn('/admin/test_play/start', normal_admin.data.decode('utf-8'))
+
+        self.client.get('/admin/test_play/start', headers=headers)
+        active_admin = self.client.get('/admin', headers=headers)
+        active_body = active_admin.data.decode('utf-8')
+        self.assertIn('学習OFFテストプレイ中', active_body)
+        self.assertIn('/admin/test_play/stop', active_body)
+
+        res = self.client.get('/admin/test_play/stop', headers=headers, follow_redirects=False)
+        self.assertEqual(res.status_code, 302)
+        self.assertEqual(res.headers.get('Location'), '/admin')
+        with self.client.session_transaction() as sess:
+            self.assertFalse(test_play_service.is_learning_disabled(sess))
+        stopped_admin = self.client.get('/admin', headers=headers)
+        self.assertIn('通常モード', stopped_admin.data.decode('utf-8'))
 
     def test_test_play_confirm_skips_learning_and_quality_feedback(self):
         from app import engine as app_engine

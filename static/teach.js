@@ -1,4 +1,8 @@
 window.HekiTeach = (() => {
+  function testPlayMessage(data, normalMessage) {
+    return data && data.learning_disabled ? '✓ 保存せず確認しました。' : normalMessage;
+  }
+
   async function skipTeach() {
     if (window._addOnlyMode === 'add') {
       window._addOnlyMode = false;
@@ -6,8 +10,8 @@ window.HekiTeach = (() => {
       show('done-screen');
     } else if (window._addOnlyMode === 'maybe') {
       window._addOnlyMode = false;
-      await apiFetch('/api/finalize_added', {items: []});
-      document.getElementById('done-msg').textContent = '近い候補として学習しました。';
+      const data = await apiFetch('/api/finalize_added', {items: []});
+      document.getElementById('done-msg').textContent = testPlayMessage(data, '近い候補として学習しました。');
       show('done-screen');
     } else {
       showStart();
@@ -37,7 +41,7 @@ window.HekiTeach = (() => {
     setFetching(true);
     try {
       const selected = window._teachSelected || new Map();
-      await apiFetch('/api/finalize_added', {
+      const teachData = await apiFetch('/api/finalize_added', {
         items: [...selected.keys()].map(fid => ({id: fid, is_new: false}))
       });
       const correctNames = (window._teachCorrectIds || []).map(id => {
@@ -48,9 +52,9 @@ window.HekiTeach = (() => {
       const allNames = [...correctNames, ...wrongNames];
       window._addedItems = [];
       if (window.setLastFetishName) window.setLastFetishName(allNames.join(' × '));
-      const msg = allNames.length > 0
+      const msg = testPlayMessage(teachData, allNames.length > 0
         ? `✓「${allNames.join('」「')}」として学習しました！`
-        : '✓ 学習しました！ありがとうございます。';
+        : '✓ 学習しました！ありがとうございます。');
       document.getElementById('done-msg').textContent = msg;
       window._addOnlyMode = false;
       show('done-screen');
@@ -194,7 +198,7 @@ window.HekiTeach = (() => {
     if (items.length > 0) {
       setFetching(true);
       try {
-        await apiFetch('/api/finalize_added', {
+        var finalizeData = await apiFetch('/api/finalize_added', {
           items: items.map(item => ({id: item.id, is_new: item.is_new}))
         });
       } finally {
@@ -203,7 +207,7 @@ window.HekiTeach = (() => {
     }
     const names = items.map(item => item.name);
     if (window.setLastFetishName) window.setLastFetishName(names.join(' × '));
-    document.getElementById('done-msg').textContent = `✓「${names.join('」「')}」を学習しました！`;
+    document.getElementById('done-msg').textContent = testPlayMessage(finalizeData, `✓「${names.join('」「')}」を学習しました！`);
     show('done-screen');
   }
 

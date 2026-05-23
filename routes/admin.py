@@ -96,6 +96,7 @@ def admin_page(ctx):
         csrf_expires_at=int(ctx.session.get('admin_csrf_issued_at', 0) + int(ctx.environ.get('ADMIN_CSRF_TTL_SECONDS', '7200'))),
         audit_rows=ctx.recent_audit(20),
         matrix_backups=ctx.list_matrix_import_backups(),
+        test_play_active=ctx.is_test_play(),
     )
 
 
@@ -105,6 +106,12 @@ def start_test_play(ctx):
     ctx.enable_test_play()
     ctx.write_audit('test_play_start', 'ok', {}, ctx.request)
     return ctx.Response('', status=302, headers={'Location': '/'})
+
+
+def stop_test_play(ctx):
+    ctx.disable_test_play()
+    ctx.write_audit('test_play_stop', 'ok', {}, ctx.request)
+    return ctx.Response('', status=302, headers={'Location': '/admin'})
 
 
 def works_link_queue_payload(engine, *, sample_limit=20):
@@ -653,6 +660,11 @@ def create_blueprint(ctx_factory, require_admin):
     @require_admin
     def start_test_play_route():
         return start_test_play(ctx_factory())
+
+    @bp.route('/admin/test_play/stop')
+    @require_admin
+    def stop_test_play_route():
+        return stop_test_play(ctx_factory())
 
     @bp.route('/api/admin/toggle_question/<int:q_id>', methods=['POST'])
     @require_admin

@@ -157,6 +157,8 @@ def _admin_context():
         load_share_notes=lambda: share_notes_service.load_notes(environ=os.environ),
         save_share_note=lambda result_name, note: share_notes_service.save_note(result_name, note, environ=os.environ),
         enable_test_play=lambda: test_play_service.enable(session),
+        disable_test_play=lambda: test_play_service.disable(session),
+        is_test_play=lambda: test_play_service.is_learning_disabled(session),
     )
 
 

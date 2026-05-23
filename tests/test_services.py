@@ -415,6 +415,8 @@ class TestServices(unittest.TestCase):
             load_share_notes=lambda: {},
             save_share_note=lambda result_name, note: {'note': note, 'updated_at': 'now'},
             enable_test_play=lambda: None,
+            disable_test_play=lambda: None,
+            is_test_play=lambda: False,
         )
         self.assertEqual(ctx.csrf_token(), 'csrf')
         self.assertEqual(ctx.list_matrix_import_backups(), ['backup'])

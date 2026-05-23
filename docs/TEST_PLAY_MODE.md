@@ -5,9 +5,10 @@
 ## 起動方法
 
 - 管理画面の「🧪 学習OFFでテストプレイ開始」から開始します。
+- 管理画面の「テストプレイ終了」から通常モードへ戻します。
 - URL query parameter だけでは有効化できません。
-- `/admin/test_play/start` は既存の管理者認証ガードを通ります。
-- 有効化すると session に `heki_test_play_learning_disabled` を保存します。
+- `/admin/test_play/start` と `/admin/test_play/stop` は既存の管理者認証ガードを通ります。
+- 有効化すると session に `heki_test_play_learning_disabled` を保存し、終了時に解除します。
 
 ## 画面表示
 
@@ -15,7 +16,7 @@
 
 > 🧪 テストプレイ中：この診断は学習に反映されません
 
-一般ユーザー向けの切り替え UI はありません。
+一般ユーザー向けの切り替え UI はありません。管理画面には現在の状態として「通常モード」または「学習OFFテストプレイ中」を表示します。
 
 ## 学習OFF中に保存しない処理
 
@@ -42,3 +43,7 @@
 - session key は `heki_test_play_learning_disabled` に限定します。
 - フロントエンドだけではなく server 側で `learning_disabled` を判定します。
 - API は成功扱いを維持し、保存だけを skip します。
+
+## 文言出し分け
+
+通常プレイでは従来通り「学習しました」系の文言を表示します。テストプレイ中に `learning_disabled: true` が返った場合だけ、完了文言を「保存せず確認しました」に切り替えます。

@@ -20,6 +20,10 @@ window.HekiFeedback = (() => {
     status.classList.remove('hidden');
   }
 
+  function testPlayMessage(data, normalMessage) {
+    return data && data.learning_disabled ? 'ありがとうございます。保存せず確認しました。' : normalMessage;
+  }
+
   function lockQuickFeedback() {
     const quickFeedback = document.getElementById('quick-feedback');
     if (quickFeedback) quickFeedback.querySelectorAll('button').forEach(btn => { btn.disabled = true; });
@@ -51,7 +55,7 @@ window.HekiFeedback = (() => {
           compound_ids: window._compoundIds || [],
         });
         if (!data) return;
-        showQuickFeedbackStatus('ありがとうございます。正解として学習しました。');
+        showQuickFeedbackStatus(testPlayMessage(data, 'ありがとうございます。正解として学習しました。'));
       } else if (kind === 'maybe') {
         setAllItemStates('maybe');
         const data = await apiFetch('/api/confirm', {
@@ -62,8 +66,8 @@ window.HekiFeedback = (() => {
           wrong_ids: [],
         });
         if (!data) return;
-        await apiFetch('/api/finalize_added', {items: []});
-        showQuickFeedbackStatus('ありがとうございます。近い結果として学習しました。');
+        const finalizeData = await apiFetch('/api/finalize_added', {items: []});
+        showQuickFeedbackStatus(testPlayMessage(finalizeData || data, 'ありがとうございます。近い結果として学習しました。'));
       } else if (kind === 'no') {
         setAllItemStates('no');
         const data = await apiFetch('/api/confirm', {
@@ -74,8 +78,8 @@ window.HekiFeedback = (() => {
           wrong_ids: ids,
         });
         if (!data) return;
-        await apiFetch('/api/finalize_added', {items: []});
-        showQuickFeedbackStatus('ありがとうございます。外れとして学習し、次の診断に反映します。');
+        const finalizeData = await apiFetch('/api/finalize_added', {items: []});
+        showQuickFeedbackStatus(testPlayMessage(finalizeData || data, 'ありがとうございます。外れとして学習し、次の診断に反映します。'));
       }
       lockQuickFeedback();
     } finally {
@@ -130,14 +134,14 @@ window.HekiFeedback = (() => {
         add_only: true,
       });
       if (!addData || !addData.fetishes) {
-        document.getElementById('done-msg').textContent = `✓「${names.join('」「')}」として学習しました！`;
+        document.getElementById('done-msg').textContent = testPlayMessage(addData, `✓「${names.join('」「')}」として学習しました！`);
         show('done-screen');
         return;
       }
       window._teachSelected = new Map();
       window._teachCorrectIds = correctIds;
       window._addOnlyMode = 'add';
-      window._addOnlyDoneMsg = `✓「${names.join('」「')}」として学習しました！`;
+      window._addOnlyDoneMsg = testPlayMessage(addData, `✓「${names.join('」「')}」として学習しました！`);
       document.getElementById('teach-label').textContent = '他に該当する性癖があれば追加できます（任意）';
       renderTeachCandidates(addData.fetishes);
       show('teach-screen');
