@@ -34,6 +34,22 @@
 
 No critical bug was found in the locally verifiable route/API checks. The remaining blocked items require a real mobile browser, installed PWA lifecycle, or public URL crawled by X/LINE/Discord, so they were not marked as passed in this environment.
 
+
+## QA Run - 2026-05-23 Engine Package Rehearsal
+
+| Area | Command / Check | Status | Environment | Notes |
+| --- | --- | --- | --- | --- |
+| Import target | `git status --short` | Passed | Local shell | Working tree clean before rehearsal commands |
+| Import target | `python3 -c "import engine, os; print(os.path.abspath(engine.__file__))"` | Passed | Local shell | Resolved to `/home/hekineitor/engine.py` |
+| Import target | `python3 -c "import importlib.util; spec = importlib.util.find_spec('engine'); print(spec.origin, spec.submodule_search_locations)"` | Passed | Local shell | Resolved to `/home/hekineitor/engine.py None` |
+| Import target | `test ! -d engine` | Passed | Local shell | No `engine/` package directory exists in prep state |
+| Focused contract | `python3 -m pytest tests/test_engine_package_switch_guard.py tests/test_engine_public_api_contract.py tests/test_engine_facade_contract.py` | Passed | Local pytest | 28 passed |
+| Behavior lock | `python3 -m pytest tests/test_engine_inference_regression.py tests/test_engine_question_selection_regression.py tests/test_engine_persistence_regression.py tests/test_engine_mutations.py tests/test_engine_db.py` | Passed | Local pytest | 42 passed |
+
+### Engine Package Rehearsal Notes
+
+The package switch itself was not performed. This run only confirms the current prep state: `engine` still resolves to `engine.py`, no `engine/` directory exists, public facade contracts pass, and inference/question-selection/persistence/mutation/DB behavior locks pass.
+
 ## Manual QA Remaining After Engine Planning
 
 | Area | Status | Next Action |
