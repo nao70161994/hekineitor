@@ -49,7 +49,7 @@ These methods coordinate state, locks, persistence side effects, or public API r
 These behaviors are already safe to live outside `engine.py` as long as facade tests keep parity:
 
 - Inference math: `engine/inference.py` with a legacy top-level shim.
-- Question selection: `engine_question_selection.py`.
+- Question selection: `engine/question_selection.py` with a legacy top-level shim.
 - Learning row updates: `engine_learning.py`.
 - Large constants/data: `engine/constants.py`, `engine/data.py` with legacy top-level shims.
 - Compound works helpers: `engine/compound_works.py` with a legacy top-level shim.

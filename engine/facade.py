@@ -18,7 +18,7 @@ from . import inference as engine_inference
 import engine_learning
 from . import mutations as engine_mutations
 from . import persistence as engine_persistence
-import engine_question_selection
+from . import question_selection as engine_question_selection
 from . import reporting as engine_reporting
 from . import runtime as engine_runtime
 from . import stats as engine_stats

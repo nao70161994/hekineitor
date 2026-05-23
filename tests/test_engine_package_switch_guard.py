@@ -54,6 +54,7 @@ class TestEnginePackageSwitchGuard(unittest.TestCase):
             'inference.py',
             'mutations.py',
             'persistence.py',
+            'question_selection.py',
             'reporting.py',
             'runtime.py',
             'stats.py',

@@ -22,7 +22,7 @@ This map classifies the remaining private helpers in `engine.py` before any `eng
 These helper modules are kept as one-way dependencies: helpers may be imported by `engine.py`, but they must not import the public `engine` facade. `tests/test_engine_helper_dependencies.py` locks this before package conversion and confirms every helper imports without `Engine` instance setup.
 
 - Inference and ranking math: `engine/inference.py` with a legacy shim.
-- Question selection: `engine_question_selection.py`.
+- Question selection: `engine/question_selection.py` with a legacy shim.
 - Learning row updates: `engine_learning.py`.
 - Large constants/data: `engine/constants.py`, `engine/data.py` with legacy shims.
 - Compound works helpers: `engine/compound_works.py` with a legacy shim.

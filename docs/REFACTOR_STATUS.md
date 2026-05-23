@@ -50,6 +50,7 @@
 - Additional context-builder config bundles were reviewed and deferred until a clearer ownership boundary appears.
 - Engine facade/helper parity is covered by direct contract tests.
 - Inference helper now lives in `engine/inference.py` with `engine_inference.py` kept as a compatibility shim.
+- Question-selection helper now lives in `engine/question_selection.py` with `engine_question_selection.py` kept as a compatibility shim.
 - Engine facade contract now covers all staged learning helper delegations.
 - `_learn_silent` is delegated through `engine_learning.learn_silent` with facade parity coverage.
 - Engine package conversion is documented in `docs/ENGINE_PACKAGE_PLAN.md`; implementation is deferred until compatibility moves are narrower.
