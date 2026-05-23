@@ -17,6 +17,7 @@ import engine_learning
 import engine_question_selection
 import engine_compound_works
 import engine_stats
+import engine_reporting
 from engine_constants import (
     AXIS_INDIRECT_BONUS,
     EARLY_RANDOM_DEPTH,
@@ -530,30 +531,9 @@ class Engine:
             except (OSError, json.JSONDecodeError):
                 raw = {}
             date_range = [(today - timedelta(days=i)).isoformat() for i in range(days - 1, -1, -1)]
-            for d in date_range:
-                for key, val in raw.get(d, {}).items():
-                    if key.startswith('f_correct_'):
-                        fid = int(key[len('f_correct_'):])
-                        totals.setdefault(fid, {'correct': 0, 'wrong': 0})['correct'] += int(val or 0)
-                    elif key.startswith('f_wrong_'):
-                        fid = int(key[len('f_wrong_'):])
-                        totals.setdefault(fid, {'correct': 0, 'wrong': 0})['wrong'] += int(val or 0)
+            totals = engine_reporting.fetish_feedback_totals_from_history(raw, date_range)
         id_to_name = {f['id']: f['name'] for f in self.fetishes}
-        results = []
-        for fid, counts in totals.items():
-            total = counts['correct'] + counts['wrong']
-            if total == 0:
-                continue
-            results.append({
-                'fetish_id': fid,
-                'fetish_name': id_to_name.get(fid, f'ID {fid}'),
-                'correct': counts['correct'],
-                'wrong': counts['wrong'],
-                'total': total,
-                'acc': round(counts['correct'] / total * 100) if total > 0 else None,
-            })
-        results.sort(key=lambda x: x['total'], reverse=True)
-        return results[:top_n]
+        return engine_reporting.format_recent_fetish_ranking(totals, id_to_name, top_n)
 
     def get_fetish_history(self, fetish_db_id, days=30):
         """指定性癖の日別正解/外れ件数を [{date, correct, wrong}, ...] で返す。"""
@@ -582,9 +562,7 @@ class Engine:
                     raw = json.load(f)
             except (OSError, json.JSONDecodeError):
                 raw = {}
-        return [{'date': d,
-                 'correct': raw.get(d, {}).get(ck, 0),
-                 'wrong':   raw.get(d, {}).get(wk, 0)} for d in date_range]
+        return engine_reporting.fetish_history_rows(raw, date_range, ck, wk)
 
     def get_quality_event_summary(self, days=30):
         """診断品質用の内部イベントを過去N日分集計して返す。"""
@@ -625,20 +603,7 @@ class Engine:
                 day = raw.get(d, {})
                 for key in keys:
                     totals[key] += int(day.get(key, 0) or 0)
-        return {
-            'days': days,
-            'low_confidence': {
-                'guesses': totals['q_low_conf_guess'],
-                'correct': totals['q_low_conf_correct'],
-                'wrong': totals['q_low_conf_wrong'],
-            },
-            'additional_questions': {
-                'guesses': totals['q_additional_guess'],
-                'correct': totals['q_additional_correct'],
-                'wrong': totals['q_additional_wrong'],
-                'questions': totals['q_additional_question'],
-            },
-        }
+        return engine_reporting.quality_event_summary_from_totals(totals, days)
 
     # ── 質問無効化フラグ ───────────────────────────────────
     def _load_disabled_questions(self):

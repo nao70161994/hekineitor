@@ -15,6 +15,7 @@ This plan prepares `engine.py` for package conversion without changing diagnosis
 - `engine_constants.py` contains scalar package-prep constants while `engine.py` re-exports the same public names.
 - `engine_data.py` contains large data constants (`QUESTION_AXES`, `DOMAIN_PRIORS`, `FETISH_RELATIONS`, `FETISH_PRIOR_WEIGHTS`) while `engine.py` re-exports the same public names.
 - `engine_stats.py` contains local JSON stats, question flag, and fetish-log helpers while DB branches remain in `engine.py`.
+- `engine_reporting.py` contains read-only stats-history aggregation helpers for recent ranking, fetish history, and quality event summaries.
 - `tests/test_engine_inference_regression.py` snapshots representative top-guess IDs and probabilities before further package moves.
 - `tests/test_engine_question_selection_regression.py` snapshots deterministic question selection and disambiguation cases.
 - `tests/test_engine_persistence_regression.py` locks matrix snapshot, validation, local import/save, and DB overwrite-import contracts.
@@ -71,7 +72,7 @@ Because Python cannot safely keep both `engine.py` and an `engine/` package as t
 1. Scalar and large data constants are staged in `engine_constants.py` and `engine_data.py`; `engine.py` keeps import-compatible re-exports.
 2. `compound_works.py`: cache/load/save helpers are staged in `engine_compound_works.py`; a later PR can move cache globals only if public `engine` patch points stay compatible.
 3. Existing helper module rename only after tests: `engine_inference.py` -> package `inference.py`, `engine_question_selection.py` -> `question_selection.py`, `engine_learning.py` -> `learning.py`.
-4. Split read-only analytics/reporting methods from `Engine` only after parity tests cover output shape.
+4. Read-only stats-history aggregation helpers are staged in `engine_reporting.py`; keep route-facing `Engine` methods until broader admin/reporting parity is complete.
 5. Local JSON stats/flag/log helpers are staged in `engine_stats.py`; split DB persistence last because it has the highest schema and connection risk.
 
 ## Facade Thinning Rules
