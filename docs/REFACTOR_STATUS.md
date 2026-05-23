@@ -96,6 +96,8 @@
 - Share analytics admin endpoints now support lightweight period filters and CSV exports for daily and result-ranking reviews.
 - Share analytics comparison CSV and ranking growth columns are documented for review workflows.
 
+- Share improvement notes are designed in docs/SHARE_IMPROVEMENT_NOTES.md; implementation is deferred to a focused admin-write PR.
+
 ## Still Open
 
 - Keep remaining `app.py` factories as explicit composition-root adapters; only extract when ownership is clearer than Flask wiring.
