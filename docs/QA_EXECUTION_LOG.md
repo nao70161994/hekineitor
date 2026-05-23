@@ -29,3 +29,37 @@
 ## Decision
 
 Heavy browser automation such as Playwright/Selenium remains intentionally out of scope for refactor PRs. Add it only in a dedicated QA PR after manual gaps justify the dependency.
+
+
+## Manual QA Procedure
+
+Use a deployed public URL for OGP checks and real mobile browsers for touch/PWA checks. Record each run by changing the relevant backlog row status from `Not run` to `Passed`, `Failed`, or `Blocked`, and add the device/browser/date in Notes.
+
+### Mobile CTA
+
+1. Open the app on iOS Safari and Android Chrome.
+2. Complete a diagnosis until the result view appears.
+3. Confirm the primary share CTA is visible without scrolling past the result summary.
+4. Tap share, retry, continue, quick feedback, and detail feedback controls.
+5. Repeat with a long result name and confirm buttons/cards do not overflow.
+
+### Native Share
+
+1. On iOS Safari, tap the primary share CTA and confirm the native share sheet opens.
+2. On Android Chrome, repeat the same action.
+3. If native share is unavailable, confirm the fallback copy/share behavior is understandable and reachable.
+
+### OGP Preview
+
+1. Open `/r?f=テスト&p=88&d=説明` on the deployed URL.
+2. Confirm page source has a PNG `og:image` URL.
+3. Paste the URL into X, LINE, and Discord preview surfaces.
+4. Confirm title, description, and image render without stale SVG metadata.
+5. Repeat with an empty result name and a long Japanese result name.
+
+### PWA
+
+1. Open Android Chrome and confirm install prompt/banner behavior where supported.
+2. Open iOS Safari and confirm add-to-home-screen guidance or acceptable fallback.
+3. Install the PWA or use an existing install, then deploy a service worker version change.
+4. Confirm update prompt/reload behavior does not trap the user on a stale screen.

@@ -46,10 +46,12 @@
 - Bootstrap configuration is grouped in `services/bootstrap.py`.
 - App composition-root responsibilities are documented in `docs/APP_BOOTSTRAP.md`.
 - App-level factories were renamed to clarify their roles: `_flask_runtime`, `_filesystem_context`, and `_matrix_operations`.
+- Blueprint and error-handler registration is grouped in app-root helper functions for scanability.
+- Additional context-builder config bundles were reviewed and deferred until a clearer ownership boundary appears.
 
 ## Still Open
 
-- Keep remaining `app.py` factories as explicit composition-root adapters unless a smaller safe boundary appears.
+- Keep remaining `app.py` factories as explicit composition-root adapters; only extract when ownership is clearer than Flask wiring.
 - Package `engine.py` as a directory while preserving import compatibility.
 - Expand browser-oriented E2E coverage beyond Flask smoke paths when a lightweight browser runner is available.
 - Execute the manual QA backlog in `docs/QA_EXECUTION_LOG.md` for mobile CTA, OGP previews, and PWA install/update behavior.

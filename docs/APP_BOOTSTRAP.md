@@ -5,7 +5,7 @@
 ## Responsibilities Kept In `app.py`
 
 - Create the Flask application and session interface.
-- Register response hooks, blueprints, and error handlers.
+- Register response hooks, blueprints, and error handlers through `_register_blueprints()` and `_register_error_handlers()`.
 - Instantiate the shared `Engine` facade.
 - Build request-scoped adapters that depend on Flask proxies:
   - `_flask_runtime()` for request/session/security/rate-limit helpers.
@@ -27,3 +27,14 @@
 - Keep `app.py` changes focused on wiring and bootstrap configuration.
 - Do not move game rules, inference thresholds, session keys, localStorage keys, or DB schema through bootstrap refactors.
 - Prefer small adapters over deleting compatibility layers when tests or routes still depend on a stable patch point.
+
+
+## Current Factory Boundaries
+
+- `_flask_runtime()` remains in `app.py` because it binds Flask request/session proxies for the current request.
+- `_filesystem_context()` remains in `app.py` because it binds process-local filesystem modules and storage helpers.
+- `_matrix_operations()` remains in `app.py` as a stable admin-test patch point and as the matrix backup adapter built from the current filesystem context.
+
+## Config Bundle Decision
+
+`services/bootstrap.py` currently owns only stable bootstrap values. No additional context-builder config bundle is being introduced until a dependency group has clear ownership outside Flask wiring. This avoids hiding route contracts behind opaque configuration objects.
