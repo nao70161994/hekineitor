@@ -231,159 +231,17 @@ class Engine:
 
     # ── PostgreSQL ─────────────────────────────────────────
     def _ensure_db(self):
-        conn = _get_conn()
-        try:
-            with conn:
-                cur = conn.cursor()
-                cur.execute('''
-                    CREATE TABLE IF NOT EXISTS fetishes (
-                        id   INTEGER PRIMARY KEY,
-                        name TEXT NOT NULL,
-                        "desc" TEXT NOT NULL,
-                        works TEXT NOT NULL DEFAULT '[]'
-                    )
-                ''')
-                cur.execute("ALTER TABLE fetishes ADD COLUMN IF NOT EXISTS works TEXT NOT NULL DEFAULT '[]'")
-                cur.execute('''
-                    CREATE TABLE IF NOT EXISTS matrix (
-                        fetish_id   INTEGER,
-                        question_id INTEGER,
-                        yes_count   REAL NOT NULL,
-                        total_count REAL NOT NULL,
-                        PRIMARY KEY (fetish_id, question_id)
-                    )
-                ''')
-                cur.execute('SELECT COUNT(*) FROM fetishes')
-                if cur.fetchone()[0] == 0:
-                    seed_fetishes = self._load_json('fetishes.json')
-                    psycopg2.extras.execute_values(
-                        cur,
-                        'INSERT INTO fetishes (id, name, "desc", works) VALUES %s',
-                        [
-                            (f['id'], f['name'], f['desc'],
-                             json.dumps(f.get('works', []), ensure_ascii=False))
-                            for f in seed_fetishes
-                        ]
-                    )
-                cur.execute('SELECT COUNT(*) FROM matrix')
-                if cur.fetchone()[0] == 0:
-                    seed_fetishes = self._load_json('fetishes.json')
-                    self._seed_db(cur, seed_fetishes)
-                cur.execute('''
-                    CREATE TABLE IF NOT EXISTS stats (
-                        key   TEXT PRIMARY KEY,
-                        value INTEGER NOT NULL DEFAULT 0
-                    )
-                ''')
-                for k in ('learn_count', 'play_count'):
-                    cur.execute(
-                        "INSERT INTO stats (key, value) VALUES (%s, 0) ON CONFLICT DO NOTHING", (k,)
-                    )
-                cur.execute('''
-                    CREATE TABLE IF NOT EXISTS fetish_log (
-                        fetish_id INTEGER PRIMARY KEY,
-                        guessed   INTEGER NOT NULL DEFAULT 0,
-                        correct   INTEGER NOT NULL DEFAULT 0,
-                        wrong     INTEGER NOT NULL DEFAULT 0
-                    )
-                ''')
-                cur.execute('''
-                    CREATE TABLE IF NOT EXISTS sessions (
-                        session_id TEXT PRIMARY KEY,
-                        data       TEXT NOT NULL,
-                        updated_at REAL NOT NULL
-                    )
-                ''')
-                cur.execute('''
-                    CREATE TABLE IF NOT EXISTS config (
-                        key   TEXT PRIMARY KEY,
-                        value TEXT NOT NULL
-                    )
-                ''')
-                cur.execute('''
-                    CREATE TABLE IF NOT EXISTS stats_history (
-                        date  TEXT NOT NULL,
-                        key   TEXT NOT NULL,
-                        value INTEGER NOT NULL DEFAULT 0,
-                        PRIMARY KEY (date, key)
-                    )
-                ''')
-                # 新しい性癖を fetishes.json から差分追加（マイグレーション）
-                cur.execute('SELECT id FROM fetishes')
-                existing_ids = {r[0] for r in cur.fetchall()}
-                seed = [f for f in self._load_json('fetishes.json')
-                        if f['id'] < PLAYER_FETISH_BASE_ID]
-                new_f = [f for f in seed if f['id'] not in existing_ids]
-                if new_f:
-                    psycopg2.extras.execute_values(
-                        cur,
-                        'INSERT INTO fetishes (id, name, "desc", works) VALUES %s ON CONFLICT DO NOTHING',
-                        [
-                            (f['id'], f['name'], f['desc'],
-                             json.dumps(f.get('works', []), ensure_ascii=False))
-                            for f in new_f
-                        ]
-                    )
-                    nq = len(self.questions)
-                    nf_total = len(seed)
-                    full_yes, full_total = _build_initial_matrix(nf_total, nq)
-                    seed_id_to_idx = {f['id']: i for i, f in enumerate(seed)}
-                    new_rows = [
-                        (f['id'], q,
-                         full_yes[seed_id_to_idx[f['id']]][q],
-                         full_total[seed_id_to_idx[f['id']]][q])
-                        for f in new_f for q in range(nq)
-                    ]
-                    psycopg2.extras.execute_values(
-                        cur,
-                        'INSERT INTO matrix (fetish_id, question_id, yes_count, total_count) VALUES %s ON CONFLICT DO NOTHING',
-                        new_rows
-                    )
-                # 既存性癖の名前・説明を fetishes.json と同期
-                for f in seed:
-                    cur.execute(
-                        'UPDATE fetishes SET name=%s, "desc"=%s WHERE id=%s',
-                        (f['name'], f['desc'], f['id'])
-                    )
-                # 新しい質問を matrix に差分追加
-                nq = len(self.questions)
-                cur.execute('SELECT MAX(question_id) FROM matrix')
-                max_qid = cur.fetchone()[0]
-                if max_qid is not None and max_qid < nq - 1:
-                    cur.execute('SELECT id FROM fetishes')
-                    all_fids = [row[0] for row in cur.fetchall()]
-                    alpha = 2.0
-                    new_q_rows = [
-                        (fid, q, alpha, alpha * 2.0)
-                        for fid in all_fids
-                        for q in range(max_qid + 1, nq)
-                    ]
-                    if new_q_rows:
-                        psycopg2.extras.execute_values(
-                            cur,
-                            'INSERT INTO matrix (fetish_id, question_id, yes_count, total_count) VALUES %s ON CONFLICT DO NOTHING',
-                            new_q_rows
-                        )
-        finally:
-            _put_conn(conn)
+        engine_db.ensure_schema(
+            self,
+            get_conn=_get_conn,
+            put_conn=_put_conn,
+            execute_values=psycopg2.extras.execute_values,
+            player_base_id=PLAYER_FETISH_BASE_ID,
+            build_initial_matrix=_build_initial_matrix,
+        )
 
     def _load_fetishes_from_db(self):
-        conn = _get_conn()
-        try:
-            cur = conn.cursor()
-            cur.execute('SELECT id, name, "desc", works FROM fetishes ORDER BY id')
-            rows = []
-            for r in cur.fetchall():
-                try:
-                    works = json.loads(r[3]) if r[3] else []
-                    if not isinstance(works, list):
-                        works = []
-                except (TypeError, json.JSONDecodeError):
-                    works = []
-                rows.append({'id': r[0], 'name': r[1], 'desc': r[2], 'works': works})
-        finally:
-            _put_conn(conn)
-        return rows
+        return engine_db.load_fetishes(get_conn=_get_conn, put_conn=_put_conn)
 
     def _seed_db(self, cur, fetishes=None):
         if fetishes is None:
@@ -401,23 +259,7 @@ class Engine:
         )
 
     def _load_from_db(self):
-        nf = len(self.fetishes)
-        nq = len(self.questions)
-        id_to_idx = {f['id']: i for i, f in enumerate(self.fetishes)}
-        yes   = [[0.0] * nq for _ in range(nf)]
-        total = [[0.0] * nq for _ in range(nf)]
-        conn = _get_conn()
-        try:
-            cur = conn.cursor()
-            cur.execute('SELECT fetish_id, question_id, yes_count, total_count FROM matrix')
-            for f_id, q, y, t in cur.fetchall():
-                idx = id_to_idx.get(f_id)
-                if idx is not None and 0 <= q < nq:
-                    yes[idx][q]   = y
-                    total[idx][q] = t
-        finally:
-            _put_conn(conn)
-        return {'yes': yes, 'total': total}
+        return engine_db.load_matrix(self.fetishes, self.questions, get_conn=_get_conn, put_conn=_put_conn)
 
     def _increment_stat(self, key):
         if _use_db():
@@ -726,57 +568,30 @@ class Engine:
     }
 
     def _load_config(self):
-        defaults = dict(self._CONFIG_DEFAULTS)
-        if _use_db():
-            conn = _get_conn()
-            try:
-                cur = conn.cursor()
-                cur.execute('SELECT key, value FROM config')
-                for k, v in cur.fetchall():
-                    if k in defaults:
-                        defaults[k] = float(v)
-            except Exception:
-                pass
-            finally:
-                _put_conn(conn)
-        else:
-            path = os.path.join(DATA_DIR, 'config.json')
-            try:
-                with open(path, encoding='utf-8') as f:
-                    stored = json.load(f)
-                for k, v in stored.items():
-                    if k in defaults:
-                        defaults[k] = float(v)
-            except (OSError, json.JSONDecodeError):
-                pass
-        return defaults
+        return engine_db.load_config(
+            self._CONFIG_DEFAULTS,
+            use_db=_use_db,
+            get_conn=_get_conn,
+            put_conn=_put_conn,
+            config_path=os.path.join(DATA_DIR, 'config.json'),
+            read_json=engine_stats.read_json_path,
+        )
 
     def set_config(self, key, value):
         if key not in self._CONFIG_DEFAULTS:
             raise ValueError(f'未知のパラメータ: {key}')
         fval = float(value)
         self.config[key] = fval
-        if _use_db():
-            conn = _get_conn()
-            try:
-                with conn:
-                    cur = conn.cursor()
-                    cur.execute(
-                        "INSERT INTO config (key, value) VALUES (%s, %s) "
-                        "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-                        (key, str(fval))
-                    )
-            finally:
-                _put_conn(conn)
-        else:
-            path = os.path.join(DATA_DIR, 'config.json')
-            try:
-                with open(path, encoding='utf-8') as f:
-                    stored = json.load(f)
-            except (OSError, json.JSONDecodeError):
-                stored = {}
-            stored[key] = fval
-            self._atomic_write(path, stored)
+        engine_db.save_config_value(
+            key,
+            fval,
+            use_db=_use_db,
+            get_conn=_get_conn,
+            put_conn=_put_conn,
+            config_path=os.path.join(DATA_DIR, 'config.json'),
+            read_json=engine_stats.read_json_path,
+            atomic_write=self._atomic_write,
+        )
 
     # ── disc キャッシュ（学習重みスケーリング用） ──────────
     _DISC_CACHE_TTL = 120.0  # 2分ごとに再計算

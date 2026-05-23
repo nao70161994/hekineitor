@@ -65,13 +65,14 @@
 - Correlation-cache and contradiction helpers are split into `engine_correlation.py` behind facade delegates.
 - DB matrix save/import adapters are split into `engine_db.py` with SQL and row-builder tests.
 - Memory-only mutation helpers are split into `engine_mutations.py` behind Engine facade methods.
+- DB schema/load/config persistence helpers are split into `engine_db.py` behind Engine facade methods.
 - App composition-root responsibilities were reviewed against `docs/APP_BOOTSTRAP.md` after engine package planning.
 
 ## Still Open
 
 - Keep remaining `app.py` factories as explicit composition-root adapters; only extract when ownership is clearer than Flask wiring.
 - Package `engine.py` as a directory while preserving import compatibility.
-- Add compound works and persistence contract tests before moving more engine code.
+- Prepare DB mutation branch adapters for add/edit/delete/merge/promote before moving more engine code.
 - Expand browser-oriented E2E coverage beyond Flask smoke paths when a lightweight browser runner is available.
 - Execute the manual QA backlog in `docs/QA_EXECUTION_LOG.md` for mobile CTA, OGP previews, and PWA install/update behavior.
 

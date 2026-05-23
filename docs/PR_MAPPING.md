@@ -109,6 +109,7 @@
 - Engine correlation helpers split behind facade delegates.
 - Engine DB matrix persistence adapters split and tested.
 - Engine mutation helpers split behind facade methods.
+- Engine DB schema/load/config persistence helpers split behind facade methods.
 - App composition-root review documented.
 
 ## Next PRs
@@ -116,5 +117,5 @@
 1. Keep `app.py` as composition root; avoid further extraction unless a dependency group has clear ownership outside Flask wiring.
 2. Execute `docs/QA_EXECUTION_LOG.md` manual mobile/OGP/PWA backlog against real devices and a deployed URL.
 3. Browser E2E runner decision after manual QA gaps are confirmed.
-4. Move engine constants or compound works helpers behind re-exported compatibility names.
+4. Prepare DB mutation branch adapters for add/edit/delete/merge/promote behind the existing `Engine` facade.
 5. Engine package compatibility layer preparation only; no package conversion yet.

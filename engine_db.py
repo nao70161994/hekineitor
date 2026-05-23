@@ -1,3 +1,6 @@
+import json
+
+
 SAVE_MATRIX_SQL = """
     INSERT INTO matrix (fetish_id, question_id, yes_count, total_count)
     VALUES (%s, %s, %s, %s)
@@ -65,5 +68,226 @@ def import_matrix_rows(updates, idx_map, *, get_conn, put_conn, execute_values):
         with conn:
             cur = conn.cursor()
             execute_values(cur, IMPORT_MATRIX_SQL, rows)
+    finally:
+        put_conn(conn)
+
+
+def parse_fetish_rows(rows):
+    parsed = []
+    for row in rows:
+        try:
+            works = json.loads(row[3]) if row[3] else []
+            if not isinstance(works, list):
+                works = []
+        except (TypeError, json.JSONDecodeError):
+            works = []
+        parsed.append({'id': row[0], 'name': row[1], 'desc': row[2], 'works': works})
+    return parsed
+
+
+def load_fetishes(*, get_conn, put_conn):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute('SELECT id, name, "desc", works FROM fetishes ORDER BY id')
+        return parse_fetish_rows(cur.fetchall())
+    finally:
+        put_conn(conn)
+
+
+def matrix_from_rows(fetishes, questions, rows):
+    nf = len(fetishes)
+    nq = len(questions)
+    id_to_idx = {fetish['id']: idx for idx, fetish in enumerate(fetishes)}
+    yes = [[0.0] * nq for _ in range(nf)]
+    total = [[0.0] * nq for _ in range(nf)]
+    for fetish_id, question_idx, yes_count, total_count in rows:
+        idx = id_to_idx.get(fetish_id)
+        if idx is not None and 0 <= question_idx < nq:
+            yes[idx][question_idx] = yes_count
+            total[idx][question_idx] = total_count
+    return {'yes': yes, 'total': total}
+
+
+def load_matrix(fetishes, questions, *, get_conn, put_conn):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute('SELECT fetish_id, question_id, yes_count, total_count FROM matrix')
+        return matrix_from_rows(fetishes, questions, cur.fetchall())
+    finally:
+        put_conn(conn)
+
+
+def load_config(defaults, *, use_db, get_conn, put_conn, config_path, read_json):
+    values = dict(defaults)
+    if use_db():
+        conn = get_conn()
+        try:
+            cur = conn.cursor()
+            cur.execute('SELECT key, value FROM config')
+            for key, value in cur.fetchall():
+                if key in values:
+                    values[key] = float(value)
+        except Exception:
+            pass
+        finally:
+            put_conn(conn)
+    else:
+        stored = read_json(config_path, {})
+        for key, value in stored.items():
+            if key in values:
+                values[key] = float(value)
+    return values
+
+
+def save_config_value(key, value, *, use_db, get_conn, put_conn, config_path, read_json, atomic_write):
+    if use_db():
+        conn = get_conn()
+        try:
+            with conn:
+                cur = conn.cursor()
+                cur.execute(
+                    "INSERT INTO config (key, value) VALUES (%s, %s) "
+                    "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+                    (key, str(value)),
+                )
+        finally:
+            put_conn(conn)
+    else:
+        stored = read_json(config_path, {})
+        stored[key] = value
+        atomic_write(config_path, stored)
+
+
+def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id, build_initial_matrix):
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS fetishes (
+                    id   INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    "desc" TEXT NOT NULL,
+                    works TEXT NOT NULL DEFAULT '[]'
+                )
+            ''')
+            cur.execute("ALTER TABLE fetishes ADD COLUMN IF NOT EXISTS works TEXT NOT NULL DEFAULT '[]'")
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS matrix (
+                    fetish_id   INTEGER,
+                    question_id INTEGER,
+                    yes_count   REAL NOT NULL,
+                    total_count REAL NOT NULL,
+                    PRIMARY KEY (fetish_id, question_id)
+                )
+            ''')
+            cur.execute('SELECT COUNT(*) FROM fetishes')
+            if cur.fetchone()[0] == 0:
+                seed_fetishes = engine._load_json('fetishes.json')
+                execute_values(
+                    cur,
+                    'INSERT INTO fetishes (id, name, "desc", works) VALUES %s',
+                    [
+                        (fetish['id'], fetish['name'], fetish['desc'],
+                         json.dumps(fetish.get('works', []), ensure_ascii=False))
+                        for fetish in seed_fetishes
+                    ],
+                )
+            cur.execute('SELECT COUNT(*) FROM matrix')
+            if cur.fetchone()[0] == 0:
+                seed_fetishes = engine._load_json('fetishes.json')
+                engine._seed_db(cur, seed_fetishes)
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS stats (
+                    key   TEXT PRIMARY KEY,
+                    value INTEGER NOT NULL DEFAULT 0
+                )
+            ''')
+            for key in ('learn_count', 'play_count'):
+                cur.execute(
+                    "INSERT INTO stats (key, value) VALUES (%s, 0) ON CONFLICT DO NOTHING", (key,)
+                )
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS fetish_log (
+                    fetish_id INTEGER PRIMARY KEY,
+                    guessed   INTEGER NOT NULL DEFAULT 0,
+                    correct   INTEGER NOT NULL DEFAULT 0,
+                    wrong     INTEGER NOT NULL DEFAULT 0
+                )
+            ''')
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS sessions (
+                    session_id TEXT PRIMARY KEY,
+                    data       TEXT NOT NULL,
+                    updated_at REAL NOT NULL
+                )
+            ''')
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS config (
+                    key   TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                )
+            ''')
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS stats_history (
+                    date  TEXT NOT NULL,
+                    key   TEXT NOT NULL,
+                    value INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY (date, key)
+                )
+            ''')
+            cur.execute('SELECT id FROM fetishes')
+            existing_ids = {row[0] for row in cur.fetchall()}
+            seed = [fetish for fetish in engine._load_json('fetishes.json') if fetish['id'] < player_base_id]
+            new_fetishes = [fetish for fetish in seed if fetish['id'] not in existing_ids]
+            if new_fetishes:
+                execute_values(
+                    cur,
+                    'INSERT INTO fetishes (id, name, "desc", works) VALUES %s ON CONFLICT DO NOTHING',
+                    [
+                        (fetish['id'], fetish['name'], fetish['desc'],
+                         json.dumps(fetish.get('works', []), ensure_ascii=False))
+                        for fetish in new_fetishes
+                    ],
+                )
+                nq = len(engine.questions)
+                full_yes, full_total = build_initial_matrix(len(seed), nq)
+                seed_id_to_idx = {fetish['id']: idx for idx, fetish in enumerate(seed)}
+                new_rows = [
+                    (fetish['id'], question_idx,
+                     full_yes[seed_id_to_idx[fetish['id']]][question_idx],
+                     full_total[seed_id_to_idx[fetish['id']]][question_idx])
+                    for fetish in new_fetishes for question_idx in range(nq)
+                ]
+                execute_values(
+                    cur,
+                    'INSERT INTO matrix (fetish_id, question_id, yes_count, total_count) VALUES %s ON CONFLICT DO NOTHING',
+                    new_rows,
+                )
+            for fetish in seed:
+                cur.execute(
+                    'UPDATE fetishes SET name=%s, "desc"=%s WHERE id=%s',
+                    (fetish['name'], fetish['desc'], fetish['id']),
+                )
+            nq = len(engine.questions)
+            cur.execute('SELECT MAX(question_id) FROM matrix')
+            max_qid = cur.fetchone()[0]
+            if max_qid is not None and max_qid < nq - 1:
+                cur.execute('SELECT id FROM fetishes')
+                all_fids = [row[0] for row in cur.fetchall()]
+                alpha = 2.0
+                new_question_rows = [
+                    (fetish_id, question_idx, alpha, alpha * 2.0)
+                    for fetish_id in all_fids
+                    for question_idx in range(max_qid + 1, nq)
+                ]
+                if new_question_rows:
+                    execute_values(
+                        cur,
+                        'INSERT INTO matrix (fetish_id, question_id, yes_count, total_count) VALUES %s ON CONFLICT DO NOTHING',
+                        new_question_rows,
+                    )
     finally:
         put_conn(conn)

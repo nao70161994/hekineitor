@@ -155,6 +155,52 @@ class TestEngineFacadeContract(unittest.TestCase):
         self.assertEqual(facade_engine.matrix['yes'][1], helper_engine.matrix['yes'][1])
         self.assertEqual(facade_engine.matrix['total'][1], helper_engine.matrix['total'][1])
 
+    def test_db_schema_facade_delegates_to_db_helper(self):
+        with patch('engine.engine_db.ensure_schema', return_value=None) as helper, \
+                patch('engine.psycopg2', create=True) as psycopg2_module:
+            psycopg2_module.extras.execute_values = object()
+            self.engine._ensure_db()
+
+        helper.assert_called_once()
+        self.assertIs(helper.call_args.args[0], self.engine)
+        self.assertIn('get_conn', helper.call_args.kwargs)
+        self.assertIn('put_conn', helper.call_args.kwargs)
+        self.assertIn('execute_values', helper.call_args.kwargs)
+        self.assertIn('player_base_id', helper.call_args.kwargs)
+        self.assertIn('build_initial_matrix', helper.call_args.kwargs)
+
+    def test_db_load_facades_delegate_to_db_helper(self):
+        with patch('engine.engine_db.load_fetishes', return_value=[{'id': 1}]) as helper:
+            self.assertEqual(self.engine._load_fetishes_from_db(), [{'id': 1}])
+        helper.assert_called_once()
+        self.assertIn('get_conn', helper.call_args.kwargs)
+        self.assertIn('put_conn', helper.call_args.kwargs)
+
+        matrix = {'yes': [[1.0]], 'total': [[2.0]]}
+        with patch('engine.engine_db.load_matrix', return_value=matrix) as helper:
+            self.assertIs(self.engine._load_from_db(), matrix)
+        helper.assert_called_once_with(
+            self.engine.fetishes,
+            self.engine.questions,
+            get_conn=helper.call_args.kwargs['get_conn'],
+            put_conn=helper.call_args.kwargs['put_conn'],
+        )
+
+    def test_config_persistence_facades_delegate_to_db_helper(self):
+        loaded = {'guess_threshold': 0.7}
+        with patch('engine.engine_db.load_config', return_value=loaded) as helper:
+            self.assertIs(self.engine._load_config(), loaded)
+        helper.assert_called_once()
+        self.assertIn('use_db', helper.call_args.kwargs)
+        self.assertIn('read_json', helper.call_args.kwargs)
+
+        with patch('engine.engine_db.save_config_value', return_value=None) as helper:
+            self.engine.set_config('guess_threshold', '0.66')
+        self.assertEqual(self.engine.config['guess_threshold'], 0.66)
+        helper.assert_called_once()
+        self.assertEqual(helper.call_args.args[:2], ('guess_threshold', 0.66))
+        self.assertIn('atomic_write', helper.call_args.kwargs)
+
     def test_public_engine_module_exports_remain_available(self):
         import engine
 

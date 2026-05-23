@@ -18,7 +18,7 @@ This plan prepares `engine.py` for package conversion without changing diagnosis
 - `engine_reporting.py` contains read-only stats-history aggregation helpers for recent ranking, fetish history, and quality event summaries.
 - `engine_admin_reports.py` contains read-only admin matrix/question/fetish report helpers delegated by the `Engine` facade.
 - `engine_correlation.py` contains correlation-cache and contradiction helpers behind `Engine` facade delegates.
-- `engine_db.py` contains DB matrix save/import row builders and SQL adapters used by `Engine` persistence facade methods.
+- `engine_db.py` contains DB schema creation, fetish/matrix/config load helpers, and DB matrix save/import SQL adapters used by `Engine` persistence facade methods.
 - `engine_mutations.py` contains memory-only add/edit/delete/merge/promote helpers used by `Engine` mutation facade methods.
 - `tests/test_engine_inference_regression.py` snapshots representative top-guess IDs and probabilities before further package moves.
 - `tests/test_engine_question_selection_regression.py` snapshots deterministic question selection and disambiguation cases.
@@ -77,7 +77,7 @@ Because Python cannot safely keep both `engine.py` and an `engine/` package as t
 2. `compound_works.py`: cache/load/save helpers are staged in `engine_compound_works.py`; a later PR can move cache globals only if public `engine` patch points stay compatible.
 3. Existing helper module rename only after tests: `engine_inference.py` -> package `inference.py`, `engine_question_selection.py` -> `question_selection.py`, `engine_learning.py` -> `learning.py`.
 4. Read-only stats-history and admin report helpers are staged in `engine_reporting.py` and `engine_admin_reports.py`; keep route-facing `Engine` methods as facade delegates until package conversion.
-5. Local JSON stats/flag/log helpers are staged in `engine_stats.py`; DB matrix save/import adapters are staged in `engine_db.py` while schema creation and object mutations remain in `engine.py`.
+5. Local JSON stats/flag/log helpers are staged in `engine_stats.py`; DB schema/load/config helpers and matrix save/import adapters are staged in `engine_db.py` while object mutation DB branches remain behind the `Engine` facade.
 
 ## Facade Thinning Rules
 
@@ -98,6 +98,7 @@ The final facade should own state and expose public methods, but method bodies s
 - Matrix import/export validation without writes.
 - Persistence smoke tests for snapshot copies, local save behavior, DB import delegation, and duplicate rejection before moving JSON/DB code.
 - Mutation helper parity for add/edit/delete/merge/promote memory updates and `_learn_silent` contract behavior.
+- DB schema/load/config helper contracts for `_ensure_db`, `_load_fetishes_from_db`, `_load_from_db`, and config persistence facades.
 - A deterministic `best_question` test with patched randomness for early-game selection.
 
 ## Stop Conditions
@@ -112,4 +113,4 @@ Stop and revert the current commit if any of these happen:
 
 ## Current Recommendation
 
-Do not convert `engine.py` into an `engine/` package yet. The safe next implementation PR is to move constants or compound works helpers behind re-exported compatibility names, with the facade contract tests kept in place.
+Do not convert `engine.py` into an `engine/` package yet. The safe next implementation PR is to prepare DB mutation branch adapters for add/edit/delete/merge/promote while keeping `Engine` as the only public facade and preserving current transaction/update order.
