@@ -47,3 +47,10 @@
 ## 文言出し分け
 
 通常プレイでは従来通り「学習しました」系の文言を表示します。テストプレイ中に `learning_disabled: true` が返った場合だけ、完了文言を「保存せず確認しました」に切り替えます。
+
+
+## 監査ログ表示
+
+開始/終了時は既存の管理監査ログへ `test_play_start` / `test_play_stop` を記録します。記録する detail は `event_name` と `mode` のみです。request を渡さないため、IP、User-Agent、個人IDは保存しません。
+
+管理画面には直近の開始/終了履歴を「テストプレイ開始/終了履歴」として表示します。表示項目は event_name、timestamp、mode 相当の状態文言です。

@@ -20,6 +20,20 @@
   <a href="/admin/test_play/start" rel="nofollow" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">🧪 学習OFFでテストプレイ開始</a>
   {% endif %}
 </div>
+{% if test_play_audit_rows %}
+<details style="margin-bottom:20px;background:#101622;border:1px solid #263244;border-radius:8px;padding:10px 12px;">
+<summary style="color:#f5c542;font-size:0.86rem;cursor:pointer;">テストプレイ開始/終了履歴</summary>
+<div style="font-size:0.78rem;color:#aaa;margin-top:8px;">
+  {% for row in test_play_audit_rows %}
+  <div style="display:flex;gap:10px;align-items:center;border-top:1px solid #222;padding:6px 0;flex-wrap:wrap;">
+    <code style="color:{% if row.mode == 'learning_off' %}#f5c542{% else %}#27ae60{% endif %};">{{ row.event_name }}</code>
+    <span style="color:#ccc;">{% if row.mode == 'learning_off' %}学習OFFテストプレイ中へ変更{% else %}通常モードへ変更{% endif %}</span>
+    <span style="color:#666;">{{ row.timestamp }}</span>
+  </div>
+  {% endfor %}
+</div>
+</details>
+{% endif %}
 
 <details style="margin-bottom:24px;">
 <summary style="color:#f5a623;font-size:0.9rem;cursor:pointer;margin-bottom:8px;">推論パラメータ設定</summary>

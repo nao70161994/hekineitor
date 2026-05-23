@@ -53,6 +53,22 @@ def share_event_query_string(filters):
     return '&'.join(parts)
 
 
+
+def test_play_audit_rows(rows, *, limit=8):
+    items = []
+    for row in rows:
+        action = row.get('action')
+        if action not in ('test_play_start', 'test_play_stop'):
+            continue
+        detail = row.get('detail') if isinstance(row.get('detail'), dict) else {}
+        items.append({
+            'event_name': detail.get('event_name') or action,
+            'timestamp': row.get('ts', ''),
+            'mode': detail.get('mode') or ('learning_off' if action == 'test_play_start' else 'normal'),
+        })
+    return items[:limit]
+
+
 def admin_page(ctx):
     stats = ctx.engine.get_learning_stats()
     app_stats = ctx.engine.get_stats()
@@ -70,6 +86,7 @@ def admin_page(ctx):
     share_event_filters = share_event_query(ctx, default_limit=1000)
     share_events = ctx.share_event_report(**share_event_filters)
     share_notes = ctx.load_share_notes()
+    audit_rows = ctx.recent_audit(50)
     return ctx.render_template(
         'admin.html',
         stats=stats,
@@ -94,7 +111,8 @@ def admin_page(ctx):
         share_event_query=share_event_query_string(share_event_filters),
         csrf_token=ctx.csrf_token(),
         csrf_expires_at=int(ctx.session.get('admin_csrf_issued_at', 0) + int(ctx.environ.get('ADMIN_CSRF_TTL_SECONDS', '7200'))),
-        audit_rows=ctx.recent_audit(20),
+        audit_rows=audit_rows[:20],
+        test_play_audit_rows=test_play_audit_rows(audit_rows),
         matrix_backups=ctx.list_matrix_import_backups(),
         test_play_active=ctx.is_test_play(),
     )
@@ -104,13 +122,13 @@ def admin_page(ctx):
 
 def start_test_play(ctx):
     ctx.enable_test_play()
-    ctx.write_audit('test_play_start', 'ok', {}, ctx.request)
+    ctx.write_audit('test_play_start', 'ok', {'event_name': 'test_play_start', 'mode': 'learning_off'})
     return ctx.Response('', status=302, headers={'Location': '/'})
 
 
 def stop_test_play(ctx):
     ctx.disable_test_play()
-    ctx.write_audit('test_play_stop', 'ok', {}, ctx.request)
+    ctx.write_audit('test_play_stop', 'ok', {'event_name': 'test_play_stop', 'mode': 'normal'})
     return ctx.Response('', status=302, headers={'Location': '/admin'})
 
 

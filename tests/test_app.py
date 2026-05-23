@@ -295,6 +295,9 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         active_body = active_admin.data.decode('utf-8')
         self.assertIn('学習OFFテストプレイ中', active_body)
         self.assertIn('/admin/test_play/stop', active_body)
+        self.assertIn('テストプレイ開始/終了履歴', active_body)
+        self.assertIn('test_play_start', active_body)
+        self.assertIn('学習OFFテストプレイ中へ変更', active_body)
 
         res = self.client.get('/admin/test_play/stop', headers=headers, follow_redirects=False)
         self.assertEqual(res.status_code, 302)
@@ -302,7 +305,20 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         with self.client.session_transaction() as sess:
             self.assertFalse(test_play_service.is_learning_disabled(sess))
         stopped_admin = self.client.get('/admin', headers=headers)
-        self.assertIn('通常モード', stopped_admin.data.decode('utf-8'))
+        stopped_body = stopped_admin.data.decode('utf-8')
+        self.assertIn('通常モード', stopped_body)
+        self.assertIn('test_play_stop', stopped_body)
+        self.assertIn('通常モードへ変更', stopped_body)
+
+        audit = self.client.get('/api/admin/audit_log', headers=headers).get_json()['audit_log']
+        test_rows = [row for row in audit if row.get('action') in ('test_play_start', 'test_play_stop')]
+        self.assertGreaterEqual(len(test_rows), 2)
+        for row in test_rows[:2]:
+            self.assertIn(row['detail']['event_name'], ('test_play_start', 'test_play_stop'))
+            self.assertIn(row['detail']['mode'], ('learning_off', 'normal'))
+            self.assertNotIn('remote_addr', row)
+            self.assertNotIn('path', row)
+            self.assertNotIn('user_agent', row)
 
     def test_test_play_confirm_skips_learning_and_quality_feedback(self):
         from app import engine as app_engine
