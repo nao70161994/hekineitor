@@ -1170,7 +1170,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             share_events_service.record_event('share_button_click', result_name='NTR', channel='button', success=True, path=path, now_fn=lambda: new_now)
             share_events_service.record_event('result_page_view', result_name='NTR', channel='result_page', success=True, path=path, now_fn=lambda: new_now)
             with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path}):
-                res = self.client.get('/api/admin/share_events?since=2026-05-24&until=2026-05-24', headers=headers)
+                res = self.client.get('/api/admin/share_events?since=2026-05-24&until=2026-05-24&compare_since=2026-05-20&compare_until=2026-05-20', headers=headers)
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertEqual(data['status'], 'ok')
@@ -1186,6 +1186,10 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(data['ranking'][0]['copy_successes'], 1)
         self.assertEqual(data['ranking'][0]['share_actions'], 1)
         self.assertEqual(data['ranking'][0]['share_success_rate'], 100.0)
+        self.assertTrue(data['comparison']['enabled'])
+        self.assertEqual(data['comparison']['metrics']['total']['current'], 4)
+        self.assertEqual(data['comparison']['metrics']['total']['previous'], 1)
+        self.assertIn('share_actions_delta', data['ranking'][0])
 
     def test_admin_share_events_csv_exports(self):
         headers = self._admin_headers()
@@ -1197,6 +1201,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path}):
                 ranking = self.client.get('/api/admin/share_events/ranking.csv?since=2026-05-24', headers=headers)
                 daily = self.client.get('/api/admin/share_events/daily.csv?since=2026-05-24', headers=headers)
+                comparison = self.client.get('/api/admin/share_events/comparison.csv?since=2026-05-24&compare_since=2026-05-23', headers=headers)
         self.assertEqual(ranking.status_code, 200)
         self.assertIn('text/csv', ranking.content_type)
         self.assertIn('result_name,total,share_button_clicks', ranking.data.decode('utf-8').splitlines()[0])
@@ -1204,6 +1209,8 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(daily.status_code, 200)
         self.assertIn('date,total,share_button_clicks', daily.data.decode('utf-8').splitlines()[0])
         self.assertIn('2026-05-24', daily.data.decode('utf-8'))
+        self.assertEqual(comparison.status_code, 200)
+        self.assertIn('metric,current,previous,delta,growth_rate', comparison.data.decode('utf-8').splitlines()[0])
 
     def test_admin_page_renders_share_event_summary(self):
         headers = self._admin_headers()

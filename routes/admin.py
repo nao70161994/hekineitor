@@ -18,6 +18,8 @@ def share_event_query(ctx, *, default_limit=500):
         'since': _date_arg(ctx.request.args.get('since')),
         'until': _date_arg(ctx.request.args.get('until')),
         'days': None,
+        'compare_since': _date_arg(ctx.request.args.get('compare_since')),
+        'compare_until': _date_arg(ctx.request.args.get('compare_until')),
     }
     if ctx.request.args.get('days'):
         filters['days'] = ctx.bounded_int(ctx.request.args.get('days'), 0, 1, 366)
@@ -26,7 +28,7 @@ def share_event_query(ctx, *, default_limit=500):
 
 def share_event_query_string(filters):
     parts = []
-    for key in ('limit', 'days', 'since', 'until'):
+    for key in ('limit', 'days', 'since', 'until', 'compare_since', 'compare_until'):
         value = filters.get(key)
         if value not in (None, ''):
             parts.append(f'{key}={value}')
@@ -166,6 +168,9 @@ def share_events_csv(ctx, kind):
     if kind == 'daily':
         body = share_events_service.daily_csv(report)
         filename = 'share_events_daily.csv'
+    elif kind == 'comparison':
+        body = share_events_service.comparison_csv(report)
+        filename = 'share_events_comparison.csv'
     else:
         body = share_events_service.ranking_csv(report)
         filename = 'share_events_ranking.csv'

@@ -142,6 +142,12 @@ def _summary_metrics(by_event):
         'web_share_failures': by_event.get('web_share_failure', 0),
         'copy_successes': by_event.get('copy_success', 0),
         'copy_failures': by_event.get('copy_failure', 0),
+        'share_actions': (
+            by_event.get('x_share_click', 0)
+            + by_event.get('web_share_success', 0)
+            + by_event.get('copy_success', 0)
+        ),
+        'share_successes': by_event.get('web_share_success', 0) + by_event.get('copy_success', 0),
     }
 
 
@@ -250,8 +256,7 @@ def result_ranking(events, limit=20):
     return rows[:max(1, int(limit or 20))]
 
 
-def event_report(path=None, environ=None, limit=500, since=None, until=None, days=None):
-    events = filter_events(read_events(path=path, environ=environ, limit=limit), since=since, until=until, days=days)
+def _report_for_events(events):
     by_event = {}
     by_channel = {}
     success = {'true': 0, 'false': 0, 'unknown': 0}
@@ -278,6 +283,72 @@ def event_report(path=None, environ=None, limit=500, since=None, until=None, day
         'recent': events[-20:],
     }
 
+
+def _delta(current, previous):
+    return current - previous
+
+
+def _growth_rate(current, previous):
+    if previous == 0:
+        return None
+    return round((current - previous) / previous * 100, 1)
+
+
+def _ranking_with_comparison(current_rows, previous_rows):
+    previous_by_name = {row['result_name']: row for row in previous_rows}
+    rows = []
+    for row in current_rows:
+        previous = previous_by_name.get(row['result_name'], {})
+        merged = dict(row)
+        previous_share_actions = previous.get('share_actions', 0)
+        previous_total = previous.get('total', 0)
+        merged['previous_total'] = previous_total
+        merged['previous_share_actions'] = previous_share_actions
+        merged['share_actions_delta'] = _delta(row.get('share_actions', 0), previous_share_actions)
+        merged['share_actions_growth_rate'] = _growth_rate(row.get('share_actions', 0), previous_share_actions)
+        merged['total_delta'] = _delta(row.get('total', 0), previous_total)
+        merged['total_growth_rate'] = _growth_rate(row.get('total', 0), previous_total)
+        rows.append(merged)
+    rows.sort(key=lambda row: (row['share_actions_delta'], row['total_delta'], row['share_actions']), reverse=True)
+    return rows
+
+
+def _comparison(current_report, previous_report):
+    keys = ['total', 'share_actions', 'share_successes', 'ogp_views', 'result_page_views']
+    current_metrics = {'total': current_report['total'], **current_report['metrics']}
+    previous_metrics = {'total': previous_report['total'], **previous_report['metrics']}
+    metrics = {}
+    for key in keys:
+        current = current_metrics.get(key, 0)
+        previous = previous_metrics.get(key, 0)
+        metrics[key] = {
+            'current': current,
+            'previous': previous,
+            'delta': _delta(current, previous),
+            'growth_rate': _growth_rate(current, previous),
+        }
+    return {
+        'enabled': True,
+        'sample_warning': current_report['total'] < 10 or previous_report['total'] < 10,
+        'metrics': metrics,
+        'ranking': _ranking_with_comparison(current_report['ranking'], previous_report['ranking']),
+    }
+
+
+def event_report(path=None, environ=None, limit=500, since=None, until=None, days=None, compare_since=None, compare_until=None):
+    all_events = read_events(path=path, environ=environ, limit=limit)
+    events = filter_events(all_events, since=since, until=until, days=days)
+    report = _report_for_events(events)
+    if compare_since or compare_until:
+        previous_events = filter_events(all_events, since=compare_since, until=compare_until)
+        comparison = _comparison(report, _report_for_events(previous_events))
+        report['comparison'] = comparison
+        report['ranking'] = comparison['ranking']
+    else:
+        report['comparison'] = {'enabled': False}
+    return report
+
+
 def csv_text(rows, fieldnames):
     buffer = io.StringIO()
     writer = csv.DictWriter(buffer, fieldnames=fieldnames, extrasaction='ignore')
@@ -292,6 +363,8 @@ def ranking_csv(report):
         'result_name', 'total', 'share_button_clicks', 'result_page_views', 'ogp_views',
         'x_clicks', 'web_share_successes', 'copy_successes', 'share_actions',
         'share_successes', 'ogp_to_result_rate', 'result_to_share_rate', 'share_success_rate',
+        'previous_total', 'total_delta', 'total_growth_rate',
+        'previous_share_actions', 'share_actions_delta', 'share_actions_growth_rate',
     ])
 
 
@@ -300,3 +373,12 @@ def daily_csv(report):
         'date', 'total', 'share_button_clicks', 'result_page_views', 'ogp_views',
         'x_clicks', 'web_share_successes', 'copy_successes',
     ])
+
+def comparison_csv(report):
+    comparison = report.get('comparison') or {}
+    rows = []
+    for key, values in (comparison.get('metrics') or {}).items():
+        row = {'metric': key}
+        row.update(values)
+        rows.append(row)
+    return csv_text(rows, ['metric', 'current', 'previous', 'delta', 'growth_rate'])

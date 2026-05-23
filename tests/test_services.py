@@ -113,6 +113,31 @@ class TestServices(unittest.TestCase):
         self.assertIn('date,total,share_button_clicks', daily_csv.splitlines()[0])
         self.assertIn('2026-05-23', daily_csv)
 
+    def test_share_events_comparison_metrics_and_growth(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'events.jsonl')
+            old_now = type('Now', (), {'astimezone': lambda self, tz: self, 'isoformat': lambda self, timespec='seconds': '2026-05-20T00:00:00+00:00'})()
+            new_now = type('Now', (), {'astimezone': lambda self, tz: self, 'isoformat': lambda self, timespec='seconds': '2026-05-24T00:00:00+00:00'})()
+            share_events.record_event('share_button_click', result_name='A', channel='button', success=True, path=path, now_fn=lambda: old_now)
+            share_events.record_event('share_button_click', result_name='A', channel='button', success=True, path=path, now_fn=lambda: new_now)
+            share_events.record_event('x_share_click', result_name='A', channel='x', success=True, path=path, now_fn=lambda: new_now)
+            report = share_events.event_report(
+                path=path,
+                since='2026-05-24',
+                until='2026-05-24',
+                compare_since='2026-05-20',
+                compare_until='2026-05-20',
+            )
+        self.assertTrue(report['comparison']['enabled'])
+        self.assertEqual(report['comparison']['metrics']['total']['current'], 2)
+        self.assertEqual(report['comparison']['metrics']['total']['previous'], 1)
+        self.assertEqual(report['comparison']['metrics']['share_actions']['delta'], 1)
+        self.assertEqual(report['ranking'][0]['previous_share_actions'], 0)
+        self.assertEqual(report['ranking'][0]['share_actions_delta'], 1)
+        csv_body = share_events.comparison_csv(report)
+        self.assertIn('metric,current,previous,delta,growth_rate', csv_body.splitlines()[0])
+        self.assertIn('share_actions', csv_body)
+
     def test_share_events_result_ranking_groups_by_result_name(self):
         events = [
             {'result_name': 'A', 'event_name': 'share_button_click'},
