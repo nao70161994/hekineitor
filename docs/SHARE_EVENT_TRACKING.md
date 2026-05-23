@@ -57,5 +57,7 @@
 - 成功/失敗/不明の件数
 - 直近の日次イベント数
 - チャネル別イベント数
+- 結果別シェアランキング
+- 結果別 OGP / 結果ページ / X / Web Share / コピー数
 
-API の `GET /api/admin/share_events?limit=500` は既存の `total`, `by_event`, `by_channel`, `success`, `recent` を維持しつつ、`metrics` と `daily` を追加で返します。
+API の `GET /api/admin/share_events?limit=500` は既存の `total`, `by_event`, `by_channel`, `success`, `recent` を維持しつつ、`metrics`, `daily`, `ranking` を追加で返します。

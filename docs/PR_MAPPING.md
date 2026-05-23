@@ -142,4 +142,4 @@
 3. Browser E2E runner decision after manual QA gaps are confirmed.
 4. All engine helper modules now live under `engine/` with top-level compatibility shims; next PR can review shim retention/removal policy.
 5. Keep DB and mutation behavior locked with tests while reducing remaining facade method bodies.
-6. Share analytics follow-up: admin dashboard card is available; review counts after a deployed SNS share cycle and decide whether trend charts/export are worth adding.
+6. Share analytics follow-up: admin dashboard and result-name ranking are available; review deployed SNS cycles before adding trend charts/export.

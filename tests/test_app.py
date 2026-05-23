@@ -1177,6 +1177,8 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(data['metrics']['copy_successes'], 1)
         self.assertEqual(data['metrics']['copy_failures'], 1)
         self.assertEqual(data['daily'][0]['copy_successes'], 1)
+        self.assertEqual(data['ranking'][0]['result_name'], 'NTR')
+        self.assertEqual(data['ranking'][0]['copy_successes'], 1)
 
     def test_admin_page_renders_share_event_summary(self):
         headers = self._admin_headers()
@@ -1187,6 +1189,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             share_events_service.record_event('x_share_click', result_name='NTR', channel='x', success=True, path=path)
             share_events_service.record_event('ogp_png_view', result_name='NTR', channel='ogp', success=True, path=path)
             share_events_service.record_event('result_page_view', result_name='NTR', channel='result_page', success=True, path=path)
+            share_events_service.record_event('share_button_click', result_name='眼鏡', channel='button', success=True, path=path)
             with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path}):
                 res = self.client.get('/admin', headers=headers)
         self.assertEqual(res.status_code, 200)
@@ -1196,6 +1199,8 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('Web Share成功', body)
         self.assertIn('Xクリック', body)
         self.assertIn('OGP表示', body)
+        self.assertIn('結果別シェアランキング', body)
+        self.assertIn('眼鏡', body)
         self.assertIn('/api/admin/share_events', body)
 
     def test_result_feedback_cta_is_simplified(self):

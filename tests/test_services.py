@@ -92,6 +92,24 @@ class TestServices(unittest.TestCase):
         self.assertEqual(rows[1]['web_share_successes'], 1)
         self.assertEqual(rows[1]['copy_successes'], 1)
 
+    def test_share_events_result_ranking_groups_by_result_name(self):
+        events = [
+            {'result_name': 'A', 'event_name': 'share_button_click'},
+            {'result_name': 'A', 'event_name': 'x_share_click'},
+            {'result_name': 'A', 'event_name': 'ogp_png_view'},
+            {'result_name': 'B', 'event_name': 'result_page_view'},
+            {'result_name': 'B', 'event_name': 'web_share_success'},
+            {'result_name': '', 'event_name': 'share_button_click'},
+        ]
+        ranking = share_events.result_ranking(events, limit=10)
+        self.assertEqual(ranking[0]['result_name'], 'A')
+        self.assertEqual(ranking[0]['share_button_clicks'], 1)
+        self.assertEqual(ranking[0]['x_clicks'], 1)
+        self.assertEqual(ranking[0]['ogp_views'], 1)
+        self.assertEqual(ranking[1]['result_name'], 'B')
+        self.assertEqual(ranking[1]['result_page_views'], 1)
+        self.assertEqual(ranking[1]['web_share_successes'], 1)
+
     def test_name_matching_finds_close_names_without_exact_self_match(self):
         fetishes = [
             {'id': 1, 'name': 'ヤンデレ'},

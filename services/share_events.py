@@ -146,6 +146,55 @@ def daily_summary(events, days=14):
     return rows[-max(1, int(days or 14)):]
 
 
+def _empty_result_row(result_name):
+    return {
+        'result_name': result_name,
+        'total': 0,
+        'share_button_clicks': 0,
+        'result_page_views': 0,
+        'ogp_views': 0,
+        'x_clicks': 0,
+        'web_share_successes': 0,
+        'copy_successes': 0,
+    }
+
+
+def result_ranking(events, limit=20):
+    ranking = {}
+    for event in events:
+        result_name = _clean_text(event.get('result_name'), 80)
+        if not result_name:
+            continue
+        row = ranking.setdefault(result_name, _empty_result_row(result_name))
+        row['total'] += 1
+        name = event.get('event_name') or ''
+        if name == 'share_button_click':
+            row['share_button_clicks'] += 1
+        elif name == 'result_page_view':
+            row['result_page_views'] += 1
+        elif name in ('ogp_png_view', 'ogp_svg_view'):
+            row['ogp_views'] += 1
+        elif name == 'x_share_click':
+            row['x_clicks'] += 1
+        elif name == 'web_share_success':
+            row['web_share_successes'] += 1
+        elif name == 'copy_success':
+            row['copy_successes'] += 1
+    rows = sorted(
+        ranking.values(),
+        key=lambda row: (
+            row['share_button_clicks'],
+            row['x_clicks'] + row['web_share_successes'] + row['copy_successes'],
+            row['ogp_views'],
+            row['result_page_views'],
+            row['total'],
+            row['result_name'],
+        ),
+        reverse=True,
+    )
+    return rows[:max(1, int(limit or 20))]
+
+
 def event_report(path=None, environ=None, limit=500):
     events = read_events(path=path, environ=environ, limit=limit)
     by_event = {}
@@ -170,5 +219,6 @@ def event_report(path=None, environ=None, limit=500):
         'success': success,
         'metrics': _summary_metrics(by_event),
         'daily': daily_summary(events, days=14),
+        'ranking': result_ranking(events, limit=20),
         'recent': events[-20:],
     }
