@@ -396,3 +396,169 @@ def promote_fetish_id(old_id, new_id, *, get_conn, put_conn):
             cur.execute('UPDATE fetish_log SET fetish_id = %s WHERE fetish_id = %s', (new_id, old_id))
     finally:
         put_conn(conn)
+
+
+def increment_stat(key, *, get_conn, put_conn):
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO stats (key, value) VALUES (%s, 1) ON CONFLICT (key) DO UPDATE SET value = stats.value + 1",
+                (key,),
+            )
+    finally:
+        put_conn(conn)
+
+
+def record_daily_stat(key, today, *, get_conn, put_conn):
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO stats_history (date, key, value) VALUES (%s, %s, 1) "
+                "ON CONFLICT (date, key) DO UPDATE SET value = stats_history.value + 1",
+                (today, key),
+            )
+    finally:
+        put_conn(conn)
+
+
+def load_stats(keys, *, get_conn, put_conn):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT key, value FROM stats WHERE key = ANY(%s)", (list(keys),))
+        result = dict(cur.fetchall())
+        return {key: result.get(key, 0) for key in keys}
+    finally:
+        put_conn(conn)
+
+
+def load_stats_history(date_range, *, get_conn, put_conn):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT date, key, value FROM stats_history WHERE date >= %s", (date_range[0],))
+        raw = {}
+        for day, key, value in cur.fetchall():
+            raw.setdefault(day, {})[key] = value
+        return [
+            {
+                'date': day,
+                'play': raw.get(day, {}).get('play', 0),
+                'learn': raw.get(day, {}).get('learn', 0),
+                'correct': raw.get(day, {}).get('correct', 0),
+                'wrong': raw.get(day, {}).get('wrong', 0),
+            }
+            for day in date_range
+        ]
+    finally:
+        put_conn(conn)
+
+
+def load_feedback_totals(since, *, get_conn, put_conn):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT key, SUM(value) FROM stats_history WHERE date >= %s AND (key LIKE 'f_correct_%%' OR key LIKE 'f_wrong_%%') GROUP BY key",
+            (since,),
+        )
+        totals = {}
+        for key, value in cur.fetchall():
+            if key.startswith('f_correct_'):
+                fetish_id = int(key[len('f_correct_'):])
+                totals.setdefault(fetish_id, {'correct': 0, 'wrong': 0})['correct'] += int(value or 0)
+            elif key.startswith('f_wrong_'):
+                fetish_id = int(key[len('f_wrong_'):])
+                totals.setdefault(fetish_id, {'correct': 0, 'wrong': 0})['wrong'] += int(value or 0)
+        return totals
+    finally:
+        put_conn(conn)
+
+
+def load_fetish_history(date_range, correct_key, wrong_key, *, get_conn, put_conn):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT date, key, value FROM stats_history WHERE date >= %s AND key IN (%s, %s)",
+            (date_range[0], correct_key, wrong_key),
+        )
+        raw = {}
+        for day, key, value in cur.fetchall():
+            raw.setdefault(day, {})[key] = value
+        return raw
+    finally:
+        put_conn(conn)
+
+
+def load_quality_event_totals(date_range, keys, *, get_conn, put_conn):
+    totals = {key: 0 for key in keys}
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT key, SUM(value) FROM stats_history WHERE date >= %s AND key = ANY(%s) GROUP BY key",
+            (date_range[0], list(keys)),
+        )
+        for key, value in cur.fetchall():
+            totals[key] = int(value or 0)
+        return totals
+    finally:
+        put_conn(conn)
+
+
+def load_disabled_questions(*, get_conn, put_conn):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT key FROM stats WHERE key LIKE 'disabled_q_%'")
+        return {int(row[0][len('disabled_q_'):]) for row in cur.fetchall()}
+    finally:
+        put_conn(conn)
+
+
+def save_disabled_questions(disabled_questions, *, get_conn, put_conn):
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM stats WHERE key LIKE 'disabled_q_%'")
+            for question_id in disabled_questions:
+                cur.execute(
+                    "INSERT INTO stats (key, value) VALUES (%s, 1) ON CONFLICT (key) DO UPDATE SET value=1",
+                    (f'disabled_q_{question_id}',),
+                )
+    finally:
+        put_conn(conn)
+
+
+def increment_fetish_log(fetish_db_id, column, *, get_conn, put_conn):
+    if column not in ('guessed', 'correct', 'wrong'):
+        raise ValueError(f'不正な列名: {column}')
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute(f'''
+                INSERT INTO fetish_log (fetish_id, {column}) VALUES (%s, 1)
+                ON CONFLICT (fetish_id) DO UPDATE SET {column} = fetish_log.{column} + 1
+            ''', (fetish_db_id,))
+    finally:
+        put_conn(conn)
+
+
+def load_fetish_log(*, get_conn, put_conn):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute('SELECT fetish_id, guessed, correct, wrong FROM fetish_log')
+        return {
+            row[0]: {'guessed': row[1], 'correct': row[2], 'wrong': row[3]}
+            for row in cur.fetchall()
+        }
+    finally:
+        put_conn(conn)

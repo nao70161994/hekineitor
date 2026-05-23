@@ -326,3 +326,91 @@ class TestEngineDbMutationAdapters(unittest.TestCase):
             ],
         )
         self.assertEqual([call[1] for call in cursor.executed], [(3, 10000), (3, 10000), (3, 10000)])
+
+
+class TestEngineDbStatsAdapters(unittest.TestCase):
+    def test_increment_and_daily_stats_use_existing_upsert_sql(self):
+        cursor = FakeCursor()
+        conn = FakeConn(cursor)
+        engine_db.increment_stat('play_count', get_conn=lambda: conn, put_conn=lambda _conn: None)
+        engine_db.record_daily_stat('play', '2026-05-23', get_conn=lambda: conn, put_conn=lambda _conn: None)
+
+        self.assertIn('ON CONFLICT (key) DO UPDATE SET value = stats.value + 1', cursor.executed[0][0])
+        self.assertEqual(cursor.executed[0][1], ('play_count',))
+        self.assertIn('ON CONFLICT (date, key) DO UPDATE SET value = stats_history.value + 1', cursor.executed[1][0])
+        self.assertEqual(cursor.executed[1][1], ('2026-05-23', 'play'))
+
+    def test_load_stats_and_history_keep_engine_shapes(self):
+        cursor = FakeCursor(
+            fetchall_values=[
+                [('play_count', 2)],
+                [('2026-05-23', 'play', 3), ('2026-05-23', 'wrong', 1)],
+            ]
+        )
+        conn = FakeConn(cursor)
+
+        self.assertEqual(
+            engine_db.load_stats(('play_count', 'learn_count'), get_conn=lambda: conn, put_conn=lambda _conn: None),
+            {'play_count': 2, 'learn_count': 0},
+        )
+        self.assertEqual(
+            engine_db.load_stats_history(['2026-05-22', '2026-05-23'], get_conn=lambda: conn, put_conn=lambda _conn: None),
+            [
+                {'date': '2026-05-22', 'play': 0, 'learn': 0, 'correct': 0, 'wrong': 0},
+                {'date': '2026-05-23', 'play': 3, 'learn': 0, 'correct': 0, 'wrong': 1},
+            ],
+        )
+
+    def test_feedback_quality_and_fetish_history_loaders_keep_raw_contracts(self):
+        cursor = FakeCursor(
+            fetchall_values=[
+                [('f_correct_10', 2), ('f_wrong_10', 1)],
+                [('2026-05-23', 'f_correct_10', 2)],
+                [('q_low_conf_guess', 4)],
+            ]
+        )
+        conn = FakeConn(cursor)
+
+        self.assertEqual(
+            engine_db.load_feedback_totals('2026-05-20', get_conn=lambda: conn, put_conn=lambda _conn: None),
+            {10: {'correct': 2, 'wrong': 1}},
+        )
+        self.assertEqual(
+            engine_db.load_fetish_history(
+                ['2026-05-22', '2026-05-23'],
+                'f_correct_10',
+                'f_wrong_10',
+                get_conn=lambda: conn,
+                put_conn=lambda _conn: None,
+            ),
+            {'2026-05-23': {'f_correct_10': 2}},
+        )
+        self.assertEqual(
+            engine_db.load_quality_event_totals(
+                ['2026-05-22', '2026-05-23'],
+                ('q_low_conf_guess', 'q_low_conf_wrong'),
+                get_conn=lambda: conn,
+                put_conn=lambda _conn: None,
+            ),
+            {'q_low_conf_guess': 4, 'q_low_conf_wrong': 0},
+        )
+
+    def test_disabled_questions_and_fetish_log_adapters_keep_contracts(self):
+        cursor = FakeCursor(fetchall_values=[[('disabled_q_2',), ('disabled_q_5',)], [(10, 1, 2, 3)]])
+        conn = FakeConn(cursor)
+
+        self.assertEqual(engine_db.load_disabled_questions(get_conn=lambda: conn, put_conn=lambda _conn: None), {2, 5})
+        engine_db.save_disabled_questions({5, 2}, get_conn=lambda: conn, put_conn=lambda _conn: None)
+        engine_db.increment_fetish_log(10, 'correct', get_conn=lambda: conn, put_conn=lambda _conn: None)
+        self.assertEqual(
+            engine_db.load_fetish_log(get_conn=lambda: conn, put_conn=lambda _conn: None),
+            {10: {'guessed': 1, 'correct': 2, 'wrong': 3}},
+        )
+
+        sqls = [sql for sql, _params in cursor.executed]
+        self.assertIn("SELECT key FROM stats WHERE key LIKE 'disabled_q_%'", sqls)
+        self.assertIn("DELETE FROM stats WHERE key LIKE 'disabled_q_%'", sqls)
+        self.assertTrue(any('INSERT INTO fetish_log' in sql for sql in sqls))
+        self.assertIn('SELECT fetish_id, guessed, correct, wrong FROM fetish_log', sqls)
+        with self.assertRaises(ValueError):
+            engine_db.increment_fetish_log(10, 'bad', get_conn=lambda: conn, put_conn=lambda _conn: None)

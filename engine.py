@@ -263,16 +263,7 @@ class Engine:
 
     def _increment_stat(self, key):
         if _use_db():
-            conn = _get_conn()
-            try:
-                with conn:
-                    cur = conn.cursor()
-                    cur.execute(
-                        "INSERT INTO stats (key, value) VALUES (%s, 1) ON CONFLICT (key) DO UPDATE SET value = stats.value + 1",
-                        (key,)
-                    )
-            finally:
-                _put_conn(conn)
+            engine_db.increment_stat(key, get_conn=_get_conn, put_conn=_put_conn)
         else:
             path = os.path.join(DATA_DIR, 'stats.json')
             engine_stats.increment_counter_file(path, key, lock=self._lock, atomic_write=self._atomic_write)
@@ -281,17 +272,7 @@ class Engine:
         from datetime import date as _date
         today = _date.today().isoformat()
         if _use_db():
-            conn = _get_conn()
-            try:
-                with conn:
-                    cur = conn.cursor()
-                    cur.execute(
-                        "INSERT INTO stats_history (date, key, value) VALUES (%s, %s, 1) "
-                        "ON CONFLICT (date, key) DO UPDATE SET value = stats_history.value + 1",
-                        (today, key)
-                    )
-            finally:
-                _put_conn(conn)
+            engine_db.record_daily_stat(key, today, get_conn=_get_conn, put_conn=_put_conn)
         else:
             path = os.path.join(DATA_DIR, 'stats_history.json')
             engine_stats.record_daily_counter_file(path, key, today, lock=self._lock, atomic_write=self._atomic_write)
@@ -307,17 +288,9 @@ class Engine:
     def get_stats(self):
         keys = ('play_count', 'learn_count')
         if _use_db():
-            conn = _get_conn()
-            try:
-                cur = conn.cursor()
-                cur.execute("SELECT key, value FROM stats WHERE key = ANY(%s)", (list(keys),))
-                result = dict(cur.fetchall())
-            finally:
-                _put_conn(conn)
-        else:
-            path = os.path.join(DATA_DIR, 'stats.json')
-            return engine_stats.counters_from_file(path, keys)
-        return {k: result.get(k, 0) for k in keys}
+            return engine_db.load_stats(keys, get_conn=_get_conn, put_conn=_put_conn)
+        path = os.path.join(DATA_DIR, 'stats.json')
+        return engine_stats.counters_from_file(path, keys)
 
     def get_stats_history(self, days=30):
         """過去N日間の日別プレイ・学習回数を [{date, play, learn}, ...] で返す。"""
@@ -325,26 +298,9 @@ class Engine:
         today = _date.today()
         date_range = [(today - timedelta(days=i)).isoformat() for i in range(days - 1, -1, -1)]
         if _use_db():
-            conn = _get_conn()
-            try:
-                cur = conn.cursor()
-                cur.execute(
-                    "SELECT date, key, value FROM stats_history WHERE date >= %s",
-                    (date_range[0],)
-                )
-                raw = {}
-                for d, k, v in cur.fetchall():
-                    raw.setdefault(d, {})[k] = v
-            finally:
-                _put_conn(conn)
-        else:
-            path = os.path.join(DATA_DIR, 'stats_history.json')
-            return engine_stats.history_rows_from_file(path, date_range)
-        return [{'date': d,
-                 'play':    raw.get(d, {}).get('play',    0),
-                 'learn':   raw.get(d, {}).get('learn',   0),
-                 'correct': raw.get(d, {}).get('correct', 0),
-                 'wrong':   raw.get(d, {}).get('wrong',   0)} for d in date_range]
+            return engine_db.load_stats_history(date_range, get_conn=_get_conn, put_conn=_put_conn)
+        path = os.path.join(DATA_DIR, 'stats_history.json')
+        return engine_stats.history_rows_from_file(path, date_range)
 
     def get_recent_fetish_ranking(self, days=7, top_n=10):
         """過去N日間に正解/外れフィードバックが多かった性癖TOP n件を返す。"""
@@ -353,22 +309,7 @@ class Engine:
         since = (today - timedelta(days=days - 1)).isoformat()
         totals = {}  # fetish_id -> {'correct': int, 'wrong': int}
         if _use_db():
-            conn = _get_conn()
-            try:
-                cur = conn.cursor()
-                cur.execute(
-                    "SELECT key, SUM(value) FROM stats_history WHERE date >= %s AND (key LIKE 'f_correct_%%' OR key LIKE 'f_wrong_%%') GROUP BY key",
-                    (since,)
-                )
-                for key, val in cur.fetchall():
-                    if key.startswith('f_correct_'):
-                        fid = int(key[len('f_correct_'):])
-                        totals.setdefault(fid, {'correct': 0, 'wrong': 0})['correct'] += int(val or 0)
-                    elif key.startswith('f_wrong_'):
-                        fid = int(key[len('f_wrong_'):])
-                        totals.setdefault(fid, {'correct': 0, 'wrong': 0})['wrong'] += int(val or 0)
-            finally:
-                _put_conn(conn)
+            totals = engine_db.load_feedback_totals(since, get_conn=_get_conn, put_conn=_put_conn)
         else:
             path = os.path.join(DATA_DIR, 'stats_history.json')
             try:
@@ -389,18 +330,7 @@ class Engine:
         ck = f'f_correct_{fetish_db_id}'
         wk = f'f_wrong_{fetish_db_id}'
         if _use_db():
-            conn = _get_conn()
-            try:
-                cur = conn.cursor()
-                cur.execute(
-                    "SELECT date, key, value FROM stats_history WHERE date >= %s AND key IN (%s, %s)",
-                    (date_range[0], ck, wk)
-                )
-                raw = {}
-                for d, k, v in cur.fetchall():
-                    raw.setdefault(d, {})[k] = v
-            finally:
-                _put_conn(conn)
+            raw = engine_db.load_fetish_history(date_range, ck, wk, get_conn=_get_conn, put_conn=_put_conn)
         else:
             path = os.path.join(DATA_DIR, 'stats_history.json')
             try:
@@ -427,17 +357,7 @@ class Engine:
         )
         totals = {key: 0 for key in keys}
         if _use_db():
-            conn = _get_conn()
-            try:
-                cur = conn.cursor()
-                cur.execute(
-                    "SELECT key, SUM(value) FROM stats_history WHERE date >= %s AND key = ANY(%s) GROUP BY key",
-                    (date_range[0], list(keys))
-                )
-                for key, value in cur.fetchall():
-                    totals[key] = int(value or 0)
-            finally:
-                _put_conn(conn)
+            totals = engine_db.load_quality_event_totals(date_range, keys, get_conn=_get_conn, put_conn=_put_conn)
         else:
             path = os.path.join(DATA_DIR, 'stats_history.json')
             try:
@@ -454,31 +374,14 @@ class Engine:
     # ── 質問無効化フラグ ───────────────────────────────────
     def _load_disabled_questions(self):
         if _use_db():
-            conn = _get_conn()
-            try:
-                cur = conn.cursor()
-                cur.execute("SELECT key FROM stats WHERE key LIKE 'disabled_q_%'")
-                return {int(r[0][len('disabled_q_'):]) for r in cur.fetchall()}
-            finally:
-                _put_conn(conn)
+            return engine_db.load_disabled_questions(get_conn=_get_conn, put_conn=_put_conn)
         else:
             path = os.path.join(DATA_DIR, 'question_flags.json')
             return engine_stats.load_disabled_questions_file(path)
 
     def _save_disabled_questions(self):
         if _use_db():
-            conn = _get_conn()
-            try:
-                with conn:
-                    cur = conn.cursor()
-                    cur.execute("DELETE FROM stats WHERE key LIKE 'disabled_q_%'")
-                    for q_id in self.disabled_questions:
-                        cur.execute(
-                            "INSERT INTO stats (key, value) VALUES (%s, 1) ON CONFLICT (key) DO UPDATE SET value=1",
-                            (f'disabled_q_{q_id}',)
-                        )
-            finally:
-                _put_conn(conn)
+            engine_db.save_disabled_questions(self.disabled_questions, get_conn=_get_conn, put_conn=_put_conn)
         else:
             path = os.path.join(DATA_DIR, 'question_flags.json')
             engine_stats.save_disabled_questions_file(path, self.disabled_questions, atomic_write=self._atomic_write)
@@ -500,16 +403,7 @@ class Engine:
         if col not in ('guessed', 'correct', 'wrong'):
             raise ValueError(f'不正な列名: {col}')
         if _use_db():
-            conn = _get_conn()
-            try:
-                with conn:
-                    cur = conn.cursor()
-                    cur.execute(f'''
-                        INSERT INTO fetish_log (fetish_id, {col}) VALUES (%s, 1)
-                        ON CONFLICT (fetish_id) DO UPDATE SET {col} = fetish_log.{col} + 1
-                    ''', (fetish_db_id,))
-            finally:
-                _put_conn(conn)
+            engine_db.increment_fetish_log(fetish_db_id, col, get_conn=_get_conn, put_conn=_put_conn)
         else:
             path = get_fetish_log_path()
             engine_stats.increment_fetish_log_file(
@@ -532,14 +426,7 @@ class Engine:
     def get_fetish_log(self):
         """全性癖のログを {fetish_db_id: {guessed, correct, wrong}} で返す。"""
         if _use_db():
-            conn = _get_conn()
-            try:
-                cur = conn.cursor()
-                cur.execute('SELECT fetish_id, guessed, correct, wrong FROM fetish_log')
-                return {r[0]: {'guessed': r[1], 'correct': r[2], 'wrong': r[3]}
-                        for r in cur.fetchall()}
-            finally:
-                _put_conn(conn)
+            return engine_db.load_fetish_log(get_conn=_get_conn, put_conn=_put_conn)
         else:
             path = get_fetish_log_path()
             return engine_stats.load_fetish_log_file(path)
