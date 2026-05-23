@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import engine
 import engine_constants
+import engine_data
 
 
 class TestEngineConstantsCompatibility(unittest.TestCase):
@@ -35,3 +36,27 @@ class TestEngineConstantsCompatibility(unittest.TestCase):
             engine_constants.AXIS_INDIRECT_BONUS,
             {'content': 1.0, 'abstract': 1.01, 'personality': 1.02},
         )
+
+
+class TestEngineLargeDataCompatibility(unittest.TestCase):
+    def test_engine_reexports_large_data_constants(self):
+        names = [
+            'QUESTION_AXES',
+            'DOMAIN_PRIORS',
+            'FETISH_RELATIONS',
+            'FETISH_PRIOR_WEIGHTS',
+        ]
+        for name in names:
+            self.assertIs(getattr(engine, name), getattr(engine_data, name))
+
+    def test_large_data_constant_shapes_remain_stable(self):
+        self.assertEqual(len(engine_data.QUESTION_AXES), 7)
+        self.assertGreater(len(engine_data.DOMAIN_PRIORS), 100)
+        self.assertGreater(len(engine_data.FETISH_RELATIONS), 100)
+        self.assertGreater(len(engine_data.FETISH_PRIOR_WEIGHTS), 50)
+        self.assertEqual(engine_data.QUESTION_AXES[0], ('content', range(0, 55)))
+        self.assertIn((0, 8, 0.95), engine_data.DOMAIN_PRIORS)
+        self.assertEqual(engine_data.FETISH_RELATIONS[0], [20])
+        self.assertEqual(engine_data.FETISH_PRIOR_WEIGHTS[0], 3.0)
+        self.assertEqual(engine_data.FETISH_PRIOR_WEIGHTS[10], 3.0)
+        self.assertEqual(engine_data.FETISH_PRIOR_WEIGHTS[23], 3.0)

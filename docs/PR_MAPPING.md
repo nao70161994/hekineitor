@@ -97,6 +97,7 @@
 - Compound works pure helpers split from `engine.py`.
 - Compound works cache/load/save helpers and tests added.
 - Scalar engine constants split behind `engine` re-export compatibility.
+- Large engine data constants split behind `engine` re-export compatibility.
 - Engine inference regression snapshots added.
 - Engine question-selection regression snapshots added.
 - App composition-root review documented.

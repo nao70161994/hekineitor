@@ -53,6 +53,7 @@
 - Compound works key/list helpers are split from `engine.py` while public functions and cache patch points stay compatible.
 - Compound works cache/load/save helper behavior is covered directly while public `engine` functions stay compatible.
 - Scalar engine constants are split into `engine_constants.py` with `engine` re-export compatibility covered by tests.
+- Large engine data constants are split into `engine_data.py` with `engine` re-export compatibility covered by tests.
 - Representative inference snapshots now lock top-guess IDs and probabilities before engine package work continues.
 - Deterministic question-selection snapshots now lock representative best-question and disambiguation outputs.
 - App composition-root responsibilities were reviewed against `docs/APP_BOOTSTRAP.md` after engine package planning.

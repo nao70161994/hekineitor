@@ -13,6 +13,7 @@ This plan prepares `engine.py` for package conversion without changing diagnosis
 - `tests/test_engine_facade_contract.py` locks facade-to-helper parity and current public module exports.
 - `engine_compound_works.py` contains compound works key/list/cache/save helpers while `engine.py` still owns public compatibility functions and cache globals.
 - `engine_constants.py` contains scalar package-prep constants while `engine.py` re-exports the same public names.
+- `engine_data.py` contains large data constants (`QUESTION_AXES`, `DOMAIN_PRIORS`, `FETISH_RELATIONS`, `FETISH_PRIOR_WEIGHTS`) while `engine.py` re-exports the same public names.
 - `tests/test_engine_inference_regression.py` snapshots representative top-guess IDs and probabilities before further package moves.
 - `tests/test_engine_question_selection_regression.py` snapshots deterministic question selection and disambiguation cases.
 
@@ -65,7 +66,7 @@ Because Python cannot safely keep both `engine.py` and an `engine/` package as t
 
 ## Recommended Move Order
 
-1. Large data constants still remain in `engine.py`; only scalar package-prep constants have moved to `engine_constants.py` and are re-exported from `engine`.
+1. Scalar and large data constants are staged in `engine_constants.py` and `engine_data.py`; `engine.py` keeps import-compatible re-exports.
 2. `compound_works.py`: cache/load/save helpers are staged in `engine_compound_works.py`; a later PR can move cache globals only if public `engine` patch points stay compatible.
 3. Existing helper module rename only after tests: `engine_inference.py` -> package `inference.py`, `engine_question_selection.py` -> `question_selection.py`, `engine_learning.py` -> `learning.py`.
 4. Split read-only analytics/reporting methods from `Engine` only after parity tests cover output shape.
@@ -82,7 +83,7 @@ The final facade should own state and expose public methods, but method bodies s
 
 ## Regression Tests To Add Before Package Conversion
 
-- Public import contract for `engine` exports.
+- Public import contract for `engine` exports, including scalar and large data constants.
 - Representative top-guess ID/probability snapshots for empty, strong-signal, and mixed-answer cases.
 - Deterministic question selection snapshots for empty, idk streak, and focused-answer cases.
 - Facade/helper parity for inference, question selection, and learning.
