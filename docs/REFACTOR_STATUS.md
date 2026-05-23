@@ -97,6 +97,7 @@
 - Share analytics comparison CSV and ranking growth columns are documented for review workflows.
 - Share improvement notes now persist per result name through a CSRF-protected admin API and render in the share ranking table without collecting identifiers.
 - Share analytics CSV exports now include period filter metadata at the end of each row for review traceability.
+- Share analytics module boundaries are documented; write-oriented improvement notes stay separate from read-oriented event aggregation.
 
 ## Still Open
 
