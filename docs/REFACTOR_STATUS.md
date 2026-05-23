@@ -76,6 +76,7 @@
 - DB seed matrix row building/writing is split into `engine_db.py` behind the `_seed_db` compatibility wrapper.
 - Disc-scale, dynamic-prior, and entropy calculations are split into `engine_runtime.py` while Engine keeps cache state/timing and compatibility wrappers, covered by facade contract tests.
 - Future `engine/` package switch steps are documented in `docs/ENGINE_PACKAGE_SWITCH_PLAN.md`; guard tests ensure prep PRs still import `engine.py`.
+- Importlib guard coverage now confirms prep PRs still resolve `engine` to `engine.py` without package search locations.
 - Engine package rehearsal and rollback steps are documented in `docs/ENGINE_PACKAGE_REHEARSAL_CHECKLIST.md`.
 - Engine package switch PR review criteria are documented in `docs/ENGINE_PACKAGE_PR_REVIEW.md`.
 - Engine package switch PR description requirements are documented in `docs/ENGINE_PACKAGE_PR_TEMPLATE.md`.

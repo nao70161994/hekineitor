@@ -1,3 +1,4 @@
+import importlib.util
 import os
 import sys
 import unittest
@@ -14,13 +15,22 @@ class TestEnginePackageSwitchGuard(unittest.TestCase):
         self.assertTrue(engine.__file__.endswith('engine.py'))
         self.assertEqual(os.path.abspath(engine.__file__), os.path.join(ROOT, 'engine.py'))
 
+    def test_importlib_spec_still_points_at_engine_py_before_atomic_switch(self):
+        spec = importlib.util.find_spec('engine')
+        self.assertIsNotNone(spec)
+        self.assertEqual(os.path.abspath(spec.origin), os.path.join(ROOT, 'engine.py'))
+        self.assertIsNone(spec.submodule_search_locations)
+
     def test_engine_package_directory_is_not_created_during_prep_refactors(self):
         self.assertFalse(os.path.isdir(os.path.join(ROOT, 'engine')))
+
     def test_engine_helper_modules_remain_top_level_during_prep_refactors(self):
         helper_files = [
             'engine_admin_reports.py',
             'engine_compound_works.py',
+            'engine_constants.py',
             'engine_correlation.py',
+            'engine_data.py',
             'engine_db.py',
             'engine_inference.py',
             'engine_learning.py',
