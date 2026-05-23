@@ -339,6 +339,13 @@ def event_report(path=None, environ=None, limit=500, since=None, until=None, day
     all_events = read_events(path=path, environ=environ, limit=limit)
     events = filter_events(all_events, since=since, until=until, days=days)
     report = _report_for_events(events)
+    report['filters'] = {
+        'days': _clean_positive_int(days),
+        'since': _clean_date(since),
+        'until': _clean_date(until),
+        'compare_since': _clean_date(compare_since),
+        'compare_until': _clean_date(compare_until),
+    }
     if compare_since or compare_until:
         previous_events = filter_events(all_events, since=compare_since, until=compare_until)
         comparison = _comparison(report, _report_for_events(previous_events))
@@ -348,6 +355,24 @@ def event_report(path=None, environ=None, limit=500, since=None, until=None, day
         report['comparison'] = {'enabled': False}
     return report
 
+
+_META_FIELDS = ['filter_days', 'filter_since', 'filter_until', 'compare_since', 'compare_until']
+
+
+def _filter_metadata(report):
+    filters = report.get('filters') or {}
+    return {
+        'filter_days': filters.get('days') or '',
+        'filter_since': filters.get('since') or '',
+        'filter_until': filters.get('until') or '',
+        'compare_since': filters.get('compare_since') or '',
+        'compare_until': filters.get('compare_until') or '',
+    }
+
+
+def _rows_with_metadata(report, rows):
+    meta = _filter_metadata(report)
+    return [{**row, **meta} for row in rows]
 
 def csv_text(rows, fieldnames):
     buffer = io.StringIO()
@@ -359,20 +384,23 @@ def csv_text(rows, fieldnames):
 
 
 def ranking_csv(report):
-    return csv_text(report.get('ranking', []), [
+    return csv_text(_rows_with_metadata(report, report.get('ranking', [])), [
         'result_name', 'total', 'share_button_clicks', 'result_page_views', 'ogp_views',
         'x_clicks', 'web_share_successes', 'copy_successes', 'share_actions',
         'share_successes', 'ogp_to_result_rate', 'result_to_share_rate', 'share_success_rate',
         'previous_total', 'total_delta', 'total_growth_rate',
         'previous_share_actions', 'share_actions_delta', 'share_actions_growth_rate',
+        *_META_FIELDS,
     ])
 
 
 def daily_csv(report):
-    return csv_text(report.get('daily', []), [
+    return csv_text(_rows_with_metadata(report, report.get('daily', [])), [
         'date', 'total', 'share_button_clicks', 'result_page_views', 'ogp_views',
         'x_clicks', 'web_share_successes', 'copy_successes',
+        *_META_FIELDS,
     ])
+
 
 def comparison_csv(report):
     comparison = report.get('comparison') or {}
@@ -381,4 +409,7 @@ def comparison_csv(report):
         row = {'metric': key}
         row.update(values)
         rows.append(row)
-    return csv_text(rows, ['metric', 'current', 'previous', 'delta', 'growth_rate'])
+    return csv_text(
+        _rows_with_metadata(report, rows),
+        ['metric', 'current', 'previous', 'delta', 'growth_rate', *_META_FIELDS],
+    )

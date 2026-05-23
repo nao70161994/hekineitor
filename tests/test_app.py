@@ -1190,6 +1190,8 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertTrue(data['comparison']['enabled'])
         self.assertEqual(data['comparison']['metrics']['total']['current'], 4)
         self.assertEqual(data['comparison']['metrics']['total']['previous'], 1)
+        self.assertEqual(data['filters']['since'], '2026-05-24')
+        self.assertEqual(data['filters']['compare_since'], '2026-05-23')
         self.assertIn('share_actions_delta', data['ranking'][0])
 
     def test_admin_share_events_csv_exports(self):
@@ -1205,13 +1207,20 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
                 comparison = self.client.get('/api/admin/share_events/comparison.csv?since=2026-05-24&compare_since=2026-05-23', headers=headers)
         self.assertEqual(ranking.status_code, 200)
         self.assertIn('text/csv', ranking.content_type)
-        self.assertIn('result_name,total,share_button_clicks', ranking.data.decode('utf-8').splitlines()[0])
+        ranking_header = ranking.data.decode('utf-8').splitlines()[0]
+        self.assertIn('result_name,total,share_button_clicks', ranking_header)
+        self.assertIn('filter_since', ranking_header)
         self.assertIn('NTR', ranking.data.decode('utf-8'))
+        self.assertIn('2026-05-24', ranking.data.decode('utf-8'))
         self.assertEqual(daily.status_code, 200)
-        self.assertIn('date,total,share_button_clicks', daily.data.decode('utf-8').splitlines()[0])
+        daily_header = daily.data.decode('utf-8').splitlines()[0]
+        self.assertIn('date,total,share_button_clicks', daily_header)
+        self.assertIn('filter_since', daily_header)
         self.assertIn('2026-05-24', daily.data.decode('utf-8'))
         self.assertEqual(comparison.status_code, 200)
-        self.assertIn('metric,current,previous,delta,growth_rate', comparison.data.decode('utf-8').splitlines()[0])
+        comparison_header = comparison.data.decode('utf-8').splitlines()[0]
+        self.assertIn('metric,current,previous,delta,growth_rate', comparison_header)
+        self.assertIn('compare_since', comparison_header)
 
     def test_admin_page_renders_share_event_summary(self):
         headers = self._admin_headers()

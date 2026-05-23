@@ -136,6 +136,7 @@
 - App composition-root review documented.
 - Share comparison period auto-fill added.
 - Share improvement notes API and admin ranking UI added.
+- Share analytics CSV period metadata added.
 
 ## Next PRs
 

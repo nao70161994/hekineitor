@@ -81,7 +81,7 @@ CSV は以下で取得できます。
 - `/api/admin/share_events/daily.csv`
 - `/api/admin/share_events/comparison.csv`
 
-いずれも同じ期間フィルタ query を受け取ります。ランキングCSVには比較指定時の前期間値・差分・伸び率列が含まれます。
+いずれも同じ期間フィルタ query を受け取ります。ランキングCSVには比較指定時の前期間値・差分・伸び率列が含まれます。各CSVの末尾には `filter_days`, `filter_since`, `filter_until`, `compare_since`, `compare_until` を付け、エクスポート後にどの期間条件で作ったか追跡できます。
 
 ## 改善メモ
 

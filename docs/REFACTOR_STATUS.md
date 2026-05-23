@@ -96,6 +96,7 @@
 - Share analytics admin endpoints now support lightweight period filters and CSV exports for daily and result-ranking reviews.
 - Share analytics comparison CSV and ranking growth columns are documented for review workflows.
 - Share improvement notes now persist per result name through a CSRF-protected admin API and render in the share ranking table without collecting identifiers.
+- Share analytics CSV exports now include period filter metadata at the end of each row for review traceability.
 
 ## Still Open
 

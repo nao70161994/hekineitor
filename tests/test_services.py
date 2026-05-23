@@ -105,12 +105,16 @@ class TestServices(unittest.TestCase):
         report = {
             'ranking': share_events.result_ranking(filtered),
             'daily': share_events.daily_summary(filtered),
+            'filters': {'since': '2026-05-23', 'until': '2026-05-24', 'days': '', 'compare_since': '', 'compare_until': ''},
         }
         ranking_csv = share_events.ranking_csv(report)
         daily_csv = share_events.daily_csv(report)
         self.assertIn('result_name,total,share_button_clicks', ranking_csv.splitlines()[0])
         self.assertIn('New', ranking_csv)
+        self.assertIn('filter_since,filter_until', ranking_csv.splitlines()[0])
+        self.assertIn('2026-05-23', ranking_csv)
         self.assertIn('date,total,share_button_clicks', daily_csv.splitlines()[0])
+        self.assertIn('filter_since,filter_until', daily_csv.splitlines()[0])
         self.assertIn('2026-05-23', daily_csv)
 
     def test_share_events_comparison_metrics_and_growth(self):
@@ -136,6 +140,7 @@ class TestServices(unittest.TestCase):
         self.assertEqual(report['ranking'][0]['share_actions_delta'], 1)
         csv_body = share_events.comparison_csv(report)
         self.assertIn('metric,current,previous,delta,growth_rate', csv_body.splitlines()[0])
+        self.assertIn('filter_since,filter_until,compare_since,compare_until', csv_body.splitlines()[0])
         self.assertIn('share_actions', csv_body)
 
     def test_share_notes_save_load_and_delete(self):
