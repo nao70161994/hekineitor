@@ -100,6 +100,13 @@ def admin_page(ctx):
 
 
 
+
+def start_test_play(ctx):
+    ctx.enable_test_play()
+    ctx.write_audit('test_play_start', 'ok', {}, ctx.request)
+    return ctx.Response('', status=302, headers={'Location': '/'})
+
+
 def works_link_queue_payload(engine, *, sample_limit=20):
     return collect_work_link_queue(engine.fetishes, sample_limit=sample_limit)
 
@@ -641,6 +648,11 @@ def create_blueprint(ctx_factory, require_admin):
     @require_admin
     def admin_page_route():
         return admin_page(ctx_factory())
+
+    @bp.route('/admin/test_play/start')
+    @require_admin
+    def start_test_play_route():
+        return start_test_play(ctx_factory())
 
     @bp.route('/api/admin/toggle_question/<int:q_id>', methods=['POST'])
     @require_admin

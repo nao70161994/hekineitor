@@ -26,6 +26,7 @@ def build(
     share_event_report,
     load_share_notes,
     save_share_note,
+    enable_test_play,
 ):
     request = flask_runtime.request
     jsonify = flask_runtime.jsonify
@@ -65,6 +66,7 @@ def build(
         load_share_notes=load_share_notes,
         save_share_note=save_share_note,
         write_audit=write_audit,
+        enable_test_play=enable_test_play,
     )
     maintenance = context.admin_maintenance(
         parse_works_list=parse_works_list,

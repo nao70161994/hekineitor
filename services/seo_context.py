@@ -16,6 +16,7 @@ def build(
     fetish_relations,
     error_page,
     record_share_event,
+    learning_disabled,
 ):
     return context.seo_context(
         engine=engine,
@@ -38,4 +39,5 @@ def build(
         fetish_relations=fetish_relations,
         error_page=error_page,
         record_share_event=record_share_event,
+        learning_disabled=learning_disabled,
     )

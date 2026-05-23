@@ -21,6 +21,9 @@ def build(
     work_title,
     get_compound_works,
     record_share_event,
+    preserve_test_play_flag,
+    restore_test_play_flag,
+    learning_disabled,
 ):
     request = flask_runtime.request
     session = flask_runtime.session
@@ -44,7 +47,10 @@ def build(
             jsonify=jsonify,
             soft_max_questions=soft_max_questions,
             inference_context=inference_context,
-            mark_guess_quality=quality_stats.mark_guess_quality,
+            mark_guess_quality=(
+                (lambda engine, session, answers, soft_max: None)
+                if learning_disabled() else quality_stats.mark_guess_quality
+            ),
         )
         return inference.make_guess(guess_context, answers)
 
@@ -57,6 +63,9 @@ def build(
         random_choice=random_choice,
         logger=logger,
         record_share_event=record_share_event,
+        preserve_test_play_flag=preserve_test_play_flag,
+        restore_test_play_flag=restore_test_play_flag,
+        learning_disabled=learning_disabled,
     )
     question_flow = context.game_question_flow(
         best_question=question_selection.best_question,

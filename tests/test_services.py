@@ -5,7 +5,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from services import admin_context, admin_security, bootstrap, context, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, share_notes, system_context
+from services import admin_context, admin_security, bootstrap, context, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, share_notes, system_context, test_play
 
 
 class DummyRequest:
@@ -142,6 +142,19 @@ class TestServices(unittest.TestCase):
         self.assertIn('metric,current,previous,delta,growth_rate', csv_body.splitlines()[0])
         self.assertIn('filter_since,filter_until,compare_since,compare_until', csv_body.splitlines()[0])
         self.assertIn('share_actions', csv_body)
+
+    def test_test_play_flag_helpers_are_session_scoped(self):
+        session = {}
+        self.assertFalse(test_play.is_learning_disabled(session))
+        self.assertFalse(test_play.preserve_flag(session))
+        test_play.enable(session)
+        self.assertTrue(test_play.is_learning_disabled(session))
+        preserved = test_play.preserve_flag(session)
+        session.clear()
+        test_play.restore_flag(session, preserved)
+        self.assertTrue(test_play.is_learning_disabled(session))
+        test_play.disable(session)
+        self.assertFalse(test_play.is_learning_disabled(session))
 
     def test_share_notes_save_load_and_delete(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -401,6 +414,7 @@ class TestServices(unittest.TestCase):
             share_event_report=lambda **kwargs: {'total': 0},
             load_share_notes=lambda: {},
             save_share_note=lambda result_name, note: {'note': note, 'updated_at': 'now'},
+            enable_test_play=lambda: None,
         )
         self.assertEqual(ctx.csrf_token(), 'csrf')
         self.assertEqual(ctx.list_matrix_import_backups(), ['backup'])
@@ -489,6 +503,9 @@ class TestServices(unittest.TestCase):
             work_title=lambda work: str(work),
             get_compound_works=lambda a, b: [],
             record_share_event=lambda *args, **kwargs: None,
+            preserve_test_play_flag=lambda: False,
+            restore_test_play_flag=lambda enabled: None,
+            learning_disabled=lambda: False,
         )
         self.assertEqual(ctx.question_total_for_count(20), 30)
         self.assertEqual(ctx.select_next_question({}, [], idk_streak=0), 0)
@@ -511,6 +528,7 @@ class TestServices(unittest.TestCase):
             fetish_relations={1: [2]},
             error_page='error',
             record_share_event=lambda *args, **kwargs: None,
+            learning_disabled=lambda: False,
         )
         self.assertEqual(ctx.public_base_url(), 'https://example.com')
         self.assertEqual(ctx.clean_probability('88.0'), '88')

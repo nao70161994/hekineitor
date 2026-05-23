@@ -41,7 +41,9 @@ def start(ctx):
     if limited:
         return limited
     data = ctx.request.get_json(silent=True) or {}
+    test_play_enabled = ctx.preserve_test_play_flag()
     ctx.session.clear()
+    ctx.restore_test_play_flag(test_play_enabled)
     ctx.session['answers'] = {}
     ctx.session['asked'] = []
     ctx.session['started'] = True
@@ -61,7 +63,9 @@ def start(ctx):
 
 def resume(ctx):
     data = ctx.request.get_json(silent=True) or {}
+    test_play_enabled = ctx.preserve_test_play_flag()
     ctx.session.clear()
+    ctx.restore_test_play_flag(test_play_enabled)
     ctx.session['started'] = True
     ctx.session['answers'] = {}
     ctx.session['asked'] = []
@@ -251,6 +255,12 @@ def teach(ctx):
         total_n = max(1, int(data.get('total_n', 1)))
     except (ValueError, TypeError):
         return ctx.jsonify({'status': 'error', 'message': '不正な total_n です'}), 400
+    if ctx.learning_disabled():
+        return ctx.jsonify({
+            'status': 'learned',
+            'fetish_name': ctx.engine.fetishes[fetish_idx]['name'],
+            'learning_disabled': True,
+        })
     ctx.learn_positive(ctx.engine, answers, fetish_idx, strength_factor=ctx.learn_factor(answers, total_n))
     ctx.engine.log_correct(ctx.engine.fetishes[fetish_idx]['id'])
     return ctx.jsonify({'status': 'learned', 'fetish_name': ctx.engine.fetishes[fetish_idx]['name']})
@@ -268,6 +278,7 @@ def confirm(ctx):
     if fetish_idx is None:
         return ctx.jsonify({'status': 'error', 'message': '存在しない fetish_id です'}), 400
     answers = ctx.session.get('answers', {})
+    learning_disabled = ctx.learning_disabled()
 
     if data['correct']:
         learn_idxs = [fetish_idx]
@@ -278,6 +289,8 @@ def confirm(ctx):
                     learn_idxs.append(compound_idx)
             except (ValueError, TypeError):
                 pass
+        if learning_disabled:
+            return ctx.jsonify({'status': 'learned', 'learning_disabled': True})
         factor = ctx.learn_factor(answers, total_n=len(learn_idxs))
         for idx in learn_idxs:
             ctx.learn_positive(ctx.engine, answers, idx, strength_factor=factor)
@@ -300,12 +313,13 @@ def confirm(ctx):
     wrong_db_ids = explicit_wrong_ids if ('wrong_ids' in data or 'maybe_ids' in data) else set(presented_db_ids)
 
     factor = ctx.learn_factor(answers, total_n=max(1, len(maybe_db_ids)))
-    for maybe_id in maybe_db_ids:
-        maybe_idx = ctx.engine.index_of(maybe_id)
-        if maybe_idx is not None:
-            ctx.learn_near_miss(ctx.engine, answers, maybe_idx, strength_factor=factor)
+    if not learning_disabled:
+        for maybe_id in maybe_db_ids:
+            maybe_idx = ctx.engine.index_of(maybe_id)
+            if maybe_idx is not None:
+                ctx.learn_near_miss(ctx.engine, answers, maybe_idx, strength_factor=factor)
 
-    if not data.get('add_only', False):
+    if not data.get('add_only', False) and not learning_disabled:
         for wrong_id in wrong_db_ids:
             ctx.engine.log_wrong(wrong_id)
         ctx.record_guess_quality_feedback(False)
@@ -329,7 +343,10 @@ def confirm(ctx):
         ctx.session['near_miss_db_ids'] = []
         ctx.session['candidate_db_ids'] = []
         ctx.session['candidate_negative_factor'] = 0.3
-    return ctx.jsonify({'status': 'wrong', 'fetishes': sorted_fetishes})
+    payload = {'status': 'wrong', 'fetishes': sorted_fetishes}
+    if learning_disabled:
+        payload['learning_disabled'] = True
+    return ctx.jsonify(payload)
 
 
 def add_fetish(ctx):
@@ -353,6 +370,14 @@ def add_fetish(ctx):
             'is_new': False,
         })
     if confirmed:
+        if ctx.learning_disabled():
+            return ctx.jsonify({
+                'status': 'learned',
+                'fetish_name': name,
+                'fetish_id': 'test-play',
+                'is_new': False,
+                'learning_disabled': True,
+            })
         if not desc:
             desc = name
         _, db_id = ctx.engine.add_fetish(name, desc, answers)
@@ -371,6 +396,12 @@ def finalize_added(ctx):
     items = data.get('items', [])
     if not isinstance(items, list):
         return ctx.jsonify({'status': 'error', 'message': 'items はリストで指定してください'}), 400
+    if ctx.learning_disabled():
+        ctx.session.pop('wrong_db_ids', None)
+        ctx.session.pop('candidate_db_ids', None)
+        ctx.session.pop('near_miss_db_ids', None)
+        ctx.session.pop('candidate_negative_factor', None)
+        return ctx.jsonify({'status': 'done', 'learning_disabled': True})
     answers = ctx.session.get('answers', {})
     total_n = max(1, len([item for item in items if isinstance(item, dict)]))
     factor = ctx.learn_factor(answers, total_n)

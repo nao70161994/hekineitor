@@ -138,6 +138,7 @@
 - Share improvement notes API and admin ranking UI added.
 - Share analytics CSV period metadata added.
 - Share analytics module boundary decision documented.
+- Admin-only learning-off test play mode added.
 
 ## Next PRs
 

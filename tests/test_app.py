@@ -16,6 +16,7 @@ from services import ogp as ogp_service
 from services import quality_stats as quality_stats_service
 from services import share_events as share_events_service
 from services import share_notes as share_notes_service
+from services import test_play as test_play_service
 import engine as eng_module
 from engine import PLAYER_FETISH_BASE_ID, _use_db
 
@@ -260,6 +261,121 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(res.get_json()['status'], 'error')
 
     # ── finalize_added ─────────────────────────────────────
+    def test_test_play_admin_link_enables_banner_and_survives_start(self):
+        headers = self._admin_headers()
+        plain = self.client.get('/?sandbox=1')
+        self.assertEqual(plain.status_code, 200)
+        self.assertNotIn('テストプレイ中', plain.data.decode('utf-8'))
+
+        res = self.client.get('/admin/test_play/start', headers=headers, follow_redirects=False)
+        self.assertEqual(res.status_code, 302)
+        self.assertEqual(res.headers.get('Location'), '/')
+        banner = self.client.get('/')
+        self.assertIn('テストプレイ中：この診断は学習に反映されません', banner.data.decode('utf-8'))
+        self.client.post('/api/start')
+        with self.client.session_transaction() as sess:
+            self.assertTrue(test_play_service.is_learning_disabled(sess))
+
+    def test_test_play_route_requires_admin(self):
+        res = self.client.get('/admin/test_play/start')
+        self.assertEqual(res.status_code, 401)
+        with self.client.session_transaction() as sess:
+            self.assertFalse(test_play_service.is_learning_disabled(sess))
+
+    def test_test_play_confirm_skips_learning_and_quality_feedback(self):
+        from app import engine as app_engine
+        q = 8
+        idx = app_engine.index_of(0)
+        before_yes = app_engine.matrix['yes'][idx][q]
+        before_total = app_engine.matrix['total'][idx][q]
+        before_log = dict(app_engine.get_fetish_log().get(0, {}))
+        with self.client.session_transaction() as sess:
+            test_play_service.enable(sess)
+            sess['answers'] = {str(q): 1.0}
+            sess['last_guess_quality'] = {'low_confidence_extended': True, 'additional_questions': 1}
+
+        res = self.client.post('/api/confirm', json={'correct': True, 'fetish_id': 0})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()['status'], 'learned')
+        self.assertTrue(res.get_json()['learning_disabled'])
+        self.assertEqual(app_engine.matrix['yes'][idx][q], before_yes)
+        self.assertEqual(app_engine.matrix['total'][idx][q], before_total)
+        self.assertEqual(app_engine.get_fetish_log().get(0, {}), before_log)
+        with self.client.session_transaction() as sess:
+            self.assertIn('last_guess_quality', sess)
+
+    def test_test_play_wrong_confirm_returns_candidates_without_saving(self):
+        from app import engine as app_engine
+        q = 8
+        idx = app_engine.index_of(0)
+        before_yes = app_engine.matrix['yes'][idx][q]
+        before_total = app_engine.matrix['total'][idx][q]
+        before_log = dict(app_engine.get_fetish_log().get(0, {}))
+        with self.client.session_transaction() as sess:
+            test_play_service.enable(sess)
+            sess['answers'] = {str(q): 1.0}
+
+        res = self.client.post('/api/confirm', json={
+            'correct': False,
+            'fetish_id': 0,
+            'maybe_ids': [0],
+            'wrong_ids': [],
+        })
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['status'], 'wrong')
+        self.assertTrue(data['learning_disabled'])
+        self.assertTrue(data['fetishes'])
+        self.assertEqual(app_engine.matrix['yes'][idx][q], before_yes)
+        self.assertEqual(app_engine.matrix['total'][idx][q], before_total)
+        self.assertEqual(app_engine.get_fetish_log().get(0, {}), before_log)
+
+    def test_test_play_finalize_added_skips_matrix_updates(self):
+        from app import engine as app_engine
+        q = self._start()['question_id']
+        self.client.post('/api/answer', json={'question_id': q, 'answer': 1.0})
+        f0_id = app_engine.fetishes[0]['id']
+        before0 = sum(app_engine.matrix['total'][0])
+        with self.client.session_transaction() as sess:
+            test_play_service.enable(sess)
+            sess['wrong_db_ids'] = [f0_id]
+            sess['candidate_db_ids'] = [f0_id]
+            sess['near_miss_db_ids'] = []
+            sess['candidate_negative_factor'] = 0.3
+        res = self.client.post('/api/finalize_added', json={'items': [{'id': f0_id, 'is_new': False}]})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()['status'], 'done')
+        self.assertTrue(res.get_json()['learning_disabled'])
+        self.assertEqual(sum(app_engine.matrix['total'][0]), before0)
+        with self.client.session_transaction() as sess:
+            self.assertNotIn('wrong_db_ids', sess)
+
+    def test_test_play_add_fetish_does_not_create_new_fetish(self):
+        from app import engine as app_engine
+        before_len = len(app_engine.fetishes)
+        with self.client.session_transaction() as sess:
+            test_play_service.enable(sess)
+        res = self.client.post('/api/add_fetish', json={
+            'name': 'テストプレイ限定性癖',
+            'desc': '保存されない',
+            'confirmed': True,
+        })
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['status'], 'learned')
+        self.assertTrue(data['learning_disabled'])
+        self.assertEqual(len(app_engine.fetishes), before_len)
+        self.assertIsNone(app_engine.index_of('test-play'))
+
+    def test_test_play_keeps_inference_and_result_flow_working(self):
+        headers = self._admin_headers()
+        self.client.get('/admin/test_play/start', headers=headers)
+        data = self._force_guess()
+        self.assertEqual(data.get('action'), 'guess')
+        self.assertIn('fetish_name', data)
+        with self.client.session_transaction() as sess:
+            self.assertNotIn('last_guess_quality', sess)
+
     def test_finalize_added_existing_fetish(self):
         res = self.client.post('/api/finalize_added',
             json={'items': [{'id': 0, 'is_new': False}]})

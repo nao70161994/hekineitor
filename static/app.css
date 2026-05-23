@@ -532,3 +532,17 @@
   .works-cross-label { color:#888; font-size:0.68rem; text-align:center; margin:6px 0 4px; letter-spacing:0.03em; }
   .works-tag.cross { background:#2a2a1a; color:#f0d06a; border:1px solid rgba(240,208,106,0.3); }
   .works-tag.cross.link:hover { background:#3a3a1a; box-shadow:0 0 6px rgba(240,208,106,0.3); }
+
+.test-play-banner {
+  margin: 10px auto 14px;
+  max-width: 560px;
+  background: #fff7d6;
+  color: #263244;
+  border: 1px solid #f5c542;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}

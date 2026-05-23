@@ -12,6 +12,7 @@ def index(ctx):
         amazon_associate_id=ctx.amazon_associate_id,
         base_url=base_url,
         public_fetish_count=public_fetish_count,
+        learning_disabled=ctx.learning_disabled(),
     )
 
 
