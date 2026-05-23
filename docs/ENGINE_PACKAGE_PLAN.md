@@ -21,6 +21,7 @@ This plan prepares `engine.py` for package conversion without changing diagnosis
 - `engine_db.py` contains DB schema creation, fetish/matrix/config load helpers, DB matrix save/import SQL adapters, DB seed adapters, DB mutation adapters, and DB stats/log adapters used by `Engine` facade methods.
 - `engine_mutations.py` contains memory-only add/edit/delete/merge/promote helpers used by `Engine` mutation facade methods.
 - `engine_persistence.py` contains local matrix shape/init/load helpers while `Engine` keeps state assignment and save orchestration.
+- `engine_runtime.py` contains runtime cache calculations for disc scales and dynamic prior weights while `Engine` keeps cache ownership/timestamps.
 - `tests/test_engine_inference_regression.py` snapshots representative top-guess IDs and probabilities before further package moves.
 - `tests/test_engine_question_selection_regression.py` snapshots deterministic question selection and disambiguation cases.
 - `tests/test_engine_persistence_regression.py` locks matrix snapshot, validation, local import/save, and DB overwrite-import contracts.
@@ -104,6 +105,7 @@ The final facade should own state and expose public methods, but method bodies s
 - DB stats, disabled-question, and fetish-log adapter contracts while Engine keeps route-facing orchestration and local-file branches.
 - DB seed matrix row-order and insert-SQL contracts while `_seed_db` remains a facade wrapper.
 - Local matrix persistence helper contracts for matrix shape validation, learned-prior application, invalid-shape backup, and reinitialization.
+- Runtime calculation contracts for disc scale normalization/clamping and dynamic-prior blending/flooring.
 - A deterministic `best_question` test with patched randomness for early-game selection.
 
 ## Stop Conditions

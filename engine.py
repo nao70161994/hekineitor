@@ -23,6 +23,7 @@ import engine_correlation
 import engine_db
 import engine_mutations
 import engine_persistence
+import engine_runtime
 from engine_constants import (
     AXIS_INDIRECT_BONUS,
     EARLY_RANDOM_DEPTH,
@@ -442,15 +443,11 @@ class Engine:
         now = time.monotonic()
         if self._disc_cache and now - self._disc_cache_time < self._DISC_CACHE_TTL:
             return self._disc_cache
-        nf = len(self.fetishes)
-        nq = len(self.questions)
-        discs = [
-            sum(abs(self._prob(f, q) - 0.5) for f in range(nf)) / max(nf, 1)
-            for q in range(nq)
-        ]
-        mean_disc = sum(discs) / max(len(discs), 1) or 1e-9
-        # 0.5〜2.0 にクランプして正規化（識別力が高い質問を最大2倍重く学習）
-        scales = [max(0.5, min(2.0, d / mean_disc)) for d in discs]
+        scales = engine_runtime.disc_scales(
+            len(self.fetishes),
+            len(self.questions),
+            probability=self._prob,
+        )
         self._disc_cache      = scales
         self._disc_cache_time = now
         return scales
@@ -477,21 +474,7 @@ class Engine:
         if not log:
             self._dynamic_prior_time = now
             return self._dynamic_prior_cache
-        # correct が多いほど重みを上げる（Laplace平滑: alpha=2）
-        alpha = 2.0
-        weights = {}
-        for f in self.fetishes:
-            fid = f['id']
-            entry = log.get(fid, {})
-            correct = entry.get('correct', 0)
-            guessed = entry.get('guessed', 0)
-            # 実績重み: 正解率 + ラプラス平滑、静的重みとの幾何平均
-            empirical = (correct + alpha) / (guessed + alpha * 2)
-            static    = FETISH_PRIOR_WEIGHTS.get(fid, 1.0)
-            # 実績データが少ない間は静的重みを重視（guessed で線形ブレンド）
-            trust = min(guessed / 20.0, 1.0)
-            blended = static * (1 - trust) + empirical * trust
-            weights[fid] = max(blended, 0.1)
+        weights = engine_runtime.dynamic_prior_weights(self.fetishes, log, FETISH_PRIOR_WEIGHTS)
         self._dynamic_prior_cache = weights
         self._dynamic_prior_time  = now
         return weights

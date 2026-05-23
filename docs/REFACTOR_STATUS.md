@@ -71,6 +71,7 @@
 - Engine DB stats, disabled-question, and fetish-log adapters are split into `engine_db.py` while Engine keeps public orchestration.
 - Local matrix shape/init/load helpers are split into `engine_persistence.py` while Engine keeps state assignment and save orchestration.
 - DB seed matrix row building/writing is split into `engine_db.py` behind the `_seed_db` compatibility wrapper.
+- Disc-scale and dynamic-prior calculations are split into `engine_runtime.py` while Engine keeps cache state and timing.
 - Remaining `engine.py` private helpers are classified in `docs/ENGINE_PRIVATE_HELPER_MAP.md` for package-prep review.
 - App composition-root responsibilities were reviewed against `docs/APP_BOOTSTRAP.md` after engine package planning.
 
