@@ -5,7 +5,7 @@ This map classifies the remaining private helpers in `engine.py` before any `eng
 ## Keep On Engine For Now
 
 - `__init__`: owns state initialization order and DB/local branch selection.
-- `_save_async`: chooses DB thread vs local file write and preserves non-blocking save behavior.
+- `_save_async`: chooses DB thread vs local file write and preserves non-blocking save behavior; covered by facade contract tests.
 - `_save_matrix_file`: compatibility wrapper; Engine still creates a locked snapshot, file write arguments live in `engine_persistence.py`.
 - `_save_fetishes_file`: compatibility wrapper; file write arguments live in `engine_persistence.py`.
 - `_seed_db`: compatibility wrapper for DB seed insert; row building/write lives in `engine_db.py`.
@@ -14,7 +14,7 @@ This map classifies the remaining private helpers in `engine.py` before any `eng
 - `_load_disabled_questions`, `_save_disabled_questions`: branch between DB and local flag persistence.
 - `_increment_fetish_log`: validates column names and branches between DB and local log persistence.
 - `_save_to_db`, `_import_to_db`: DB matrix writes need current facade patch points and psycopg compatibility.
-- `_get_disc_scales`, `_get_dynamic_prior_weights`: Engine owns cache timing/state while pure calculations live in `engine_runtime.py`. `_reload_matrix_if_stale` stays on Engine.
+- `_get_disc_scales`, `_get_dynamic_prior_weights`: Engine owns cache timing/state while pure calculations live in `engine_runtime.py`. `_reload_matrix_if_stale` stays on Engine and is covered by TTL/timestamp facade contract tests.
 - `_prob`, `_question_axis`, `_entropy`: tiny helpers used in hot paths; move only if package facade is already in place.
 
 ## Already Split Behind Facade
@@ -35,6 +35,7 @@ This map classifies the remaining private helpers in `engine.py` before any `eng
 - `_save_matrix_file` and `_save_fetishes_file` internals are split; keep wrappers because mutation workflows call them directly.
 - `_seed_db` internals are split; keep the facade wrapper until package conversion because `ensure_schema` still calls it.
 - `_get_dynamic_prior_weights` and `_get_disc_scales` calculations are split; keep cache ownership and timestamp updates on Engine.
+- `edit_question` save internals are split; keep public validation and state mutation on Engine.
 - `_prob`, `_question_axis`, and `_entropy` should probably move during the package conversion itself, not before.
 
 ## Do Not Move In Prep PRs

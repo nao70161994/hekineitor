@@ -104,8 +104,9 @@ The final facade should own state and expose public methods, but method bodies s
 - DB mutation adapter contracts for add/edit/delete/merge/promote SQL branches while memory mutation order remains facade-owned.
 - DB stats, disabled-question, and fetish-log adapter contracts while Engine keeps route-facing orchestration and local-file branches.
 - DB seed matrix row-order and insert-SQL contracts while `_seed_db` remains a facade wrapper.
-- Local matrix persistence helper contracts for matrix shape validation, learned-prior application, invalid-shape backup, reinitialization, atomic write arguments, and learned-prior snapshot output.
+- Local matrix persistence helper contracts for matrix shape validation, learned-prior application, invalid-shape backup, reinitialization, atomic write arguments, question save arguments, and learned-prior snapshot output.
 - Runtime calculation contracts for disc scale normalization/clamping and dynamic-prior blending/flooring, plus facade cache ownership/timestamp behavior.
+- Facade contracts for async DB/local save branching and stale DB matrix reload TTL/timestamp behavior.
 - A deterministic `best_question` test with patched randomness for early-game selection.
 
 ## Stop Conditions

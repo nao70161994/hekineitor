@@ -673,8 +673,11 @@ class Engine:
             return False
         with self._lock:
             self.questions[q_idx]['text'] = text
-            q_path = os.path.join(DATA_DIR, 'questions.json')
-            self._atomic_write(q_path, self.questions)
+            engine_persistence.save_questions_file(
+                os.path.join(DATA_DIR, 'questions.json'),
+                self.questions,
+                atomic_write=self._atomic_write,
+            )
         return True
 
     def _collect_matrix_updates(self, matrix_rows: list) -> tuple[dict, dict]:

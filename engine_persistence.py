@@ -89,3 +89,7 @@ def learned_priors_snapshot(fetishes, questions, *, probability):
 
 def save_learned_priors(path, fetishes, questions, *, probability, atomic_write):
     atomic_write(path, learned_priors_snapshot(fetishes, questions, probability=probability), ensure_ascii=False)
+
+
+def save_questions_file(path, questions, *, atomic_write):
+    atomic_write(path, questions)

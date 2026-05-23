@@ -280,3 +280,79 @@ class TestEngineRuntimeCacheContract(unittest.TestCase):
         self.assertEqual(self.engine._dynamic_prior_time, 300.0)
         self.assertIn(target_id, weights)
         self.assertGreaterEqual(weights[target_id], 0.1)
+
+
+class TestEnginePersistenceFacadeContract(unittest.TestCase):
+    def setUp(self):
+        self._matrix_backup = None
+        if os.path.exists(MATRIX_PATH):
+            with open(MATRIX_PATH, 'rb') as f:
+                self._matrix_backup = f.read()
+            os.remove(MATRIX_PATH)
+        self._patches = [
+            patch.object(Engine, '_save_matrix_file', return_value=None),
+            patch.object(Engine, '_save_fetishes_file', return_value=None),
+            patch.object(Engine, '_save_to_db', return_value=None),
+        ]
+        for patcher in self._patches:
+            patcher.start()
+        self.engine = Engine()
+
+    def tearDown(self):
+        for patcher in self._patches:
+            patcher.stop()
+        if self._matrix_backup is not None:
+            with open(MATRIX_PATH, 'wb') as f:
+                f.write(self._matrix_backup)
+
+    def test_save_async_uses_local_save_without_thread_when_db_disabled(self):
+        with patch('engine._use_db', return_value=False), \
+                patch.object(self.engine, '_save_matrix_file', return_value=None) as save_matrix, \
+                patch('engine.threading.Thread') as thread_cls:
+            self.engine._save_async({0: [(1, 1.0, 1.0)]}, {0: 10})
+
+        save_matrix.assert_called_once_with()
+        thread_cls.assert_not_called()
+
+    def test_save_async_starts_daemon_db_thread_with_snapshot_args(self):
+        with patch('engine._use_db', return_value=True), patch('engine.threading.Thread') as thread_cls:
+            thread = thread_cls.return_value
+            self.engine._save_async({0: [(1, 1.0, 1.0)]}, {0: 10})
+
+        thread_cls.assert_called_once_with(
+            target=self.engine._save_to_db,
+            args=({0: [(1, 1.0, 1.0)]}, {0: 10}),
+            daemon=True,
+        )
+        thread.start.assert_called_once_with()
+
+    def test_reload_matrix_if_stale_keeps_timestamp_when_db_disabled(self):
+        self.engine._matrix_last_loaded = 50.0
+        self.engine.matrix = {'yes': [[1.0]], 'total': [[2.0]]}
+        with patch('engine._use_db', return_value=False), patch.object(self.engine, '_load_from_db') as load_db:
+            self.engine._reload_matrix_if_stale()
+        load_db.assert_not_called()
+        self.assertEqual(self.engine._matrix_last_loaded, 50.0)
+        self.assertEqual(self.engine.matrix, {'yes': [[1.0]], 'total': [[2.0]]})
+
+    def test_reload_matrix_if_stale_updates_matrix_and_timestamp_after_ttl(self):
+        self.engine._matrix_last_loaded = 10.0
+        fresh = {'yes': [[3.0]], 'total': [[4.0]]}
+        with patch('engine._use_db', return_value=True), \
+                patch('engine.time.monotonic', side_effect=[20.0, 20.0, 21.0]), \
+                patch.object(self.engine, '_load_from_db', return_value=fresh) as load_db:
+            self.engine._reload_matrix_if_stale()
+
+        load_db.assert_called_once_with()
+        self.assertIs(self.engine.matrix, fresh)
+        self.assertEqual(self.engine._matrix_last_loaded, 21.0)
+
+    def test_reload_matrix_if_stale_skips_when_outer_ttl_is_fresh(self):
+        self.engine._matrix_last_loaded = 18.0
+        with patch('engine._use_db', return_value=True), \
+                patch('engine.time.monotonic', return_value=20.0), \
+                patch.object(self.engine, '_load_from_db') as load_db:
+            self.engine._reload_matrix_if_stale()
+
+        load_db.assert_not_called()
+        self.assertEqual(self.engine._matrix_last_loaded, 18.0)

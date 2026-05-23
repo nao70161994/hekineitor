@@ -112,3 +112,8 @@ class TestEnginePersistenceHelpers(unittest.TestCase):
             atomic_write=lambda *args, **kwargs: writes.append((args, kwargs)),
         )
         self.assertEqual(writes, [(('learned_priors.json', {'10': {'0': 0.9}}), {'ensure_ascii': False})])
+
+    def test_save_questions_file_preserves_atomic_write_arguments(self):
+        writes = []
+        engine_persistence.save_questions_file('questions.json', [{'text': 'Q'}], atomic_write=lambda *args, **kwargs: writes.append((args, kwargs)))
+        self.assertEqual(writes, [(('questions.json', [{'text': 'Q'}]), {})])
