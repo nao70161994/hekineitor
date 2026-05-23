@@ -8,7 +8,7 @@ This map classifies the remaining private helpers in `engine.py` before any `eng
 - `_save_async`: chooses DB thread vs local file write and preserves non-blocking save behavior.
 - `_save_matrix_file`: writes the current in-memory matrix snapshot.
 - `_save_fetishes_file`: writes the current in-memory fetish list.
-- `_seed_db`: bridges current question count, initial matrix generation, and DB seed insert.
+- `_seed_db`: compatibility wrapper for DB seed insert; row building/write lives in `engine_db.py`.
 - `_increment_stat`, `_record_daily_stat`: public stats workflows delegate DB/local details but keep route-facing side effects grouped.
 - `_increment_learn_count`, `increment_play_count`: public counters plus daily stats.
 - `_load_disabled_questions`, `_save_disabled_questions`: branch between DB and local flag persistence.
@@ -33,7 +33,7 @@ This map classifies the remaining private helpers in `engine.py` before any `eng
 ## Possible Later Moves
 
 - `_save_matrix_file` and `_save_fetishes_file` can move only after tests cover the exact atomic write arguments and snapshot timing.
-- `_seed_db` can move only after DB seeding tests cover row order and `psycopg2.extras.execute_values` usage.
+- `_seed_db` internals are split; keep the facade wrapper until package conversion because `ensure_schema` still calls it.
 - `_get_dynamic_prior_weights` can move only after deterministic log fixtures lock blended weight output.
 - `_get_disc_scales` can move only after matrix fixtures lock cache reuse and clamp behavior.
 - `_prob`, `_question_axis`, and `_entropy` should probably move during the package conversion itself, not before.

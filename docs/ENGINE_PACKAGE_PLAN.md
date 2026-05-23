@@ -18,7 +18,7 @@ This plan prepares `engine.py` for package conversion without changing diagnosis
 - `engine_reporting.py` contains read-only stats-history aggregation helpers for recent ranking, fetish history, and quality event summaries.
 - `engine_admin_reports.py` contains read-only admin matrix/question/fetish report helpers delegated by the `Engine` facade.
 - `engine_correlation.py` contains correlation-cache and contradiction helpers behind `Engine` facade delegates.
-- `engine_db.py` contains DB schema creation, fetish/matrix/config load helpers, DB matrix save/import SQL adapters, DB mutation adapters, and DB stats/log adapters used by `Engine` facade methods.
+- `engine_db.py` contains DB schema creation, fetish/matrix/config load helpers, DB matrix save/import SQL adapters, DB seed adapters, DB mutation adapters, and DB stats/log adapters used by `Engine` facade methods.
 - `engine_mutations.py` contains memory-only add/edit/delete/merge/promote helpers used by `Engine` mutation facade methods.
 - `engine_persistence.py` contains local matrix shape/init/load helpers while `Engine` keeps state assignment and save orchestration.
 - `tests/test_engine_inference_regression.py` snapshots representative top-guess IDs and probabilities before further package moves.
@@ -102,6 +102,7 @@ The final facade should own state and expose public methods, but method bodies s
 - DB schema/load/config helper contracts for `_ensure_db`, `_load_fetishes_from_db`, `_load_from_db`, and config persistence facades.
 - DB mutation adapter contracts for add/edit/delete/merge/promote SQL branches while memory mutation order remains facade-owned.
 - DB stats, disabled-question, and fetish-log adapter contracts while Engine keeps route-facing orchestration and local-file branches.
+- DB seed matrix row-order and insert-SQL contracts while `_seed_db` remains a facade wrapper.
 - Local matrix persistence helper contracts for matrix shape validation, learned-prior application, invalid-shape backup, and reinitialization.
 - A deterministic `best_question` test with patched randomness for early-game selection.
 

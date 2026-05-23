@@ -70,6 +70,7 @@
 - Engine facade state ownership and public API contracts are documented in `docs/ENGINE_FACADE_CONTRACT.md` and covered by signature/import tests.
 - Engine DB stats, disabled-question, and fetish-log adapters are split into `engine_db.py` while Engine keeps public orchestration.
 - Local matrix shape/init/load helpers are split into `engine_persistence.py` while Engine keeps state assignment and save orchestration.
+- DB seed matrix row building/writing is split into `engine_db.py` behind the `_seed_db` compatibility wrapper.
 - Remaining `engine.py` private helpers are classified in `docs/ENGINE_PRIVATE_HELPER_MAP.md` for package-prep review.
 - App composition-root responsibilities were reviewed against `docs/APP_BOOTSTRAP.md` after engine package planning.
 

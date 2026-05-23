@@ -562,3 +562,16 @@ def load_fetish_log(*, get_conn, put_conn):
         }
     finally:
         put_conn(conn)
+
+def build_seed_matrix_rows(fetishes, question_count, *, build_initial_matrix):
+    yes, total = build_initial_matrix(len(fetishes), question_count)
+    return [
+        (fetish['id'], question_idx, yes[fetish_idx][question_idx], total[fetish_idx][question_idx])
+        for fetish_idx, fetish in enumerate(fetishes)
+        for question_idx in range(question_count)
+    ]
+
+
+def seed_matrix(cur, fetishes, question_count, *, execute_values, build_initial_matrix):
+    rows = build_seed_matrix_rows(fetishes, question_count, build_initial_matrix=build_initial_matrix)
+    execute_values(cur, 'INSERT INTO matrix (fetish_id, question_id, yes_count, total_count) VALUES %s', rows)

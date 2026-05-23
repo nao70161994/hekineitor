@@ -114,6 +114,7 @@
 - Engine facade state ownership and public API contract documented and tested.
 - Engine DB stats and log adapters split behind facade methods.
 - Engine local matrix persistence helpers split behind facade methods.
+- Engine DB seed matrix adapter split behind `_seed_db`.
 - Engine private helper move map documented for package-prep review.
 - App composition-root review documented.
 

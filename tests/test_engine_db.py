@@ -414,3 +414,25 @@ class TestEngineDbStatsAdapters(unittest.TestCase):
         self.assertIn('SELECT fetish_id, guessed, correct, wrong FROM fetish_log', sqls)
         with self.assertRaises(ValueError):
             engine_db.increment_fetish_log(10, 'bad', get_conn=lambda: conn, put_conn=lambda _conn: None)
+
+
+class TestEngineDbSeedAdapters(unittest.TestCase):
+    def test_build_seed_matrix_rows_preserves_fetish_question_order(self):
+        rows = engine_db.build_seed_matrix_rows(
+            [{'id': 10}, {'id': 20}],
+            2,
+            build_initial_matrix=lambda nf, nq: ([[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]),
+        )
+        self.assertEqual(rows, [(10, 0, 1.0, 5.0), (10, 1, 2.0, 6.0), (20, 0, 3.0, 7.0), (20, 1, 4.0, 8.0)])
+
+    def test_seed_matrix_uses_existing_insert_sql(self):
+        calls = []
+        engine_db.seed_matrix(
+            object(),
+            [{'id': 10}],
+            1,
+            execute_values=lambda cur, sql, rows: calls.append((cur, sql, rows)),
+            build_initial_matrix=lambda nf, nq: ([[2.0]], [[4.0]]),
+        )
+        self.assertIn('INSERT INTO matrix (fetish_id, question_id, yes_count, total_count) VALUES %s', calls[0][1])
+        self.assertEqual(calls[0][2], [(10, 0, 2.0, 4.0)])

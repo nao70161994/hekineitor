@@ -205,16 +205,12 @@ class Engine:
     def _seed_db(self, cur, fetishes=None):
         if fetishes is None:
             fetishes = self.fetishes
-        nq = len(self.questions)
-        yes, total = _build_initial_matrix(len(fetishes), nq)
-        rows = [
-            (f['id'], q, yes[fi][q], total[fi][q])
-            for fi, f in enumerate(fetishes) for q in range(nq)
-        ]
-        psycopg2.extras.execute_values(
+        engine_db.seed_matrix(
             cur,
-            'INSERT INTO matrix (fetish_id, question_id, yes_count, total_count) VALUES %s',
-            rows
+            fetishes,
+            len(self.questions),
+            execute_values=psycopg2.extras.execute_values,
+            build_initial_matrix=_build_initial_matrix,
         )
 
     def _load_from_db(self):
