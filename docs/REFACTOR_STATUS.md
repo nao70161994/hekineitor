@@ -94,6 +94,7 @@
 - Share analytics now includes result-name ranking summaries for admin review without adding identifiers or new storage schema.
 - Result-name share rankings now include lightweight funnel rates for result-page to share-button and share-button to successful share actions.
 - Share analytics admin endpoints now support lightweight period filters and CSV exports for daily and result-ranking reviews.
+- Share analytics comparison CSV and ranking growth columns are documented for review workflows.
 
 ## Still Open
 

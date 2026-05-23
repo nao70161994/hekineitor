@@ -61,21 +61,24 @@
 - 結果別 OGP / 結果ページ / X / Web Share / コピー数
 - 結果別の結果ページ→共有ボタン率 / 共有成功率
 
-API の `GET /api/admin/share_events?limit=500` は既存の `total`, `by_event`, `by_channel`, `success`, `recent` を維持しつつ、`metrics`, `daily`, `ranking` を追加で返します。
+API の `GET /api/admin/share_events?limit=500` は既存の `total`, `by_event`, `by_channel`, `success`, `recent` を維持しつつ、`metrics`, `daily`, `ranking`, `comparison` を追加で返します。
 
 
 ## 期間フィルタとCSV
 
-`GET /api/admin/share_events` は任意で `days`, `since`, `until`, `limit` を受け取ります。未指定時は従来通り最新ログを集計します。
+`GET /api/admin/share_events` は任意で `days`, `since`, `until`, `compare_since`, `compare_until`, `limit` を受け取ります。未指定時は従来通り最新ログを集計します。
 
 - `days`: 読み込んだログ内の直近日数
 - `since`: `YYYY-MM-DD` 以降
 - `until`: `YYYY-MM-DD` 以前
 - `limit`: 読み込み件数上限
+- `compare_since`: 比較期間の開始日
+- `compare_until`: 比較期間の終了日
 
 CSV は以下で取得できます。
 
 - `/api/admin/share_events/ranking.csv`
 - `/api/admin/share_events/daily.csv`
+- `/api/admin/share_events/comparison.csv`
 
-どちらも同じ期間フィルタ query を受け取ります。
+いずれも同じ期間フィルタ query を受け取ります。ランキングCSVには比較指定時の前期間値・差分・伸び率列が含まれます。
