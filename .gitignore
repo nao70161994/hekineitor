@@ -9,6 +9,7 @@ data/stats.json
 data/learned_priors.json
 data/stats_history.json
 data/admin_audit_log*.json
+data/share_events*.jsonl
 data/matrix_import_backups/
 .env
 gen_icons.py

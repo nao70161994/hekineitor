@@ -150,6 +150,7 @@ def result_share(ctx):
     probability = ctx.clean_probability(ctx.request.args.get('p', ''))
     desc = ctx.request.args.get('d', '')[:120]
     base_url = ctx.public_base_url()
+    ctx.record_share_event('result_page_view', result_name=name, channel='result_page', success=True)
     share_url = f"{base_url}/r?f={urllib.parse.quote(name)}&p={urllib.parse.quote(probability)}&d={urllib.parse.quote(desc)}"
     body = ctx.render_template(
         'result_share.html',
@@ -170,6 +171,7 @@ def result_share(ctx):
 def ogp_png_image(ctx):
     name = ctx.request.args.get('f', '???')[:30]
     probability = ctx.clean_probability(ctx.request.args.get('p', ''))
+    ctx.record_share_event('ogp_png_view', result_name=name, channel='ogp', success=True)
     body = ctx.generate_ogp_png(name, probability)
     return ctx.Response(body, mimetype='image/png', headers=ogp_cache_headers())
 
@@ -177,6 +179,7 @@ def ogp_png_image(ctx):
 def ogp_svg_image(ctx):
     name = ctx.request.args.get('f', '???')[:30]
     probability = ctx.request.args.get('p', '')[:5]
+    ctx.record_share_event('ogp_svg_view', result_name=name, channel='ogp', success=True)
     body = ctx.render_ogp_svg(name, probability)
     return ctx.Response(body, mimetype='image/svg+xml', headers=ogp_cache_headers())
 

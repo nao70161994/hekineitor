@@ -17,6 +17,7 @@ from routes import game as game_routes
 from routes import seo as seo_routes
 from routes import system as system_routes
 from services import share as share_service
+from services import share_events as share_events_service
 from services import game_context as game_context_service
 from services import seo_context as seo_context_service
 from services import admin_context as admin_context_service
@@ -103,6 +104,7 @@ def _seo_context():
         amazon_associate_id=BOOTSTRAP.amazon_associate_id,
         fetish_relations=FETISH_RELATIONS,
         error_page=system_routes.ERROR_PAGE,
+        record_share_event=lambda *args, **kwargs: share_events_service.safe_record_event(*args, environ=os.environ, **kwargs),
     )
 
 
@@ -119,6 +121,7 @@ def _game_context():
         focus_threshold=FOCUS_THRESHOLD,
         work_title=work_title,
         get_compound_works=get_compound_works,
+        record_share_event=lambda *args, **kwargs: share_events_service.safe_record_event(*args, environ=os.environ, **kwargs),
     )
 
 
@@ -144,6 +147,7 @@ def _admin_context():
         delete_compound_works=delete_compound_works,
         write_audit=write_audit,
         filesystem=_filesystem_context(),
+        share_event_report=lambda limit=500: share_events_service.event_report(environ=os.environ, limit=limit),
     )
 
 

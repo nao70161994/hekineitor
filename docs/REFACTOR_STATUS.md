@@ -89,6 +89,8 @@
 - Engine helper modules are covered by standalone import tests before package conversion.
 - App composition-root responsibilities were reviewed against `docs/APP_BOOTSTRAP.md` after engine package planning.
 
+- Lightweight share event tracking now records non-PII share/result/OGP events to environment-separated JSONL logs with an admin summary endpoint.
+
 ## Still Open
 
 - Keep remaining `app.py` factories as explicit composition-root adapters; only extract when ownership is clearer than Flask wiring.

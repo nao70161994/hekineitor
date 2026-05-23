@@ -120,6 +120,11 @@ def quality_report(ctx):
     return ctx.jsonify(ctx.engine.get_quality_report())
 
 
+def share_events_report(ctx):
+    limit = ctx.bounded_int(ctx.request.args.get('limit'), 500, 1, 5000)
+    return ctx.jsonify({'status': 'ok', **ctx.share_event_report(limit=limit)})
+
+
 def maintenance_checklist(ctx):
     return ctx.jsonify(ctx.build_admin_maintenance_checklist())
 
@@ -696,6 +701,11 @@ def create_blueprint(ctx_factory, require_admin):
     @require_admin
     def quality_report_route():
         return quality_report(ctx_factory())
+
+    @bp.route('/api/admin/share_events', methods=['GET'])
+    @require_admin
+    def share_events_report_route():
+        return share_events_report(ctx_factory())
 
     @bp.route('/api/admin/maintenance_checklist', methods=['GET'])
     @require_admin

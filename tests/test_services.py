@@ -1,8 +1,11 @@
+import sys
 import os
 import tempfile
 import unittest
 
-from services import admin_context, admin_security, bootstrap, context, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, system_context
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
+from services import admin_context, admin_security, bootstrap, context, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, system_context
 
 
 class DummyRequest:
@@ -42,6 +45,34 @@ def dummy_runtime(**overrides):
 
 
 class TestServices(unittest.TestCase):
+    def test_share_events_builds_minimal_sanitized_event(self):
+        now = type('Now', (), {'astimezone': lambda self, tz: self, 'isoformat': lambda self, timespec='seconds': '2026-05-23T00:00:00+00:00'})()
+        event = share_events.build_event(
+            'share_button_click',
+            result_name='A' * 120,
+            channel='button',
+            success=True,
+            now_fn=lambda: now,
+        )
+        self.assertEqual(set(event), {'timestamp', 'event_name', 'result_name', 'channel', 'success'})
+        self.assertEqual(event['timestamp'], '2026-05-23T00:00:00+00:00')
+        self.assertEqual(event['event_name'], 'share_button_click')
+        self.assertEqual(len(event['result_name']), 80)
+        self.assertEqual(event['channel'], 'button')
+        self.assertTrue(event['success'])
+
+    def test_share_events_report_counts_event_channel_and_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'events.jsonl')
+            share_events.record_event('copy_success', result_name='A', channel='clipboard', success=True, path=path)
+            share_events.record_event('copy_failure', result_name='A', channel='clipboard', success=False, path=path)
+            report = share_events.event_report(path=path, limit=10)
+        self.assertEqual(report['total'], 2)
+        self.assertEqual(report['by_event']['copy_success'], 1)
+        self.assertEqual(report['by_channel']['clipboard'], 2)
+        self.assertEqual(report['success']['true'], 1)
+        self.assertEqual(report['success']['false'], 1)
+
     def test_name_matching_finds_close_names_without_exact_self_match(self):
         fetishes = [
             {'id': 1, 'name': 'ヤンデレ'},
@@ -257,6 +288,7 @@ class TestServices(unittest.TestCase):
                 atomic_write_json=lambda path, data, **kwargs: None,
                 load_json_file=lambda path, default=None: default,
             ),
+            share_event_report=lambda limit=500: {'total': 0},
         )
         self.assertEqual(ctx.csrf_token(), 'csrf')
         self.assertEqual(ctx.list_matrix_import_backups(), ['backup'])
@@ -344,6 +376,7 @@ class TestServices(unittest.TestCase):
             focus_threshold=0.5,
             work_title=lambda work: str(work),
             get_compound_works=lambda a, b: [],
+            record_share_event=lambda *args, **kwargs: None,
         )
         self.assertEqual(ctx.question_total_for_count(20), 30)
         self.assertEqual(ctx.select_next_question({}, [], idk_streak=0), 0)
@@ -365,6 +398,7 @@ class TestServices(unittest.TestCase):
             amazon_associate_id='assoc',
             fetish_relations={1: [2]},
             error_page='error',
+            record_share_event=lambda *args, **kwargs: None,
         )
         self.assertEqual(ctx.public_base_url(), 'https://example.com')
         self.assertEqual(ctx.clean_probability('88.0'), '88')

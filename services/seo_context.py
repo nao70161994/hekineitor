@@ -15,6 +15,7 @@ def build(
     amazon_associate_id,
     fetish_relations,
     error_page,
+    record_share_event,
 ):
     return context.seo_context(
         engine=engine,
@@ -36,4 +37,5 @@ def build(
         amazon_associate_id=amazon_associate_id,
         fetish_relations=fetish_relations,
         error_page=error_page,
+        record_share_event=record_share_event,
     )

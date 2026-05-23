@@ -23,6 +23,7 @@ def build(
     delete_compound_works,
     write_audit,
     filesystem,
+    share_event_report,
 ):
     request = flask_runtime.request
     jsonify = flask_runtime.jsonify
@@ -58,6 +59,7 @@ def build(
         player_fetish_base_id=player_fetish_base_id,
         strftime=strftime,
         gmtime=gmtime,
+        share_event_report=share_event_report,
     )
     maintenance = context.admin_maintenance(
         parse_works_list=parse_works_list,

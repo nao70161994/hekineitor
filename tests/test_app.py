@@ -14,6 +14,7 @@ os.environ.setdefault('SECRET_KEY', 'test_secret_key_for_testing')
 from app import app
 from services import ogp as ogp_service
 from services import quality_stats as quality_stats_service
+from services import share_events as share_events_service
 import engine as eng_module
 from engine import PLAYER_FETISH_BASE_ID, _use_db
 
@@ -22,7 +23,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
 DATA_FILES = (
     'fetish_log.json', 'stats.json', 'stats_history.json', 'fetishes.json',
     'matrix.json', 'questions.json', 'compound_works.json', 'question_flags.json',
-    'config.json', 'admin_audit_log.json',
+    'config.json', 'admin_audit_log.json', 'share_events.jsonl',
     time.strftime('admin_audit_log_%Y%m.json'),
 )
 
@@ -1109,6 +1110,70 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('AI一致率 100%', body)
         self.assertIn('/ogp.png?f=NTR&amp;p=100', body)
         self.assertIn('p%3D100', body)
+
+    def test_share_event_api_records_minimal_event(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'share_events.jsonl')
+            with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path}):
+                res = self.client.post('/api/share_event', json={
+                    'event_name': 'share_button_click',
+                    'result_name': 'NTR',
+                    'channel': 'button',
+                    'success': True,
+                    'ignored': 'not persisted',
+                })
+            self.assertEqual(res.status_code, 200)
+            self.assertTrue(res.get_json()['recorded'])
+            with open(path, encoding='utf-8') as file_obj:
+                event = json.loads(file_obj.readline())
+        self.assertEqual(set(event), {'timestamp', 'event_name', 'result_name', 'channel', 'success'})
+        self.assertEqual(event['event_name'], 'share_button_click')
+        self.assertEqual(event['result_name'], 'NTR')
+        self.assertEqual(event['channel'], 'button')
+        self.assertTrue(event['success'])
+        self.assertNotIn('ip', event)
+        self.assertNotIn('user_agent', event)
+        self.assertNotIn('session', event)
+
+    def test_share_event_api_ignores_unknown_event(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'share_events.jsonl')
+            with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path}):
+                res = self.client.post('/api/share_event', json={'event_name': 'unknown_event'})
+                self.assertEqual(res.status_code, 200)
+                self.assertFalse(res.get_json()['recorded'])
+                self.assertFalse(os.path.exists(path))
+
+    def test_result_share_and_ogp_views_are_logged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'share_events.jsonl')
+            with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path}):
+                self.client.get('/r?f=NTR&p=82&d=テスト')
+                self.client.get('/ogp.png?f=NTR&p=82')
+                self.client.get('/ogp?f=NTR&p=82')
+                events = share_events_service.read_events(path=path, limit=10)
+        names = [event['event_name'] for event in events]
+        self.assertIn('result_page_view', names)
+        self.assertIn('ogp_png_view', names)
+        self.assertIn('ogp_svg_view', names)
+        self.assertTrue(all('ip' not in event and 'user_agent' not in event for event in events))
+
+    def test_admin_share_events_report(self):
+        headers = self._admin_headers()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'share_events.jsonl')
+            share_events_service.record_event('copy_success', result_name='NTR', channel='clipboard', success=True, path=path)
+            share_events_service.record_event('copy_failure', result_name='NTR', channel='clipboard', success=False, path=path)
+            with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path}):
+                res = self.client.get('/api/admin/share_events', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(data['total'], 2)
+        self.assertEqual(data['by_event']['copy_success'], 1)
+        self.assertEqual(data['by_channel']['clipboard'], 2)
+        self.assertEqual(data['success']['true'], 1)
+        self.assertEqual(data['success']['false'], 1)
 
     def test_result_feedback_cta_is_simplified(self):
         res = self.client.get('/')

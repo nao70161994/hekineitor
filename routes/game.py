@@ -443,6 +443,19 @@ def delete_fetish(ctx, fetish_id):
     return ctx.jsonify({'status': 'deleted'})
 
 
+def share_event(ctx):
+    limited = ctx.rate_limit('api_share_event', 180)
+    if limited:
+        return limited
+    data = ctx.request.get_json(silent=True) or {}
+    event = ctx.record_share_event(
+        data.get('event_name', ''),
+        result_name=data.get('result_name', ''),
+        channel=data.get('channel', ''),
+        success=data.get('success') if 'success' in data else None,
+    )
+    return ctx.jsonify({'status': 'ok', 'recorded': bool(event)})
+
 
 def create_blueprint(ctx_factory):
     bp = Blueprint('game', __name__)
@@ -486,5 +499,9 @@ def create_blueprint(ctx_factory):
     @bp.route('/api/fetish/<int:fetish_id>', methods=['DELETE'])
     def delete_fetish_route(fetish_id):
         return delete_fetish(ctx_factory(), fetish_id)
+
+    @bp.route('/api/share_event', methods=['POST'])
+    def share_event_route():
+        return share_event(ctx_factory())
 
     return bp

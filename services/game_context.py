@@ -20,6 +20,7 @@ def build(
     focus_threshold,
     work_title,
     get_compound_works,
+    record_share_event,
 ):
     request = flask_runtime.request
     session = flask_runtime.session
@@ -55,6 +56,7 @@ def build(
         rate_limit=flask_runtime.rate_limit,
         random_choice=random_choice,
         logger=logger,
+        record_share_event=record_share_event,
     )
     question_flow = context.game_question_flow(
         best_question=question_selection.best_question,
