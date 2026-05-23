@@ -59,5 +59,6 @@
 - チャネル別イベント数
 - 結果別シェアランキング
 - 結果別 OGP / 結果ページ / X / Web Share / コピー数
+- 結果別の結果ページ→共有ボタン率 / 共有成功率
 
 API の `GET /api/admin/share_events?limit=500` は既存の `total`, `by_event`, `by_channel`, `success`, `recent` を維持しつつ、`metrics`, `daily`, `ranking` を追加で返します。

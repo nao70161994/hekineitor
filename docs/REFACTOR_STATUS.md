@@ -92,6 +92,7 @@
 - Lightweight share event tracking now records non-PII share/result/OGP events to environment-separated JSONL logs with an admin summary endpoint.
 - Admin now renders a lightweight share analytics card backed by `/api/admin/share_events` daily/channel/KPI summaries.
 - Share analytics now includes result-name ranking summaries for admin review without adding identifiers or new storage schema.
+- Result-name share rankings now include lightweight funnel rates for result-page to share-button and share-button to successful share actions.
 
 ## Still Open
 

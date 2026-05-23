@@ -95,8 +95,10 @@ class TestServices(unittest.TestCase):
     def test_share_events_result_ranking_groups_by_result_name(self):
         events = [
             {'result_name': 'A', 'event_name': 'share_button_click'},
+            {'result_name': 'A', 'event_name': 'web_share_success'},
             {'result_name': 'A', 'event_name': 'x_share_click'},
             {'result_name': 'A', 'event_name': 'ogp_png_view'},
+            {'result_name': 'A', 'event_name': 'result_page_view'},
             {'result_name': 'B', 'event_name': 'result_page_view'},
             {'result_name': 'B', 'event_name': 'web_share_success'},
             {'result_name': '', 'event_name': 'share_button_click'},
@@ -106,6 +108,11 @@ class TestServices(unittest.TestCase):
         self.assertEqual(ranking[0]['share_button_clicks'], 1)
         self.assertEqual(ranking[0]['x_clicks'], 1)
         self.assertEqual(ranking[0]['ogp_views'], 1)
+        self.assertEqual(ranking[0]['share_actions'], 2)
+        self.assertEqual(ranking[0]['share_successes'], 1)
+        self.assertEqual(ranking[0]['ogp_to_result_rate'], 100.0)
+        self.assertEqual(ranking[0]['result_to_share_rate'], 100.0)
+        self.assertEqual(ranking[0]['share_success_rate'], 100.0)
         self.assertEqual(ranking[1]['result_name'], 'B')
         self.assertEqual(ranking[1]['result_page_views'], 1)
         self.assertEqual(ranking[1]['web_share_successes'], 1)

@@ -156,7 +156,27 @@ def _empty_result_row(result_name):
         'x_clicks': 0,
         'web_share_successes': 0,
         'copy_successes': 0,
+        'share_actions': 0,
+        'share_successes': 0,
+        'ogp_to_result_rate': None,
+        'result_to_share_rate': None,
+        'share_success_rate': None,
     }
+
+
+def _percentage(numerator, denominator):
+    if not denominator:
+        return None
+    return round(numerator / denominator * 100, 1)
+
+
+def _finalize_result_row(row):
+    row['share_actions'] = row['x_clicks'] + row['web_share_successes'] + row['copy_successes']
+    row['share_successes'] = row['web_share_successes'] + row['copy_successes']
+    row['ogp_to_result_rate'] = _percentage(row['result_page_views'], row['ogp_views'])
+    row['result_to_share_rate'] = _percentage(row['share_button_clicks'], row['result_page_views'])
+    row['share_success_rate'] = _percentage(row['share_successes'], row['share_button_clicks'])
+    return row
 
 
 def result_ranking(events, limit=20):
@@ -181,10 +201,10 @@ def result_ranking(events, limit=20):
         elif name == 'copy_success':
             row['copy_successes'] += 1
     rows = sorted(
-        ranking.values(),
+        [_finalize_result_row(row) for row in ranking.values()],
         key=lambda row: (
             row['share_button_clicks'],
-            row['x_clicks'] + row['web_share_successes'] + row['copy_successes'],
+            row['share_actions'],
             row['ogp_views'],
             row['result_page_views'],
             row['total'],
