@@ -106,9 +106,6 @@ def _seo_context():
     )
 
 
-app.register_blueprint(seo_routes.create_blueprint(_seo_context))
-
-
 def _game_context():
     return game_context_service.build(
         engine=engine,
@@ -123,9 +120,6 @@ def _game_context():
         work_title=work_title,
         get_compound_works=get_compound_works,
     )
-
-
-app.register_blueprint(game_routes.create_blueprint(_game_context))
 
 
 def _admin_context():
@@ -153,12 +147,6 @@ def _admin_context():
     )
 
 
-app.register_blueprint(admin_routes.create_blueprint(
-    _admin_context,
-    runtime_service.require_admin_decorator(lambda: _flask_runtime().admin_guard_response()),
-))
-
-
 def _system_context():
     return system_context_service.build(
         engine=engine,
@@ -180,23 +168,25 @@ def _system_context():
     )
 
 
-app.register_blueprint(system_routes.create_public_blueprint(_system_context))
-app.register_blueprint(system_routes.create_health_blueprint(_system_context))
+def _register_blueprints(application):
+    application.register_blueprint(seo_routes.create_blueprint(_seo_context))
+    application.register_blueprint(game_routes.create_blueprint(_game_context))
+    application.register_blueprint(admin_routes.create_blueprint(
+        _admin_context,
+        runtime_service.require_admin_decorator(lambda: _flask_runtime().admin_guard_response()),
+    ))
+    application.register_blueprint(system_routes.create_public_blueprint(_system_context))
+    application.register_blueprint(system_routes.create_health_blueprint(_system_context))
 
 
-@app.errorhandler(404)
-def not_found(e):
-    return system_routes.not_found()
+def _register_error_handlers(application):
+    application.register_error_handler(404, lambda e: system_routes.not_found())
+    application.register_error_handler(500, lambda e: system_routes.server_error())
+    application.register_error_handler(503, lambda e: system_routes.service_unavailable())
 
 
-@app.errorhandler(500)
-def server_error(e):
-    return system_routes.server_error()
-
-
-@app.errorhandler(503)
-def service_unavailable(e):
-    return system_routes.service_unavailable()
+_register_blueprints(app)
+_register_error_handlers(app)
 
 
 if __name__ == '__main__':
