@@ -116,6 +116,7 @@
 - Engine local matrix persistence helpers split behind facade methods.
 - Engine DB seed matrix adapter split behind `_seed_db`.
 - Engine runtime cache calculations split behind facade cache ownership.
+- Engine package atomic switch plan documented with prep guard tests.
 - Engine private helper move map documented for package-prep review.
 - App composition-root review documented.
 
