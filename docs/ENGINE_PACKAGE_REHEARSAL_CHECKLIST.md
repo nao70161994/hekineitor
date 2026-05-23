@@ -1,6 +1,6 @@
 # Engine Package Rehearsal Checklist
 
-Use this checklist immediately before the atomic `engine.py` -> `engine/` package switch. This file is a rehearsal guide only; prep PRs must not create `engine/`.
+Use this checklist immediately before the atomic `engine.py` -> `engine/` package switch. This file is a rehearsal guide only; prep PRs must not create `engine/`. Use `docs/ENGINE_PACKAGE_REHEARSAL_COMMANDS.md` for the exact command list to paste into switch PR evidence.
 
 ## Preflight
 

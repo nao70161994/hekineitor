@@ -122,6 +122,7 @@
 - Engine package atomic switch plan documented with prep guard tests.
 - Engine import-target guard tests strengthened for `importlib` resolution.
 - Engine package rehearsal checklist and rollback steps documented.
+- Engine package rehearsal command evidence documented.
 - Engine package switch PR review checklist documented.
 - Engine package switch PR description template documented.
 - Engine private helper move map documented for package-prep review.

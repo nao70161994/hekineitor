@@ -20,6 +20,7 @@ class TestEnginePackageDocs(unittest.TestCase):
             'ENGINE_PACKAGE_REHEARSAL_CHECKLIST.md',
             'ENGINE_PACKAGE_PR_REVIEW.md',
             'ENGINE_PACKAGE_PR_TEMPLATE.md',
+            'ENGINE_PACKAGE_REHEARSAL_COMMANDS.md',
             'ENGINE_PACKAGE_SWITCH_PLAN.md',
             'ENGINE_PRIVATE_HELPER_MAP.md',
         ]
@@ -57,3 +58,15 @@ class TestEnginePackageDocs(unittest.TestCase):
         self.assertIn('git diff --check', template)
         self.assertIn('pytest', template)
         self.assertIn('Rollback Plan', template)
+
+    def test_rehearsal_commands_lock_required_preflight_and_verification(self):
+        commands = self.read_doc('ENGINE_PACKAGE_REHEARSAL_COMMANDS.md')
+        self.assertIn('test ! -d engine', commands)
+        self.assertIn("importlib.util.find_spec('engine')", commands)
+        self.assertIn('tests/test_engine_package_switch_guard.py', commands)
+        self.assertIn('tests/test_engine_public_api_contract.py', commands)
+        self.assertIn('tests/test_engine_inference_regression.py', commands)
+        self.assertIn('tests/test_engine_question_selection_regression.py', commands)
+        self.assertIn('node --check static/app.js', commands)
+        self.assertIn('node --check static/admin_ops.js', commands)
+        self.assertIn('wc -l engine.py app.py', commands)

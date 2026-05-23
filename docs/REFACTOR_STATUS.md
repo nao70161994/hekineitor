@@ -78,6 +78,7 @@
 - Future `engine/` package switch steps are documented in `docs/ENGINE_PACKAGE_SWITCH_PLAN.md`; guard tests ensure prep PRs still import `engine.py`.
 - Importlib guard coverage now confirms prep PRs still resolve `engine` to `engine.py` without package search locations.
 - Engine package rehearsal and rollback steps are documented in `docs/ENGINE_PACKAGE_REHEARSAL_CHECKLIST.md`.
+- Engine package rehearsal command evidence is documented in `docs/ENGINE_PACKAGE_REHEARSAL_COMMANDS.md`.
 - Engine package switch PR review criteria are documented in `docs/ENGINE_PACKAGE_PR_REVIEW.md`.
 - Engine package switch PR description requirements are documented in `docs/ENGINE_PACKAGE_PR_TEMPLATE.md`.
 - Remaining `engine.py` private helpers are classified in `docs/ENGINE_PRIVATE_HELPER_MAP.md` for package-prep review.
