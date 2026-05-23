@@ -130,6 +130,7 @@
 - Pure engine helper modules moved into `engine/` with legacy shims.
 - Read-only engine helper modules moved into `engine/` with legacy shims.
 - DB and mutation engine helper modules moved into `engine/` with legacy shims.
+- Inference helper moved into `engine/` with a legacy shim.
 - App composition-root review documented.
 
 ## Next PRs

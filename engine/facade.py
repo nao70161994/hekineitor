@@ -14,7 +14,7 @@ from . import admin_reports as engine_admin_reports
 from . import compound_works as engine_compound_works
 from . import correlation as engine_correlation
 from . import db as engine_db
-import engine_inference
+from . import inference as engine_inference
 import engine_learning
 from . import mutations as engine_mutations
 from . import persistence as engine_persistence
