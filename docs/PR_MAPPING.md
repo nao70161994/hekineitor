@@ -114,6 +114,7 @@
 - Engine facade state ownership and public API contract documented and tested.
 - Engine DB stats and log adapters split behind facade methods.
 - Engine local matrix persistence helpers split behind facade methods.
+- Engine local save and learned-prior snapshot helpers split behind facade methods.
 - Engine DB seed matrix adapter split behind `_seed_db`.
 - Engine runtime cache calculations split behind facade cache ownership.
 - Engine package atomic switch plan documented with prep guard tests.

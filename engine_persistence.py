@@ -64,3 +64,28 @@ def load_matrix_file(path, fetishes, questions, *, init_matrix):
         )
         os.remove(path)
     return init_matrix()
+
+
+def save_matrix_file(path, matrix_snapshot, *, atomic_write):
+    atomic_write(path, matrix_snapshot)
+
+
+def save_fetishes_file(path, fetishes, *, atomic_write):
+    atomic_write(path, fetishes, ensure_ascii=False, indent=2)
+
+
+def learned_priors_snapshot(fetishes, questions, *, probability):
+    snapshot = {}
+    for fetish_idx, fetish in enumerate(fetishes):
+        row = {}
+        for question_idx in range(len(questions)):
+            prob = probability(fetish_idx, question_idx)
+            if abs(prob - 0.5) > 0.05:
+                row[str(question_idx)] = round(prob, 4)
+        if row:
+            snapshot[str(fetish['id'])] = row
+    return snapshot
+
+
+def save_learned_priors(path, fetishes, questions, *, probability, atomic_write):
+    atomic_write(path, learned_priors_snapshot(fetishes, questions, probability=probability), ensure_ascii=False)

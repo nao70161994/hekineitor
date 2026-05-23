@@ -172,7 +172,11 @@ class Engine:
             }
 
     def _save_matrix_file(self):
-        self._atomic_write(os.path.join(DATA_DIR, 'matrix.json'), self._matrix_snapshot())
+        engine_persistence.save_matrix_file(
+            os.path.join(DATA_DIR, 'matrix.json'),
+            self._matrix_snapshot(),
+            atomic_write=self._atomic_write,
+        )
 
     def _save_async(self, all_updates, idx_to_db_id):
         """バックグラウンドスレッドで matrix 保存を行う（レスポンスをブロックしない）。"""
@@ -183,10 +187,10 @@ class Engine:
             self._save_matrix_file()
 
     def _save_fetishes_file(self):
-        self._atomic_write(
+        engine_persistence.save_fetishes_file(
             os.path.join(DATA_DIR, 'fetishes.json'),
             self.fetishes,
-            ensure_ascii=False, indent=2,
+            atomic_write=self._atomic_write,
         )
 
     # ── PostgreSQL ─────────────────────────────────────────
@@ -776,20 +780,13 @@ class Engine:
     def capture_learned_priors(self):
         """現在の P(yes) を learned_priors.json として保存する。
         matrix.json を削除して再初期化する際に DOMAIN_PRIORS の代替として使用される。"""
-        nf = len(self.fetishes)
-        nq = len(self.questions)
-        snapshot = {}
-        for fi in range(nf):
-            fid = self.fetishes[fi]['id']
-            row = {}
-            for q in range(nq):
-                p = self._prob(fi, q)
-                if abs(p - 0.5) > 0.05:
-                    row[str(q)] = round(p, 4)
-            if row:
-                snapshot[str(fid)] = row
-        path = os.path.join(DATA_DIR, 'learned_priors.json')
-        self._atomic_write(path, snapshot, ensure_ascii=False)
+        engine_persistence.save_learned_priors(
+            os.path.join(DATA_DIR, 'learned_priors.json'),
+            self.fetishes,
+            self.questions,
+            probability=self._prob,
+            atomic_write=self._atomic_write,
+        )
 
     def get_related(self, fetish_id):
         related_ids = FETISH_RELATIONS.get(fetish_id, [])

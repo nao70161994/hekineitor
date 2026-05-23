@@ -79,3 +79,36 @@ class TestEnginePersistenceHelpers(unittest.TestCase):
             self.assertEqual(matrix, {'yes': [[2.0]], 'total': [[4.0]]})
             self.assertFalse(os.path.exists(path))
             self.assertTrue(os.path.exists(path + '.bak'))
+
+    def test_save_matrix_and_fetishes_file_preserve_atomic_write_arguments(self):
+        writes = []
+        engine_persistence.save_matrix_file('matrix.json', {'yes': [[1]], 'total': [[2]]}, atomic_write=lambda *args, **kwargs: writes.append((args, kwargs)))
+        engine_persistence.save_fetishes_file('fetishes.json', [{'id': 1}], atomic_write=lambda *args, **kwargs: writes.append((args, kwargs)))
+
+        self.assertEqual(writes[0], ((('matrix.json', {'yes': [[1]], 'total': [[2]]})), {}))
+        self.assertEqual(writes[1], ((('fetishes.json', [{'id': 1}])), {'ensure_ascii': False, 'indent': 2}))
+
+    def test_learned_priors_snapshot_uses_threshold_rounding_and_string_keys(self):
+        probabilities = {
+            (0, 0): 0.5,
+            (0, 1): 0.551,
+            (1, 0): 0.449,
+            (1, 1): 0.7,
+        }
+        snapshot = engine_persistence.learned_priors_snapshot(
+            [{'id': 10}, {'id': 20}],
+            [{'text': 'q0'}, {'text': 'q1'}],
+            probability=lambda f, q: probabilities[(f, q)],
+        )
+        self.assertEqual(snapshot, {'10': {'1': 0.551}, '20': {'0': 0.449, '1': 0.7}})
+
+    def test_save_learned_priors_preserves_atomic_write_options(self):
+        writes = []
+        engine_persistence.save_learned_priors(
+            'learned_priors.json',
+            [{'id': 10}],
+            [{'text': 'q0'}],
+            probability=lambda f, q: 0.9,
+            atomic_write=lambda *args, **kwargs: writes.append((args, kwargs)),
+        )
+        self.assertEqual(writes, [(('learned_priors.json', {'10': {'0': 0.9}}), {'ensure_ascii': False})])

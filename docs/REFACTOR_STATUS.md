@@ -69,7 +69,7 @@
 - DB mutation adapters for add/edit/delete/merge/promote are split into `engine_db.py` while Engine keeps mutation orchestration.
 - Engine facade state ownership and public API contracts are documented in `docs/ENGINE_FACADE_CONTRACT.md` and covered by signature/import tests.
 - Engine DB stats, disabled-question, and fetish-log adapters are split into `engine_db.py` while Engine keeps public orchestration.
-- Local matrix shape/init/load helpers are split into `engine_persistence.py` while Engine keeps state assignment and save orchestration.
+- Local matrix shape/init/load/save helpers are split into `engine_persistence.py` while Engine keeps state assignment, locked snapshots, and save orchestration.
 - DB seed matrix row building/writing is split into `engine_db.py` behind the `_seed_db` compatibility wrapper.
 - Disc-scale and dynamic-prior calculations are split into `engine_runtime.py` while Engine keeps cache state and timing, covered by facade cache contract tests.
 - Future `engine/` package switch steps are documented in `docs/ENGINE_PACKAGE_SWITCH_PLAN.md`; guard tests ensure prep PRs still import `engine.py`.

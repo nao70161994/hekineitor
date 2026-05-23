@@ -6,8 +6,8 @@ This map classifies the remaining private helpers in `engine.py` before any `eng
 
 - `__init__`: owns state initialization order and DB/local branch selection.
 - `_save_async`: chooses DB thread vs local file write and preserves non-blocking save behavior.
-- `_save_matrix_file`: writes the current in-memory matrix snapshot.
-- `_save_fetishes_file`: writes the current in-memory fetish list.
+- `_save_matrix_file`: compatibility wrapper; Engine still creates a locked snapshot, file write arguments live in `engine_persistence.py`.
+- `_save_fetishes_file`: compatibility wrapper; file write arguments live in `engine_persistence.py`.
 - `_seed_db`: compatibility wrapper for DB seed insert; row building/write lives in `engine_db.py`.
 - `_increment_stat`, `_record_daily_stat`: public stats workflows delegate DB/local details but keep route-facing side effects grouped.
 - `_increment_learn_count`, `increment_play_count`: public counters plus daily stats.
@@ -32,7 +32,7 @@ This map classifies the remaining private helpers in `engine.py` before any `eng
 
 ## Possible Later Moves
 
-- `_save_matrix_file` and `_save_fetishes_file` can move only after tests cover the exact atomic write arguments and snapshot timing.
+- `_save_matrix_file` and `_save_fetishes_file` internals are split; keep wrappers because mutation workflows call them directly.
 - `_seed_db` internals are split; keep the facade wrapper until package conversion because `ensure_schema` still calls it.
 - `_get_dynamic_prior_weights` and `_get_disc_scales` calculations are split; keep cache ownership and timestamp updates on Engine.
 - `_prob`, `_question_axis`, and `_entropy` should probably move during the package conversion itself, not before.
