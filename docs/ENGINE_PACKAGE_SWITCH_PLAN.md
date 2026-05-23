@@ -1,6 +1,6 @@
 # Engine Package Switch Plan
 
-This is the future atomic migration plan for replacing `engine.py` with an `engine/` package. Do not execute this plan in preparatory refactor PRs. Use `docs/ENGINE_PACKAGE_REHEARSAL_CHECKLIST.md` as the preflight checklist before the switch.
+This is the future atomic migration plan for replacing `engine.py` with an `engine/` package. Do not execute this plan in preparatory refactor PRs. Use `docs/ENGINE_PACKAGE_REHEARSAL_CHECKLIST.md` as the preflight checklist before the switch, and `docs/ENGINE_PACKAGE_PR_REVIEW.md` as the reviewer checklist.
 
 ## Preconditions
 

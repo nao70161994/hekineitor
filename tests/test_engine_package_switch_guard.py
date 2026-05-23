@@ -16,3 +16,20 @@ class TestEnginePackageSwitchGuard(unittest.TestCase):
 
     def test_engine_package_directory_is_not_created_during_prep_refactors(self):
         self.assertFalse(os.path.isdir(os.path.join(ROOT, 'engine')))
+    def test_engine_helper_modules_remain_top_level_during_prep_refactors(self):
+        helper_files = [
+            'engine_admin_reports.py',
+            'engine_compound_works.py',
+            'engine_correlation.py',
+            'engine_db.py',
+            'engine_inference.py',
+            'engine_learning.py',
+            'engine_mutations.py',
+            'engine_persistence.py',
+            'engine_question_selection.py',
+            'engine_reporting.py',
+            'engine_runtime.py',
+            'engine_stats.py',
+        ]
+        missing = [name for name in helper_files if not os.path.exists(os.path.join(ROOT, name))]
+        self.assertEqual(missing, [])

@@ -1,6 +1,6 @@
 # Engine Package Plan
 
-This plan prepares `engine.py` for package conversion without changing diagnosis behavior, question selection, learning strength, storage schema, or public imports. See `docs/ENGINE_FACADE_CONTRACT.md` for the state ownership and public API contract that package conversion must preserve. See `docs/ENGINE_PRIVATE_HELPER_MAP.md` for the remaining private-helper move map. See `docs/ENGINE_PACKAGE_SWITCH_PLAN.md` for the future atomic import-target switch plan and `docs/ENGINE_PACKAGE_REHEARSAL_CHECKLIST.md` for preflight/rollback steps.
+This plan prepares `engine.py` for package conversion without changing diagnosis behavior, question selection, learning strength, storage schema, or public imports. See `docs/ENGINE_FACADE_CONTRACT.md` for the state ownership and public API contract that package conversion must preserve. See `docs/ENGINE_PRIVATE_HELPER_MAP.md` for the remaining private-helper move map. See `docs/ENGINE_PACKAGE_SWITCH_PLAN.md` for the future atomic import-target switch plan, `docs/ENGINE_PACKAGE_REHEARSAL_CHECKLIST.md` for preflight/rollback steps, and `docs/ENGINE_PACKAGE_PR_REVIEW.md` for switch PR review criteria.
 
 ## Current State
 

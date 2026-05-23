@@ -77,6 +77,7 @@
 - Disc-scale, dynamic-prior, and entropy calculations are split into `engine_runtime.py` while Engine keeps cache state/timing and compatibility wrappers, covered by facade contract tests.
 - Future `engine/` package switch steps are documented in `docs/ENGINE_PACKAGE_SWITCH_PLAN.md`; guard tests ensure prep PRs still import `engine.py`.
 - Engine package rehearsal and rollback steps are documented in `docs/ENGINE_PACKAGE_REHEARSAL_CHECKLIST.md`.
+- Engine package switch PR review criteria are documented in `docs/ENGINE_PACKAGE_PR_REVIEW.md`.
 - Remaining `engine.py` private helpers are classified in `docs/ENGINE_PRIVATE_HELPER_MAP.md` for package-prep review.
 - App composition-root responsibilities were reviewed against `docs/APP_BOOTSTRAP.md` after engine package planning.
 
