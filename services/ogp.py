@@ -2,6 +2,7 @@ import html as _html
 import io
 import os
 import zlib
+from services import share as _share
 
 OGP_WIDTH = 1200
 OGP_HEIGHT = 630
@@ -137,22 +138,23 @@ def generate_png(name, prob):
     small_font = _load_ogp_font(18)
     mark_font = _load_ogp_font(80, bold=True)
 
-    _center_text(draw, 350, 110, 'へきネイター診断結果', label_font, (170, 170, 180))
+    _center_text(draw, 350, 100, 'へきネイター診断結果', label_font, (170, 170, 180))
     lines = _split_ogp_name(name or '???')
     y1 = 235 if len(lines) > 1 else 270
     for i, line in enumerate(lines):
         _center_text(draw, 350, y1 + i * (name_font_size + 12), line, name_font, (233, 69, 96))
     if prob:
         prob_y = y1 + len(lines) * (name_font_size + 12) + 20
-        _center_text(draw, 350, prob_y, f'一致度 {prob}%', prob_font, bar_color)
+        _center_text(draw, 350, prob_y, f'AI一致率 {prob}%', prob_font, bar_color)
+        _center_text(draw, 350, prob_y + 50, f'{_share.result_rarity(prob)} / {_share.result_title(prob)}', side_font, (230, 218, 190))
     draw.rounded_rectangle((130, 490, 570, 502), radius=6, fill=(26, 26, 62))
     if bar_w:
         draw.rounded_rectangle((130, 490, 130 + bar_w, 502), radius=6, fill=(233, 69, 96))
 
-    _center_text(draw, 910, 145, 'あなたの性癖は？', side_font, (100, 105, 118))
+    _center_text(draw, 910, 145, '友達にも踏ませる？', side_font, (120, 130, 150))
     _center_text(draw, 910, 275, '?', mark_font, (80, 42, 65))
     _center_text(draw, 910, 430, 'hekineitor.onrender.com', small_font, (90, 93, 105))
-    _center_text(draw, 910, 465, '質問に答えるだけで診断', small_font, (75, 78, 90))
+    _center_text(draw, 910, 465, 'AIが性癖プロファイルを推定', small_font, (75, 78, 90))
 
     buf = io.BytesIO()
     img.save(buf, format='PNG', optimize=True)
@@ -206,13 +208,13 @@ def render_svg(name, prob):
   <text x="350" y="130" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#888">🔮 へきネイター診断結果</text>
   <text x="350" y="{y1}" text-anchor="middle" font-family="sans-serif" font-size="{fs_name}" font-weight="bold" fill="#e94560">{line1}</text>
   {'<text x="350" y="' + str(y2) + '" text-anchor="middle" font-family="sans-serif" font-size="' + str(fs_name) + '" font-weight="bold" fill="#e94560">' + line2 + '</text>' if line2 else ''}
-  {'<text x="350" y="' + str((y2 if line2 else y1)+70) + '" text-anchor="middle" font-family="sans-serif" font-size="36" fill="' + bar_color + '">一致度 ' + prob_text + '%</text>' if prob else ''}
+  {'<text x="350" y="' + str((y2 if line2 else y1)+70) + '" text-anchor="middle" font-family="sans-serif" font-size="36" fill="' + bar_color + '">AI一致率 ' + prob_text + '%</text>' if prob else ''}
   <rect x="130" y="490" width="440" height="12" rx="6" fill="#1a1a3e"/>
   <rect x="130" y="490" width="{bar_w}" height="12" rx="6" fill="url(#bar)"/>
   <rect x="680" y="60" width="460" height="510" rx="20" fill="#0a0f1e" fill-opacity="0.6"/>
-  <text x="910" y="160" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#555">あなたの性癖は？</text>
+  <text x="910" y="160" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#555">友達にも踏ませる？</text>
   <text x="910" y="320" text-anchor="middle" font-family="sans-serif" font-size="80" fill="#e94560" opacity="0.15">?</text>
   <text x="910" y="440" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#444">hekineitor.onrender.com</text>
-  <text x="910" y="480" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#333">質問に答えるだけで診断</text>
+  <text x="910" y="480" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#333">AIが性癖プロファイルを推定</text>
 </svg>'''
     return svg

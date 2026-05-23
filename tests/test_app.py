@@ -1082,9 +1082,11 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         body = res.data.decode('utf-8')
         self.assertIn('NTR', body)
         self.assertIn('82', body)
-        self.assertIn('へきネイターで診断したら「NTR」だった', body)
-        self.assertIn('友達にも診断させる', body)
+        self.assertIn('称号「濃厚反応タイプ」', body)
+        self.assertIn('AI一致率82%', body)
+        self.assertIn('友達にも踏ませる', body)
         self.assertIn('og:url', body)
+        self.assertIn('SR級診断: NTR', body)
         self.assertIn('/ogp.png?f=NTR&amp;p=82', body)
         self.assertEqual(res.headers.get('X-Robots-Tag'), 'noindex, follow')
         self.assertIn('name="robots" content="noindex,follow"', body)
@@ -1104,8 +1106,9 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
     def test_result_share_clamps_probability(self):
         res = self.client.get('/r?f=NTR&p=999&d=テスト')
         body = res.data.decode('utf-8')
-        self.assertIn('100', body)
-        self.assertNotIn('999', body)
+        self.assertIn('AI一致率 100%', body)
+        self.assertIn('/ogp.png?f=NTR&amp;p=100', body)
+        self.assertIn('p%3D100', body)
 
     def test_result_feedback_cta_is_simplified(self):
         res = self.client.get('/')

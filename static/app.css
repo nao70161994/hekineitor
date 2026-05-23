@@ -99,15 +99,50 @@
   .btn-retry  { background: #0f3460; color: #eee; width: 100%; }
 
   /* 結果画面 */
-  .result-icon { font-size: 3rem; text-align: center; margin-bottom: 12px; }
+  .result-icon { font-size: 3rem; text-align: center; margin-bottom: 10px; }
+  .result-kicker {
+    color: #f5a623;
+    font-size: 0.84rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 6px;
+  }
   .result-name {
     font-size: 1.5rem;
     font-weight: bold;
     color: #e94560;
     text-align: center;
     margin-bottom: 8px;
+    text-shadow: 0 2px 18px rgba(233,69,96,0.28);
     word-break: break-all;
     line-height: 1.4;
+  }
+  .result-badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin: 6px 0 10px;
+  }
+  .result-badges span {
+    color: #fff7df;
+    background: rgba(245,166,35,0.16);
+    border: 1px solid rgba(245,166,35,0.36);
+    border-radius: 999px;
+    padding: 5px 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+  .result-rival {
+    color: #d6e6ff;
+    background: rgba(26,74,138,0.58);
+    border: 1px solid rgba(91,141,217,0.28);
+    border-radius: 10px;
+    padding: 9px 10px;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    text-align: center;
+    margin: 4px 0 12px;
   }
   .result-desc {
     color: #aaa;
@@ -130,8 +165,8 @@
   .result-share-cta {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 8px;
-    margin: 10px 0 14px;
+    gap: 9px;
+    margin: 12px 0 16px;
   }
   .quick-feedback {
     margin: 12px 0 16px;
@@ -351,14 +386,15 @@
   }
   .btn-back:hover { border-color: #888; color: #ccc; }
   .btn-share {
-    background: #1a4a8a; color: #eee; font-size: 0.95rem;
-    padding: 13px 14px; border-radius: 10px; border: none; cursor: pointer;
-    width: 100%; margin-bottom: 8px; min-height: 48px; font-weight: 700;
-    box-shadow: 0 8px 18px rgba(0,0,0,0.24);
+    background: #1a4a8a; color: #eee; font-size: 1rem;
+    padding: 15px 14px; border-radius: 12px; border: none; cursor: pointer;
+    width: 100%; margin-bottom: 8px; min-height: 52px; font-weight: 800;
+    box-shadow: 0 10px 22px rgba(0,0,0,0.26);
   }
   .btn-share-primary {
     background: linear-gradient(135deg, #e94560, #f5a623);
     color: #fff;
+    letter-spacing: 0;
   }
   .btn-share-secondary {
     background: #273f69;

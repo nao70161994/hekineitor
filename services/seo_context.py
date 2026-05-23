@@ -28,6 +28,8 @@ def build(
         clean_probability=share.clean_probability,
         result_share_text=share.result_share_text,
         result_tagline=share.result_tagline,
+        result_title=share.result_title,
+        result_rarity=share.result_rarity,
         generate_ogp_png=ogp.generate_png,
         render_ogp_svg=ogp.render_svg,
         safe_work_url=safe_work_url,

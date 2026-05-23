@@ -6,8 +6,8 @@
 <title>{{ fetish_name }} — へきネイター {{ display_version }}</title>
 <meta name="robots" content="noindex,follow">
 <meta name="description" content="{{ share_text }}。質問に答えるだけであなたの性癖も診断できます。">
-<meta property="og:title" content="{{ share_text }}">
-<meta property="og:description" content="{% if result_tagline %}{{ result_tagline }} {% endif %}あなたの性癖もへきネイターで診断。">
+<meta property="og:title" content="{{ result_rarity }}級診断: {{ fetish_name }} — へきネイター">
+<meta property="og:description" content="{% if result_tagline %}{{ result_tagline }} {% endif %}AIが最後に出した性癖プロファイル。友達にも踏ませてみよう。">
 <meta property="og:type" content="website">
 <meta property="og:url" content="{{ share_url }}">
 {% if og_image %}<meta property="og:image" content="{{ og_image }}">{% endif %}
@@ -15,8 +15,8 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="{{ share_text }}">
-<meta name="twitter:description" content="{% if result_tagline %}{{ result_tagline }} {% endif %}友達にも診断させてみよう。">
+<meta name="twitter:title" content="{{ result_rarity }}級診断: {{ fetish_name }} — へきネイター">
+<meta name="twitter:description" content="{% if result_tagline %}{{ result_tagline }} {% endif %}AIが最後に出した性癖プロファイル。">
 {% if og_image %}<meta name="twitter:image" content="{{ og_image }}">{% endif %}
 <meta name="twitter:image:alt" content="へきネイター診断結果 {{ fetish_name }}">
 <style>
@@ -37,6 +37,8 @@
   }
   .label { color: #888; font-size: 0.85rem; margin-bottom: 8px; }
   .headline { color: #eee; font-size: 0.95rem; line-height: 1.5; margin-bottom: 14px; }
+  .badges { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-bottom:12px; }
+  .badges span { color:#fff7df; background:rgba(245,166,35,0.16); border:1px solid rgba(245,166,35,0.36); border-radius:999px; padding:5px 8px; font-size:0.72rem; font-weight:700; }
   .name { color: #e94560; font-size: 1.6rem; font-weight: bold; margin-bottom: 8px; }
   .prob { color: #f5a623; font-size: 1.1rem; margin-bottom: 12px; }
   .desc { color: #aaa; font-size: 0.88rem; line-height: 1.6; margin-bottom: 24px; }
@@ -65,7 +67,8 @@
   {% if fetish_name %}
   {% if result_tagline %}<div class="headline">{{ result_tagline }}</div>{% endif %}
   <div class="name">{{ fetish_name }}</div>
-  {% if probability %}<div class="prob">一致度 {{ probability }}%</div>{% endif %}
+  <div class="badges"><span>称号: {{ result_title }}</span><span>レア度: {{ result_rarity }}</span></div>
+  {% if probability %}<div class="prob">AI一致率 {{ probability }}%</div>{% endif %}
   {% if desc %}<div class="desc">{{ desc }}</div>{% endif %}
   <div class="share-box">{{ share_text }}<br>#へきネイター</div>
   {% else %}
@@ -74,7 +77,7 @@
   {% if fetish_name %}
   <a class="share-link" href="https://twitter.com/intent/tweet?{{ {'text': share_text ~ ' #へきネイター', 'url': share_url} | urlencode }}" target="_blank" rel="noopener">Xで結果を見せる</a>
   {% endif %}
-  <a class="btn" href="/">友達にも診断させる →</a>
+  <a class="btn" href="/">友達にも踏ませる →</a>
   <div class="sub">へきネイター {{ display_version }}</div>
 </div>
 </body>

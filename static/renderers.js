@@ -66,6 +66,7 @@ window.HekiRenderers = (() => {
       : data.fetish_name;
     setText('result-name', displayName);
     setText('result-desc', data.fetish_desc);
+    renderResultDrama(data, displayName, escapeHtml);
 
     const existingLink = document.getElementById('fetish-detail-link');
     if (existingLink) existingLink.remove();
@@ -109,6 +110,38 @@ window.HekiRenderers = (() => {
     return displayName;
   }
 
+
+  function renderResultDrama(data, displayName, escapeHtml) {
+    const probability = Number.parseFloat(data.probability) || 0;
+    const title = window.HekiShare?.resultTitle ? window.HekiShare.resultTitle(probability) : '診断タイプ';
+    const rarity = window.HekiShare?.resultRarity ? window.HekiShare.resultRarity(probability) : 'R';
+    const kicker = document.getElementById('result-kicker');
+    const badges = document.getElementById('result-badges');
+    const rival = document.getElementById('result-rival');
+    if (kicker) {
+      kicker.textContent = probability >= 75 ? 'AIが強く反応しました' : 'AIがあなたの気配を検出しました';
+    }
+    if (badges) {
+      badges.innerHTML = `
+        <span>称号: ${escapeHtml(title)}</span>
+        <span>レア度: ${escapeHtml(rarity)}</span>
+        <span>AI一致率: ${escapeHtml(data.probability)}%</span>
+      `;
+    }
+    if (!rival) return;
+    const top = Array.isArray(data.top_chart) ? data.top_chart : [];
+    if (top.length > 1) {
+      const second = top[1];
+      const gap = Math.abs((top[0].probability || 0) - (second.probability || 0));
+      const verb = gap <= 12 ? '最後まで迷いました' : '次点で見ていました';
+      rival.innerHTML = `AIは「${escapeHtml(displayName)}」と「${escapeHtml(second.fetish_name)}」で${verb}`;
+      rival.classList.remove('hidden');
+    } else {
+      rival.textContent = '';
+      rival.classList.add('hidden');
+    }
+  }
+
   function animateProbability(target) {
     const probEl = document.getElementById('result-prob');
     if (!probEl) return;
@@ -130,7 +163,7 @@ window.HekiRenderers = (() => {
         const targetW = Math.round(item.probability / maxP * 100);
         const bg = index === 0 ? 'linear-gradient(90deg,#e94560,#f5a623)' : '#1a4a8a';
         return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-          <div style="width:90px;font-size:0.72rem;color:${index===0?'#e94560':'#888'};text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.fetish_name)}</div>
+          <div style="width:90px;font-size:0.72rem;color:${index===0?'#e94560':'#888'};text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${index===0?'本命 ':''}${escapeHtml(item.fetish_name)}</div>
           <div style="flex:1;background:#0f3460;border-radius:3px;height:10px;overflow:hidden;">
             <div class="chart-bar" data-w="${targetW}" style="height:100%;border-radius:3px;width:0%;background:${bg};transition:width 0.6s ease;"></div>
           </div>

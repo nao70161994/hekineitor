@@ -161,6 +161,8 @@ def result_share(ctx):
         share_url=share_url,
         share_text=ctx.result_share_text(name, probability),
         result_tagline=ctx.result_tagline(name, probability),
+        result_title=ctx.result_title(probability),
+        result_rarity=ctx.result_rarity(probability),
     )
     return ctx.Response(body, headers={'X-Robots-Tag': 'noindex, follow'})
 
