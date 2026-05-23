@@ -126,6 +126,7 @@
 - Engine package switch PR review checklist documented.
 - Engine package switch PR description template documented.
 - Engine private helper move map documented for package-prep review.
+- Engine helper dependency direction locked with tests.
 - App composition-root review documented.
 
 ## Next PRs
