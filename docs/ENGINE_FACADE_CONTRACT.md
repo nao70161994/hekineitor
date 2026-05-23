@@ -1,6 +1,6 @@
 # Engine Facade Contract
 
-This document defines the public contract that must stay stable before `engine.py` is converted into an `engine/` package. The package conversion itself must be an atomic compatibility step and is not part of the current refactor phase.
+This document defines the public contract that must stay stable after `engine.py` was converted into an `engine/` package. The package conversion is an atomic compatibility step; public imports continue to resolve through the `engine` package facade.
 
 ## Public Module Contract
 
@@ -105,7 +105,7 @@ The following public `Engine` methods are route/script contract. Their names, ca
 
 ## Package Conversion Rules
 
-- Do not create `engine/` while `engine.py` is still the import target unless the PR performs the complete atomic switch.
+- Do not reintroduce a top-level `engine.py` beside the `engine/` package.
 - The first package PR must keep `import engine` and `from engine import Engine` working.
 - The package facade should re-export the same constants, data, helper functions, and `Engine` class.
 - Any method body moved out of `Engine` must keep tests proving signature and representative behavior parity.

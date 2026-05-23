@@ -1,12 +1,12 @@
 # Engine Package Rehearsal Checklist
 
-Use this checklist immediately before the atomic `engine.py` -> `engine/` package switch. This file is a rehearsal guide only; prep PRs must not create `engine/`. Use `docs/ENGINE_PACKAGE_REHEARSAL_COMMANDS.md` for the exact command list to paste into switch PR evidence.
+Use this checklist for post-switch verification of the atomic `engine.py` -> `engine/` package switch. The pre-switch rehearsal is recorded in `docs/QA_EXECUTION_LOG.md`. Use `docs/ENGINE_PACKAGE_REHEARSAL_COMMANDS.md` for the exact command list to paste into switch PR evidence.
 
-## Preflight
+## Post-Switch Verification
 
 - Confirm the working tree is clean: `git status --short`.
-- Confirm `engine.py` is still the active import target: `python3 -c "import engine; print(engine.__file__)"`.
-- Confirm no `engine/` directory exists.
+- Confirm `engine` resolves to `engine/__init__.py`: `python3 -c "import engine; print(engine.__file__)"`.
+- Confirm no legacy top-level `engine.py` file exists and `engine/` is the only import target.
 - Run the focused package guard tests: `python3 -m pytest tests/test_engine_package_switch_guard.py tests/test_engine_public_api_contract.py`.
 - Run behavior locks: `python3 -m pytest tests/test_engine_inference_regression.py tests/test_engine_question_selection_regression.py tests/test_engine_facade_contract.py`.
 - Run persistence/mutation locks: `python3 -m pytest tests/test_engine_persistence_regression.py tests/test_engine_mutations.py tests/test_engine_db.py`.

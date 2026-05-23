@@ -27,7 +27,7 @@ class TestEnginePackageDocs(unittest.TestCase):
         missing = [name for name in expected if not os.path.exists(os.path.join(DOCS, name))]
         self.assertEqual(missing, [])
 
-    def test_switch_docs_keep_atomic_and_no_prep_package_warnings(self):
+    def test_switch_docs_keep_atomic_package_guidance(self):
         switch_plan = self.read_doc('ENGINE_PACKAGE_SWITCH_PLAN.md')
         rehearsal = self.read_doc('ENGINE_PACKAGE_REHEARSAL_CHECKLIST.md')
         review = self.read_doc('ENGINE_PACKAGE_PR_REVIEW.md')
@@ -35,8 +35,8 @@ class TestEnginePackageDocs(unittest.TestCase):
         for body in (switch_plan, rehearsal, review):
             self.assertIn('engine.py', body)
             self.assertIn('engine/', body)
-        self.assertIn('Do not execute this plan in preparatory refactor PRs', switch_plan)
-        self.assertIn('prep PRs must not create `engine/`', rehearsal)
+        self.assertIn('executed as an atomic compatibility switch', switch_plan)
+        self.assertIn('post-switch verification', rehearsal)
         self.assertIn('one import-target switch commit', review)
 
     def test_facade_contract_docs_keep_behavior_guardrails(self):
@@ -61,7 +61,7 @@ class TestEnginePackageDocs(unittest.TestCase):
 
     def test_rehearsal_commands_lock_required_preflight_and_verification(self):
         commands = self.read_doc('ENGINE_PACKAGE_REHEARSAL_COMMANDS.md')
-        self.assertIn('test ! -d engine', commands)
+        self.assertIn('test -d engine', commands)
         self.assertIn("importlib.util.find_spec('engine')", commands)
         self.assertIn('tests/test_engine_package_switch_guard.py', commands)
         self.assertIn('tests/test_engine_public_api_contract.py', commands)
@@ -69,4 +69,4 @@ class TestEnginePackageDocs(unittest.TestCase):
         self.assertIn('tests/test_engine_question_selection_regression.py', commands)
         self.assertIn('node --check static/app.js', commands)
         self.assertIn('node --check static/admin_ops.js', commands)
-        self.assertIn('wc -l engine.py app.py', commands)
+        self.assertIn('wc -l engine/__init__.py engine/facade.py app.py', commands)

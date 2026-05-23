@@ -24,7 +24,7 @@ def secret_key(environ, stderr=None, warn_fn=None):
     return secret
 
 
-def app_version(base_dir, paths=('app.py', 'engine.py', 'templates/index.html')):
+def app_version(base_dir, paths=('app.py', 'engine/__init__.py', 'engine/facade.py', 'templates/index.html')):
     digest = hashlib.md5()
     for relpath in paths:
         try:

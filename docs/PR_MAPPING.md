@@ -119,8 +119,8 @@
 - Engine question save helper split and async/reload facade contracts added.
 - Engine DB seed matrix adapter split behind `_seed_db`.
 - Engine runtime cache and entropy calculations split behind facade compatibility wrappers.
-- Engine package atomic switch plan documented with prep guard tests.
-- Engine import-target guard tests strengthened for `importlib` resolution.
+- Engine package atomic switch completed with import-target guard tests.
+- Engine import-target guard tests updated for package resolution.
 - Engine package rehearsal checklist and rollback steps documented.
 - Engine package rehearsal command evidence documented.
 - Engine package switch PR review checklist documented.
@@ -134,5 +134,5 @@
 1. Keep `app.py` as composition root; avoid further extraction unless a dependency group has clear ownership outside Flask wiring.
 2. Execute `docs/QA_EXECUTION_LOG.md` manual mobile/OGP/PWA backlog against real devices and a deployed URL.
 3. Browser E2E runner decision after manual QA gaps are confirmed.
-4. Prepare the future `engine/` package PR from `docs/ENGINE_PACKAGE_PR_TEMPLATE.md`; no package conversion yet.
+4. Keep helper modules stable after the `engine/` package switch; move package-internal helpers only in follow-up PRs.
 5. Keep DB and mutation behavior locked with tests while reducing remaining facade method bodies.

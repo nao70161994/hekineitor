@@ -6,7 +6,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 TARGETS = [
     ROOT / 'app.py',
-    ROOT / 'engine.py',
+    ROOT / 'engine',
     ROOT / 'analytics.py',
     ROOT / 'audit.py',
     ROOT / 'matrix_service.py',

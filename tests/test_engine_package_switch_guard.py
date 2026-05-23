@@ -11,18 +11,19 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 
 class TestEnginePackageSwitchGuard(unittest.TestCase):
-    def test_engine_import_still_resolves_to_module_file_before_atomic_switch(self):
-        self.assertTrue(engine.__file__.endswith('engine.py'))
-        self.assertEqual(os.path.abspath(engine.__file__), os.path.join(ROOT, 'engine.py'))
+    def test_engine_import_resolves_to_package_after_atomic_switch(self):
+        self.assertTrue(engine.__file__.endswith(os.path.join('engine', '__init__.py')))
+        self.assertEqual(os.path.abspath(engine.__file__), os.path.join(ROOT, 'engine', '__init__.py'))
 
-    def test_importlib_spec_still_points_at_engine_py_before_atomic_switch(self):
+    def test_importlib_spec_points_at_engine_package_after_atomic_switch(self):
         spec = importlib.util.find_spec('engine')
         self.assertIsNotNone(spec)
-        self.assertEqual(os.path.abspath(spec.origin), os.path.join(ROOT, 'engine.py'))
-        self.assertIsNone(spec.submodule_search_locations)
+        self.assertEqual(os.path.abspath(spec.origin), os.path.join(ROOT, 'engine', '__init__.py'))
+        self.assertEqual([os.path.abspath(path) for path in spec.submodule_search_locations], [os.path.join(ROOT, 'engine')])
 
-    def test_engine_package_directory_is_not_created_during_prep_refactors(self):
-        self.assertFalse(os.path.isdir(os.path.join(ROOT, 'engine')))
+    def test_legacy_engine_py_module_is_removed_after_atomic_switch(self):
+        self.assertFalse(os.path.exists(os.path.join(ROOT, 'engine.py')))
+        self.assertTrue(os.path.isdir(os.path.join(ROOT, 'engine')))
 
     def test_engine_helper_modules_remain_top_level_during_prep_refactors(self):
         helper_files = [

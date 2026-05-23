@@ -1,5 +1,5 @@
 # Large engine data constants staged for future engine package conversion.
-# Keep these values import-compatible through engine.py until package migration.
+# Keep these values import-compatible through the engine package facade.
 
 # 質問の3軸構造（best_question で軸の多様性確保・idk連続時の切替に使用）
 QUESTION_AXES = [

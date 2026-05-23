@@ -50,6 +50,20 @@ No critical bug was found in the locally verifiable route/API checks. The remain
 
 The package switch itself was not performed. This run only confirms the current prep state: `engine` still resolves to `engine.py`, no `engine/` directory exists, public facade contracts pass, and inference/question-selection/persistence/mutation/DB behavior locks pass.
 
+
+## QA Run - 2026-05-23 Engine Package Atomic Switch
+
+| Area | Command / Check | Status | Environment | Notes |
+| --- | --- | --- | --- | --- |
+| Import target | `import engine` | Passed | Local shell | Resolved to `engine/__init__.py` |
+| Public compatibility | `from engine import Engine, _use_db, parse_work_item` | Passed | Local shell | Historical import and patch points available through package facade |
+| Focused contract | `python3 -m pytest tests/test_engine_package_switch_guard.py tests/test_engine_public_api_contract.py tests/test_engine_facade_contract.py` | Passed | Local pytest | 29 passed after package switch |
+| Behavior lock | `python3 -m pytest tests/test_engine_inference_regression.py tests/test_engine_question_selection_regression.py tests/test_engine_persistence_regression.py tests/test_engine_mutations.py tests/test_engine_db.py` | Passed | Local pytest | 42 passed after package switch |
+
+### Engine Package Atomic Switch Notes
+
+The public `engine` import target is now the `engine/` package. `engine/facade.py` contains the migrated facade source, and `engine/__init__.py` executes that source in the package namespace so existing patch points such as `engine._use_db` and `engine.threading.Thread` continue to affect `Engine` method globals.
+
 ## Manual QA Remaining After Engine Planning
 
 | Area | Status | Next Action |

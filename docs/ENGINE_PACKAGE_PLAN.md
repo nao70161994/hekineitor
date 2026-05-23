@@ -4,16 +4,16 @@ This plan prepares `engine.py` for package conversion without changing diagnosis
 
 ## Current State
 
-- `engine.py` is still the public module imported by routes, tests, and scripts.
+- `engine/` is now the public package imported by routes, tests, and scripts; `engine/facade.py` contains the migrated facade implementation.
 - `Engine` remains the public facade and owns mutable runtime state: fetishes, questions, matrix, config, caches, locks, and persistence helpers. `docs/ENGINE_FACADE_CONTRACT.md` now lists this ownership explicitly.
 - Pure-ish helper modules already exist beside the facade:
   - `engine_inference.py` for posterior probability, top guesses, and answer contribution helpers.
   - `engine_question_selection.py` for question axis lookup and question choice helpers.
   - `engine_learning.py` for positive, near-miss, cooccurrence, negative, and silent learning updates.
 - `tests/test_engine_facade_contract.py` locks facade-to-helper parity for inference, question selection, positive learning, near-miss learning, negative learning, cooccurrence learning, silent learning, and current public module exports.
-- `engine_compound_works.py` contains compound works key/list/cache/save helpers while `engine.py` still owns public compatibility functions and cache globals.
-- `engine_constants.py` contains scalar package-prep constants while `engine.py` re-exports the same public names.
-- `engine_data.py` contains large data constants (`QUESTION_AXES`, `DOMAIN_PRIORS`, `FETISH_RELATIONS`, `FETISH_PRIOR_WEIGHTS`) while `engine.py` re-exports the same public names.
+- `engine_compound_works.py` contains compound works key/list/cache/save helpers while `engine/facade.py` still owns public compatibility functions and cache globals.
+- `engine_constants.py` contains scalar package-prep constants while the `engine` package re-exports the same public names.
+- `engine_data.py` contains large data constants (`QUESTION_AXES`, `DOMAIN_PRIORS`, `FETISH_RELATIONS`, `FETISH_PRIOR_WEIGHTS`) while the `engine` package re-exports the same public names.
 - `engine_stats.py` contains local JSON stats, question flag, and fetish-log helpers while DB branches remain in `engine.py`.
 - `engine_reporting.py` contains read-only stats-history aggregation helpers for recent ranking, fetish history, and quality event summaries.
 - `engine_admin_reports.py` contains read-only admin matrix/question/fetish report helpers delegated by the `Engine` facade.
@@ -121,4 +121,4 @@ Stop and revert the current commit if any of these happen:
 
 ## Current Recommendation
 
-Do not convert `engine.py` into an `engine/` package yet. The safe next implementation PR is to design the eventual `engine/` package compatibility facade and decide which remaining stateful methods must stay on `Engine` until the atomic import-target switch.
+The atomic `engine.py` to `engine/` package switch is complete. The safe next implementation PR is to keep helper modules stable, then move package-internal helpers only after public facade tests remain green.

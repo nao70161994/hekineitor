@@ -1,22 +1,22 @@
 # Engine Package Rehearsal Commands
 
-Run these commands immediately before the future atomic `engine.py` to `engine/` package switch. This document is command evidence only; preparatory PRs must not create an `engine/` package.
+Run these commands after the atomic `engine.py` to `engine/` package switch. The pre-switch rehearsal result is recorded in `docs/QA_EXECUTION_LOG.md`.
 
-## Import Target Preflight
+## Import Target Verification
 
 ```sh
 git status --short
 python3 -c "import engine, os; print(os.path.abspath(engine.__file__))"
 python3 -c "import importlib.util; spec = importlib.util.find_spec('engine'); print(spec.origin, spec.submodule_search_locations)"
-test ! -d engine
+test -d engine && test ! -f engine.py
 ```
 
 Expected before the switch:
 
 - `git status --short` is empty.
-- Both Python commands point to `engine.py`.
-- `submodule_search_locations` is `None`.
-- `test ! -d engine` exits successfully.
+- Both Python commands point to `engine/__init__.py`.
+- `submodule_search_locations` points to the `engine/` package directory.
+- `test -d engine && test ! -f engine.py` exits successfully.
 
 ## Focused Contract Tests
 
@@ -61,7 +61,7 @@ node --check static/admin.js
 node --check static/admin_ops.js
 pytest
 git status --short
-wc -l engine.py app.py
+wc -l engine/__init__.py engine/facade.py app.py
 ```
 
 ## Switch PR Evidence

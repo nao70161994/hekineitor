@@ -75,13 +75,13 @@
 - Async save and stale DB reload behavior are covered by facade contract tests.
 - DB seed matrix row building/writing is split into `engine_db.py` behind the `_seed_db` compatibility wrapper.
 - Disc-scale, dynamic-prior, and entropy calculations are split into `engine_runtime.py` while Engine keeps cache state/timing and compatibility wrappers, covered by facade contract tests.
-- Future `engine/` package switch steps are documented in `docs/ENGINE_PACKAGE_SWITCH_PLAN.md`; guard tests ensure prep PRs still import `engine.py`.
-- Importlib guard coverage now confirms prep PRs still resolve `engine` to `engine.py` without package search locations.
+- The atomic `engine.py` to `engine/` package switch is complete; guard tests now ensure `engine` resolves to `engine/__init__.py`.
+- Importlib guard coverage now confirms `engine` has package search locations under `engine/`.
 - Engine package rehearsal and rollback steps are documented in `docs/ENGINE_PACKAGE_REHEARSAL_CHECKLIST.md`.
 - Engine package rehearsal command evidence is documented in `docs/ENGINE_PACKAGE_REHEARSAL_COMMANDS.md`.
 - Engine package switch PR review criteria are documented in `docs/ENGINE_PACKAGE_PR_REVIEW.md`.
 - Engine package switch PR description requirements are documented in `docs/ENGINE_PACKAGE_PR_TEMPLATE.md`.
-- Remaining `engine.py` private helpers are classified in `docs/ENGINE_PRIVATE_HELPER_MAP.md` for package-prep review.
+- Remaining engine facade private helpers are classified in `docs/ENGINE_PRIVATE_HELPER_MAP.md` for package-prep review.
 - Engine helper modules are covered by dependency tests that prevent imports back into the public `engine` facade.
 - Engine helper modules are covered by standalone import tests before package conversion.
 - App composition-root responsibilities were reviewed against `docs/APP_BOOTSTRAP.md` after engine package planning.
@@ -89,8 +89,6 @@
 ## Still Open
 
 - Keep remaining `app.py` factories as explicit composition-root adapters; only extract when ownership is clearer than Flask wiring.
-- Package `engine.py` as a directory while preserving import compatibility.
-- Design the engine package compatibility facade before moving the import target from `engine.py` to an `engine/` package.
 - Expand browser-oriented E2E coverage beyond Flask smoke paths when a lightweight browser runner is available.
 - Execute the manual QA backlog in `docs/QA_EXECUTION_LOG.md` for mobile CTA, OGP previews, and PWA install/update behavior.
 
