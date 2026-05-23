@@ -129,6 +129,13 @@
 {% if share_events %}
 <details open style="margin-bottom:24px;background:#101622;border:1px solid #263244;border-radius:8px;padding:12px 14px;">
 <summary style="color:#7ab7ff;font-size:0.9rem;cursor:pointer;">拡散イベント</summary>
+<form method="get" action="/admin" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:10px;margin-bottom:4px;">
+  <label style="font-size:0.72rem;color:#888;">days<br><input name="days" type="number" min="1" max="366" value="{{ share_event_filters.days or '' }}" style="width:70px;background:#1a1a2e;color:#eee;border:1px solid #444;border-radius:4px;padding:3px 6px;"></label>
+  <label style="font-size:0.72rem;color:#888;">since<br><input name="since" type="date" value="{{ share_event_filters.since or '' }}" style="background:#1a1a2e;color:#eee;border:1px solid #444;border-radius:4px;padding:3px 6px;"></label>
+  <label style="font-size:0.72rem;color:#888;">until<br><input name="until" type="date" value="{{ share_event_filters.until or '' }}" style="background:#1a1a2e;color:#eee;border:1px solid #444;border-radius:4px;padding:3px 6px;"></label>
+  <button class="btn-action" style="font-size:0.74rem;padding:4px 10px;">期間適用</button>
+  <a href="/admin" class="btn-action" style="font-size:0.74rem;padding:4px 10px;text-decoration:none;">解除</a>
+</form>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-top:12px;">
   <div>
     <div style="font-size:1.35rem;color:#f5a623;font-weight:bold;">{{ share_events.metrics.share_button_clicks }}</div>
@@ -230,7 +237,7 @@
   </div>
 </div>
 {% endif %}
-<div style="margin-top:10px;"><a href="/api/admin/share_events" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">JSONで確認</a></div>
+<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;"><a href="/api/admin/share_events{% if share_event_query %}?{{ share_event_query }}{% endif %}" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">JSONで確認</a><a href="/api/admin/share_events/ranking.csv{% if share_event_query %}?{{ share_event_query }}{% endif %}" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">ランキングCSV</a><a href="/api/admin/share_events/daily.csv{% if share_event_query %}?{{ share_event_query }}{% endif %}" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">日次CSV</a></div>
 </details>
 {% endif %}
 

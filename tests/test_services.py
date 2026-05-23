@@ -92,6 +92,27 @@ class TestServices(unittest.TestCase):
         self.assertEqual(rows[1]['web_share_successes'], 1)
         self.assertEqual(rows[1]['copy_successes'], 1)
 
+    def test_share_events_filter_and_csv_helpers(self):
+        events = [
+            {'timestamp': '2026-05-20T00:00:00+00:00', 'result_name': 'Old', 'event_name': 'share_button_click'},
+            {'timestamp': '2026-05-23T00:00:00+00:00', 'result_name': 'New', 'event_name': 'result_page_view'},
+            {'timestamp': '2026-05-24T00:00:00+00:00', 'result_name': 'New', 'event_name': 'copy_success'},
+        ]
+        filtered = share_events.filter_events(events, since='2026-05-23', until='2026-05-24')
+        self.assertEqual([event['result_name'] for event in filtered], ['New', 'New'])
+        recent = share_events.filter_events(events, days=2)
+        self.assertEqual([event['result_name'] for event in recent], ['New', 'New'])
+        report = {
+            'ranking': share_events.result_ranking(filtered),
+            'daily': share_events.daily_summary(filtered),
+        }
+        ranking_csv = share_events.ranking_csv(report)
+        daily_csv = share_events.daily_csv(report)
+        self.assertIn('result_name,total,share_button_clicks', ranking_csv.splitlines()[0])
+        self.assertIn('New', ranking_csv)
+        self.assertIn('date,total,share_button_clicks', daily_csv.splitlines()[0])
+        self.assertIn('2026-05-23', daily_csv)
+
     def test_share_events_result_ranking_groups_by_result_name(self):
         events = [
             {'result_name': 'A', 'event_name': 'share_button_click'},

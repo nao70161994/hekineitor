@@ -147,7 +147,7 @@ def _admin_context():
         delete_compound_works=delete_compound_works,
         write_audit=write_audit,
         filesystem=_filesystem_context(),
-        share_event_report=lambda limit=500: share_events_service.event_report(environ=os.environ, limit=limit),
+        share_event_report=lambda **kwargs: share_events_service.event_report(environ=os.environ, **kwargs),
     )
 
 

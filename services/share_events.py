@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 import os
 import threading
@@ -93,6 +95,39 @@ def _event_date(event):
     if len(timestamp) >= 10:
         return timestamp[:10]
     return 'unknown'
+
+
+def _clean_date(value):
+    value = _clean_text(value, 10)
+    if len(value) == 10 and value[4] == '-' and value[7] == '-':
+        year, month, day = value.split('-')
+        if year.isdigit() and month.isdigit() and day.isdigit():
+            return value
+    return ''
+
+
+def _clean_positive_int(value):
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+def filter_events(events, *, since=None, until=None, days=None):
+    since = _clean_date(since)
+    until = _clean_date(until)
+    days = _clean_positive_int(days)
+    rows = list(events)
+    if days:
+        dates = sorted({_event_date(event) for event in rows if _event_date(event) != 'unknown'})
+        if dates:
+            since = max(since, dates[-days]) if since else dates[-days]
+    if since:
+        rows = [event for event in rows if _event_date(event) >= since]
+    if until:
+        rows = [event for event in rows if _event_date(event) <= until]
+    return rows
 
 
 def _summary_metrics(by_event):
@@ -215,8 +250,8 @@ def result_ranking(events, limit=20):
     return rows[:max(1, int(limit or 20))]
 
 
-def event_report(path=None, environ=None, limit=500):
-    events = read_events(path=path, environ=environ, limit=limit)
+def event_report(path=None, environ=None, limit=500, since=None, until=None, days=None):
+    events = filter_events(read_events(path=path, environ=environ, limit=limit), since=since, until=until, days=days)
     by_event = {}
     by_channel = {}
     success = {'true': 0, 'false': 0, 'unknown': 0}
@@ -242,3 +277,26 @@ def event_report(path=None, environ=None, limit=500):
         'ranking': result_ranking(events, limit=20),
         'recent': events[-20:],
     }
+
+def csv_text(rows, fieldnames):
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=fieldnames, extrasaction='ignore')
+    writer.writeheader()
+    for row in rows:
+        writer.writerow(row)
+    return buffer.getvalue()
+
+
+def ranking_csv(report):
+    return csv_text(report.get('ranking', []), [
+        'result_name', 'total', 'share_button_clicks', 'result_page_views', 'ogp_views',
+        'x_clicks', 'web_share_successes', 'copy_successes', 'share_actions',
+        'share_successes', 'ogp_to_result_rate', 'result_to_share_rate', 'share_success_rate',
+    ])
+
+
+def daily_csv(report):
+    return csv_text(report.get('daily', []), [
+        'date', 'total', 'share_button_clicks', 'result_page_views', 'ogp_views',
+        'x_clicks', 'web_share_successes', 'copy_successes',
+    ])

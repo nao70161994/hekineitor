@@ -1,5 +1,36 @@
 from flask import Blueprint
 from services.works_links import collect_work_link_queue
+from services import share_events as share_events_service
+
+
+def _date_arg(value):
+    value = str(value or '')[:10]
+    if len(value) == 10 and value[4] == '-' and value[7] == '-':
+        year, month, day = value.split('-')
+        if year.isdigit() and month.isdigit() and day.isdigit():
+            return value
+    return None
+
+
+def share_event_query(ctx, *, default_limit=500):
+    filters = {
+        'limit': ctx.bounded_int(ctx.request.args.get('limit'), default_limit, 1, 5000),
+        'since': _date_arg(ctx.request.args.get('since')),
+        'until': _date_arg(ctx.request.args.get('until')),
+        'days': None,
+    }
+    if ctx.request.args.get('days'):
+        filters['days'] = ctx.bounded_int(ctx.request.args.get('days'), 0, 1, 366)
+    return filters
+
+
+def share_event_query_string(filters):
+    parts = []
+    for key in ('limit', 'days', 'since', 'until'):
+        value = filters.get(key)
+        if value not in (None, ''):
+            parts.append(f'{key}={value}')
+    return '&'.join(parts)
 
 
 def admin_page(ctx):
@@ -16,7 +47,8 @@ def admin_page(ctx):
     axis_stats = ctx.engine.get_axis_stats()
     quality = ctx.engine.get_quality_report()
     maintenance = ctx.build_admin_maintenance_checklist()
-    share_events = ctx.share_event_report(limit=1000)
+    share_event_filters = share_event_query(ctx, default_limit=1000)
+    share_events = ctx.share_event_report(**share_event_filters)
     return ctx.render_template(
         'admin.html',
         stats=stats,
@@ -36,6 +68,8 @@ def admin_page(ctx):
         quality_report=quality,
         maintenance_checklist=maintenance,
         share_events=share_events,
+        share_event_filters=share_event_filters,
+        share_event_query=share_event_query_string(share_event_filters),
         csrf_token=ctx.csrf_token(),
         csrf_expires_at=int(ctx.session.get('admin_csrf_issued_at', 0) + int(ctx.environ.get('ADMIN_CSRF_TTL_SECONDS', '7200'))),
         audit_rows=ctx.recent_audit(20),
@@ -123,8 +157,23 @@ def quality_report(ctx):
 
 
 def share_events_report(ctx):
-    limit = ctx.bounded_int(ctx.request.args.get('limit'), 500, 1, 5000)
-    return ctx.jsonify({'status': 'ok', **ctx.share_event_report(limit=limit)})
+    return ctx.jsonify({'status': 'ok', **ctx.share_event_report(**share_event_query(ctx))})
+
+
+def share_events_csv(ctx, kind):
+    filters = share_event_query(ctx)
+    report = ctx.share_event_report(**filters)
+    if kind == 'daily':
+        body = share_events_service.daily_csv(report)
+        filename = 'share_events_daily.csv'
+    else:
+        body = share_events_service.ranking_csv(report)
+        filename = 'share_events_ranking.csv'
+    return ctx.Response(
+        body,
+        mimetype='text/csv; charset=utf-8',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'},
+    )
 
 
 def maintenance_checklist(ctx):
@@ -708,6 +757,11 @@ def create_blueprint(ctx_factory, require_admin):
     @require_admin
     def share_events_report_route():
         return share_events_report(ctx_factory())
+
+    @bp.route('/api/admin/share_events/<kind>.csv', methods=['GET'])
+    @require_admin
+    def share_events_csv_route(kind):
+        return share_events_csv(ctx_factory(), kind)
 
     @bp.route('/api/admin/maintenance_checklist', methods=['GET'])
     @require_admin

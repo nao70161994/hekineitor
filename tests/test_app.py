@@ -1162,12 +1162,15 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         headers = self._admin_headers()
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'share_events.jsonl')
-            share_events_service.record_event('copy_success', result_name='NTR', channel='clipboard', success=True, path=path)
-            share_events_service.record_event('copy_failure', result_name='NTR', channel='clipboard', success=False, path=path)
-            share_events_service.record_event('share_button_click', result_name='NTR', channel='button', success=True, path=path)
-            share_events_service.record_event('result_page_view', result_name='NTR', channel='result_page', success=True, path=path)
+            old_now = type('Now', (), {'astimezone': lambda self, tz: self, 'isoformat': lambda self, timespec='seconds': '2026-05-20T00:00:00+00:00'})()
+            new_now = type('Now', (), {'astimezone': lambda self, tz: self, 'isoformat': lambda self, timespec='seconds': '2026-05-24T00:00:00+00:00'})()
+            share_events_service.record_event('share_button_click', result_name='OLD', channel='button', success=True, path=path, now_fn=lambda: old_now)
+            share_events_service.record_event('copy_success', result_name='NTR', channel='clipboard', success=True, path=path, now_fn=lambda: new_now)
+            share_events_service.record_event('copy_failure', result_name='NTR', channel='clipboard', success=False, path=path, now_fn=lambda: new_now)
+            share_events_service.record_event('share_button_click', result_name='NTR', channel='button', success=True, path=path, now_fn=lambda: new_now)
+            share_events_service.record_event('result_page_view', result_name='NTR', channel='result_page', success=True, path=path, now_fn=lambda: new_now)
             with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path}):
-                res = self.client.get('/api/admin/share_events', headers=headers)
+                res = self.client.get('/api/admin/share_events?since=2026-05-24&until=2026-05-24', headers=headers)
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertEqual(data['status'], 'ok')
@@ -1183,6 +1186,24 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(data['ranking'][0]['copy_successes'], 1)
         self.assertEqual(data['ranking'][0]['share_actions'], 1)
         self.assertEqual(data['ranking'][0]['share_success_rate'], 100.0)
+
+    def test_admin_share_events_csv_exports(self):
+        headers = self._admin_headers()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'share_events.jsonl')
+            now = type('Now', (), {'astimezone': lambda self, tz: self, 'isoformat': lambda self, timespec='seconds': '2026-05-24T00:00:00+00:00'})()
+            share_events_service.record_event('share_button_click', result_name='NTR', channel='button', success=True, path=path, now_fn=lambda: now)
+            share_events_service.record_event('result_page_view', result_name='NTR', channel='result_page', success=True, path=path, now_fn=lambda: now)
+            with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path}):
+                ranking = self.client.get('/api/admin/share_events/ranking.csv?since=2026-05-24', headers=headers)
+                daily = self.client.get('/api/admin/share_events/daily.csv?since=2026-05-24', headers=headers)
+        self.assertEqual(ranking.status_code, 200)
+        self.assertIn('text/csv', ranking.content_type)
+        self.assertIn('result_name,total,share_button_clicks', ranking.data.decode('utf-8').splitlines()[0])
+        self.assertIn('NTR', ranking.data.decode('utf-8'))
+        self.assertEqual(daily.status_code, 200)
+        self.assertIn('date,total,share_button_clicks', daily.data.decode('utf-8').splitlines()[0])
+        self.assertIn('2026-05-24', daily.data.decode('utf-8'))
 
     def test_admin_page_renders_share_event_summary(self):
         headers = self._admin_headers()
@@ -1203,6 +1224,9 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('Web Share成功', body)
         self.assertIn('Xクリック', body)
         self.assertIn('OGP表示', body)
+        self.assertIn('期間適用', body)
+        self.assertIn('ランキングCSV', body)
+        self.assertIn('日次CSV', body)
         self.assertIn('結果別シェアランキング', body)
         self.assertIn('結果→共有', body)
         self.assertIn('共有成功', body)
