@@ -105,7 +105,7 @@ The final facade should own state and expose public methods, but method bodies s
 - DB stats, disabled-question, and fetish-log adapter contracts while Engine keeps route-facing orchestration and local-file branches.
 - DB seed matrix row-order and insert-SQL contracts while `_seed_db` remains a facade wrapper.
 - Local matrix persistence helper contracts for matrix shape validation, learned-prior application, invalid-shape backup, and reinitialization.
-- Runtime calculation contracts for disc scale normalization/clamping and dynamic-prior blending/flooring.
+- Runtime calculation contracts for disc scale normalization/clamping and dynamic-prior blending/flooring, plus facade cache ownership/timestamp behavior.
 - A deterministic `best_question` test with patched randomness for early-game selection.
 
 ## Stop Conditions

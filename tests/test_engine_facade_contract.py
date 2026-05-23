@@ -217,3 +217,66 @@ class TestEngineFacadeContract(unittest.TestCase):
         ]
         for name in expected_exports:
             self.assertTrue(hasattr(engine, name), name)
+
+
+class TestEngineRuntimeCacheContract(unittest.TestCase):
+    def setUp(self):
+        self._matrix_backup = None
+        if os.path.exists(MATRIX_PATH):
+            with open(MATRIX_PATH, 'rb') as f:
+                self._matrix_backup = f.read()
+            os.remove(MATRIX_PATH)
+        self._patches = [
+            patch.object(Engine, '_save_matrix_file', return_value=None),
+            patch.object(Engine, '_save_fetishes_file', return_value=None),
+            patch.object(Engine, '_save_to_db', return_value=None),
+        ]
+        for patcher in self._patches:
+            patcher.start()
+        self.engine = Engine()
+
+    def tearDown(self):
+        for patcher in self._patches:
+            patcher.stop()
+        if self._matrix_backup is not None:
+            with open(MATRIX_PATH, 'wb') as f:
+                f.write(self._matrix_backup)
+
+    def test_disc_scale_facade_owns_cache_and_reuses_within_ttl(self):
+        calls = []
+
+        def fake_probability(fetish_idx, question_idx):
+            calls.append((fetish_idx, question_idx))
+            return 0.9 if question_idx == 0 else 0.5
+
+        with patch.object(self.engine, '_prob', side_effect=fake_probability), \
+                patch('engine.time.monotonic', side_effect=[100.0, 101.0]):
+            first = self.engine._get_disc_scales()
+            second = self.engine._get_disc_scales()
+
+        self.assertIs(first, second)
+        self.assertEqual(self.engine._disc_cache, first)
+        self.assertEqual(self.engine._disc_cache_time, 100.0)
+        self.assertEqual(len(calls), len(self.engine.fetishes) * len(self.engine.questions))
+
+    def test_dynamic_prior_facade_owns_cache_and_empty_log_timestamp(self):
+        with patch.object(self.engine, 'get_fetish_log', return_value={}) as get_log, \
+                patch('engine.time.monotonic', side_effect=[200.0, 201.0]):
+            first = self.engine._get_dynamic_prior_weights()
+            second = self.engine._get_dynamic_prior_weights()
+
+        self.assertIs(first, second)
+        self.assertEqual(first, {})
+        self.assertEqual(self.engine._dynamic_prior_time, 200.0)
+        get_log.assert_called_once_with()
+
+    def test_dynamic_prior_facade_updates_cache_from_log(self):
+        target_id = self.engine.fetishes[0]['id']
+        with patch.object(self.engine, 'get_fetish_log', return_value={target_id: {'guessed': 10, 'correct': 8}}), \
+                patch('engine.time.monotonic', return_value=300.0):
+            weights = self.engine._get_dynamic_prior_weights()
+
+        self.assertIs(self.engine._dynamic_prior_cache, weights)
+        self.assertEqual(self.engine._dynamic_prior_time, 300.0)
+        self.assertIn(target_id, weights)
+        self.assertGreaterEqual(weights[target_id], 0.1)
