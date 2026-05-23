@@ -291,3 +291,108 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                     )
     finally:
         put_conn(conn)
+
+
+def insert_fetish_with_matrix(name, desc, yes_row, total_row, *, get_conn, put_conn, execute_values, player_base_id):
+    nq = len(yes_row)
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute(
+                'SELECT COALESCE(MAX(id), %s - 1) + 1 FROM fetishes WHERE id >= %s',
+                (player_base_id, player_base_id),
+            )
+            db_id = max(cur.fetchone()[0], player_base_id)
+            cur.execute(
+                'INSERT INTO fetishes (id, name, "desc", works) VALUES (%s, %s, %s, %s)',
+                (db_id, name, desc, '[]'),
+            )
+            rows = [(db_id, question_idx, yes_row[question_idx], total_row[question_idx]) for question_idx in range(nq)]
+            execute_values(
+                cur,
+                'INSERT INTO matrix (fetish_id, question_id, yes_count, total_count) VALUES %s',
+                rows,
+            )
+            return db_id
+    finally:
+        put_conn(conn)
+
+
+def update_fetish_fields(fetish_id, *, name=None, desc=None, works=None, get_conn, put_conn):
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            updates = []
+            params = []
+            if name is not None:
+                updates.append('name=%s')
+                params.append(name)
+            if desc is not None:
+                updates.append('"desc"=%s')
+                params.append(desc)
+            if works is not None:
+                updates.append('works=%s')
+                params.append(json.dumps(works, ensure_ascii=False))
+            if updates:
+                params.append(fetish_id)
+                cur.execute(f'UPDATE fetishes SET {", ".join(updates)} WHERE id=%s', params)
+    finally:
+        put_conn(conn)
+
+
+def delete_fetish_rows(fetish_id, *, get_conn, put_conn):
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute('DELETE FROM fetishes WHERE id = %s', (fetish_id,))
+            cur.execute('DELETE FROM matrix WHERE fetish_id = %s', (fetish_id,))
+    finally:
+        put_conn(conn)
+
+
+def merge_fetish_rows_db(id_keep, id_remove, *, new_name=None, new_desc=None, keep_name=None, keep_desc=None, get_conn, put_conn):
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute('''
+                UPDATE matrix AS m
+                SET yes_count   = m.yes_count   + rm.yes_count,
+                    total_count = m.total_count + rm.total_count
+                FROM matrix rm
+                WHERE m.fetish_id = %s AND rm.fetish_id = %s
+                  AND m.question_id = rm.question_id
+            ''', (id_keep, id_remove))
+            cur.execute('DELETE FROM fetishes WHERE id = %s', (id_remove,))
+            cur.execute('DELETE FROM matrix WHERE fetish_id = %s', (id_remove,))
+            cur.execute('''
+                INSERT INTO fetish_log (fetish_id, guessed, correct, wrong)
+                SELECT %s, guessed, correct, wrong FROM fetish_log WHERE fetish_id = %s
+                ON CONFLICT (fetish_id) DO UPDATE
+                SET guessed = fetish_log.guessed + EXCLUDED.guessed,
+                    correct = fetish_log.correct + EXCLUDED.correct,
+                    wrong   = fetish_log.wrong   + EXCLUDED.wrong
+            ''', (id_keep, id_remove))
+            cur.execute('DELETE FROM fetish_log WHERE fetish_id = %s', (id_remove,))
+            if new_name or new_desc:
+                cur.execute(
+                    'UPDATE fetishes SET name=%s, "desc"=%s WHERE id=%s',
+                    (new_name or keep_name, new_desc or keep_desc, id_keep),
+                )
+    finally:
+        put_conn(conn)
+
+
+def promote_fetish_id(old_id, new_id, *, get_conn, put_conn):
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute('UPDATE fetishes  SET id = %s WHERE id = %s', (new_id, old_id))
+            cur.execute('UPDATE matrix    SET fetish_id = %s WHERE fetish_id = %s', (new_id, old_id))
+            cur.execute('UPDATE fetish_log SET fetish_id = %s WHERE fetish_id = %s', (new_id, old_id))
+    finally:
+        put_conn(conn)

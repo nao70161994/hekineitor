@@ -785,27 +785,16 @@ class Engine:
                 new_total = [alpha * 2.0] * nq
 
             if _use_db():
-                conn = _get_conn()
-                try:
-                    with conn:
-                        cur = conn.cursor()
-                        cur.execute(
-                            'SELECT COALESCE(MAX(id), %s - 1) + 1 FROM fetishes WHERE id >= %s',
-                            (PLAYER_FETISH_BASE_ID, PLAYER_FETISH_BASE_ID)
-                        )
-                        db_id = max(cur.fetchone()[0], PLAYER_FETISH_BASE_ID)
-                        cur.execute(
-                            'INSERT INTO fetishes (id, name, "desc", works) VALUES (%s, %s, %s, %s)',
-                            (db_id, name, desc, '[]')
-                        )
-                        rows = [(db_id, q, new_yes[q], new_total[q]) for q in range(nq)]
-                        psycopg2.extras.execute_values(
-                            cur,
-                            'INSERT INTO matrix (fetish_id, question_id, yes_count, total_count) VALUES %s',
-                            rows
-                        )
-                finally:
-                    _put_conn(conn)
+                db_id = engine_db.insert_fetish_with_matrix(
+                    name,
+                    desc,
+                    new_yes,
+                    new_total,
+                    get_conn=_get_conn,
+                    put_conn=_put_conn,
+                    execute_values=psycopg2.extras.execute_values,
+                    player_base_id=PLAYER_FETISH_BASE_ID,
+                )
             else:
                 db_id = engine_mutations.next_player_fetish_id(self.fetishes, PLAYER_FETISH_BASE_ID)
 
@@ -840,36 +829,16 @@ class Engine:
                 self.fetishes, self.matrix, idx_keep, idx_rm, new_name=new_name, new_desc=new_desc
             )
             if _use_db():
-                conn = _get_conn()
-                try:
-                    with conn:
-                        cur = conn.cursor()
-                        cur.execute('''
-                            UPDATE matrix AS m
-                            SET yes_count   = m.yes_count   + rm.yes_count,
-                                total_count = m.total_count + rm.total_count
-                            FROM matrix rm
-                            WHERE m.fetish_id = %s AND rm.fetish_id = %s
-                              AND m.question_id = rm.question_id
-                        ''', (id_keep, id_remove))
-                        cur.execute('DELETE FROM fetishes WHERE id = %s', (id_remove,))
-                        cur.execute('DELETE FROM matrix WHERE fetish_id = %s', (id_remove,))
-                        cur.execute('''
-                            INSERT INTO fetish_log (fetish_id, guessed, correct, wrong)
-                            SELECT %s, guessed, correct, wrong FROM fetish_log WHERE fetish_id = %s
-                            ON CONFLICT (fetish_id) DO UPDATE
-                            SET guessed = fetish_log.guessed + EXCLUDED.guessed,
-                                correct = fetish_log.correct + EXCLUDED.correct,
-                                wrong   = fetish_log.wrong   + EXCLUDED.wrong
-                        ''', (id_keep, id_remove))
-                        cur.execute('DELETE FROM fetish_log WHERE fetish_id = %s', (id_remove,))
-                        if new_name or new_desc:
-                            cur.execute(
-                                'UPDATE fetishes SET name=%s, "desc"=%s WHERE id=%s',
-                                (new_name or keep_name, new_desc or keep_desc, id_keep)
-                            )
-                finally:
-                    _put_conn(conn)
+                engine_db.merge_fetish_rows_db(
+                    id_keep,
+                    id_remove,
+                    new_name=new_name,
+                    new_desc=new_desc,
+                    keep_name=keep_name,
+                    keep_desc=keep_desc,
+                    get_conn=_get_conn,
+                    put_conn=_put_conn,
+                )
             else:
                 self._save_fetishes_file()
                 self._save_matrix_file()
@@ -936,26 +905,14 @@ class Engine:
                 return False
             engine_mutations.apply_fetish_edits(self.fetishes[idx], name=name, desc=desc, works=works)
             if _use_db():
-                conn = _get_conn()
-                try:
-                    with conn:
-                        cur = conn.cursor()
-                        updates = []
-                        params = []
-                        if name is not None:
-                            updates.append('name=%s')
-                            params.append(name)
-                        if desc is not None:
-                            updates.append('"desc"=%s')
-                            params.append(desc)
-                        if works is not None:
-                            updates.append('works=%s')
-                            params.append(json.dumps(works, ensure_ascii=False))
-                        if updates:
-                            params.append(fetish_id)
-                            cur.execute(f'UPDATE fetishes SET {", ".join(updates)} WHERE id=%s', params)
-                finally:
-                    _put_conn(conn)
+                engine_db.update_fetish_fields(
+                    fetish_id,
+                    name=name,
+                    desc=desc,
+                    works=works,
+                    get_conn=_get_conn,
+                    put_conn=_put_conn,
+                )
             else:
                 self._save_fetishes_file()
         return True
@@ -968,14 +925,7 @@ class Engine:
                 return False
             engine_mutations.delete_fetish_at(self.fetishes, self.matrix, idx)
             if _use_db():
-                conn = _get_conn()
-                try:
-                    with conn:
-                        cur = conn.cursor()
-                        cur.execute('DELETE FROM fetishes WHERE id = %s', (fetish_id,))
-                        cur.execute('DELETE FROM matrix WHERE fetish_id = %s', (fetish_id,))
-                finally:
-                    _put_conn(conn)
+                engine_db.delete_fetish_rows(fetish_id, get_conn=_get_conn, put_conn=_put_conn)
             else:
                 self._save_fetishes_file()
                 self._save_matrix_file()
@@ -993,15 +943,7 @@ class Engine:
                 return None
             self.fetishes[idx]['id'] = new_id
             if _use_db():
-                conn = _get_conn()
-                try:
-                    with conn:
-                        cur = conn.cursor()
-                        cur.execute('UPDATE fetishes  SET id = %s WHERE id = %s', (new_id, old_id))
-                        cur.execute('UPDATE matrix    SET fetish_id = %s WHERE fetish_id = %s', (new_id, old_id))
-                        cur.execute('UPDATE fetish_log SET fetish_id = %s WHERE fetish_id = %s', (new_id, old_id))
-                finally:
-                    _put_conn(conn)
+                engine_db.promote_fetish_id(old_id, new_id, get_conn=_get_conn, put_conn=_put_conn)
             else:
                 self._save_fetishes_file()
         return new_id

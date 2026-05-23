@@ -233,3 +233,96 @@ class TestEngineDbLoadAndConfigHelpers(unittest.TestCase):
         self.assertIn('INSERT INTO matrix', execute_values_calls[1][0])
         self.assertEqual(execute_values_calls[1][1], [(0, 1, 2.0, 4.0), (1, 1, 2.0, 4.0)])
         self.assertEqual(returned, [conn])
+
+
+
+class TestEngineDbMutationAdapters(unittest.TestCase):
+    def test_insert_fetish_with_matrix_keeps_id_query_and_matrix_insert_contract(self):
+        cursor = FakeCursor(fetchone_values=[(10002,)])
+        conn = FakeConn(cursor)
+        execute_values_calls = []
+        returned = []
+
+        db_id = engine_db.insert_fetish_with_matrix(
+            'Name',
+            'Desc',
+            [2.0, 3.0],
+            [4.0, 5.0],
+            get_conn=lambda: conn,
+            put_conn=returned.append,
+            execute_values=lambda cur, sql, rows: execute_values_calls.append((sql, list(rows))),
+            player_base_id=10000,
+        )
+
+        self.assertEqual(db_id, 10002)
+        self.assertIn('SELECT COALESCE(MAX(id), %s - 1) + 1', cursor.executed[0][0])
+        self.assertEqual(cursor.executed[1][1], (10002, 'Name', 'Desc', '[]'))
+        self.assertIn('INSERT INTO matrix', execute_values_calls[0][0])
+        self.assertEqual(execute_values_calls[0][1], [(10002, 0, 2.0, 4.0), (10002, 1, 3.0, 5.0)])
+        self.assertEqual(returned, [conn])
+
+    def test_update_fetish_fields_builds_only_provided_columns(self):
+        cursor = FakeCursor()
+        conn = FakeConn(cursor)
+
+        engine_db.update_fetish_fields(
+            7,
+            name='Name',
+            works=['作品'],
+            get_conn=lambda: conn,
+            put_conn=lambda _conn: None,
+        )
+
+        sql, params = cursor.executed[0]
+        self.assertEqual(sql, 'UPDATE fetishes SET name=%s, works=%s WHERE id=%s')
+        self.assertEqual(params, ['Name', '["作品"]', 7])
+
+    def test_delete_fetish_rows_deletes_fetish_then_matrix(self):
+        cursor = FakeCursor()
+        conn = FakeConn(cursor)
+
+        engine_db.delete_fetish_rows(7, get_conn=lambda: conn, put_conn=lambda _conn: None)
+
+        self.assertEqual(
+            [call[0] for call in cursor.executed],
+            ['DELETE FROM fetishes WHERE id = %s', 'DELETE FROM matrix WHERE fetish_id = %s'],
+        )
+        self.assertEqual([call[1] for call in cursor.executed], [(7,), (7,)])
+
+    def test_merge_fetish_rows_db_keeps_matrix_log_and_optional_name_update_contract(self):
+        cursor = FakeCursor()
+        conn = FakeConn(cursor)
+
+        engine_db.merge_fetish_rows_db(
+            1,
+            2,
+            new_name='Merged',
+            keep_desc='Desc',
+            get_conn=lambda: conn,
+            put_conn=lambda _conn: None,
+        )
+
+        executed_sql = [sql for sql, _params in cursor.executed]
+        self.assertIn('UPDATE matrix AS m', executed_sql[0])
+        self.assertEqual(executed_sql[1], 'DELETE FROM fetishes WHERE id = %s')
+        self.assertEqual(executed_sql[2], 'DELETE FROM matrix WHERE fetish_id = %s')
+        self.assertIn('INSERT INTO fetish_log', executed_sql[3])
+        self.assertEqual(executed_sql[4], 'DELETE FROM fetish_log WHERE fetish_id = %s')
+        self.assertEqual(executed_sql[5], 'UPDATE fetishes SET name=%s, "desc"=%s WHERE id=%s')
+        self.assertEqual(cursor.executed[5][1], ('Merged', 'Desc', 1))
+
+    def test_promote_fetish_id_updates_all_id_references(self):
+        cursor = FakeCursor()
+        conn = FakeConn(cursor)
+
+        engine_db.promote_fetish_id(10000, 3, get_conn=lambda: conn, put_conn=lambda _conn: None)
+
+        self.assertEqual(
+            [call[0] for call in cursor.executed],
+            [
+                'UPDATE fetishes  SET id = %s WHERE id = %s',
+                'UPDATE matrix    SET fetish_id = %s WHERE fetish_id = %s',
+                'UPDATE fetish_log SET fetish_id = %s WHERE fetish_id = %s',
+            ],
+        )
+        self.assertEqual([call[1] for call in cursor.executed], [(3, 10000), (3, 10000), (3, 10000)])
