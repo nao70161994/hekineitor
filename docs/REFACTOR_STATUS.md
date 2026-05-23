@@ -83,6 +83,7 @@
 - Engine package switch PR description requirements are documented in `docs/ENGINE_PACKAGE_PR_TEMPLATE.md`.
 - Remaining `engine.py` private helpers are classified in `docs/ENGINE_PRIVATE_HELPER_MAP.md` for package-prep review.
 - Engine helper modules are covered by dependency tests that prevent imports back into the public `engine` facade.
+- Engine helper modules are covered by standalone import tests before package conversion.
 - App composition-root responsibilities were reviewed against `docs/APP_BOOTSTRAP.md` after engine package planning.
 
 ## Still Open

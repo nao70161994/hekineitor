@@ -19,7 +19,7 @@ This map classifies the remaining private helpers in `engine.py` before any `eng
 
 ## Already Split Behind Facade
 
-These helper modules are kept as one-way dependencies: helpers may be imported by `engine.py`, but they must not import the public `engine` facade. `tests/test_engine_helper_dependencies.py` locks this before package conversion.
+These helper modules are kept as one-way dependencies: helpers may be imported by `engine.py`, but they must not import the public `engine` facade. `tests/test_engine_helper_dependencies.py` locks this before package conversion and confirms every helper imports without `Engine` instance setup.
 
 - Inference and ranking math: `engine_inference.py`.
 - Question selection: `engine_question_selection.py`.

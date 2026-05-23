@@ -1,4 +1,5 @@
 import ast
+import importlib
 import os
 import sys
 import unittest
@@ -47,3 +48,10 @@ class TestEngineHelperDependencies(unittest.TestCase):
             if name.startswith('engine_') and name.endswith('.py')
         )
         self.assertEqual(actual, sorted(HELPER_MODULES))
+
+    def test_helpers_import_without_engine_instance_setup(self):
+        for filename in HELPER_MODULES:
+            module_name = filename[:-3]
+            with self.subTest(module=module_name):
+                module = importlib.import_module(module_name)
+                self.assertEqual(module.__name__, module_name)
