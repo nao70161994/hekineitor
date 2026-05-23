@@ -19,6 +19,7 @@ This plan prepares `engine.py` for package conversion without changing diagnosis
 - `engine_admin_reports.py` contains read-only admin matrix/question/fetish report helpers delegated by the `Engine` facade.
 - `engine_correlation.py` contains correlation-cache and contradiction helpers behind `Engine` facade delegates.
 - `engine_db.py` contains DB matrix save/import row builders and SQL adapters used by `Engine` persistence facade methods.
+- `engine_mutations.py` contains memory-only add/edit/delete/merge/promote helpers used by `Engine` mutation facade methods.
 - `tests/test_engine_inference_regression.py` snapshots representative top-guess IDs and probabilities before further package moves.
 - `tests/test_engine_question_selection_regression.py` snapshots deterministic question selection and disambiguation cases.
 - `tests/test_engine_persistence_regression.py` locks matrix snapshot, validation, local import/save, and DB overwrite-import contracts.
@@ -96,6 +97,7 @@ The final facade should own state and expose public methods, but method bodies s
 - Compound works helper behavior for ID order normalization, cache load-once behavior, save options, copy-on-read, and delete/list results.
 - Matrix import/export validation without writes.
 - Persistence smoke tests for snapshot copies, local save behavior, DB import delegation, and duplicate rejection before moving JSON/DB code.
+- Mutation helper parity for add/edit/delete/merge/promote memory updates and `_learn_silent` contract behavior.
 - A deterministic `best_question` test with patched randomness for early-game selection.
 
 ## Stop Conditions

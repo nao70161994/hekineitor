@@ -107,6 +107,7 @@
 - Engine admin report helpers split behind facade delegates.
 - Engine correlation helpers split behind facade delegates.
 - Engine DB matrix persistence adapters split and tested.
+- Engine mutation helpers split behind facade methods.
 - App composition-root review documented.
 
 ## Next PRs

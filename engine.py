@@ -21,6 +21,7 @@ import engine_reporting
 import engine_admin_reports
 import engine_correlation
 import engine_db
+import engine_mutations
 from engine_constants import (
     AXIS_INDIRECT_BONUS,
     EARLY_RANDOM_DEPTH,
@@ -1030,12 +1031,11 @@ class Engine:
                 finally:
                     _put_conn(conn)
             else:
-                player_ids = [f['id'] for f in self.fetishes if f['id'] >= PLAYER_FETISH_BASE_ID]
-                db_id = max(player_ids) + 1 if player_ids else PLAYER_FETISH_BASE_ID
+                db_id = engine_mutations.next_player_fetish_id(self.fetishes, PLAYER_FETISH_BASE_ID)
 
-            self.fetishes.append({'id': db_id, 'name': name, 'desc': desc})
-            self.matrix['yes'].append(new_yes)
-            self.matrix['total'].append(new_total)
+            array_idx = engine_mutations.append_fetish(
+                self.fetishes, self.matrix, db_id=db_id, name=name, desc=desc, yes_row=new_yes, total_row=new_total
+            )
 
             if not _use_db():
                 self._save_fetishes_file()
@@ -1060,20 +1060,9 @@ class Engine:
             idx_rm   = self.index_of(id_remove)
             if idx_keep is None or idx_rm is None or id_keep == id_remove:
                 return False
-            nq = len(self.questions)
-            for q in range(nq):
-                self.matrix['yes'][idx_keep][q]   += self.matrix['yes'][idx_rm][q]
-                self.matrix['total'][idx_keep][q] += self.matrix['total'][idx_rm][q]
-            if new_name:
-                self.fetishes[idx_keep]['name'] = new_name
-            if new_desc:
-                self.fetishes[idx_keep]['desc'] = new_desc
-            # pop 前に name/desc を確保（idx_rm < idx_keep の場合、pop 後にインデックスがズレるため）
-            keep_name = self.fetishes[idx_keep]['name']
-            keep_desc = self.fetishes[idx_keep]['desc']
-            self.fetishes.pop(idx_rm)
-            self.matrix['yes'].pop(idx_rm)
-            self.matrix['total'].pop(idx_rm)
+            keep_name, keep_desc = engine_mutations.merge_fetish_rows(
+                self.fetishes, self.matrix, idx_keep, idx_rm, new_name=new_name, new_desc=new_desc
+            )
             if _use_db():
                 conn = _get_conn()
                 try:
@@ -1114,11 +1103,7 @@ class Engine:
                         log = json.load(f)
                 except (OSError, json.JSONDecodeError):
                     log = {}
-                e_keep = log.get(str(id_keep), {'guessed': 0, 'correct': 0, 'wrong': 0})
-                e_rm   = log.get(str(id_remove), {'guessed': 0, 'correct': 0, 'wrong': 0})
-                log[str(id_keep)] = {k: e_keep.get(k, 0) + e_rm.get(k, 0)
-                                     for k in ('guessed', 'correct', 'wrong')}
-                log.pop(str(id_remove), None)
+                engine_mutations.merge_log_entries(log, id_keep, id_remove)
                 self._atomic_write(log_path, log)
         return True
 
@@ -1173,12 +1158,7 @@ class Engine:
             idx = self.index_of(fetish_id)
             if idx is None:
                 return False
-            if name is not None:
-                self.fetishes[idx]['name'] = name
-            if desc is not None:
-                self.fetishes[idx]['desc'] = desc
-            if works is not None:
-                self.fetishes[idx]['works'] = works
+            engine_mutations.apply_fetish_edits(self.fetishes[idx], name=name, desc=desc, works=works)
             if _use_db():
                 conn = _get_conn()
                 try:
@@ -1210,9 +1190,7 @@ class Engine:
             idx = next((i for i, f in enumerate(self.fetishes) if f['id'] == fetish_id), None)
             if idx is None or self.fetishes[idx]['id'] < PLAYER_FETISH_BASE_ID:
                 return False
-            self.fetishes.pop(idx)
-            self.matrix['yes'].pop(idx)
-            self.matrix['total'].pop(idx)
+            engine_mutations.delete_fetish_at(self.fetishes, self.matrix, idx)
             if _use_db():
                 conn = _get_conn()
                 try:
@@ -1234,8 +1212,7 @@ class Engine:
             idx = self.index_of(old_id)
             if idx is None or self.fetishes[idx]['id'] < PLAYER_FETISH_BASE_ID:
                 return None
-            seed_ids = {f['id'] for f in self.fetishes if f['id'] < PLAYER_FETISH_BASE_ID}
-            new_id = next((i for i in range(PLAYER_FETISH_BASE_ID) if i not in seed_ids), None)
+            new_id = engine_mutations.first_free_seed_id(self.fetishes, PLAYER_FETISH_BASE_ID)
             if new_id is None:
                 return None
             self.fetishes[idx]['id'] = new_id

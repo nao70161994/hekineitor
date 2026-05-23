@@ -63,6 +63,7 @@
 - Read-only admin report helpers are split into `engine_admin_reports.py` behind facade delegates.
 - Correlation-cache and contradiction helpers are split into `engine_correlation.py` behind facade delegates.
 - DB matrix save/import adapters are split into `engine_db.py` with SQL and row-builder tests.
+- Memory-only mutation helpers are split into `engine_mutations.py` behind Engine facade methods.
 - App composition-root responsibilities were reviewed against `docs/APP_BOOTSTRAP.md` after engine package planning.
 
 ## Still Open
