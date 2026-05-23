@@ -15,7 +15,7 @@ from . import compound_works as engine_compound_works
 from . import correlation as engine_correlation
 from . import db as engine_db
 from . import inference as engine_inference
-import engine_learning
+from . import learning as engine_learning
 from . import mutations as engine_mutations
 from . import persistence as engine_persistence
 from . import question_selection as engine_question_selection

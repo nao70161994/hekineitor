@@ -50,7 +50,7 @@ These behaviors are already safe to live outside `engine.py` as long as facade t
 
 - Inference math: `engine/inference.py` with a legacy top-level shim.
 - Question selection: `engine/question_selection.py` with a legacy top-level shim.
-- Learning row updates: `engine_learning.py`.
+- Learning row updates: `engine/learning.py` with a legacy top-level shim.
 - Large constants/data: `engine/constants.py`, `engine/data.py` with legacy top-level shims.
 - Compound works helpers: `engine/compound_works.py` with a legacy top-level shim.
 - Local JSON stats/flags/log helpers: `engine/stats.py` with a legacy top-level shim.
