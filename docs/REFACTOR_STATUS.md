@@ -56,6 +56,7 @@
 - Large engine data constants are split into `engine_data.py` with `engine` re-export compatibility covered by tests.
 - Representative inference snapshots now lock top-guess IDs and probabilities before engine package work continues.
 - Deterministic question-selection snapshots now lock representative best-question and disambiguation outputs.
+- Matrix import and persistence contracts are covered before persistence code is moved out of `engine.py`.
 - App composition-root responsibilities were reviewed against `docs/APP_BOOTSTRAP.md` after engine package planning.
 
 ## Still Open

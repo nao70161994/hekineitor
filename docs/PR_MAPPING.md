@@ -100,6 +100,7 @@
 - Large engine data constants split behind `engine` re-export compatibility.
 - Engine inference regression snapshots added.
 - Engine question-selection regression snapshots added.
+- Engine matrix persistence regression tests added.
 - App composition-root review documented.
 
 ## Next PRs

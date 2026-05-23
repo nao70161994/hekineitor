@@ -16,6 +16,7 @@ This plan prepares `engine.py` for package conversion without changing diagnosis
 - `engine_data.py` contains large data constants (`QUESTION_AXES`, `DOMAIN_PRIORS`, `FETISH_RELATIONS`, `FETISH_PRIOR_WEIGHTS`) while `engine.py` re-exports the same public names.
 - `tests/test_engine_inference_regression.py` snapshots representative top-guess IDs and probabilities before further package moves.
 - `tests/test_engine_question_selection_regression.py` snapshots deterministic question selection and disambiguation cases.
+- `tests/test_engine_persistence_regression.py` locks matrix snapshot, validation, local import/save, and DB overwrite-import contracts.
 
 ## Non-Negotiable Compatibility Contract
 
@@ -89,7 +90,7 @@ The final facade should own state and expose public methods, but method bodies s
 - Facade/helper parity for inference, question selection, and learning.
 - Compound works helper behavior for ID order normalization, cache load-once behavior, save options, copy-on-read, and delete/list results.
 - Matrix import/export validation without writes.
-- Persistence smoke tests with temporary data paths before moving JSON/DB code.
+- Persistence smoke tests for snapshot copies, local save behavior, DB import delegation, and duplicate rejection before moving JSON/DB code.
 - A deterministic `best_question` test with patched randomness for early-game selection.
 
 ## Stop Conditions
