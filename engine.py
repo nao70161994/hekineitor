@@ -1,7 +1,6 @@
 import json
 import math
 import os
-import random
 import threading
 import time
 from analytics import build_quality_report
