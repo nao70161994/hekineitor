@@ -113,6 +113,7 @@
 - Engine DB mutation adapters split behind facade methods.
 - Engine facade state ownership and public API contract documented and tested.
 - Engine DB stats and log adapters split behind facade methods.
+- Engine local matrix persistence helpers split behind facade methods.
 - App composition-root review documented.
 
 ## Next PRs

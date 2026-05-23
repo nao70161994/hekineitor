@@ -22,6 +22,7 @@ import engine_admin_reports
 import engine_correlation
 import engine_db
 import engine_mutations
+import engine_persistence
 from engine_constants import (
     AXIS_INDIRECT_BONUS,
     EARLY_RANDOM_DEPTH,
@@ -137,69 +138,27 @@ class Engine:
         return load_json_file(fname)
 
     def _valid_matrix_shape(self, matrix, nf, nq):
-        if not isinstance(matrix, dict):
-            return False
-        yes = matrix.get('yes')
-        total = matrix.get('total')
-        return (
-            isinstance(yes, list)
-            and isinstance(total, list)
-            and len(yes) == nf
-            and len(total) == nf
-            and all(isinstance(row, list) and len(row) == nq for row in yes)
-            and all(isinstance(row, list) and len(row) == nq for row in total)
-        )
+        return engine_persistence.valid_matrix_shape(matrix, nf, nq)
 
     def _load_matrix_file(self):
-        path = os.path.join(DATA_DIR, 'matrix.json')
-        if os.path.exists(path):
-            with open(path, encoding='utf-8') as f:
-                m = json.load(f)
-            nf = len(self.fetishes)
-            nq = len(self.questions)
-            if self._valid_matrix_shape(m, nf, nq):
-                return m
-            # サイズ不整合: 削除前にバックアップを作成
-            backup = path + '.bak'
-            try:
-                import shutil
-                shutil.copy2(path, backup)
-            except OSError:
-                pass
-            import logging as _logging
-            _logging.getLogger(__name__).warning(
-                'matrix.json のサイズ不整合 (fetishes=%d, questions=%d) — 再初期化します。バックアップ: %s',
-                nf, nq, backup
-            )
-            os.remove(path)
-        return self._init_matrix_file()
+        return engine_persistence.load_matrix_file(
+            os.path.join(DATA_DIR, 'matrix.json'),
+            self.fetishes,
+            self.questions,
+            init_matrix=self._init_matrix_file,
+        )
 
     def _init_matrix_file(self):
-        nf = len(self.fetishes)
-        nq = len(self.questions)
-        yes, total = _build_initial_matrix(nf, nq)
-        # キャプチャ済みの学習priorがあれば DOMAIN_PRIORS より優先して上書き
-        lp_path = os.path.join(DATA_DIR, 'learned_priors.json')
-        if os.path.exists(lp_path):
-            try:
-                with open(lp_path, encoding='utf-8') as f:
-                    learned = json.load(f)
-                id_to_idx = {fobj['id']: i for i, fobj in enumerate(self.fetishes)}
-                for fid_str, row in learned.items():
-                    fi = id_to_idx.get(int(fid_str))
-                    if fi is None:
-                        continue
-                    for q_str, p in row.items():
-                        q = int(q_str)
-                        if 0 <= q < nq:
-                            yes[fi][q]   = float(p) * PSEUDO
-                            total[fi][q] = float(PSEUDO)
-            except Exception:
-                pass
-        m = {'yes': yes, 'total': total}
-        self.matrix = m
+        matrix = engine_persistence.initial_matrix(
+            self.fetishes,
+            self.questions,
+            build_initial_matrix=_build_initial_matrix,
+            learned_priors_path=os.path.join(DATA_DIR, 'learned_priors.json'),
+            pseudo=PSEUDO,
+        )
+        self.matrix = matrix
         self._save_matrix_file()
-        return m
+        return matrix
 
     def _atomic_write(self, path, data, **kwargs):
         atomic_write_json(path, data, **kwargs)

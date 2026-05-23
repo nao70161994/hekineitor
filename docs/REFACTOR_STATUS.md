@@ -69,6 +69,7 @@
 - DB mutation adapters for add/edit/delete/merge/promote are split into `engine_db.py` while Engine keeps mutation orchestration.
 - Engine facade state ownership and public API contracts are documented in `docs/ENGINE_FACADE_CONTRACT.md` and covered by signature/import tests.
 - Engine DB stats, disabled-question, and fetish-log adapters are split into `engine_db.py` while Engine keeps public orchestration.
+- Local matrix shape/init/load helpers are split into `engine_persistence.py` while Engine keeps state assignment and save orchestration.
 - App composition-root responsibilities were reviewed against `docs/APP_BOOTSTRAP.md` after engine package planning.
 
 ## Still Open
