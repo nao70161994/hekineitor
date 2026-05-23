@@ -500,19 +500,21 @@ _COMPOUND_WORKS_PATH = data_path('compound_works.json')
 
 def _load_compound_works():
     global _COMPOUND_WORKS, _compound_works_loaded
-    if _compound_works_loaded:
-        return
-    _COMPOUND_WORKS = load_json_file('compound_works.json', default={})
-    _compound_works_loaded = True
+    loaded = engine_compound_works.load_cache(
+        loaded=_compound_works_loaded,
+        load_fn=load_json_file,
+    )
+    if loaded is not None:
+        _COMPOUND_WORKS = loaded
+        _compound_works_loaded = True
 
 def _save_compound_works():
-    atomic_write_json(_COMPOUND_WORKS_PATH, _COMPOUND_WORKS, ensure_ascii=False, indent=2)
+    engine_compound_works.save_cache(_COMPOUND_WORKS_PATH, _COMPOUND_WORKS, atomic_write_json)
 
 def get_compound_works(id_a: int, id_b: int) -> list:
     """2つの性癖IDペアに特化した作品リストを返す。なければ空リスト。"""
     _load_compound_works()
-    key = engine_compound_works.pair_key(id_a, id_b)
-    return list(_COMPOUND_WORKS.get(key, []))
+    return engine_compound_works.get_works(_COMPOUND_WORKS, id_a, id_b)
 
 def list_compound_works() -> list:
     """全ペアをリスト形式で返す。[{key, id_a, id_b, works}, ...]"""
@@ -522,18 +524,15 @@ def list_compound_works() -> list:
 def set_compound_works(id_a: int, id_b: int, works: list) -> str:
     """ペアの作品リストを追加・更新する。キーを返す。"""
     _load_compound_works()
-    key = engine_compound_works.pair_key(id_a, id_b)
-    _COMPOUND_WORKS[key] = works
+    key = engine_compound_works.set_works(_COMPOUND_WORKS, id_a, id_b, works)
     _save_compound_works()
     return key
 
 def delete_compound_works(id_a: int, id_b: int) -> bool:
     """ペアを削除する。存在しなければFalse。"""
     _load_compound_works()
-    key = engine_compound_works.pair_key(id_a, id_b)
-    if key not in _COMPOUND_WORKS:
+    if not engine_compound_works.delete_works(_COMPOUND_WORKS, id_a, id_b):
         return False
-    del _COMPOUND_WORKS[key]
     _save_compound_works()
     return True
 

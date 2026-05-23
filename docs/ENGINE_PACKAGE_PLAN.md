@@ -11,7 +11,7 @@ This plan prepares `engine.py` for package conversion without changing diagnosis
   - `engine_question_selection.py` for question axis lookup and question choice helpers.
   - `engine_learning.py` for positive, near-miss, cooccurrence, and negative learning updates.
 - `tests/test_engine_facade_contract.py` locks facade-to-helper parity and current public module exports.
-- `engine_compound_works.py` contains pure compound works key/list helpers while `engine.py` still owns cache state and public compatibility functions.
+- `engine_compound_works.py` contains compound works key/list/cache/save helpers while `engine.py` still owns public compatibility functions and cache globals.
 - `engine_constants.py` contains scalar package-prep constants while `engine.py` re-exports the same public names.
 - `tests/test_engine_inference_regression.py` snapshots representative top-guess IDs and probabilities before further package moves.
 - `tests/test_engine_question_selection_regression.py` snapshots deterministic question selection and disambiguation cases.
@@ -66,7 +66,7 @@ Because Python cannot safely keep both `engine.py` and an `engine/` package as t
 ## Recommended Move Order
 
 1. Large data constants still remain in `engine.py`; only scalar package-prep constants have moved to `engine_constants.py` and are re-exported from `engine`.
-2. `compound_works.py`: move cache/load/save ownership for `get_compound_works`, `list_compound_works`, `set_compound_works`, and `delete_compound_works` after the existing pure helper tests are expanded to storage/cache behavior.
+2. `compound_works.py`: cache/load/save helpers are staged in `engine_compound_works.py`; a later PR can move cache globals only if public `engine` patch points stay compatible.
 3. Existing helper module rename only after tests: `engine_inference.py` -> package `inference.py`, `engine_question_selection.py` -> `question_selection.py`, `engine_learning.py` -> `learning.py`.
 4. Split read-only analytics/reporting methods from `Engine` only after parity tests cover output shape.
 5. Split persistence last; it has the highest DB/JSON/local file risk.
@@ -86,7 +86,7 @@ The final facade should own state and expose public methods, but method bodies s
 - Representative top-guess ID/probability snapshots for empty, strong-signal, and mixed-answer cases.
 - Deterministic question selection snapshots for empty, idk streak, and focused-answer cases.
 - Facade/helper parity for inference, question selection, and learning.
-- Compound works helper behavior for ID order normalization and delete/list results.
+- Compound works helper behavior for ID order normalization, cache load-once behavior, save options, copy-on-read, and delete/list results.
 - Matrix import/export validation without writes.
 - Persistence smoke tests with temporary data paths before moving JSON/DB code.
 - A deterministic `best_question` test with patched randomness for early-game selection.
