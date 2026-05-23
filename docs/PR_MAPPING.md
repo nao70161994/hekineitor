@@ -120,6 +120,7 @@
 - Engine DB seed matrix adapter split behind `_seed_db`.
 - Engine runtime cache and entropy calculations split behind facade compatibility wrappers.
 - Engine package atomic switch plan documented with prep guard tests.
+- Engine package rehearsal checklist and rollback steps documented.
 - Engine private helper move map documented for package-prep review.
 - App composition-root review documented.
 

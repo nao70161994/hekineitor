@@ -203,8 +203,15 @@ class TestEngineFacadeContract(unittest.TestCase):
 
 
     def test_private_math_facades_delegate_without_changing_results(self):
-        self.assertEqual(self.engine._prob(0, 0), engine_inference.probability(self.engine, 0, 0))
+        for fetish_idx, question_idx in [(0, 0), (0, 8), (1, 9), (min(5, len(self.engine.fetishes) - 1), 3)]:
+            with self.subTest(fetish_idx=fetish_idx, question_idx=question_idx):
+                self.assertEqual(
+                    self.engine._prob(fetish_idx, question_idx),
+                    engine_inference.probability(self.engine, fetish_idx, question_idx),
+                )
         self.assertEqual(self.engine._question_axis(0), 'content')
+        self.assertEqual(self.engine._question_axis(55), 'abstract')
+        self.assertIsNone(self.engine._question_axis(99999))
         self.assertAlmostEqual(self.engine._entropy([0.5, 0.5, 0.0]), 1.0)
 
     def test_public_engine_module_exports_remain_available(self):
