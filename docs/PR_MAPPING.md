@@ -94,6 +94,7 @@
 - `666c140` - Blueprint registration grouped in app root.
 - `d401d19` - Engine facade contract tests added.
 - Engine facade learning delegation contract expanded.
+- Silent learning helper delegated through `engine_learning`.
 - Engine package conversion plan documented in `docs/ENGINE_PACKAGE_PLAN.md`.
 - Compound works pure helpers split from `engine.py`.
 - Compound works cache/load/save helpers and tests added.

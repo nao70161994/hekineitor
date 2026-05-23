@@ -129,3 +129,47 @@ def learn_negative(engine, answers, fetish_idx, strength_factor=1.0, *, pseudo):
         idx_to_db_id = {i: fetish['id'] for i, fetish in enumerate(engine.fetishes)}
 
     engine._save_async(all_updates, idx_to_db_id)
+
+
+def learn_silent(engine, answers, fetish_idx, cold_start=False, *, pseudo):
+    """learn() without incrementing learn_count, used for initial new-fetish boost."""
+    neg_weight = 0.3
+    all_updates = {}
+    idx_to_db_id = {}
+
+    with engine._lock:
+        nf = len(engine.fetishes)
+        nq = len(engine.questions)
+        if not (0 <= fetish_idx < nf):
+            return
+        for q_str, ans in answers.items():
+            try:
+                q = int(q_str)
+            except (ValueError, TypeError):
+                continue
+            if ans == 0 or not (0 <= q < nq):
+                continue
+            strength = abs(ans)
+            if cold_start:
+                scale = 1.0
+            else:
+                scale = min(1.0, pseudo / max(engine.matrix['total'][fetish_idx][q], pseudo))
+            effective = strength * scale
+
+            delta_yes = effective if ans > 0 else 0.0
+            engine.matrix['total'][fetish_idx][q] += effective
+            engine.matrix['yes'][fetish_idx][q] += delta_yes
+            all_updates.setdefault(fetish_idx, []).append((q, delta_yes, effective))
+
+            for f in range(nf):
+                if f == fetish_idx:
+                    continue
+                weight = neg_weight * effective
+                neg_yes = weight * (0.0 if ans > 0 else 1.0)
+                engine.matrix['total'][f][q] += weight
+                engine.matrix['yes'][f][q] += neg_yes
+                all_updates.setdefault(f, []).append((q, neg_yes, weight))
+
+        idx_to_db_id = {i: fetish['id'] for i, fetish in enumerate(engine.fetishes)}
+
+    engine._save_async(all_updates, idx_to_db_id)

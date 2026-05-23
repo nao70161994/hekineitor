@@ -948,46 +948,7 @@ class Engine:
     def _learn_silent(self, answers, fetish_idx, cold_start=False):
         """learn() without incrementing learn_count (used for initial boost).
         cold_start=True で蓄積データによる減衰を無効化（新規追加性癖の cold start 対応）。"""
-        neg_weight   = 0.3
-        all_updates  = {}
-        idx_to_db_id = {}
-
-        with self._lock:
-            nf = len(self.fetishes)
-            nq = len(self.questions)
-            if not (0 <= fetish_idx < nf):
-                return
-            for q_str, ans in answers.items():
-                try:
-                    q = int(q_str)
-                except (ValueError, TypeError):
-                    continue
-                if ans == 0 or not (0 <= q < nq):
-                    continue
-                strength = abs(ans)
-                if cold_start:
-                    scale = 1.0
-                else:
-                    scale = min(1.0, PSEUDO / max(self.matrix['total'][fetish_idx][q], PSEUDO))
-                effective = strength * scale
-
-                delta_yes = effective if ans > 0 else 0.0
-                self.matrix['total'][fetish_idx][q] += effective
-                self.matrix['yes'][fetish_idx][q]   += delta_yes
-                all_updates.setdefault(fetish_idx, []).append((q, delta_yes, effective))
-
-                for f in range(nf):
-                    if f == fetish_idx:
-                        continue
-                    w = neg_weight * effective
-                    neg_yes = w * (0.0 if ans > 0 else 1.0)
-                    self.matrix['total'][f][q] += w
-                    self.matrix['yes'][f][q]   += neg_yes
-                    all_updates.setdefault(f, []).append((q, neg_yes, w))
-
-            idx_to_db_id = {i: f['id'] for i, f in enumerate(self.fetishes)}
-
-        self._save_async(all_updates, idx_to_db_id)
+        return engine_learning.learn_silent(self, answers, fetish_idx, cold_start=cold_start, pseudo=PSEUDO)
 
     def add_fetish(self, name, desc, answers):
         """新しい性癖をDBに登録する（学習はしない）。返り値は (array_idx, db_id)。

@@ -141,6 +141,20 @@ class TestEngineFacadeContract(unittest.TestCase):
         self.assertEqual(facade_engine.matrix['yes'][1], helper_engine.matrix['yes'][1])
         self.assertEqual(facade_engine.matrix['total'][1], helper_engine.matrix['total'][1])
 
+
+    def test_learn_silent_facade_matches_helper_module(self):
+        answers = {'8': 1, '9': -1, '10': 0}
+        facade_engine = self.engine
+        helper_engine = Engine()
+
+        facade_engine._learn_silent(answers, 0, cold_start=True)
+        engine_learning.learn_silent(helper_engine, answers, 0, cold_start=True, pseudo=PSEUDO)
+
+        self.assertEqual(facade_engine.matrix['yes'][0], helper_engine.matrix['yes'][0])
+        self.assertEqual(facade_engine.matrix['total'][0], helper_engine.matrix['total'][0])
+        self.assertEqual(facade_engine.matrix['yes'][1], helper_engine.matrix['yes'][1])
+        self.assertEqual(facade_engine.matrix['total'][1], helper_engine.matrix['total'][1])
+
     def test_public_engine_module_exports_remain_available(self):
         import engine
 
