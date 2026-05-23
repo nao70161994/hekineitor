@@ -1,0 +1,120 @@
+import os
+import sys
+import unittest
+from unittest.mock import patch
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+import engine as engine_module
+from engine import Engine, PLAYER_FETISH_BASE_ID
+
+MATRIX_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'matrix.json')
+
+
+class TestEngineMutations(unittest.TestCase):
+    def setUp(self):
+        self._matrix_backup = None
+        if os.path.exists(MATRIX_PATH):
+            with open(MATRIX_PATH, 'rb') as f:
+                self._matrix_backup = f.read()
+            os.remove(MATRIX_PATH)
+        self._patches = [
+            patch.object(Engine, '_save_matrix_file', return_value=None),
+            patch.object(Engine, '_save_fetishes_file', return_value=None),
+            patch.object(Engine, '_save_to_db', return_value=None),
+        ]
+        for patcher in self._patches:
+            patcher.start()
+        self.engine = Engine()
+
+    def tearDown(self):
+        for patcher in self._patches:
+            patcher.stop()
+        if self._matrix_backup is not None:
+            with open(MATRIX_PATH, 'wb') as f:
+                f.write(self._matrix_backup)
+
+    def test_learn_silent_cold_start_updates_target_and_other_rows_without_learn_count(self):
+        target_before_yes = self.engine.matrix['yes'][0][8]
+        target_before_total = self.engine.matrix['total'][0][8]
+        other_before_yes = self.engine.matrix['yes'][1][8]
+        other_before_total = self.engine.matrix['total'][1][8]
+        with patch.object(self.engine, '_save_async', return_value=None) as save_async, \
+                patch.object(self.engine, '_increment_learn_count', return_value=None) as increment:
+            self.engine._learn_silent({'8': 1.0}, 0, cold_start=True)
+        self.assertEqual(self.engine.matrix['yes'][0][8], target_before_yes + 1.0)
+        self.assertEqual(self.engine.matrix['total'][0][8], target_before_total + 1.0)
+        self.assertEqual(self.engine.matrix['yes'][1][8], other_before_yes)
+        self.assertEqual(self.engine.matrix['total'][1][8], other_before_total + 0.3)
+        save_async.assert_called_once()
+        increment.assert_not_called()
+
+    def test_add_fetish_local_assigns_next_player_id_and_copies_template_row(self):
+        with patch.object(engine_module, '_use_db', return_value=False), \
+                patch.object(self.engine, '_save_fetishes_file', return_value=None) as save_fetishes:
+            idx, db_id = self.engine.add_fetish('追加テスト', 'desc', {'8': 1})
+        self.assertEqual(idx, len(self.engine.fetishes) - 1)
+        self.assertGreaterEqual(db_id, PLAYER_FETISH_BASE_ID)
+        self.assertEqual(self.engine.fetishes[idx], {'id': db_id, 'name': '追加テスト', 'desc': 'desc'})
+        self.assertEqual(len(self.engine.matrix['yes'][idx]), len(self.engine.questions))
+        self.assertEqual(len(self.engine.matrix['total'][idx]), len(self.engine.questions))
+        save_fetishes.assert_called_once_with()
+
+    def test_edit_fetish_local_updates_only_provided_fields(self):
+        original_desc = self.engine.fetishes[0]['desc']
+        with patch.object(engine_module, '_use_db', return_value=False), \
+                patch.object(self.engine, '_save_fetishes_file', return_value=None) as save_fetishes:
+            ok = self.engine.edit_fetish(self.engine.fetishes[0]['id'], name='編集名', works=['W'])
+        self.assertTrue(ok)
+        self.assertEqual(self.engine.fetishes[0]['name'], '編集名')
+        self.assertEqual(self.engine.fetishes[0]['desc'], original_desc)
+        self.assertEqual(self.engine.fetishes[0]['works'], ['W'])
+        save_fetishes.assert_called_once_with()
+
+    def test_delete_fetish_local_rejects_seed_and_removes_player_rows(self):
+        seed_id = self.engine.fetishes[0]['id']
+        self.assertFalse(self.engine.delete_fetish(seed_id))
+        with patch.object(engine_module, '_use_db', return_value=False), \
+                patch.object(self.engine, '_save_fetishes_file', return_value=None) as save_fetishes, \
+                patch.object(self.engine, '_save_matrix_file', return_value=None) as save_matrix:
+            idx, db_id = self.engine.add_fetish('削除テスト', 'desc', {})
+            ok = self.engine.delete_fetish(db_id)
+        self.assertTrue(ok)
+        self.assertIsNone(self.engine.index_of(db_id))
+        self.assertEqual(len(self.engine.matrix['yes']), len(self.engine.fetishes))
+        self.assertEqual(len(self.engine.matrix['total']), len(self.engine.fetishes))
+        self.assertGreaterEqual(save_fetishes.call_count, 1)
+        save_matrix.assert_called_once_with()
+
+    def test_merge_fetishes_local_adds_matrix_rows_and_merges_log_entries(self):
+        id_keep = self.engine.fetishes[0]['id']
+        id_remove = self.engine.fetishes[1]['id']
+        yes_keep = list(self.engine.matrix['yes'][0])
+        yes_remove = list(self.engine.matrix['yes'][1])
+        total_keep = list(self.engine.matrix['total'][0])
+        total_remove = list(self.engine.matrix['total'][1])
+        writes = []
+        with patch.object(engine_module, '_use_db', return_value=False), \
+                patch.object(self.engine, '_save_fetishes_file', return_value=None), \
+                patch.object(self.engine, '_save_matrix_file', return_value=None), \
+                patch.object(engine_module, 'get_fetish_log_path', return_value='/missing/fetish_log.json'), \
+                patch.object(self.engine, '_atomic_write', side_effect=lambda path, data: writes.append((path, data))):
+            ok = self.engine.merge_fetishes(id_keep, id_remove, new_name='統合名')
+        self.assertTrue(ok)
+        self.assertIsNone(self.engine.index_of(id_remove))
+        keep_idx = self.engine.index_of(id_keep)
+        self.assertEqual(self.engine.fetishes[keep_idx]['name'], '統合名')
+        self.assertEqual(self.engine.matrix['yes'][keep_idx], [a + b for a, b in zip(yes_keep, yes_remove)])
+        self.assertEqual(self.engine.matrix['total'][keep_idx], [a + b for a, b in zip(total_keep, total_remove)])
+        self.assertEqual(writes[0][1][str(id_keep)], {'guessed': 0, 'correct': 0, 'wrong': 0})
+
+    def test_promote_fetish_local_moves_player_id_to_first_free_seed_id(self):
+        with patch.object(engine_module, '_use_db', return_value=False), \
+                patch.object(self.engine, '_save_fetishes_file', return_value=None):
+            idx, player_id = self.engine.add_fetish('昇格テスト', 'desc', {})
+            old_seed_id = self.engine.fetishes[0]['id']
+            self.engine.fetishes[0]['id'] = 9999
+            new_id = self.engine.promote_fetish(player_id)
+        self.assertEqual(new_id, old_seed_id)
+        self.assertIsNotNone(self.engine.index_of(new_id))
+        self.assertIsNone(self.engine.index_of(player_id))

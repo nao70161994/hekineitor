@@ -86,3 +86,66 @@ class TestEnginePersistenceRegression(unittest.TestCase):
         ]
         with self.assertRaisesRegex(ValueError, '重複'):
             e.validate_matrix_rows(rows)
+
+
+class TestEngineDbPersistenceRegression(unittest.TestCase):
+    def test_save_to_db_uses_idx_snapshot_and_skips_missing_ids(self):
+        e = minimal_engine()
+        calls = []
+
+        class Cursor:
+            def executemany(self, sql, rows):
+                calls.append((sql, rows))
+
+        class Conn:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def cursor(self):
+                return Cursor()
+
+        with patch.object(engine_module, '_get_conn', return_value=Conn()) as get_conn, \
+                patch.object(engine_module, '_put_conn', return_value=None) as put_conn:
+            e._save_to_db(
+                {0: [(0, 1.0, 2.0)], 1: [(1, 3.0, 4.0)], 99: [(0, 9.0, 9.0)]},
+                {0: 10},
+            )
+
+        get_conn.assert_called_once_with()
+        put_conn.assert_called_once()
+        self.assertEqual(calls[0][1], [(10, 0, 1.0, 2.0)])
+        self.assertIn('ON CONFLICT', calls[0][0])
+
+    def test_import_to_db_builds_overwrite_rows_from_idx_map(self):
+        e = minimal_engine()
+        calls = []
+
+        class Cursor:
+            pass
+
+        class Conn:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def cursor(self):
+                return Cursor()
+
+        fake_psycopg2 = type('Psycopg2', (), {
+            'extras': type('Extras', (), {
+                'execute_values': staticmethod(lambda cur, sql, rows: calls.append((sql, rows)))
+            })
+        })
+        with patch.object(engine_module, 'psycopg2', fake_psycopg2, create=True), \
+                patch.object(engine_module, '_get_conn', return_value=Conn()), \
+                patch.object(engine_module, '_put_conn', return_value=None):
+            e._import_to_db({0: [(1, 2.0, 3.0)], 99: [(0, 9.0, 9.0)]}, {10: 0, 20: 1})
+
+        self.assertEqual(calls[0][1], [(10, 1, 2.0, 3.0)])
+        self.assertIn('ON CONFLICT', calls[0][0])
+        self.assertIn('SET yes_count   = EXCLUDED.yes_count', calls[0][0])
