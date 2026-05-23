@@ -7,9 +7,10 @@ This plan prepares `engine.py` for package conversion without changing diagnosis
 - `engine/` is now the public package imported by routes, tests, and scripts; `engine/facade.py` contains the migrated facade implementation.
 - `Engine` remains the public facade and owns mutable runtime state: fetishes, questions, matrix, config, caches, locks, and persistence helpers. `docs/ENGINE_FACADE_CONTRACT.md` now lists this ownership explicitly.
 - Pure-ish helper modules already exist beside the facade:
-  - `engine_inference.py` for posterior probability, top guesses, and answer contribution helpers.
-  - `engine_question_selection.py` for question axis lookup and question choice helpers.
-  - `engine_learning.py` for positive, near-miss, cooccurrence, negative, and silent learning updates.
+  - `engine/inference.py` for posterior probability, top guesses, and answer contribution helpers.
+  - `engine/question_selection.py` for question axis lookup and question choice helpers.
+  - `engine/learning.py` for positive, near-miss, cooccurrence, negative, and silent learning updates.
+  - Legacy `engine_inference.py`, `engine_question_selection.py`, and `engine_learning.py` shims remain for import compatibility.
 - `tests/test_engine_facade_contract.py` locks facade-to-helper parity for inference, question selection, positive learning, near-miss learning, negative learning, cooccurrence learning, silent learning, and current public module exports.
 - `engine/compound_works.py` contains compound works key/list/cache/save helpers while `engine_compound_works.py` remains as an import-compatibility shim.
 - `engine/constants.py` contains scalar constants while `engine_constants.py` remains as an import-compatibility shim.
@@ -54,9 +55,9 @@ engine/
   __init__.py          # public compatibility facade exports
   facade.py            # Engine class, thin delegation, state ownership
   constants.py         # PLAYER_FETISH_BASE_ID, priors, relations, thresholds
-  inference.py         # current engine_inference.py behavior
-  question_selection.py# current engine_question_selection.py behavior
-  learning.py          # current engine_learning.py behavior
+  inference.py         # migrated inference helper behavior
+  question_selection.py# migrated question-selection helper behavior
+  learning.py          # migrated learning helper behavior
   persistence.py       # JSON/DB matrix/fetish/stat persistence
   admin_ops.py         # matrix import/export, stats, maintenance helpers
   compound_works.py    # compound works helpers
@@ -77,7 +78,7 @@ Because Python cannot safely keep both `engine.py` and an `engine/` package as t
 
 1. Scalar and large data constants live in `engine/constants.py` and `engine/data.py`; legacy `engine_constants.py` and `engine_data.py` shims keep import compatibility.
 2. `compound_works.py`: cache/load/save helpers live in `engine/compound_works.py`; a later PR can move cache globals only if public `engine` patch points stay compatible.
-3. Existing helper module rename only after tests: `engine_inference.py` -> package `inference.py`, `engine_question_selection.py` -> `question_selection.py`, `engine_learning.py` -> `learning.py`.
+3. Behavior-critical helpers now live in `engine/inference.py`, `engine/question_selection.py`, and `engine/learning.py`; legacy top-level shims keep import compatibility.
 4. Read-only stats-history and admin report helpers are staged in `engine_reporting.py` and `engine_admin_reports.py`; keep route-facing `Engine` methods as facade delegates until package conversion.
 5. Local JSON stats/flag/log helpers are staged in `engine_stats.py`; DB schema/load/config helpers, matrix save/import adapters, DB mutation adapters, and DB stats/log adapters are staged in `engine_db.py` while object mutation orchestration remains behind the `Engine` facade.
 
