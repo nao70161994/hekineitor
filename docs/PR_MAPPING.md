@@ -118,7 +118,7 @@
 - Engine direct local JSON reads consolidated through stats helper.
 - Engine question save helper split and async/reload facade contracts added.
 - Engine DB seed matrix adapter split behind `_seed_db`.
-- Engine runtime cache calculations split behind facade cache ownership.
+- Engine runtime cache and entropy calculations split behind facade compatibility wrappers.
 - Engine package atomic switch plan documented with prep guard tests.
 - Engine private helper move map documented for package-prep review.
 - App composition-root review documented.

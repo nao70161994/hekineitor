@@ -1,3 +1,6 @@
+import math
+
+
 def disc_scales(fetish_count, question_count, *, probability):
     discs = [
         sum(abs(probability(fetish_idx, question_idx) - 0.5) for fetish_idx in range(fetish_count))
@@ -21,3 +24,7 @@ def dynamic_prior_weights(fetishes, log, static_weights, *, alpha=2.0):
         blended = static * (1 - trust) + empirical * trust
         weights[fetish_id] = max(blended, 0.1)
     return weights
+
+
+def entropy(probs):
+    return -sum(prob * math.log2(prob) for prob in probs if prob > 1e-10)

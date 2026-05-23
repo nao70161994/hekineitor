@@ -1,4 +1,3 @@
-import math
 import os
 import threading
 import time
@@ -784,4 +783,4 @@ class Engine:
         return out
 
     def _entropy(self, probs):
-        return -sum(p * math.log2(p) for p in probs if p > 1e-10)
+        return engine_runtime.entropy(probs)

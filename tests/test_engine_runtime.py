@@ -37,3 +37,6 @@ class TestEngineRuntimeHelpers(unittest.TestCase):
         self.assertEqual(weights[1], 2.0)
         self.assertAlmostEqual(weights[2], 1.1071428571428572)
         self.assertEqual(weights[3], 0.1)
+
+    def test_entropy_ignores_zero_and_tiny_probabilities(self):
+        self.assertAlmostEqual(engine_runtime.entropy([0.5, 0.5, 0.0, 1e-11]), 1.0)

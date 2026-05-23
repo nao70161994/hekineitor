@@ -201,6 +201,12 @@ class TestEngineFacadeContract(unittest.TestCase):
         self.assertEqual(helper.call_args.args[:2], ('guess_threshold', 0.66))
         self.assertIn('atomic_write', helper.call_args.kwargs)
 
+
+    def test_private_math_facades_delegate_without_changing_results(self):
+        self.assertEqual(self.engine._prob(0, 0), engine_inference.probability(self.engine, 0, 0))
+        self.assertEqual(self.engine._question_axis(0), 'content')
+        self.assertAlmostEqual(self.engine._entropy([0.5, 0.5, 0.0]), 1.0)
+
     def test_public_engine_module_exports_remain_available(self):
         import engine
 
