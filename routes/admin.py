@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 from flask import Blueprint
 from services.works_links import collect_work_link_queue
 from services import share_events as share_events_service
@@ -12,6 +14,20 @@ def _date_arg(value):
     return None
 
 
+def _previous_period(since, until):
+    try:
+        start = date.fromisoformat(since)
+        end = date.fromisoformat(until)
+    except (TypeError, ValueError):
+        return None, None
+    if end < start:
+        return None, None
+    span = end - start
+    previous_until = start - timedelta(days=1)
+    previous_since = previous_until - span
+    return previous_since.isoformat(), previous_until.isoformat()
+
+
 def share_event_query(ctx, *, default_limit=500):
     filters = {
         'limit': ctx.bounded_int(ctx.request.args.get('limit'), default_limit, 1, 5000),
@@ -23,6 +39,8 @@ def share_event_query(ctx, *, default_limit=500):
     }
     if ctx.request.args.get('days'):
         filters['days'] = ctx.bounded_int(ctx.request.args.get('days'), 0, 1, 366)
+    if filters['since'] and filters['until'] and not filters['compare_since'] and not filters['compare_until']:
+        filters['compare_since'], filters['compare_until'] = _previous_period(filters['since'], filters['until'])
     return filters
 
 

@@ -1162,7 +1162,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         headers = self._admin_headers()
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'share_events.jsonl')
-            old_now = type('Now', (), {'astimezone': lambda self, tz: self, 'isoformat': lambda self, timespec='seconds': '2026-05-20T00:00:00+00:00'})()
+            old_now = type('Now', (), {'astimezone': lambda self, tz: self, 'isoformat': lambda self, timespec='seconds': '2026-05-23T00:00:00+00:00'})()
             new_now = type('Now', (), {'astimezone': lambda self, tz: self, 'isoformat': lambda self, timespec='seconds': '2026-05-24T00:00:00+00:00'})()
             share_events_service.record_event('share_button_click', result_name='OLD', channel='button', success=True, path=path, now_fn=lambda: old_now)
             share_events_service.record_event('copy_success', result_name='NTR', channel='clipboard', success=True, path=path, now_fn=lambda: new_now)
@@ -1170,7 +1170,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             share_events_service.record_event('share_button_click', result_name='NTR', channel='button', success=True, path=path, now_fn=lambda: new_now)
             share_events_service.record_event('result_page_view', result_name='NTR', channel='result_page', success=True, path=path, now_fn=lambda: new_now)
             with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path}):
-                res = self.client.get('/api/admin/share_events?since=2026-05-24&until=2026-05-24&compare_since=2026-05-20&compare_until=2026-05-20', headers=headers)
+                res = self.client.get('/api/admin/share_events?since=2026-05-24&until=2026-05-24', headers=headers)
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertEqual(data['status'], 'ok')
