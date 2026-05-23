@@ -60,6 +60,7 @@
 - Matrix import and persistence contracts are covered before persistence code is moved out of `engine.py`.
 - Local JSON stats, question flag, and fetish-log helpers are split into `engine_stats.py` with direct tests.
 - Read-only stats-history reporting helpers are split into `engine_reporting.py` with output-shape tests.
+- Read-only admin report helpers are split into `engine_admin_reports.py` behind facade delegates.
 - App composition-root responsibilities were reviewed against `docs/APP_BOOTSTRAP.md` after engine package planning.
 
 ## Still Open
