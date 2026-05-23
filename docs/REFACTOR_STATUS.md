@@ -54,8 +54,8 @@
 - Engine package conversion is documented in `docs/ENGINE_PACKAGE_PLAN.md`; implementation is deferred until compatibility moves are narrower.
 - Compound works key/list helpers are split from `engine.py` while public functions and cache patch points stay compatible.
 - Compound works cache/load/save helper behavior is covered directly while public `engine` functions stay compatible.
-- Scalar engine constants are split into `engine_constants.py` with `engine` re-export compatibility covered by tests.
-- Large engine data constants are split into `engine_data.py` with `engine` re-export compatibility covered by tests.
+- Scalar engine constants now live in `engine/constants.py` with `engine_constants.py` kept as an import-compatibility shim.
+- Large engine data constants now live in `engine/data.py` with `engine_data.py` kept as an import-compatibility shim.
 - Representative inference snapshots now lock top-guess IDs and probabilities before engine package work continues.
 - Deterministic question-selection snapshots now lock representative best-question and disambiguation outputs.
 - Matrix import and persistence contracts are covered before persistence code is moved out of `engine.py`.
@@ -69,12 +69,12 @@
 - DB mutation adapters for add/edit/delete/merge/promote are split into `engine_db.py` while Engine keeps mutation orchestration.
 - Engine facade state ownership and public API contracts are documented in `docs/ENGINE_FACADE_CONTRACT.md` and covered by signature/import tests.
 - Engine DB stats, disabled-question, and fetish-log adapters are split into `engine_db.py` while Engine keeps public orchestration.
-- Local matrix shape/init/load/save helpers are split into `engine_persistence.py` while Engine keeps state assignment, locked snapshots, and save orchestration.
+- Local matrix shape/init/load/save helpers now live in `engine/persistence.py` while Engine keeps state assignment, locked snapshots, and save orchestration.
 - Remaining local JSON reads in engine mutation/reporting flows now use `engine_stats.read_json_path`, removing direct `json` usage from `engine.py`.
-- Question save writes are delegated through `engine_persistence.py` while Engine keeps validation and state mutation.
+- Question save writes are delegated through `engine/persistence.py` while Engine keeps validation and state mutation.
 - Async save and stale DB reload behavior are covered by facade contract tests.
 - DB seed matrix row building/writing is split into `engine_db.py` behind the `_seed_db` compatibility wrapper.
-- Disc-scale, dynamic-prior, and entropy calculations are split into `engine_runtime.py` while Engine keeps cache state/timing and compatibility wrappers, covered by facade contract tests.
+- Disc-scale, dynamic-prior, and entropy calculations now live in `engine/runtime.py` while Engine keeps cache state/timing and compatibility wrappers, covered by facade contract tests.
 - The atomic `engine.py` to `engine/` package switch is complete; guard tests now ensure `engine` resolves to `engine/__init__.py`.
 - Importlib guard coverage now confirms `engine` has package search locations under `engine/`.
 - Engine package rehearsal and rollback steps are documented in `docs/ENGINE_PACKAGE_REHEARSAL_CHECKLIST.md`.

@@ -25,7 +25,7 @@ class TestEnginePackageSwitchGuard(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(ROOT, 'engine.py')))
         self.assertTrue(os.path.isdir(os.path.join(ROOT, 'engine')))
 
-    def test_engine_helper_modules_remain_top_level_during_prep_refactors(self):
+    def test_legacy_engine_helper_shims_remain_for_import_compatibility(self):
         helper_files = [
             'engine_admin_reports.py',
             'engine_compound_works.py',
@@ -44,3 +44,12 @@ class TestEnginePackageSwitchGuard(unittest.TestCase):
         ]
         missing = [name for name in helper_files if not os.path.exists(os.path.join(ROOT, name))]
         self.assertEqual(missing, [])
+        package_helpers = [
+            'compound_works.py',
+            'constants.py',
+            'data.py',
+            'persistence.py',
+            'runtime.py',
+        ]
+        missing_package = [name for name in package_helpers if not os.path.exists(os.path.join(ROOT, 'engine', name))]
+        self.assertEqual(missing_package, [])

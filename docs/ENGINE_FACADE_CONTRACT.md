@@ -51,13 +51,13 @@ These behaviors are already safe to live outside `engine.py` as long as facade t
 - Inference math: `engine_inference.py`.
 - Question selection: `engine_question_selection.py`.
 - Learning row updates: `engine_learning.py`.
-- Large constants/data: `engine_constants.py`, `engine_data.py`.
-- Compound works helpers: `engine_compound_works.py`.
+- Large constants/data: `engine/constants.py`, `engine/data.py` with legacy top-level shims.
+- Compound works helpers: `engine/compound_works.py` with a legacy top-level shim.
 - Local JSON stats/flags/log helpers: `engine_stats.py`.
 - Read-only reports: `engine_reporting.py`, `engine_admin_reports.py`.
 - Correlation helpers: `engine_correlation.py`.
 - DB schema/load/config/mutation/stats adapters: `engine_db.py`.
-- Local matrix persistence shape/init/load helpers: `engine_persistence.py`.
+- Local matrix persistence shape/init/load helpers: `engine/persistence.py` with a legacy top-level shim.
 - Memory-only mutation helpers: `engine_mutations.py`.
 
 ## Public Method Contract

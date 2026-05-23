@@ -1,8 +1,5 @@
-PLAYER_FETISH_BASE_ID = 10000
-PSEUDO = 20
-AXIS_INDIRECT_BONUS = {'content': 1.0, 'abstract': 1.01, 'personality': 1.02}
-FOCUS_THRESHOLD = 0.40
-FOCUS_TOP_N = 6
-EARLY_RANDOM_DEPTH = 3
-EARLY_RANDOM_TOP_K = 5
-UCB_EXPLORE_C = 0.05
+"""Compatibility shim for engine.constants."""
+import sys as _sys
+from engine import constants as _module
+from engine.constants import *  # noqa: F401,F403
+_sys.modules[__name__] = _module

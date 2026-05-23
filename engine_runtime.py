@@ -1,30 +1,5 @@
-import math
-
-
-def disc_scales(fetish_count, question_count, *, probability):
-    discs = [
-        sum(abs(probability(fetish_idx, question_idx) - 0.5) for fetish_idx in range(fetish_count))
-        / max(fetish_count, 1)
-        for question_idx in range(question_count)
-    ]
-    mean_disc = sum(discs) / max(len(discs), 1) or 1e-9
-    return [max(0.5, min(2.0, disc / mean_disc)) for disc in discs]
-
-
-def dynamic_prior_weights(fetishes, log, static_weights, *, alpha=2.0):
-    weights = {}
-    for fetish in fetishes:
-        fetish_id = fetish['id']
-        entry = log.get(fetish_id, {})
-        correct = entry.get('correct', 0)
-        guessed = entry.get('guessed', 0)
-        empirical = (correct + alpha) / (guessed + alpha * 2)
-        static = static_weights.get(fetish_id, 1.0)
-        trust = min(guessed / 20.0, 1.0)
-        blended = static * (1 - trust) + empirical * trust
-        weights[fetish_id] = max(blended, 0.1)
-    return weights
-
-
-def entropy(probs):
-    return -sum(prob * math.log2(prob) for prob in probs if prob > 1e-10)
+"""Compatibility shim for engine.runtime."""
+import sys as _sys
+from engine import runtime as _module
+from engine.runtime import *  # noqa: F401,F403
+_sys.modules[__name__] = _module

@@ -11,17 +11,17 @@ This plan prepares `engine.py` for package conversion without changing diagnosis
   - `engine_question_selection.py` for question axis lookup and question choice helpers.
   - `engine_learning.py` for positive, near-miss, cooccurrence, negative, and silent learning updates.
 - `tests/test_engine_facade_contract.py` locks facade-to-helper parity for inference, question selection, positive learning, near-miss learning, negative learning, cooccurrence learning, silent learning, and current public module exports.
-- `engine_compound_works.py` contains compound works key/list/cache/save helpers while `engine/facade.py` still owns public compatibility functions and cache globals.
-- `engine_constants.py` contains scalar package-prep constants while the `engine` package re-exports the same public names.
-- `engine_data.py` contains large data constants (`QUESTION_AXES`, `DOMAIN_PRIORS`, `FETISH_RELATIONS`, `FETISH_PRIOR_WEIGHTS`) while the `engine` package re-exports the same public names.
+- `engine/compound_works.py` contains compound works key/list/cache/save helpers while `engine_compound_works.py` remains as an import-compatibility shim.
+- `engine/constants.py` contains scalar constants while `engine_constants.py` remains as an import-compatibility shim.
+- `engine/data.py` contains large data constants (`QUESTION_AXES`, `DOMAIN_PRIORS`, `FETISH_RELATIONS`, `FETISH_PRIOR_WEIGHTS`) while `engine_data.py` remains as an import-compatibility shim.
 - `engine_stats.py` contains local JSON stats, question flag, and fetish-log helpers while DB branches remain in `engine.py`.
 - `engine_reporting.py` contains read-only stats-history aggregation helpers for recent ranking, fetish history, and quality event summaries.
 - `engine_admin_reports.py` contains read-only admin matrix/question/fetish report helpers delegated by the `Engine` facade.
 - `engine_correlation.py` contains correlation-cache and contradiction helpers behind `Engine` facade delegates.
 - `engine_db.py` contains DB schema creation, fetish/matrix/config load helpers, DB matrix save/import SQL adapters, DB seed adapters, DB mutation adapters, and DB stats/log adapters used by `Engine` facade methods.
 - `engine_mutations.py` contains memory-only add/edit/delete/merge/promote helpers used by `Engine` mutation facade methods.
-- `engine_persistence.py` contains local matrix shape/init/load/save helpers while `Engine` keeps state assignment, locked snapshots, and save orchestration.
-- `engine_runtime.py` contains runtime cache calculations for disc scales, dynamic prior weights, and entropy while `Engine` keeps cache ownership/timestamps and compatibility wrappers.
+- `engine/persistence.py` contains local matrix shape/init/load/save helpers while `Engine` keeps state assignment, locked snapshots, and save orchestration.
+- `engine/runtime.py` contains runtime cache calculations for disc scales, dynamic prior weights, and entropy while `Engine` keeps cache ownership/timestamps and compatibility wrappers.
 - `tests/test_engine_inference_regression.py` snapshots representative top-guess IDs and probabilities before further package moves.
 - `tests/test_engine_question_selection_regression.py` snapshots deterministic question selection and disambiguation cases.
 - `tests/test_engine_persistence_regression.py` locks matrix snapshot, validation, local import/save, and DB overwrite-import contracts.
@@ -75,8 +75,8 @@ Because Python cannot safely keep both `engine.py` and an `engine/` package as t
 
 ## Recommended Move Order
 
-1. Scalar and large data constants are staged in `engine_constants.py` and `engine_data.py`; `engine.py` keeps import-compatible re-exports.
-2. `compound_works.py`: cache/load/save helpers are staged in `engine_compound_works.py`; a later PR can move cache globals only if public `engine` patch points stay compatible.
+1. Scalar and large data constants live in `engine/constants.py` and `engine/data.py`; legacy `engine_constants.py` and `engine_data.py` shims keep import compatibility.
+2. `compound_works.py`: cache/load/save helpers live in `engine/compound_works.py`; a later PR can move cache globals only if public `engine` patch points stay compatible.
 3. Existing helper module rename only after tests: `engine_inference.py` -> package `inference.py`, `engine_question_selection.py` -> `question_selection.py`, `engine_learning.py` -> `learning.py`.
 4. Read-only stats-history and admin report helpers are staged in `engine_reporting.py` and `engine_admin_reports.py`; keep route-facing `Engine` methods as facade delegates until package conversion.
 5. Local JSON stats/flag/log helpers are staged in `engine_stats.py`; DB schema/load/config helpers, matrix save/import adapters, DB mutation adapters, and DB stats/log adapters are staged in `engine_db.py` while object mutation orchestration remains behind the `Engine` facade.

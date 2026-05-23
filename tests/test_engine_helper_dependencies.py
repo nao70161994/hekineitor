@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
-HELPER_MODULES = [
+TOP_LEVEL_HELPER_SHIMS = [
     'engine_admin_reports.py',
     'engine_compound_works.py',
     'engine_constants.py',
@@ -25,11 +25,21 @@ HELPER_MODULES = [
     'engine_stats.py',
 ]
 
+PACKAGE_HELPER_MODULES = [
+    'engine.compound_works',
+    'engine.constants',
+    'engine.data',
+    'engine.persistence',
+    'engine.runtime',
+]
+
+PACKAGE_HELPER_FILES = [module.replace('.', '/') + '.py' for module in PACKAGE_HELPER_MODULES]
+
 
 class TestEngineHelperDependencies(unittest.TestCase):
     def test_helpers_do_not_import_public_engine_facade(self):
         offenders = []
-        for filename in HELPER_MODULES:
+        for filename in PACKAGE_HELPER_FILES:
             path = os.path.join(ROOT, filename)
             with open(path, encoding='utf-8') as file_obj:
                 tree = ast.parse(file_obj.read(), filename=filename)
@@ -42,16 +52,27 @@ class TestEngineHelperDependencies(unittest.TestCase):
                     offenders.append((filename, node.lineno, 'from engine import ...'))
         self.assertEqual(offenders, [])
 
-    def test_helper_list_matches_top_level_engine_helpers(self):
+    def test_top_level_engine_helper_shims_remain_for_import_compatibility(self):
         actual = sorted(
             name for name in os.listdir(ROOT)
             if name.startswith('engine_') and name.endswith('.py')
         )
-        self.assertEqual(actual, sorted(HELPER_MODULES))
+        self.assertEqual(actual, sorted(TOP_LEVEL_HELPER_SHIMS))
 
-    def test_helpers_import_without_engine_instance_setup(self):
-        for filename in HELPER_MODULES:
-            module_name = filename[:-3]
+    def test_package_helpers_import_without_engine_instance_setup(self):
+        for module_name in PACKAGE_HELPER_MODULES:
             with self.subTest(module=module_name):
                 module = importlib.import_module(module_name)
                 self.assertEqual(module.__name__, module_name)
+
+    def test_top_level_moved_shims_alias_package_modules(self):
+        aliases = {
+            'engine_compound_works': 'engine.compound_works',
+            'engine_constants': 'engine.constants',
+            'engine_data': 'engine.data',
+            'engine_persistence': 'engine.persistence',
+            'engine_runtime': 'engine.runtime',
+        }
+        for shim_name, package_name in aliases.items():
+            with self.subTest(shim=shim_name):
+                self.assertIs(importlib.import_module(shim_name), importlib.import_module(package_name))

@@ -11,18 +11,18 @@ from storage import put_conn as _storage_put_conn
 from storage import use_db as _storage_use_db
 from work_utils import parse_work_item, parse_works_list, work_title
 import engine_admin_reports
-import engine_compound_works
+from . import compound_works as engine_compound_works
 import engine_correlation
 import engine_db
 import engine_inference
 import engine_learning
 import engine_mutations
-import engine_persistence
+from . import persistence as engine_persistence
 import engine_question_selection
 import engine_reporting
-import engine_runtime
+from . import runtime as engine_runtime
 import engine_stats
-from engine_constants import (
+from .constants import (
     AXIS_INDIRECT_BONUS,
     EARLY_RANDOM_DEPTH,
     EARLY_RANDOM_TOP_K,
@@ -38,7 +38,7 @@ try:
 except ImportError:
     pass
 
-from engine_data import (
+from .data import (
     DOMAIN_PRIORS,
     FETISH_PRIOR_WEIGHTS,
     FETISH_RELATIONS,
