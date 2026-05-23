@@ -9,8 +9,10 @@ These imports must keep working until a dedicated migration PR updates every cal
 ```python
 import engine
 from engine import Engine
-from engine import PLAYER_FETISH_BASE_ID, FOCUS_THRESHOLD, FETISH_RELATIONS
-from engine import QUESTION_AXES, DOMAIN_PRIORS, FETISH_PRIOR_WEIGHTS
+from engine import PLAYER_FETISH_BASE_ID, FOCUS_THRESHOLD, FOCUS_TOP_N
+from engine import UCB_EXPLORE_C, EARLY_RANDOM_DEPTH, EARLY_RANDOM_TOP_K
+from engine import AXIS_INDIRECT_BONUS, PSEUDO
+from engine import QUESTION_AXES, DOMAIN_PRIORS, FETISH_RELATIONS, FETISH_PRIOR_WEIGHTS
 from engine import get_compound_works, list_compound_works, set_compound_works, delete_compound_works
 from engine import parse_works_list
 ```
@@ -84,7 +86,10 @@ The following public `Engine` methods are route/script contract. Their names, ca
 - `top_guess(answers, n=1)` -> ranked guesses.
 - `get_answer_contributions(answers, fetish_idx, top_n=3)` -> contribution list.
 - `detect_contradictions(answers)` -> contradiction list.
-- `learn(answers, fetish_idx, strength_factor=1.0)` and related learning methods -> matrix mutation side effects.
+- `learn(answers, fetish_idx, strength_factor=1.0)` -> matrix mutation side effects.
+- `learn_cooccurrence(answers, idx_a, idx_b, factor=0.25)` -> co-occurrence matrix mutation side effects.
+- `learn_near_miss(answers, fetish_idx, strength_factor=1.0)` -> near-miss matrix mutation side effects.
+- `learn_negative(answers, fetish_idx, strength_factor=1.0)` -> negative learning matrix mutation side effects.
 - `add_fetish(name, desc, answers)` -> `(array_idx, db_id)`.
 - `boost_learn_new(fetish_idx, answers)` -> learning side effects.
 - `index_of(db_id)` -> array index or `None`.

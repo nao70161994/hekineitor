@@ -150,3 +150,12 @@ class TestEnginePublicApiContract(unittest.TestCase):
         instance = engine.Engine()
         with self.assertRaises(ValueError):
             instance.set_config('__unknown__', 1.0)
+
+    def test_facade_contract_doc_mentions_public_exports_and_methods(self):
+        contract_path = os.path.join(os.path.dirname(__file__), '..', 'docs', 'ENGINE_FACADE_CONTRACT.md')
+        with open(contract_path, encoding='utf-8') as file_obj:
+            contract = file_obj.read()
+        missing_exports = sorted(name for name in EXPECTED_MODULE_EXPORTS if name not in contract)
+        self.assertEqual(missing_exports, [])
+        missing_methods = sorted(name for name in EXPECTED_PUBLIC_METHOD_SIGNATURES if name not in contract)
+        self.assertEqual(missing_methods, [])
