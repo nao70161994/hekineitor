@@ -11,6 +11,7 @@ This plan prepares `engine.py` for package conversion without changing diagnosis
   - `engine_question_selection.py` for question axis lookup and question choice helpers.
   - `engine_learning.py` for positive, near-miss, cooccurrence, and negative learning updates.
 - `tests/test_engine_facade_contract.py` locks facade-to-helper parity and current public module exports.
+- `engine_compound_works.py` contains pure compound works key/list helpers while `engine.py` still owns cache state and public compatibility functions.
 
 ## Non-Negotiable Compatibility Contract
 
@@ -62,7 +63,7 @@ Because Python cannot safely keep both `engine.py` and an `engine/` package as t
 ## Recommended Move Order
 
 1. `constants.py` staging module: copy constants, import them into `engine.py`, and keep all public names available from `engine`.
-2. `compound_works.py`: move `get_compound_works`, `list_compound_works`, `set_compound_works`, `delete_compound_works` after adding direct tests for sorting and ID pair normalization.
+2. `compound_works.py`: move cache/load/save ownership for `get_compound_works`, `list_compound_works`, `set_compound_works`, and `delete_compound_works` after the existing pure helper tests are expanded to storage/cache behavior.
 3. Existing helper module rename only after tests: `engine_inference.py` -> package `inference.py`, `engine_question_selection.py` -> `question_selection.py`, `engine_learning.py` -> `learning.py`.
 4. Split read-only analytics/reporting methods from `Engine` only after parity tests cover output shape.
 5. Split persistence last; it has the highest DB/JSON/local file risk.
