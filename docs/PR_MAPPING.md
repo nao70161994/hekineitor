@@ -93,6 +93,7 @@
 - `c7ef15a` - App factory names clarified.
 - `666c140` - Blueprint registration grouped in app root.
 - `d401d19` - Engine facade contract tests added.
+- Engine facade learning delegation contract expanded.
 - Engine package conversion plan documented in `docs/ENGINE_PACKAGE_PLAN.md`.
 - Compound works pure helpers split from `engine.py`.
 - Compound works cache/load/save helpers and tests added.

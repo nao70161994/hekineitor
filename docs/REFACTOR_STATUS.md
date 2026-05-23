@@ -49,6 +49,7 @@
 - Blueprint and error-handler registration is grouped in app-root helper functions for scanability.
 - Additional context-builder config bundles were reviewed and deferred until a clearer ownership boundary appears.
 - Engine facade/helper parity is covered by direct contract tests.
+- Engine facade contract now covers all staged learning helper delegations.
 - Engine package conversion is documented in `docs/ENGINE_PACKAGE_PLAN.md`; implementation is deferred until compatibility moves are narrower.
 - Compound works key/list helpers are split from `engine.py` while public functions and cache patch points stay compatible.
 - Compound works cache/load/save helper behavior is covered directly while public `engine` functions stay compatible.

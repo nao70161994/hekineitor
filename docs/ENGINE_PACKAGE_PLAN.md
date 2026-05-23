@@ -10,7 +10,7 @@ This plan prepares `engine.py` for package conversion without changing diagnosis
   - `engine_inference.py` for posterior probability, top guesses, and answer contribution helpers.
   - `engine_question_selection.py` for question axis lookup and question choice helpers.
   - `engine_learning.py` for positive, near-miss, cooccurrence, and negative learning updates.
-- `tests/test_engine_facade_contract.py` locks facade-to-helper parity and current public module exports.
+- `tests/test_engine_facade_contract.py` locks facade-to-helper parity for inference, question selection, positive learning, near-miss learning, negative learning, cooccurrence learning, and current public module exports.
 - `engine_compound_works.py` contains compound works key/list/cache/save helpers while `engine.py` still owns public compatibility functions and cache globals.
 - `engine_constants.py` contains scalar package-prep constants while `engine.py` re-exports the same public names.
 - `engine_data.py` contains large data constants (`QUESTION_AXES`, `DOMAIN_PRIORS`, `FETISH_RELATIONS`, `FETISH_PRIOR_WEIGHTS`) while `engine.py` re-exports the same public names.
@@ -87,7 +87,7 @@ The final facade should own state and expose public methods, but method bodies s
 - Public import contract for `engine` exports, including scalar and large data constants.
 - Representative top-guess ID/probability snapshots for empty, strong-signal, and mixed-answer cases.
 - Deterministic question selection snapshots for empty, idk streak, and focused-answer cases.
-- Facade/helper parity for inference, question selection, and learning.
+- Facade/helper parity for inference, question selection, positive learning, near-miss learning, negative learning, and cooccurrence learning.
 - Compound works helper behavior for ID order normalization, cache load-once behavior, save options, copy-on-read, and delete/list results.
 - Matrix import/export validation without writes.
 - Persistence smoke tests for snapshot copies, local save behavior, DB import delegation, and duplicate rejection before moving JSON/DB code.

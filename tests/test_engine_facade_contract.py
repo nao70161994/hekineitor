@@ -110,6 +110,37 @@ class TestEngineFacadeContract(unittest.TestCase):
         self.assertEqual(facade_engine.matrix['yes'][1], helper_engine.matrix['yes'][1])
         self.assertEqual(facade_engine.matrix['total'][1], helper_engine.matrix['total'][1])
 
+
+    def test_learning_facade_matches_helper_module_for_near_miss_and_negative(self):
+        answers = {'8': 1, '9': -1, '10': 0}
+
+        facade_near = self.engine
+        helper_near = Engine()
+        facade_near.learn_near_miss(answers, 0, strength_factor=0.5)
+        engine_learning.learn_near_miss(helper_near, answers, 0, strength_factor=0.5, pseudo=PSEUDO)
+        self.assertEqual(facade_near.matrix['yes'][0], helper_near.matrix['yes'][0])
+        self.assertEqual(facade_near.matrix['total'][0], helper_near.matrix['total'][0])
+
+        facade_negative = Engine()
+        helper_negative = Engine()
+        facade_negative.learn_negative(answers, 0, strength_factor=0.5)
+        engine_learning.learn_negative(helper_negative, answers, 0, strength_factor=0.5, pseudo=PSEUDO)
+        self.assertEqual(facade_negative.matrix['yes'][0], helper_negative.matrix['yes'][0])
+        self.assertEqual(facade_negative.matrix['total'][0], helper_negative.matrix['total'][0])
+
+    def test_learning_facade_matches_helper_module_for_cooccurrence(self):
+        answers = {'8': 1, '9': -1, '10': 0}
+        facade_engine = self.engine
+        helper_engine = Engine()
+
+        facade_engine.learn_cooccurrence(answers, 0, 1, factor=0.25)
+        engine_learning.learn_cooccurrence(helper_engine, answers, 0, 1, factor=0.25, pseudo=PSEUDO)
+
+        self.assertEqual(facade_engine.matrix['yes'][0], helper_engine.matrix['yes'][0])
+        self.assertEqual(facade_engine.matrix['total'][0], helper_engine.matrix['total'][0])
+        self.assertEqual(facade_engine.matrix['yes'][1], helper_engine.matrix['yes'][1])
+        self.assertEqual(facade_engine.matrix['total'][1], helper_engine.matrix['total'][1])
+
     def test_public_engine_module_exports_remain_available(self):
         import engine
 
