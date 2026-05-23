@@ -10,18 +10,18 @@ from storage import get_conn as _storage_get_conn
 from storage import put_conn as _storage_put_conn
 from storage import use_db as _storage_use_db
 from work_utils import parse_work_item, parse_works_list, work_title
-import engine_admin_reports
+from . import admin_reports as engine_admin_reports
 from . import compound_works as engine_compound_works
-import engine_correlation
+from . import correlation as engine_correlation
 import engine_db
 import engine_inference
 import engine_learning
 import engine_mutations
 from . import persistence as engine_persistence
 import engine_question_selection
-import engine_reporting
+from . import reporting as engine_reporting
 from . import runtime as engine_runtime
-import engine_stats
+from . import stats as engine_stats
 from .constants import (
     AXIS_INDIRECT_BONUS,
     EARLY_RANDOM_DEPTH,

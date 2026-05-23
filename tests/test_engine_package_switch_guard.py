@@ -45,11 +45,15 @@ class TestEnginePackageSwitchGuard(unittest.TestCase):
         missing = [name for name in helper_files if not os.path.exists(os.path.join(ROOT, name))]
         self.assertEqual(missing, [])
         package_helpers = [
+            'admin_reports.py',
             'compound_works.py',
             'constants.py',
+            'correlation.py',
             'data.py',
             'persistence.py',
+            'reporting.py',
             'runtime.py',
+            'stats.py',
         ]
         missing_package = [name for name in package_helpers if not os.path.exists(os.path.join(ROOT, 'engine', name))]
         self.assertEqual(missing_package, [])

@@ -128,6 +128,7 @@
 - Engine private helper move map documented for package-prep review.
 - Engine helper dependency direction locked with tests.
 - Pure engine helper modules moved into `engine/` with legacy shims.
+- Read-only engine helper modules moved into `engine/` with legacy shims.
 - App composition-root review documented.
 
 ## Next PRs

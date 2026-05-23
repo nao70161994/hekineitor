@@ -26,11 +26,11 @@ These helper modules are kept as one-way dependencies: helpers may be imported b
 - Learning row updates: `engine_learning.py`.
 - Large constants/data: `engine/constants.py`, `engine/data.py` with legacy shims.
 - Compound works helpers: `engine/compound_works.py` with a legacy shim.
-- Local stats/flags/log file helpers: `engine_stats.py`.
+- Local stats/flags/log file helpers: `engine/stats.py` with a legacy shim.
 - DB schema/load/config/mutation/stats adapters: `engine_db.py`.
 - Local matrix shape/init/load helpers: `engine/persistence.py` with a legacy shim.
 - Memory-only mutation helpers: `engine_mutations.py`.
-- Admin/read-only reports: `engine_admin_reports.py`, `engine_reporting.py`, `engine_correlation.py`.
+- Admin/read-only reports: `engine/admin_reports.py`, `engine/reporting.py`, `engine/correlation.py` with legacy shims.
 
 ## Possible Later Moves
 

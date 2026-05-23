@@ -59,10 +59,10 @@
 - Representative inference snapshots now lock top-guess IDs and probabilities before engine package work continues.
 - Deterministic question-selection snapshots now lock representative best-question and disambiguation outputs.
 - Matrix import and persistence contracts are covered before persistence code is moved out of `engine.py`.
-- Local JSON stats, question flag, and fetish-log helpers are split into `engine_stats.py` with direct tests.
-- Read-only stats-history reporting helpers are split into `engine_reporting.py` with output-shape tests.
-- Read-only admin report helpers are split into `engine_admin_reports.py` behind facade delegates.
-- Correlation-cache and contradiction helpers are split into `engine_correlation.py` behind facade delegates.
+- Local JSON stats, question flag, and fetish-log helpers now live in `engine/stats.py` with `engine_stats.py` kept as a compatibility shim.
+- Read-only stats-history reporting helpers now live in `engine/reporting.py` with `engine_reporting.py` kept as a compatibility shim.
+- Read-only admin report helpers now live in `engine/admin_reports.py` with `engine_admin_reports.py` kept as a compatibility shim.
+- Correlation-cache and contradiction helpers now live in `engine/correlation.py` with `engine_correlation.py` kept as a compatibility shim.
 - DB matrix save/import adapters are split into `engine_db.py` with SQL and row-builder tests.
 - Memory-only mutation helpers are split into `engine_mutations.py` behind Engine facade methods.
 - DB schema/load/config persistence helpers are split into `engine_db.py` behind Engine facade methods.

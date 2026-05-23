@@ -14,7 +14,7 @@ This plan prepares `engine.py` for package conversion without changing diagnosis
 - `engine/compound_works.py` contains compound works key/list/cache/save helpers while `engine_compound_works.py` remains as an import-compatibility shim.
 - `engine/constants.py` contains scalar constants while `engine_constants.py` remains as an import-compatibility shim.
 - `engine/data.py` contains large data constants (`QUESTION_AXES`, `DOMAIN_PRIORS`, `FETISH_RELATIONS`, `FETISH_PRIOR_WEIGHTS`) while `engine_data.py` remains as an import-compatibility shim.
-- `engine_stats.py` contains local JSON stats, question flag, and fetish-log helpers while DB branches remain in `engine.py`.
+- `engine/stats.py` contains local JSON stats, question flag, and fetish-log helpers while DB branches remain on the facade.
 - `engine_reporting.py` contains read-only stats-history aggregation helpers for recent ranking, fetish history, and quality event summaries.
 - `engine_admin_reports.py` contains read-only admin matrix/question/fetish report helpers delegated by the `Engine` facade.
 - `engine_correlation.py` contains correlation-cache and contradiction helpers behind `Engine` facade delegates.

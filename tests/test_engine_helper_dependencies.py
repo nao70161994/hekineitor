@@ -26,11 +26,15 @@ TOP_LEVEL_HELPER_SHIMS = [
 ]
 
 PACKAGE_HELPER_MODULES = [
+    'engine.admin_reports',
     'engine.compound_works',
     'engine.constants',
+    'engine.correlation',
     'engine.data',
     'engine.persistence',
+    'engine.reporting',
     'engine.runtime',
+    'engine.stats',
 ]
 
 PACKAGE_HELPER_FILES = [module.replace('.', '/') + '.py' for module in PACKAGE_HELPER_MODULES]
@@ -67,11 +71,15 @@ class TestEngineHelperDependencies(unittest.TestCase):
 
     def test_top_level_moved_shims_alias_package_modules(self):
         aliases = {
+            'engine_admin_reports': 'engine.admin_reports',
             'engine_compound_works': 'engine.compound_works',
             'engine_constants': 'engine.constants',
+            'engine_correlation': 'engine.correlation',
             'engine_data': 'engine.data',
             'engine_persistence': 'engine.persistence',
+            'engine_reporting': 'engine.reporting',
             'engine_runtime': 'engine.runtime',
+            'engine_stats': 'engine.stats',
         }
         for shim_name, package_name in aliases.items():
             with self.subTest(shim=shim_name):
