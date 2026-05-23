@@ -102,6 +102,35 @@ async function saveParams() {
   }
 }
 
+async function saveShareNote(resultName, targetId, btn) {
+  const textarea = document.getElementById(targetId);
+  const msg = document.getElementById(`${targetId}-msg`);
+  if (!textarea) return;
+  if (msg) {
+    msg.style.color = '#aaa';
+    msg.textContent = '保存中...';
+  }
+  btn.disabled = true;
+  const res = await adminFetch('/api/admin/share_notes', {
+    method: 'POST',
+    body: JSON.stringify({result_name: resultName, note: textarea.value}),
+  });
+  btn.disabled = false;
+  if (!res) return;
+  let data = {};
+  try { data = await res.json(); } catch { data = {}; }
+  if (res.ok) {
+    if (msg) {
+      msg.style.color = '#27ae60';
+      msg.textContent = textarea.value.trim() ? '保存しました' : '削除しました';
+      setTimeout(() => { msg.textContent = ''; }, 3000);
+    }
+  } else if (msg) {
+    msg.style.color = '#e74c3c';
+    msg.textContent = data.message || '保存に失敗しました';
+  }
+}
+
 async function cleanupSessions() {
   const res  = await adminFetch('/api/admin/cleanup_sessions', {method: 'POST'});
   if (!res) return;
@@ -531,6 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (action === 'capture-priors') capturepriors();
     else if (action === 'admin-add-fetish') adminAddFetish();
     else if (action === 'cleanup-sessions') cleanupSessions();
+    else if (action === 'save-share-note') saveShareNote(el.dataset.result || '', el.dataset.target || '', el);
     else if (action === 'dry-run-matrix-import') runMatrixImport(true);
     else if (action === 'import-matrix') runMatrixImport(false);
     else if (action === 'restore-matrix-backup') restoreMatrixBackup(el.dataset.name);

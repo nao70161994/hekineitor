@@ -5,7 +5,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from services import admin_context, admin_security, bootstrap, context, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, system_context
+from services import admin_context, admin_security, bootstrap, context, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, share_notes, system_context
 
 
 class DummyRequest:
@@ -137,6 +137,21 @@ class TestServices(unittest.TestCase):
         csv_body = share_events.comparison_csv(report)
         self.assertIn('metric,current,previous,delta,growth_rate', csv_body.splitlines()[0])
         self.assertIn('share_actions', csv_body)
+
+    def test_share_notes_save_load_and_delete(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'share_notes.json')
+            now = type('Now', (), {
+                'astimezone': lambda self, tz: self,
+                'isoformat': lambda self, timespec='seconds': '2026-05-24T00:00:00+00:00',
+            })()
+            saved = share_notes.save_note('NTR', '<script>alert(1)</script>', path=path, now_fn=lambda: now)
+            self.assertEqual(saved['note'], '<script>alert(1)</script>')
+            self.assertEqual(saved['updated_at'], '2026-05-24T00:00:00+00:00')
+            loaded = share_notes.load_notes(path=path)
+            self.assertEqual(loaded['NTR']['note'], '<script>alert(1)</script>')
+            share_notes.save_note('NTR', '', path=path, now_fn=lambda: now)
+            self.assertEqual(share_notes.load_notes(path=path), {})
 
     def test_share_events_result_ranking_groups_by_result_name(self):
         events = [
@@ -378,7 +393,9 @@ class TestServices(unittest.TestCase):
                 atomic_write_json=lambda path, data, **kwargs: None,
                 load_json_file=lambda path, default=None: default,
             ),
-            share_event_report=lambda limit=500: {'total': 0},
+            share_event_report=lambda **kwargs: {'total': 0},
+            load_share_notes=lambda: {},
+            save_share_note=lambda result_name, note: {'note': note, 'updated_at': 'now'},
         )
         self.assertEqual(ctx.csrf_token(), 'csrf')
         self.assertEqual(ctx.list_matrix_import_backups(), ['backup'])

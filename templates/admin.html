@@ -232,9 +232,10 @@
 {% if share_events.ranking %}
 <div style="margin-top:14px;">
   <div style="font-size:0.78rem;color:#aaa;margin-bottom:6px;">結果別シェアランキング</div>
+  <div style="font-size:0.72rem;color:#666;margin-bottom:6px;">改善メモには個人情報を残さず、OGP文言・称号・CTA仮説だけを記録してください。</div>
   <div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:0.74rem;min-width:760px;">
-      <thead><tr style="color:#666;text-align:left;"><th>結果名</th><th>合計</th><th>共有</th><th>伸び</th><th>結果</th><th>OGP</th><th>X</th><th>Web</th><th>コピー</th><th>結果→共有</th><th>共有成功</th></tr></thead>
+    <table style="width:100%;border-collapse:collapse;font-size:0.74rem;min-width:980px;">
+      <thead><tr style="color:#666;text-align:left;"><th>結果名</th><th>合計</th><th>共有</th><th>伸び</th><th>結果</th><th>OGP</th><th>X</th><th>Web</th><th>コピー</th><th>結果→共有</th><th>共有成功</th><th>改善メモ</th></tr></thead>
       <tbody>
       {% for row in share_events.ranking[:10] %}
       <tr style="border-top:1px solid #222;color:#aaa;">
@@ -249,6 +250,15 @@
         <td>{{ row.copy_successes }}</td>
         <td>{% if row.result_to_share_rate is not none %}{{ row.result_to_share_rate }}%{% else %}—{% endif %}</td>
         <td>{% if row.share_success_rate is not none %}{{ row.share_success_rate }}%{% else %}—{% endif %}</td>
+        {% set note = share_notes.get(row.result_name, {}) %}
+        <td style="min-width:220px;max-width:280px;">
+          {% if note.note %}<div style="display:inline-block;margin-bottom:4px;color:#7af0a0;font-size:0.68rem;">改善メモあり</div>{% endif %}
+          <textarea id="share-note-{{ loop.index }}" maxlength="500" rows="2" style="width:100%;box-sizing:border-box;background:#1a1a2e;color:#eee;border:1px solid #333;border-radius:4px;padding:4px 6px;font-size:0.72rem;resize:vertical;max-height:120px;" placeholder="OGP文言・称号・CTA仮説">{{ note.note or '' }}</textarea>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:3px;">
+            <button class="btn-toggle" data-action="save-share-note" data-result="{{ row.result_name }}" data-target="share-note-{{ loop.index }}" style="font-size:0.68rem;padding:2px 8px;">保存</button>
+            <span id="share-note-{{ loop.index }}-msg" style="font-size:0.68rem;color:#666;"></span>
+          </div>
+        </td>
       </tr>
       {% endfor %}
       </tbody>

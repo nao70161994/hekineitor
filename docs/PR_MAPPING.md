@@ -134,6 +134,8 @@
 - Question-selection helper moved into `engine/` with a legacy shim.
 - Learning helper moved into `engine/` with a legacy shim.
 - App composition-root review documented.
+- Share comparison period auto-fill added.
+- Share improvement notes API and admin ranking UI added.
 
 ## Next PRs
 

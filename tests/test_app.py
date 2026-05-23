@@ -15,6 +15,7 @@ from app import app
 from services import ogp as ogp_service
 from services import quality_stats as quality_stats_service
 from services import share_events as share_events_service
+from services import share_notes as share_notes_service
 import engine as eng_module
 from engine import PLAYER_FETISH_BASE_ID, _use_db
 
@@ -1244,6 +1245,67 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('共有成功', body)
         self.assertIn('眼鏡', body)
         self.assertIn('/api/admin/share_events', body)
+
+    def test_admin_share_notes_api_saves_without_personal_identifiers(self):
+        headers = self._admin_headers()
+        with tempfile.TemporaryDirectory() as tmp:
+            notes_path = os.path.join(tmp, 'share_notes.json')
+            with patch.dict(os.environ, {'SHARE_NOTES_PATH': notes_path}):
+                res = self.client.post(
+                    '/api/admin/share_notes',
+                    headers=headers,
+                    json={'result_name': 'NTR', 'note': 'OGP称号を強める'},
+                )
+                self.assertEqual(res.status_code, 200)
+                data = res.get_json()
+                self.assertEqual(data['status'], 'ok')
+                self.assertEqual(data['note']['note'], 'OGP称号を強める')
+                get_res = self.client.get('/api/admin/share_notes', headers=headers)
+                self.assertEqual(get_res.status_code, 200)
+                self.assertEqual(get_res.get_json()['notes']['NTR']['note'], 'OGP称号を強める')
+        self.assertNotIn('remote_addr', json.dumps(data, ensure_ascii=False))
+
+    def test_admin_share_notes_csrf_enforced_when_enabled(self):
+        app.config['ENFORCE_CSRF'] = True
+        try:
+            headers = self._admin_headers()
+            with tempfile.TemporaryDirectory() as tmp:
+                notes_path = os.path.join(tmp, 'share_notes.json')
+                with patch.dict(os.environ, {'SHARE_NOTES_PATH': notes_path}):
+                    blocked = self.client.post(
+                        '/api/admin/share_notes',
+                        headers=headers,
+                        json={'result_name': 'NTR', 'note': 'blocked'},
+                    )
+                    self.assertEqual(blocked.status_code, 403)
+                    admin = self.client.get('/admin', headers=headers)
+                    self.assertEqual(admin.status_code, 200)
+                    match = re.search(r'csrfToken: "([^"]+)"', admin.data.decode('utf-8'))
+                    self.assertIsNotNone(match)
+                    ok = self.client.post(
+                        '/api/admin/share_notes',
+                        headers={**headers, 'X-CSRF-Token': match.group(1)},
+                        json={'result_name': 'NTR', 'note': 'saved'},
+                    )
+                    self.assertEqual(ok.status_code, 200)
+        finally:
+            app.config.pop('ENFORCE_CSRF', None)
+
+    def test_admin_page_renders_escaped_share_note_form(self):
+        headers = self._admin_headers()
+        with tempfile.TemporaryDirectory() as tmp:
+            events_path = os.path.join(tmp, 'share_events.jsonl')
+            notes_path = os.path.join(tmp, 'share_notes.json')
+            share_events_service.record_event('share_button_click', result_name='NTR', channel='button', success=True, path=events_path)
+            share_notes_service.save_note('NTR', '<script>alert(1)</script>', path=notes_path)
+            with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': events_path, 'SHARE_NOTES_PATH': notes_path}):
+                res = self.client.get('/admin', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        self.assertIn('改善メモあり', body)
+        self.assertIn('data-action="save-share-note"', body)
+        self.assertIn('&lt;script&gt;alert(1)&lt;/script&gt;', body)
+        self.assertNotIn('<script>alert(1)</script>', body)
 
     def test_result_feedback_cta_is_simplified(self):
         res = self.client.get('/')

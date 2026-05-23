@@ -1,4 +1,4 @@
-# Share Improvement Notes Plan
+# Share Improvement Notes
 
 目的は、結果別シェアランキング上位の結果に対して「OGP文言改善メモ」を残し、次の文言改善や称号調整に使えるようにすることです。
 
@@ -21,7 +21,7 @@
 }
 ```
 
-## API案
+## API
 
 - `GET /api/admin/share_notes`
   - 全メモを取得。
@@ -30,11 +30,12 @@
   - 管理者認証と既存CSRF/adminFetchを使う。
   - `result_name` は最大80文字、`note` は最大500文字。
 
-## 管理画面案
+## 管理画面
 
-- 結果別ランキング表の各行に「メモ」ボタンを置く。
-- 折りたたみ行で textarea を表示。
+- 結果別ランキング表の各行に textarea と保存ボタンを表示する。
+- 既存ランキングの DOM 構造を大きく変えず、横スクロール内に収める。
 - 保存後はランキング表示を更新せず、軽い保存完了表示だけ出す。
+- メモがある行には「改善メモあり」を表示する。
 
 ## 注意点
 
@@ -43,6 +44,8 @@
 - JSONファイルはログ同様にgit管理対象外にする。
 - 監査が必要なら既存 `write_audit` に `share_note_update` を記録する。
 
-## 実装を見送った理由
+## 実装状況
 
-現時点ではランキング・比較・CSVの分析導線を優先したため、編集UIを急いで入れない。メモ機能は管理者入力を保存するため、CSRF、escape、監査ログ、gitignoreを揃えた小PRとして実装する方が安全。
+実装済みです。`services/share_notes.py` が JSON 保存と入力長制限を担当し、`/api/admin/share_notes` が管理者用の取得/保存 API を提供します。POST は既存の `require_admin` と admin CSRF に乗せています。
+
+保存時は `share_note_update` を監査ログに残します。本文は保存時にHTMLを削除せず、表示時のJinja自動escapeでXSSを防ぎます。これにより「OGP案に記号を書いた」程度の管理メモを失わず、画面へのHTML注入は避けます。

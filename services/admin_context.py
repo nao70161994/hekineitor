@@ -24,6 +24,8 @@ def build(
     write_audit,
     filesystem,
     share_event_report,
+    load_share_notes,
+    save_share_note,
 ):
     request = flask_runtime.request
     jsonify = flask_runtime.jsonify
@@ -60,6 +62,9 @@ def build(
         strftime=strftime,
         gmtime=gmtime,
         share_event_report=share_event_report,
+        load_share_notes=load_share_notes,
+        save_share_note=save_share_note,
+        write_audit=write_audit,
     )
     maintenance = context.admin_maintenance(
         parse_works_list=parse_works_list,

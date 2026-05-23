@@ -69,6 +69,7 @@ def admin_page(ctx):
     maintenance = ctx.build_admin_maintenance_checklist()
     share_event_filters = share_event_query(ctx, default_limit=1000)
     share_events = ctx.share_event_report(**share_event_filters)
+    share_notes = ctx.load_share_notes()
     return ctx.render_template(
         'admin.html',
         stats=stats,
@@ -88,6 +89,7 @@ def admin_page(ctx):
         quality_report=quality,
         maintenance_checklist=maintenance,
         share_events=share_events,
+        share_notes=share_notes,
         share_event_filters=share_event_filters,
         share_event_query=share_event_query_string(share_event_filters),
         csrf_token=ctx.csrf_token(),
@@ -197,6 +199,20 @@ def share_events_csv(ctx, kind):
         mimetype='text/csv; charset=utf-8',
         headers={'Content-Disposition': f'attachment; filename="{filename}"'},
     )
+
+
+def share_notes(ctx):
+    if ctx.request.method == 'GET':
+        return ctx.jsonify({'status': 'ok', 'notes': ctx.load_share_notes()})
+    data = ctx.request.get_json(silent=True) or {}
+    result_name = data.get('result_name', '')
+    note = data.get('note', '')
+    try:
+        saved = ctx.save_share_note(result_name, note)
+    except ValueError as exc:
+        return ctx.jsonify({'status': 'error', 'message': str(exc)}), 400
+    ctx.write_audit('share_note_update', 'ok', {'result_name': str(result_name or '')[:80]}, ctx.request)
+    return ctx.jsonify({'status': 'ok', 'result_name': str(result_name or '')[:80], 'note': saved})
 
 
 def maintenance_checklist(ctx):
@@ -785,6 +801,11 @@ def create_blueprint(ctx_factory, require_admin):
     @require_admin
     def share_events_csv_route(kind):
         return share_events_csv(ctx_factory(), kind)
+
+    @bp.route('/api/admin/share_notes', methods=['GET', 'POST'])
+    @require_admin
+    def share_notes_route():
+        return share_notes(ctx_factory())
 
     @bp.route('/api/admin/maintenance_checklist', methods=['GET'])
     @require_admin

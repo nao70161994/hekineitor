@@ -82,3 +82,9 @@ CSV は以下で取得できます。
 - `/api/admin/share_events/comparison.csv`
 
 いずれも同じ期間フィルタ query を受け取ります。ランキングCSVには比較指定時の前期間値・差分・伸び率列が含まれます。
+
+## 改善メモ
+
+結果別ランキングの各行には管理者向けの改善メモを保存できます。保存先は `SHARE_NOTES_PATH` があればその JSON、未指定時は `data/share_improvement_notes.json` です。メモには個人情報、IP、User-Agent、ユーザー識別子を含めず、OGP文言・称号・CTA仮説だけを残してください。
+
+`GET /api/admin/share_notes` は保存済みメモを返し、`POST /api/admin/share_notes` は `result_name` と `note` を保存します。POST は管理者認証とCSRF確認の対象です。

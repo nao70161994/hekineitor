@@ -95,8 +95,7 @@
 - Result-name share rankings now include lightweight funnel rates for result-page to share-button and share-button to successful share actions.
 - Share analytics admin endpoints now support lightweight period filters and CSV exports for daily and result-ranking reviews.
 - Share analytics comparison CSV and ranking growth columns are documented for review workflows.
-
-- Share improvement notes are designed in docs/SHARE_IMPROVEMENT_NOTES.md; implementation is deferred to a focused admin-write PR.
+- Share improvement notes now persist per result name through a CSRF-protected admin API and render in the share ranking table without collecting identifiers.
 
 ## Still Open
 

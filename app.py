@@ -18,6 +18,7 @@ from routes import seo as seo_routes
 from routes import system as system_routes
 from services import share as share_service
 from services import share_events as share_events_service
+from services import share_notes as share_notes_service
 from services import game_context as game_context_service
 from services import seo_context as seo_context_service
 from services import admin_context as admin_context_service
@@ -148,6 +149,8 @@ def _admin_context():
         write_audit=write_audit,
         filesystem=_filesystem_context(),
         share_event_report=lambda **kwargs: share_events_service.event_report(environ=os.environ, **kwargs),
+        load_share_notes=lambda: share_notes_service.load_notes(environ=os.environ),
+        save_share_note=lambda result_name, note: share_notes_service.save_note(result_name, note, environ=os.environ),
     )
 
 
