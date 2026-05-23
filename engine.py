@@ -16,6 +16,7 @@ import engine_inference
 import engine_learning
 import engine_question_selection
 import engine_compound_works
+import engine_stats
 from engine_constants import (
     AXIS_INDIRECT_BONUS,
     EARLY_RANDOM_DEPTH,
@@ -427,14 +428,7 @@ class Engine:
                 _put_conn(conn)
         else:
             path = os.path.join(DATA_DIR, 'stats.json')
-            with self._lock:
-                try:
-                    with open(path, encoding='utf-8') as f:
-                        s = json.load(f)
-                except (OSError, json.JSONDecodeError):
-                    s = {}
-                s[key] = s.get(key, 0) + 1
-                self._atomic_write(path, s)
+            engine_stats.increment_counter_file(path, key, lock=self._lock, atomic_write=self._atomic_write)
 
     def _record_daily_stat(self, key):
         from datetime import date as _date
@@ -453,15 +447,7 @@ class Engine:
                 _put_conn(conn)
         else:
             path = os.path.join(DATA_DIR, 'stats_history.json')
-            with self._lock:
-                try:
-                    with open(path, encoding='utf-8') as f:
-                        h = json.load(f)
-                except (OSError, json.JSONDecodeError):
-                    h = {}
-                day = h.setdefault(today, {})
-                day[key] = day.get(key, 0) + 1
-                self._atomic_write(path, h)
+            engine_stats.record_daily_counter_file(path, key, today, lock=self._lock, atomic_write=self._atomic_write)
 
     def _increment_learn_count(self):
         self._increment_stat('learn_count')
@@ -483,11 +469,7 @@ class Engine:
                 _put_conn(conn)
         else:
             path = os.path.join(DATA_DIR, 'stats.json')
-            try:
-                with open(path, encoding='utf-8') as f:
-                    result = json.load(f)
-            except (OSError, json.JSONDecodeError):
-                result = {}
+            return engine_stats.counters_from_file(path, keys)
         return {k: result.get(k, 0) for k in keys}
 
     def get_stats_history(self, days=30):
@@ -510,11 +492,7 @@ class Engine:
                 _put_conn(conn)
         else:
             path = os.path.join(DATA_DIR, 'stats_history.json')
-            try:
-                with open(path, encoding='utf-8') as f:
-                    raw = json.load(f)
-            except (OSError, json.JSONDecodeError):
-                raw = {}
+            return engine_stats.history_rows_from_file(path, date_range)
         return [{'date': d,
                  'play':    raw.get(d, {}).get('play',    0),
                  'learn':   raw.get(d, {}).get('learn',   0),
@@ -674,11 +652,7 @@ class Engine:
                 _put_conn(conn)
         else:
             path = os.path.join(DATA_DIR, 'question_flags.json')
-            try:
-                with open(path, encoding='utf-8') as f:
-                    return set(json.load(f).get('disabled', []))
-            except (OSError, json.JSONDecodeError):
-                return set()
+            return engine_stats.load_disabled_questions_file(path)
 
     def _save_disabled_questions(self):
         if _use_db():
@@ -696,7 +670,7 @@ class Engine:
                 _put_conn(conn)
         else:
             path = os.path.join(DATA_DIR, 'question_flags.json')
-            self._atomic_write(path, {'disabled': sorted(self.disabled_questions)})
+            engine_stats.save_disabled_questions_file(path, self.disabled_questions, atomic_write=self._atomic_write)
 
     def toggle_question_disabled(self, q_id):
         """無効化/有効化を切り替え。True=無効化後の状態を返す。"""
@@ -727,17 +701,9 @@ class Engine:
                 _put_conn(conn)
         else:
             path = get_fetish_log_path()
-            with self._lock:
-                try:
-                    with open(path, encoding='utf-8') as f:
-                        data = json.load(f)
-                except (OSError, json.JSONDecodeError):
-                    data = {}
-                key = str(fetish_db_id)
-                entry = data.get(key, {'guessed': 0, 'correct': 0, 'wrong': 0})
-                entry[col] = entry.get(col, 0) + 1
-                data[key] = entry
-                self._atomic_write(path, data)
+            engine_stats.increment_fetish_log_file(
+                path, fetish_db_id, col, lock=self._lock, atomic_write=self._atomic_write
+            )
 
     def log_guessed(self, fetish_db_id):
         self._increment_fetish_log(fetish_db_id, 'guessed')
@@ -765,12 +731,7 @@ class Engine:
                 _put_conn(conn)
         else:
             path = get_fetish_log_path()
-            try:
-                with open(path, encoding='utf-8') as f:
-                    raw = json.load(f)
-                return {int(k): v for k, v in raw.items()}
-            except (OSError, json.JSONDecodeError):
-                return {}
+            return engine_stats.load_fetish_log_file(path)
 
 
     def _save_to_db(self, all_updates, idx_to_db_id=None):

@@ -102,6 +102,7 @@
 - Engine inference regression snapshots added.
 - Engine question-selection regression snapshots added.
 - Engine matrix persistence regression tests added.
+- Local engine stats persistence helpers split and tested.
 - App composition-root review documented.
 
 ## Next PRs
