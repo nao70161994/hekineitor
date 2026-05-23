@@ -34,6 +34,17 @@
 
 No critical bug was found in the locally verifiable route/API checks. The remaining blocked items require a real mobile browser, installed PWA lifecycle, or public URL crawled by X/LINE/Discord, so they were not marked as passed in this environment.
 
+## Manual QA Remaining After Engine Planning
+
+| Area | Status | Next Action |
+| --- | --- | --- |
+| Mobile CTA | Still blocked | Run iOS Safari and Android Chrome tap/wrapping procedure on real devices |
+| Native Share | Still blocked | Verify Web Share sheet and fallback behavior on real devices |
+| OGP Preview | Still blocked | Use a deployed public URL in X, LINE, and Discord preview surfaces |
+| PWA install/update | Still blocked | Verify install and service worker update lifecycle in real browser profiles |
+
+Engine package planning did not change runtime behavior, so no additional manual QA category is required for this documentation-only step.
+
 ## Manual QA Backlog
 
 | Area | Item | Status | Required Environment | Notes |

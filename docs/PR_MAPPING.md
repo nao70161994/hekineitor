@@ -92,10 +92,13 @@
 - `cb659ee` - App bootstrap config bundle added.
 - `c7ef15a` - App factory names clarified.
 - `666c140` - Blueprint registration grouped in app root.
+- `d401d19` - Engine facade contract tests added.
+- Engine package conversion plan documented in `docs/ENGINE_PACKAGE_PLAN.md`.
 
 ## Next PRs
 
 1. Keep `app.py` as composition root; avoid further extraction unless a dependency group has clear ownership outside Flask wiring.
-3. Execute `docs/QA_EXECUTION_LOG.md` manual mobile/OGP/PWA backlog against real devices and a deployed URL.
-4. Browser E2E runner decision after manual QA gaps are confirmed.
+2. Execute `docs/QA_EXECUTION_LOG.md` manual mobile/OGP/PWA backlog against real devices and a deployed URL.
+3. Browser E2E runner decision after manual QA gaps are confirmed.
+4. Move engine constants or compound works helpers behind re-exported compatibility names.
 5. Engine package compatibility layer preparation only; no package conversion yet.
