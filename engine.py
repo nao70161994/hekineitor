@@ -17,13 +17,21 @@ import engine_inference
 import engine_learning
 import engine_question_selection
 import engine_compound_works
+from engine_constants import (
+    AXIS_INDIRECT_BONUS,
+    EARLY_RANDOM_DEPTH,
+    EARLY_RANDOM_TOP_K,
+    FOCUS_THRESHOLD,
+    FOCUS_TOP_N,
+    PLAYER_FETISH_BASE_ID,
+    PSEUDO,
+    UCB_EXPLORE_C,
+)
 
 try:
     import psycopg2.extras
 except ImportError:
     pass
-
-PLAYER_FETISH_BASE_ID = 10000  # プレイヤー追加性癖のIDはここから開始（シードIDとの競合防止）
 
 # 質問の3軸構造（best_question で軸の多様性確保・idk連続時の切替に使用）
 QUESTION_AXES = [
@@ -340,8 +348,6 @@ DOMAIN_PRIORS = [
     (122,33,0.75),(122,27,0.70),(122,0,0.70),(122,34,0.60),(122,3,0.65),(122,28,0.40),
 ]
 
-PSEUDO = 20
-
 # 関連性癖マップ（包含・重複関係）
 FETISH_RELATIONS = {
     0:  [20],          # NTR → 百合NTR
@@ -483,20 +489,6 @@ FETISH_PRIOR_WEIGHTS = {
     116: 1.3, 117: 1.5, 118: 1.5, 119: 1.3, 120: 1.8,
     121: 1.3, 122: 1.0,
 }
-
-# 質問軸ごとの間接性ボーナス（情報利得が同程度なら間接的な軸を優先）
-AXIS_INDIRECT_BONUS = {'content': 1.0, 'abstract': 1.01, 'personality': 1.02}
-
-# 終盤モード: top_p がこの値を超えたら上位 N 件に絞った情報利得を使う
-FOCUS_THRESHOLD = 0.40
-FOCUS_TOP_N     = 6
-
-# 序盤ランダム性: 最初の N 問は上位 K 件からランダムに選ぶ（毎ゲームの多様性確保）
-EARLY_RANDOM_DEPTH = 3
-EARLY_RANDOM_TOP_K = 5
-
-# UCB探索ボーナス: 使用回数が少ない質問に加算（一度も試されない質問を防ぐ）
-UCB_EXPLORE_C = 0.05
 
 
 def _use_db():

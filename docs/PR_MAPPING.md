@@ -95,6 +95,7 @@
 - `d401d19` - Engine facade contract tests added.
 - Engine package conversion plan documented in `docs/ENGINE_PACKAGE_PLAN.md`.
 - Compound works pure helpers split from `engine.py`.
+- Scalar engine constants split behind `engine` re-export compatibility.
 
 ## Next PRs
 
