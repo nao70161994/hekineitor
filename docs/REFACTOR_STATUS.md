@@ -53,6 +53,7 @@
 - Compound works key/list helpers are split from `engine.py` while public functions and cache patch points stay compatible.
 - Scalar engine constants are split into `engine_constants.py` with `engine` re-export compatibility covered by tests.
 - Representative inference snapshots now lock top-guess IDs and probabilities before engine package work continues.
+- Deterministic question-selection snapshots now lock representative best-question and disambiguation outputs.
 
 ## Still Open
 

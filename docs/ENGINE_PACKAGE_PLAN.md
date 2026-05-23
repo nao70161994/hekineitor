@@ -14,6 +14,7 @@ This plan prepares `engine.py` for package conversion without changing diagnosis
 - `engine_compound_works.py` contains pure compound works key/list helpers while `engine.py` still owns cache state and public compatibility functions.
 - `engine_constants.py` contains scalar package-prep constants while `engine.py` re-exports the same public names.
 - `tests/test_engine_inference_regression.py` snapshots representative top-guess IDs and probabilities before further package moves.
+- `tests/test_engine_question_selection_regression.py` snapshots deterministic question selection and disambiguation cases.
 
 ## Non-Negotiable Compatibility Contract
 
@@ -83,6 +84,7 @@ The final facade should own state and expose public methods, but method bodies s
 
 - Public import contract for `engine` exports.
 - Representative top-guess ID/probability snapshots for empty, strong-signal, and mixed-answer cases.
+- Deterministic question selection snapshots for empty, idk streak, and focused-answer cases.
 - Facade/helper parity for inference, question selection, and learning.
 - Compound works helper behavior for ID order normalization and delete/list results.
 - Matrix import/export validation without writes.

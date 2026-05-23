@@ -97,6 +97,7 @@
 - Compound works pure helpers split from `engine.py`.
 - Scalar engine constants split behind `engine` re-export compatibility.
 - Engine inference regression snapshots added.
+- Engine question-selection regression snapshots added.
 
 ## Next PRs
 
