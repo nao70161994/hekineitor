@@ -106,6 +106,7 @@
 - Engine stats-history reporting helpers split and tested.
 - Engine admin report helpers split behind facade delegates.
 - Engine correlation helpers split behind facade delegates.
+- Engine DB matrix persistence adapters split and tested.
 - App composition-root review documented.
 
 ## Next PRs

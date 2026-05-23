@@ -18,6 +18,7 @@ This plan prepares `engine.py` for package conversion without changing diagnosis
 - `engine_reporting.py` contains read-only stats-history aggregation helpers for recent ranking, fetish history, and quality event summaries.
 - `engine_admin_reports.py` contains read-only admin matrix/question/fetish report helpers delegated by the `Engine` facade.
 - `engine_correlation.py` contains correlation-cache and contradiction helpers behind `Engine` facade delegates.
+- `engine_db.py` contains DB matrix save/import row builders and SQL adapters used by `Engine` persistence facade methods.
 - `tests/test_engine_inference_regression.py` snapshots representative top-guess IDs and probabilities before further package moves.
 - `tests/test_engine_question_selection_regression.py` snapshots deterministic question selection and disambiguation cases.
 - `tests/test_engine_persistence_regression.py` locks matrix snapshot, validation, local import/save, and DB overwrite-import contracts.
@@ -75,7 +76,7 @@ Because Python cannot safely keep both `engine.py` and an `engine/` package as t
 2. `compound_works.py`: cache/load/save helpers are staged in `engine_compound_works.py`; a later PR can move cache globals only if public `engine` patch points stay compatible.
 3. Existing helper module rename only after tests: `engine_inference.py` -> package `inference.py`, `engine_question_selection.py` -> `question_selection.py`, `engine_learning.py` -> `learning.py`.
 4. Read-only stats-history and admin report helpers are staged in `engine_reporting.py` and `engine_admin_reports.py`; keep route-facing `Engine` methods as facade delegates until package conversion.
-5. Local JSON stats/flag/log helpers are staged in `engine_stats.py`; split DB persistence last because it has the highest schema and connection risk.
+5. Local JSON stats/flag/log helpers are staged in `engine_stats.py`; DB matrix save/import adapters are staged in `engine_db.py` while schema creation and object mutations remain in `engine.py`.
 
 ## Facade Thinning Rules
 

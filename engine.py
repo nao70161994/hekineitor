@@ -20,6 +20,7 @@ import engine_stats
 import engine_reporting
 import engine_admin_reports
 import engine_correlation
+import engine_db
 from engine_constants import (
     AXIS_INDIRECT_BONUS,
     EARLY_RANDOM_DEPTH,
@@ -706,31 +707,13 @@ class Engine:
             return
         # idx_to_db_id はロック内で取得したスナップショット。
         # None の場合は呼び出し元が古い方式なのでフォールバック（ロック外アクセス）。
-        rows = []
-        for fetish_idx, updates in all_updates.items():
-            if idx_to_db_id is not None:
-                db_id = idx_to_db_id.get(fetish_idx)
-            elif fetish_idx < len(self.fetishes):
-                db_id = self.fetishes[fetish_idx]['id']
-            else:
-                db_id = None
-            if db_id is None:
-                continue
-            for q_idx, delta_yes, delta_total in updates:
-                rows.append((db_id, q_idx, delta_yes, delta_total))
-        conn = _get_conn()
-        try:
-            with conn:
-                cur = conn.cursor()
-                cur.executemany('''
-                    INSERT INTO matrix (fetish_id, question_id, yes_count, total_count)
-                    VALUES (%s, %s, %s, %s)
-                    ON CONFLICT (fetish_id, question_id) DO UPDATE
-                    SET yes_count   = matrix.yes_count   + EXCLUDED.yes_count,
-                        total_count = matrix.total_count + EXCLUDED.total_count
-                ''', rows)
-        finally:
-            _put_conn(conn)
+        engine_db.save_matrix_updates(
+            all_updates,
+            idx_to_db_id,
+            self.fetishes,
+            get_conn=_get_conn,
+            put_conn=_put_conn,
+        )
 
     # ── パラメータ設定 ────────────────────────────────────
     _CONFIG_DEFAULTS = {
@@ -1176,29 +1159,13 @@ class Engine:
 
     def _import_to_db(self, updates: dict, idx_map: dict):
         """import_matrix 専用: yes/total を加算ではなく上書きでDB保存。"""
-        id_map = {i: fid for fid, i in idx_map.items()}
-        rows = []
-        for fi, qs in updates.items():
-            db_id = id_map.get(fi)
-            if db_id is None:
-                continue
-            for qi, y, t in qs:
-                rows.append((db_id, qi, y, t))
-        if not rows:
-            return
-        conn = _get_conn()
-        try:
-            with conn:
-                cur = conn.cursor()
-                psycopg2.extras.execute_values(cur, '''
-                    INSERT INTO matrix (fetish_id, question_id, yes_count, total_count)
-                    VALUES %s
-                    ON CONFLICT (fetish_id, question_id) DO UPDATE
-                        SET yes_count   = EXCLUDED.yes_count,
-                            total_count = EXCLUDED.total_count
-                ''', rows)
-        finally:
-            _put_conn(conn)
+        engine_db.import_matrix_rows(
+            updates,
+            idx_map,
+            get_conn=_get_conn,
+            put_conn=_put_conn,
+            execute_values=psycopg2.extras.execute_values,
+        )
 
     def edit_fetish(self, fetish_id, name=None, desc=None, works=None):
         """性癖の名前・説明文・作品リストを更新する。変更したフィールドのみ渡す。"""
