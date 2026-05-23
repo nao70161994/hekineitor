@@ -1,4 +1,3 @@
-import json
 import math
 import os
 import threading
@@ -272,11 +271,7 @@ class Engine:
             totals = engine_db.load_feedback_totals(since, get_conn=_get_conn, put_conn=_put_conn)
         else:
             path = os.path.join(DATA_DIR, 'stats_history.json')
-            try:
-                with open(path, encoding='utf-8') as f:
-                    raw = json.load(f)
-            except (OSError, json.JSONDecodeError):
-                raw = {}
+            raw = engine_stats.read_json_path(path, {})
             date_range = [(today - timedelta(days=i)).isoformat() for i in range(days - 1, -1, -1)]
             totals = engine_reporting.fetish_feedback_totals_from_history(raw, date_range)
         id_to_name = {f['id']: f['name'] for f in self.fetishes}
@@ -293,11 +288,7 @@ class Engine:
             raw = engine_db.load_fetish_history(date_range, ck, wk, get_conn=_get_conn, put_conn=_put_conn)
         else:
             path = os.path.join(DATA_DIR, 'stats_history.json')
-            try:
-                with open(path, encoding='utf-8') as f:
-                    raw = json.load(f)
-            except (OSError, json.JSONDecodeError):
-                raw = {}
+            raw = engine_stats.read_json_path(path, {})
         return engine_reporting.fetish_history_rows(raw, date_range, ck, wk)
 
     def get_quality_event_summary(self, days=30):
@@ -320,11 +311,7 @@ class Engine:
             totals = engine_db.load_quality_event_totals(date_range, keys, get_conn=_get_conn, put_conn=_put_conn)
         else:
             path = os.path.join(DATA_DIR, 'stats_history.json')
-            try:
-                with open(path, encoding='utf-8') as f:
-                    raw = json.load(f)
-            except (OSError, json.JSONDecodeError):
-                raw = {}
+            raw = engine_stats.read_json_path(path, {})
             for d in date_range:
                 day = raw.get(d, {})
                 for key in keys:
@@ -672,11 +659,7 @@ class Engine:
                 self._save_fetishes_file()
                 self._save_matrix_file()
                 log_path = get_fetish_log_path()
-                try:
-                    with open(log_path, encoding='utf-8') as f:
-                        log = json.load(f)
-                except (OSError, json.JSONDecodeError):
-                    log = {}
+                log = engine_stats.read_json_path(log_path, {})
                 engine_mutations.merge_log_entries(log, id_keep, id_remove)
                 self._atomic_write(log_path, log)
         return True
