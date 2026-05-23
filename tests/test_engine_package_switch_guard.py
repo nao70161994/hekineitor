@@ -50,6 +50,8 @@ class TestEnginePackageSwitchGuard(unittest.TestCase):
             'constants.py',
             'correlation.py',
             'data.py',
+            'db.py',
+            'mutations.py',
             'persistence.py',
             'reporting.py',
             'runtime.py',

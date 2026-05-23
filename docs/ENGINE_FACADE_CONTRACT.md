@@ -56,9 +56,9 @@ These behaviors are already safe to live outside `engine.py` as long as facade t
 - Local JSON stats/flags/log helpers: `engine/stats.py` with a legacy top-level shim.
 - Read-only reports: `engine/reporting.py`, `engine/admin_reports.py` with legacy top-level shims.
 - Correlation helpers: `engine/correlation.py` with a legacy top-level shim.
-- DB schema/load/config/mutation/stats adapters: `engine_db.py`.
+- DB schema/load/config/mutation/stats adapters: `engine/db.py` with a legacy top-level shim.
 - Local matrix persistence shape/init/load helpers: `engine/persistence.py` with a legacy top-level shim.
-- Memory-only mutation helpers: `engine_mutations.py`.
+- Memory-only mutation helpers: `engine/mutations.py` with a legacy top-level shim.
 
 ## Public Method Contract
 

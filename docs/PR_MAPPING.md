@@ -129,6 +129,7 @@
 - Engine helper dependency direction locked with tests.
 - Pure engine helper modules moved into `engine/` with legacy shims.
 - Read-only engine helper modules moved into `engine/` with legacy shims.
+- DB and mutation engine helper modules moved into `engine/` with legacy shims.
 - App composition-root review documented.
 
 ## Next PRs
@@ -136,5 +137,5 @@
 1. Keep `app.py` as composition root; avoid further extraction unless a dependency group has clear ownership outside Flask wiring.
 2. Execute `docs/QA_EXECUTION_LOG.md` manual mobile/OGP/PWA backlog against real devices and a deployed URL.
 3. Browser E2E runner decision after manual QA gaps are confirmed.
-4. Continue moving top-level `engine_*` helpers into `engine/` behind compatibility shims; start with DB/mutation helpers only after behavior locks stay green.
+4. Continue moving remaining inference/learning/question-selection helpers into `engine/` behind compatibility shims only after behavior locks stay green.
 5. Keep DB and mutation behavior locked with tests while reducing remaining facade method bodies.

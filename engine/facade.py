@@ -13,10 +13,10 @@ from work_utils import parse_work_item, parse_works_list, work_title
 from . import admin_reports as engine_admin_reports
 from . import compound_works as engine_compound_works
 from . import correlation as engine_correlation
-import engine_db
+from . import db as engine_db
 import engine_inference
 import engine_learning
-import engine_mutations
+from . import mutations as engine_mutations
 from . import persistence as engine_persistence
 import engine_question_selection
 from . import reporting as engine_reporting
