@@ -38,7 +38,7 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
 
     def test_best_question_snapshots_with_deterministic_randomness(self):
         cases = [
-            ({}, set(), 0, 0),
+            ({}, set(), 0, 91),
             ({'0': 0, '1': 0}, {0, 1}, 2, 91),
             ({'8': 1, '6': 1, '0': 1, '40': 1}, {0, 6, 8, 40}, 0, 37),
         ]
@@ -48,6 +48,13 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
                     self.engine.best_question(answers, asked, idk_streak=idk_streak),
                     expected_question,
                 )
+
+
+    def test_early_questions_prefer_abstract_axis(self):
+        for asked in [set(), {91}, {91, 105}]:
+            with self.subTest(asked=asked):
+                question_id = self.engine.best_question({}, asked)
+                self.assertEqual(self.engine._question_axis(question_id), 'abstract')
 
     def test_best_disambiguating_question_snapshots(self):
         cases = [

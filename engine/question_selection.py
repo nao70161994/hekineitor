@@ -33,7 +33,16 @@ def best_question(engine, answers, asked, idk_streak=0, *, question_axes, focus_
     asked_axes.discard(None)
     all_axis_names = {name for name, _ in question_axes}
 
-    if idk_streak >= 2:
+    early_game = len(asked_list) < early_random_depth
+    has_early_abstract = early_game and any(
+        engine._question_axis(q) == 'abstract'
+        for q in range(len(engine.questions))
+        if q not in asked and q not in engine.disabled_questions
+    )
+
+    if has_early_abstract:
+        axis_filter = {'abstract'}
+    elif idk_streak >= 2:
         recent_idk_axes = []
         for asked_question in reversed(asked_list):
             answer = answers.get(str(asked_question))
@@ -54,7 +63,6 @@ def best_question(engine, answers, asked, idk_streak=0, *, question_axes, focus_
     else:
         axis_filter = None
 
-    early_game = len(asked_list) < early_random_depth
     question_vectors = {}
     for asked_question in asked_list:
         vector = [engine._prob(f, asked_question) - 0.5 for f in range(nf)]
