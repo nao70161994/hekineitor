@@ -28,24 +28,27 @@ async function loadRecentRanking(days) {
   rank30.style.background  = days===30 ? '#e94560' : '#0f3460';
   rank30.style.borderColor = days===30 ? '#e94560' : '#444';
   rank30.style.color       = days===30 ? '#fff'    : '#aaa';
-  label.textContent = `最近の性癖ランキング（${days}日）`;
   const resp = await fetch(`/api/admin/recent_fetish_ranking?days=${days}&top_n=10`);
   const json = await resp.json();
   const rows = json.ranking || [];
-  if (!rows.length) { el.innerHTML = '<p style="color:#555;font-size:0.78rem;">データなし（フィードバックが蓄積されると表示されます）</p>'; return; }
-  const maxT = Math.max(...rows.map(r => r.total), 1);
-  el.innerHTML = rows.map(r => {
+  const fallback = json.source === 'all_time_fallback';
+  label.textContent = fallback ? '診断回数ランキング（累計）' : `最近の診断ランキング（${days}日）`;
+  if (!rows.length) { el.innerHTML = '<p style="color:#555;font-size:0.78rem;">データなし（診断結果が蓄積されると表示されます）</p>'; return; }
+  const maxT = Math.max(...rows.map(r => r.guessed || r.total || 0), 1);
+  const note = fallback ? '<div style="color:#666;font-size:0.7rem;margin-bottom:5px;">過去の日次診断データがないため、累計診断回数で表示しています。</div>' : '';
+  el.innerHTML = note + rows.map(r => {
+    const guessed = r.guessed || r.total || 0;
+    const feedbackTotal = r.feedback_total != null ? r.feedback_total : (r.correct || 0) + (r.wrong || 0);
     const acc = r.acc != null ? r.acc : null;
-    const accStr = acc != null ? `<span style="color:${acc>=60?'#27ae60':'#e74c3c'};min-width:34px;text-align:right;">${acc}%</span>` : '<span style="color:#555;min-width:34px;text-align:right;">—</span>';
-    const cw = Math.max(Math.round(r.correct / maxT * 160), 2);
-    const ww = Math.max(Math.round(r.wrong   / maxT * 160), r.wrong > 0 ? 2 : 0);
+    const accStr = acc != null ? `<span style="color:${acc>=60?'#27ae60':'#e74c3c'};min-width:38px;text-align:right;">FB ${acc}%</span>` : '<span style="color:#555;min-width:38px;text-align:right;">FB —</span>';
+    const width = Math.max(Math.round(guessed / maxT * 160), guessed > 0 ? 2 : 0);
     return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
       <div style="width:90px;font-size:0.72rem;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;" title="${escapeHtml(r.fetish_name)}">${escapeHtml(r.fetish_name)}</div>
-      <div style="display:flex;height:10px;border-radius:3px;overflow:hidden;flex:1;max-width:200px;background:#111;">
-        <div style="width:${cw}px;background:#27ae60;"></div>
-        <div style="width:${ww}px;background:#e74c3c;"></div>
+      <div style="height:10px;border-radius:3px;overflow:hidden;flex:1;max-width:200px;background:#111;">
+        <div style="width:${width}px;height:10px;background:#5b8dd9;"></div>
       </div>
-      <div style="font-size:0.7rem;color:#666;min-width:22px;">${r.total}</div>
+      <div style="font-size:0.7rem;color:#aaa;min-width:34px;">${guessed}</div>
+      <div style="font-size:0.7rem;color:#666;min-width:34px;">FB ${feedbackTotal}</div>
       ${accStr}
     </div>`;
   }).join('');

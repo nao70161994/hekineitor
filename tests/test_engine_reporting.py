@@ -10,8 +10,8 @@ import engine_reporting
 class TestEngineReportingHelpers(unittest.TestCase):
     def test_recent_fetish_ranking_from_history_sorts_by_total_and_formats_accuracy(self):
         raw = {
-            '2026-05-22': {'f_correct_10': 1, 'f_wrong_20': 2},
-            '2026-05-23': {'f_wrong_10': 1, 'f_correct_20': 2, 'other': 99},
+            '2026-05-22': {'f_guessed_10': 3, 'f_correct_10': 1, 'f_wrong_20': 2},
+            '2026-05-23': {'f_guessed_20': 5, 'f_wrong_10': 1, 'f_correct_20': 2, 'other': 99},
         }
         rows = engine_reporting.recent_fetish_ranking_from_history(
             raw,
@@ -20,8 +20,8 @@ class TestEngineReportingHelpers(unittest.TestCase):
             top_n=2,
         )
         self.assertEqual(rows, [
-            {'fetish_id': 20, 'fetish_name': 'B', 'correct': 2, 'wrong': 2, 'total': 4, 'acc': 50},
-            {'fetish_id': 10, 'fetish_name': 'A', 'correct': 1, 'wrong': 1, 'total': 2, 'acc': 50},
+            {'fetish_id': 20, 'fetish_name': 'B', 'guessed': 5, 'correct': 2, 'wrong': 2, 'feedback_total': 4, 'total': 5, 'acc': 50, 'source': 'recent'},
+            {'fetish_id': 10, 'fetish_name': 'A', 'guessed': 3, 'correct': 1, 'wrong': 1, 'feedback_total': 2, 'total': 3, 'acc': 50, 'source': 'recent'},
         ])
 
     def test_fetish_history_rows_preserve_missing_days(self):

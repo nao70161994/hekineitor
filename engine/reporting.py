@@ -2,12 +2,15 @@ def fetish_feedback_totals_from_history(raw, date_range):
     totals = {}
     for day in date_range:
         for key, value in raw.get(day, {}).items():
-            if key.startswith('f_correct_'):
+            if key.startswith('f_guessed_'):
+                fetish_id = int(key[len('f_guessed_'):])
+                totals.setdefault(fetish_id, {'guessed': 0, 'correct': 0, 'wrong': 0})['guessed'] += int(value or 0)
+            elif key.startswith('f_correct_'):
                 fetish_id = int(key[len('f_correct_'):])
-                totals.setdefault(fetish_id, {'correct': 0, 'wrong': 0})['correct'] += int(value or 0)
+                totals.setdefault(fetish_id, {'guessed': 0, 'correct': 0, 'wrong': 0})['correct'] += int(value or 0)
             elif key.startswith('f_wrong_'):
                 fetish_id = int(key[len('f_wrong_'):])
-                totals.setdefault(fetish_id, {'correct': 0, 'wrong': 0})['wrong'] += int(value or 0)
+                totals.setdefault(fetish_id, {'guessed': 0, 'correct': 0, 'wrong': 0})['wrong'] += int(value or 0)
     return totals
 
 
@@ -19,21 +22,28 @@ def recent_fetish_ranking_from_history(raw, date_range, id_to_name, top_n):
     )
 
 
-def format_recent_fetish_ranking(totals, id_to_name, top_n):
+def format_recent_fetish_ranking(totals, id_to_name, top_n, source='recent'):
     results = []
     for fetish_id, counts in totals.items():
-        total = counts['correct'] + counts['wrong']
+        guessed = int(counts.get('guessed', 0) or 0)
+        correct = int(counts.get('correct', 0) or 0)
+        wrong = int(counts.get('wrong', 0) or 0)
+        feedback_total = correct + wrong
+        total = guessed if guessed > 0 else feedback_total
         if total == 0:
             continue
         results.append({
             'fetish_id': fetish_id,
             'fetish_name': id_to_name.get(fetish_id, f'ID {fetish_id}'),
-            'correct': counts['correct'],
-            'wrong': counts['wrong'],
+            'guessed': guessed,
+            'correct': correct,
+            'wrong': wrong,
+            'feedback_total': feedback_total,
             'total': total,
-            'acc': round(counts['correct'] / total * 100) if total > 0 else None,
+            'acc': round(correct / feedback_total * 100) if feedback_total > 0 else None,
+            'source': source,
         })
-    results.sort(key=lambda item: item['total'], reverse=True)
+    results.sort(key=lambda item: (item['total'], item['feedback_total']), reverse=True)
     return results[:top_n]
 
 

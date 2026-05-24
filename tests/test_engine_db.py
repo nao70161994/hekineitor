@@ -365,7 +365,7 @@ class TestEngineDbStatsAdapters(unittest.TestCase):
     def test_feedback_quality_and_fetish_history_loaders_keep_raw_contracts(self):
         cursor = FakeCursor(
             fetchall_values=[
-                [('f_correct_10', 2), ('f_wrong_10', 1)],
+                [('f_guessed_10', 5), ('f_correct_10', 2), ('f_wrong_10', 1)],
                 [('2026-05-23', 'f_correct_10', 2)],
                 [('q_low_conf_guess', 4)],
             ]
@@ -374,7 +374,7 @@ class TestEngineDbStatsAdapters(unittest.TestCase):
 
         self.assertEqual(
             engine_db.load_feedback_totals('2026-05-20', get_conn=lambda: conn, put_conn=lambda _conn: None),
-            {10: {'correct': 2, 'wrong': 1}},
+            {10: {'guessed': 5, 'correct': 2, 'wrong': 1}},
         )
         self.assertEqual(
             engine_db.load_fetish_history(

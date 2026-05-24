@@ -191,7 +191,8 @@ def recent_fetish_ranking(ctx):
     days = ctx.bounded_int(ctx.request.args.get('days'), 7, 1, 90)
     top_n = ctx.bounded_int(ctx.request.args.get('top_n'), 10, 1, 50)
     ranking = ctx.engine.get_recent_fetish_ranking(days=days, top_n=top_n)
-    return ctx.jsonify({'ranking': ranking, 'days': days})
+    source = ranking[0].get('source') if ranking else 'recent'
+    return ctx.jsonify({'ranking': ranking, 'days': days, 'source': source})
 
 
 def export_stats_history(ctx):

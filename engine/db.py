@@ -464,17 +464,20 @@ def load_feedback_totals(since, *, get_conn, put_conn):
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT key, SUM(value) FROM stats_history WHERE date >= %s AND (key LIKE 'f_correct_%%' OR key LIKE 'f_wrong_%%') GROUP BY key",
+            "SELECT key, SUM(value) FROM stats_history WHERE date >= %s AND (key LIKE 'f_guessed_%%' OR key LIKE 'f_correct_%%' OR key LIKE 'f_wrong_%%') GROUP BY key",
             (since,),
         )
         totals = {}
         for key, value in cur.fetchall():
-            if key.startswith('f_correct_'):
+            if key.startswith('f_guessed_'):
+                fetish_id = int(key[len('f_guessed_'):])
+                totals.setdefault(fetish_id, {'guessed': 0, 'correct': 0, 'wrong': 0})['guessed'] += int(value or 0)
+            elif key.startswith('f_correct_'):
                 fetish_id = int(key[len('f_correct_'):])
-                totals.setdefault(fetish_id, {'correct': 0, 'wrong': 0})['correct'] += int(value or 0)
+                totals.setdefault(fetish_id, {'guessed': 0, 'correct': 0, 'wrong': 0})['correct'] += int(value or 0)
             elif key.startswith('f_wrong_'):
                 fetish_id = int(key[len('f_wrong_'):])
-                totals.setdefault(fetish_id, {'correct': 0, 'wrong': 0})['wrong'] += int(value or 0)
+                totals.setdefault(fetish_id, {'guessed': 0, 'correct': 0, 'wrong': 0})['wrong'] += int(value or 0)
         return totals
     finally:
         put_conn(conn)

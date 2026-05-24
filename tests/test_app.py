@@ -1195,6 +1195,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertEqual(data['days'], 1)
+        self.assertIn(data['source'], ('recent', 'all_time_fallback'))
 
     def test_quality_report_endpoint(self):
         headers = self._admin_headers()

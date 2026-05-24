@@ -265,11 +265,11 @@ class Engine:
         return engine_stats.history_rows_from_file(path, date_range)
 
     def get_recent_fetish_ranking(self, days=7, top_n=10):
-        """過去N日間に正解/外れフィードバックが多かった性癖TOP n件を返す。"""
+        """過去N日間に診断結果へ出た性癖TOP n件とFB指標を返す。"""
         from datetime import date as _date, timedelta
         today = _date.today()
         since = (today - timedelta(days=days - 1)).isoformat()
-        totals = {}  # fetish_id -> {'correct': int, 'wrong': int}
+        totals = {}  # fetish_id -> {'guessed': int, 'correct': int, 'wrong': int}
         if _use_db():
             totals = engine_db.load_feedback_totals(since, get_conn=_get_conn, put_conn=_put_conn)
         else:
@@ -277,8 +277,20 @@ class Engine:
             raw = engine_stats.read_json_path(path, {})
             date_range = [(today - timedelta(days=i)).isoformat() for i in range(days - 1, -1, -1)]
             totals = engine_reporting.fetish_feedback_totals_from_history(raw, date_range)
+        source = 'recent'
+        if not any(counts.get('guessed', 0) for counts in totals.values()):
+            log = self.get_fetish_log()
+            totals = {
+                fetish_id: {
+                    'guessed': entry.get('guessed', 0),
+                    'correct': entry.get('correct', 0),
+                    'wrong': entry.get('wrong', 0),
+                }
+                for fetish_id, entry in log.items()
+            }
+            source = 'all_time_fallback'
         id_to_name = {f['id']: f['name'] for f in self.fetishes}
-        return engine_reporting.format_recent_fetish_ranking(totals, id_to_name, top_n)
+        return engine_reporting.format_recent_fetish_ranking(totals, id_to_name, top_n, source=source)
 
     def get_fetish_history(self, fetish_db_id, days=30):
         """指定性癖の日別正解/外れ件数を [{date, correct, wrong}, ...] で返す。"""
@@ -362,6 +374,7 @@ class Engine:
 
     def log_guessed(self, fetish_db_id):
         self._increment_fetish_log(fetish_db_id, 'guessed')
+        self._record_daily_stat(f'f_guessed_{fetish_db_id}')
 
     def log_correct(self, fetish_db_id):
         self._increment_fetish_log(fetish_db_id, 'correct')
