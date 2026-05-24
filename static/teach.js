@@ -13,6 +13,10 @@ window.HekiTeach = (() => {
       const data = await apiFetch('/api/finalize_added', {items: []});
       document.getElementById('done-msg').textContent = testPlayMessage(data, 'あなたの癖に近いものとして学習しました。');
       show('done-screen');
+    } else if (window._addOnlyMode === 'maybe_deferred') {
+      window._addOnlyMode = false;
+      document.getElementById('done-msg').textContent = '今回は保存せず終了しました。';
+      show('done-screen');
     } else {
       showStart();
     }

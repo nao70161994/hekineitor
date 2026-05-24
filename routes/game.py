@@ -279,6 +279,7 @@ def confirm(ctx):
         return ctx.jsonify({'status': 'error', 'message': '存在しない fetish_id です'}), 400
     answers = ctx.session.get('answers', {})
     learning_disabled = ctx.learning_disabled()
+    defer_learning = bool(data.get('defer_learning'))
 
     if data['correct']:
         learn_idxs = [fetish_idx]
@@ -313,13 +314,13 @@ def confirm(ctx):
     wrong_db_ids = explicit_wrong_ids if ('wrong_ids' in data or 'maybe_ids' in data) else set(presented_db_ids)
 
     factor = ctx.learn_factor(answers, total_n=max(1, len(maybe_db_ids)))
-    if not learning_disabled:
+    if not learning_disabled and not defer_learning:
         for maybe_id in maybe_db_ids:
             maybe_idx = ctx.engine.index_of(maybe_id)
             if maybe_idx is not None:
                 ctx.learn_near_miss(ctx.engine, answers, maybe_idx, strength_factor=factor)
 
-    if not data.get('add_only', False) and not learning_disabled:
+    if not data.get('add_only', False) and not learning_disabled and not defer_learning:
         for wrong_id in wrong_db_ids:
             ctx.engine.log_wrong(wrong_id)
         ctx.record_guess_quality_feedback(False)
@@ -333,7 +334,12 @@ def confirm(ctx):
     candidates.sort(key=lambda item: item[0], reverse=True)
     sorted_fetishes = [dict(fetish, prob=round(probability * 100, 1)) for probability, fetish in candidates[:20]]
 
-    if not data.get('add_only', False):
+    if defer_learning:
+        ctx.session['wrong_db_ids'] = []
+        ctx.session['near_miss_db_ids'] = []
+        ctx.session['candidate_db_ids'] = []
+        ctx.session['candidate_negative_factor'] = 0.3
+    elif not data.get('add_only', False):
         ctx.session['wrong_db_ids'] = sorted(wrong_db_ids)
         ctx.session['near_miss_db_ids'] = sorted(maybe_db_ids)
         ctx.session['candidate_db_ids'] = [fetish['id'] for fetish in sorted_fetishes]

@@ -197,6 +197,7 @@ class TestSmoke(unittest.TestCase):
         self.assertIn(b"apiFetch('/api/finalize_added'", feedback)
         self.assertIn('正解の性癖を選んでください'.encode('utf-8'), feedback)
         self.assertIn('あなたの癖に近いものを選んでください'.encode('utf-8'), feedback)
+        self.assertIn(b'defer_learning', feedback)
         self.assertIn('ありがとうございます。'.encode('utf-8'), feedback)
         self.assertIn('保存せず確認しました'.encode('utf-8'), feedback)
         with open(os.path.join(root, 'static', 'teach.js'), 'rb') as f:

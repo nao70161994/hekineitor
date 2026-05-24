@@ -62,15 +62,16 @@ window.HekiFeedback = (() => {
           correct: false,
           fetish_id: window._guessedId,
           compound_ids: window._compoundIds || [],
-          maybe_ids: ids,
+          maybe_ids: [],
           wrong_ids: [],
+          defer_learning: true,
         });
         if (!data) return;
         if (data.fetishes && data.fetishes.length > 0) {
           window._teachSelected = new Map();
           window._teachCorrectIds = [];
-          window._addOnlyMode = 'maybe';
-          document.getElementById('teach-label').textContent = 'あなたの癖に近いものを選んでください（なければ下から追加できます）';
+          window._addOnlyMode = 'maybe_deferred';
+          document.getElementById('teach-label').textContent = 'あなたの癖に近いものを選んでください（選んだものだけ学習します）';
           renderTeachCandidates(data.fetishes);
           show('teach-screen');
           return;

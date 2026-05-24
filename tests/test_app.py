@@ -455,6 +455,38 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             self.assertEqual(sess.get('wrong_db_ids'), [])
             self.assertEqual(sess.get('near_miss_db_ids'), [0])
             self.assertEqual(sess.get('candidate_negative_factor'), 0.15)
+        app_engine.matrix['yes'][idx][q] = before_yes
+        app_engine.matrix['total'][idx][q] = before_total
+
+    def test_confirm_defer_learning_returns_candidates_without_matrix_or_pending_penalty(self):
+        from app import engine as app_engine
+        q = 8
+        idx = app_engine.index_of(0)
+        before_yes = app_engine.matrix['yes'][idx][q]
+        before_total = app_engine.matrix['total'][idx][q]
+        before_log = dict(app_engine.get_fetish_log().get(0, {}))
+        with self.client.session_transaction() as sess:
+            sess['answers'] = {str(q): 1.0}
+
+        res = self.client.post('/api/confirm', json={
+            'correct': False,
+            'fetish_id': 0,
+            'maybe_ids': [0],
+            'wrong_ids': [],
+            'defer_learning': True,
+        })
+
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['status'], 'wrong')
+        self.assertTrue(data['fetishes'])
+        self.assertEqual(app_engine.matrix['yes'][idx][q], before_yes)
+        self.assertEqual(app_engine.matrix['total'][idx][q], before_total)
+        self.assertEqual(app_engine.get_fetish_log().get(0, {}), before_log)
+        with self.client.session_transaction() as sess:
+            self.assertEqual(sess.get('wrong_db_ids'), [])
+            self.assertEqual(sess.get('near_miss_db_ids'), [])
+            self.assertEqual(sess.get('candidate_db_ids'), [])
 
         app_engine.matrix['yes'][idx][q] = before_yes
         app_engine.matrix['total'][idx][q] = before_total

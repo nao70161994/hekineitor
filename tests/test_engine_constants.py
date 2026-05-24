@@ -61,3 +61,5 @@ class TestEngineLargeDataCompatibility(unittest.TestCase):
         self.assertEqual(engine_data.FETISH_PRIOR_WEIGHTS[0], 3.0)
         self.assertEqual(engine_data.FETISH_PRIOR_WEIGHTS[10], 3.0)
         self.assertEqual(engine_data.FETISH_PRIOR_WEIGHTS[23], 3.0)
+        self.assertEqual(engine_data.FETISH_PRIOR_WEIGHTS[126], 1.0)
+        self.assertEqual(engine_data.FETISH_PRIOR_WEIGHTS[127], 1.0)
