@@ -50,11 +50,12 @@ class TestEngineLargeDataCompatibility(unittest.TestCase):
             self.assertIs(getattr(engine, name), getattr(engine_data, name))
 
     def test_large_data_constant_shapes_remain_stable(self):
-        self.assertEqual(len(engine_data.QUESTION_AXES), 7)
+        self.assertEqual(len(engine_data.QUESTION_AXES), 8)
         self.assertGreater(len(engine_data.DOMAIN_PRIORS), 100)
         self.assertGreater(len(engine_data.FETISH_RELATIONS), 100)
         self.assertGreater(len(engine_data.FETISH_PRIOR_WEIGHTS), 50)
         self.assertEqual(engine_data.QUESTION_AXES[0], ('content', range(0, 55)))
+        self.assertEqual(engine_data.QUESTION_AXES[-1], ('abstract', range(105, 135)))
         self.assertIn((0, 8, 0.95), engine_data.DOMAIN_PRIORS)
         self.assertEqual(engine_data.FETISH_RELATIONS[0], [20])
         self.assertEqual(engine_data.FETISH_PRIOR_WEIGHTS[0], 3.0)
