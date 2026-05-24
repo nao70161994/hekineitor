@@ -56,12 +56,12 @@ h1 { color:#e94560; font-size:1.3rem; margin-bottom:4px; }
       <div class="stat-label">総プレイ数</div>
     </div>
     <div class="stat-card">
-      <div class="stat-val">{{ total_guessed }}</div>
+      <div class="stat-val">{{ total_feedback }}</div>
       <div class="stat-label">フィードバック数</div>
     </div>
     <div class="stat-card">
       <div class="stat-val">{% if overall_acc %}{{ overall_acc }}%{% else %}—{% endif %}</div>
-      <div class="stat-label">全体正解率</div>
+      <div class="stat-label">FB正解率</div>
     </div>
   </div>
 
@@ -87,7 +87,7 @@ h1 { color:#e94560; font-size:1.3rem; margin-bottom:4px; }
 
   {% if top_acc %}
   <div class="section">
-    <div class="section-title">✓ 正解率が高い性癖 TOP{{ top_acc|length }}（3回以上の診断）</div>
+    <div class="section-title">✓ FB正解率が高い性癖 TOP{{ top_acc|length }}（3FB以上）</div>
     {% for r in top_acc %}
     <a href="/fetish/{{ r.id }}" style="text-decoration:none;">
     <div class="acc-item">

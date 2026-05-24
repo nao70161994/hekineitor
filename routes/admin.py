@@ -139,15 +139,18 @@ def works_link_queue_payload(engine, *, sample_limit=20):
 def export_log(ctx):
     log = ctx.engine.get_fetish_log()
     fetish_map = {fetish['id']: fetish['name'] for fetish in ctx.engine.fetishes}
-    lines = ['id,name,guessed,correct,wrong,accuracy']
+    lines = ['id,name,guessed,correct,wrong,feedback_total,feedback_accuracy,unfeedback,guess_confirm_rate']
     for fid, entry in sorted(log.items(), key=lambda item: -item[1].get('guessed', 0)):
         name = fetish_map.get(fid, str(fid))
         guessed = entry.get('guessed', 0)
         correct = entry.get('correct', 0)
         wrong = entry.get('wrong', 0)
-        acc = f"{round(correct / guessed * 100, 1)}" if guessed else ''
+        feedback_total = correct + wrong
+        feedback_acc = f"{round(correct / feedback_total * 100, 1)}" if feedback_total else ''
+        unfeedback = max(0, guessed - feedback_total)
+        guess_confirm_rate = f"{round(correct / guessed * 100, 1)}" if guessed else ''
         name_esc = '"' + name.replace('"', '""') + '"'
-        lines.append(f'{fid},{name_esc},{guessed},{correct},{wrong},{acc}')
+        lines.append(f'{fid},{name_esc},{guessed},{correct},{wrong},{feedback_total},{feedback_acc},{unfeedback},{guess_confirm_rate}')
     return ctx.Response(
         '\n'.join(lines),
         mimetype='text/csv; charset=utf-8',

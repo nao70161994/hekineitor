@@ -194,13 +194,24 @@ def stats_page(ctx):
             continue
         log = fetish_log.get(fetish['id'], {'guessed': 0, 'correct': 0, 'wrong': 0})
         guessed, correct, wrong = log['guessed'], log['correct'], log['wrong']
-        accuracy = round(correct / guessed * 100) if guessed else None
-        rows.append({'id': fetish['id'], 'name': fetish['name'], 'guessed': guessed, 'correct': correct, 'wrong': wrong, 'acc': accuracy})
+        feedback_total = correct + wrong
+        accuracy = round(correct / feedback_total * 100) if feedback_total else None
+        rows.append({
+            'id': fetish['id'],
+            'name': fetish['name'],
+            'guessed': guessed,
+            'correct': correct,
+            'wrong': wrong,
+            'feedback_total': feedback_total,
+            'unfeedback': max(0, guessed - feedback_total),
+            'acc': accuracy,
+        })
     rows.sort(key=lambda row: -row['guessed'])
     top10 = [row for row in rows if row['guessed'] > 0][:10]
     total_guessed = sum(row['guessed'] for row in rows)
     total_correct = sum(row['correct'] for row in rows)
-    ranked = [row for row in rows if row['guessed'] >= 3 and row['acc'] is not None]
+    total_feedback = sum(row['feedback_total'] for row in rows)
+    ranked = [row for row in rows if row['feedback_total'] >= 3 and row['acc'] is not None]
     base_url = ctx.public_base_url()
     return ctx.render_template(
         'stats.html',
@@ -208,7 +219,8 @@ def stats_page(ctx):
         play_count=stats['play_count'],
         learn_count=stats['learn_count'],
         total_guessed=total_guessed,
-        overall_acc=round(total_correct / total_guessed * 100) if total_guessed else None,
+        total_feedback=total_feedback,
+        overall_acc=round(total_correct / total_feedback * 100) if total_feedback else None,
         top_acc=sorted(ranked, key=lambda row: -row['acc'])[:5],
         total_fetishes=len([f for f in ctx.engine.fetishes if f['id'] < ctx.player_fetish_base_id]),
         display_version=ctx.display_version,

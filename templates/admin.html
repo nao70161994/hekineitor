@@ -229,7 +229,7 @@
         <td>{{ row.copy_successes }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="7" style="color:#555;padding-top:6px;">まだイベントがありません</td></tr>
+      <tr><td colspan="8" style="color:#555;padding-top:6px;">まだイベントがありません</td></tr>
       {% endfor %}
       </tbody>
     </table>
@@ -512,15 +512,17 @@ window.ADMIN_CONFIG = {
 
 <details style="margin-top:24px;" id="perf-section">
 <summary style="color:#888;font-size:0.85rem;cursor:pointer;">診断ログ・パフォーマンス概要（展開で表示）</summary>
-<p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">guessed=診断回数 / correct=正解フィードバック数 / wrong=外れフィードバック数 / acc=正解率。ヘッダークリックでソート。</p>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">guessed=診断回数 / correct=正解FB / wrong=外れFB / FB正解率=correct/(correct+wrong)。未FB診断は別表示です。</p>
 
 {# ── パフォーマンスサマリー ──────────────────────────────────── #}
 {% set all_rows = fetish_log_rows %}
 {% set diagnosed = all_rows | selectattr('guessed', 'gt', 0) | list %}
 {% set total_guessed = diagnosed | sum(attribute='guessed') %}
 {% set total_correct = diagnosed | sum(attribute='correct') %}
+{% set total_feedback = diagnosed | sum(attribute='feedback_total') %}
+{% set total_unfeedback = diagnosed | sum(attribute='unfeedback') %}
 {% set undiagnosed_count = (all_rows | length) - (diagnosed | length) %}
-{% set ranked = all_rows | selectattr('guessed', 'ge', 3) | selectattr('acc', 'ne', none) | list %}
+{% set ranked = all_rows | selectattr('feedback_total', 'ge', 3) | selectattr('acc', 'ne', none) | list %}
 {% set top_acc = ranked | sort(attribute='acc', reverse=true) %}
 {% set bot_acc = ranked | sort(attribute='acc') %}
 
@@ -534,8 +536,12 @@ window.ADMIN_CONFIG = {
     <div style="font-size:0.7rem;color:#666;">総診断回数</div>
   </div>
   <div style="text-align:center;min-width:60px;">
-    <div style="font-size:1.3rem;font-weight:bold;color:#27ae60;">{% if total_guessed > 0 %}{{ ((total_correct / total_guessed) * 100)|int }}%{% else %}—{% endif %}</div>
-    <div style="font-size:0.7rem;color:#666;">全体正解率</div>
+    <div style="font-size:1.3rem;font-weight:bold;color:#27ae60;">{% if total_feedback > 0 %}{{ ((total_correct / total_feedback) * 100)|int }}%{% else %}—{% endif %}</div>
+    <div style="font-size:0.7rem;color:#666;">FB正解率</div>
+  </div>
+  <div style="text-align:center;min-width:60px;">
+    <div style="font-size:1.3rem;font-weight:bold;color:#888;">{{ total_unfeedback }}</div>
+    <div style="font-size:0.7rem;color:#666;">未FB診断</div>
   </div>
   <div style="text-align:center;min-width:60px;">
     <div style="font-size:1.3rem;font-weight:bold;color:#555;">{{ undiagnosed_count }}</div>
@@ -546,7 +552,7 @@ window.ADMIN_CONFIG = {
 {% if ranked %}
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
   <div style="background:#0d2010;border-radius:8px;padding:10px 12px;">
-    <p style="color:#27ae60;font-size:0.75rem;margin-bottom:6px;">✓ 正解率 TOP5（3診断以上）</p>
+    <p style="color:#27ae60;font-size:0.75rem;margin-bottom:6px;">✓ FB正解率 TOP5（3FB以上)</p>
     {% for r in top_acc[:5] %}
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
       <div style="width:80px;font-size:0.72rem;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ r.name }}">{{ r.name }}</div>
@@ -558,7 +564,7 @@ window.ADMIN_CONFIG = {
     {% endfor %}
   </div>
   <div style="background:#2a1010;border-radius:8px;padding:10px 12px;">
-    <p style="color:#e74c3c;font-size:0.75rem;margin-bottom:6px;">✗ 要改善 BOTTOM5（3診断以上）</p>
+    <p style="color:#e74c3c;font-size:0.75rem;margin-bottom:6px;">✗ 要改善 BOTTOM5（3FB以上)</p>
     {% for r in bot_acc[:5] %}
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
       <div style="width:80px;font-size:0.72rem;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ r.name }}">{{ r.name }}</div>
@@ -671,10 +677,10 @@ window.ADMIN_CONFIG = {
   </select>
   <label for="log-acc-filter" class="sr-only">正解率フィルター</label>
   <select id="log-acc-filter" data-action="filter-log" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:4px 8px;border-radius:6px;font-size:0.82rem;">
-    <option value="all">正解率 すべて</option>
-    <option value="low">低い（&lt;50%）</option>
-    <option value="high">高い（≥70%）</option>
-    <option value="none">未フィードバック</option>
+    <option value="all">FB正解率 すべて</option>
+    <option value="low">FB正解率 低い（&lt;50%）</option>
+    <option value="high">FB正解率 高い（≥70%）</option>
+    <option value="none">未FB</option>
   </select>
 </div>
 <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap;">
@@ -690,16 +696,17 @@ window.ADMIN_CONFIG = {
     <th data-action="sort-log" data-col="2" style="cursor:pointer;user-select:none;">診断 ↕</th>
     <th data-action="sort-log" data-col="3" style="cursor:pointer;user-select:none;">正解 ↕</th>
     <th data-action="sort-log" data-col="4" style="cursor:pointer;user-select:none;">外れ ↕</th>
-    <th data-action="sort-log" data-col="5" style="cursor:pointer;user-select:none;">正解率 ↕</th>
+    <th data-action="sort-log" data-col="5" style="cursor:pointer;user-select:none;">FB正解率 ↕</th>
+    <th>未FB</th>
     <th></th>
   </tr>
   </thead>
   <tbody id="log-table-body">
   {% for r in fetish_log_page.rows %}
-  <tr id="logrow-{{ r.id }}"{% if r.acc is not none and r.acc < 40 and r.guessed >= 3 %} style="background:#2a1010"{% endif %}
+  <tr id="logrow-{{ r.id }}"{% if r.acc is not none and r.acc < 40 and r.feedback_total >= 3 %} style="background:#2a1010"{% endif %}
       data-name="{{ r.name }}" data-guessed="{{ r.guessed }}" data-acc="{{ r.acc if r.acc is not none else -1 }}">
     <td style="color:#666;font-size:0.75rem">{{ loop.index + ((fetish_log_page.page - 1) * fetish_log_page.per_page) }}</td>
-    <td style="font-size:0.82rem">{{ r.name }}{% if r.acc is not none and r.acc < 40 and r.guessed >= 3 %}<span class="tag-low" title="wrong率60%超">⚠</span>{% endif %}</td>
+    <td style="font-size:0.82rem">{{ r.name }}{% if r.acc is not none and r.acc < 40 and r.feedback_total >= 3 %}<span class="tag-low" title="FB正解率40%未満">⚠</span>{% endif %}</td>
     <td style="color:#aaa;font-size:0.8rem" data-val="{{ r.guessed }}">{{ r.guessed }}</td>
     <td style="color:#27ae60;font-size:0.8rem" data-val="{{ r.correct }}">{{ r.correct }}</td>
     <td style="color:#e74c3c;font-size:0.8rem" data-val="{{ r.wrong }}">{{ r.wrong }}</td>
@@ -707,10 +714,11 @@ window.ADMIN_CONFIG = {
         data-val="{{ r.acc if r.acc is not none else -1 }}">
       {% if r.acc is not none %}{{ r.acc }}%{% else %}—{% endif %}
     </td>
+    <td style="color:#888;font-size:0.8rem" data-val="{{ r.unfeedback }}">{{ r.unfeedback }}</td>
     <td><button class="btn-toggle" data-action="toggle-fetish-history" data-fid="{{ r.id }}" style="font-size:0.72rem;padding:2px 8px;">履歴</button></td>
   </tr>
   <tr id="logrow-hist-{{ r.id }}" style="display:none;">
-    <td colspan="7" style="padding:8px 4px 12px;">
+    <td colspan="8" style="padding:8px 4px 12px;">
       <div id="logrow-hist-content-{{ r.id }}" style="font-size:0.78rem;color:#888;"></div>
     </td>
   </tr>

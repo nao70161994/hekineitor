@@ -874,7 +874,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn('text/csv', res.content_type)
         body = res.data.decode('utf-8')
-        self.assertTrue(body.startswith('id,name,guessed,correct,wrong,accuracy'))
+        self.assertTrue(body.startswith('id,name,guessed,correct,wrong,feedback_total,feedback_accuracy,unfeedback,guess_confirm_rate'))
 
     def test_export_matrix_returns_json(self):
         headers = self._admin_headers()

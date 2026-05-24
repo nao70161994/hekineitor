@@ -14,14 +14,22 @@ def build_fetish_log_rows(engine):
         guessed = log['guessed']
         correct = log['correct']
         wrong = log['wrong']
-        accuracy = round(correct / guessed * 100) if guessed else None
+        feedback_total = correct + wrong
+        feedback_accuracy = round(correct / feedback_total * 100) if feedback_total else None
+        guess_confirm_rate = round(correct / guessed * 100) if guessed else None
+        unfeedback = max(0, guessed - feedback_total)
+        unfeedback_rate = round(unfeedback / guessed * 100) if guessed else None
         rows.append({
             'id': fetish['id'],
             'name': fetish['name'],
             'guessed': guessed,
             'correct': correct,
             'wrong': wrong,
-            'acc': accuracy,
+            'feedback_total': feedback_total,
+            'unfeedback': unfeedback,
+            'unfeedback_rate': unfeedback_rate,
+            'guess_confirm_rate': guess_confirm_rate,
+            'acc': feedback_accuracy,
         })
     rows.sort(key=lambda row: -row['guessed'])
     return rows
@@ -45,7 +53,7 @@ def paged_fetish_log_rows(rows, args):
                 acc_filter == 'all'
                 or (acc_filter == 'low' and accuracy is not None and accuracy < 50)
                 or (acc_filter == 'high' and accuracy is not None and accuracy >= 70)
-                or (acc_filter == 'none' and accuracy is None)
+                or (acc_filter == 'none' and row.get('feedback_total', 0) == 0)
             )
         )
 

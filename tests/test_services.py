@@ -5,7 +5,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from services import admin_context, admin_security, bootstrap, context, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, share_notes, system_context, test_play
+from services import admin_context, admin_helpers, admin_security, bootstrap, context, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, share_notes, system_context, test_play
 
 
 class DummyRequest:
@@ -44,7 +44,31 @@ def dummy_runtime(**overrides):
     )
 
 
+class DummyLogEngine:
+    fetishes = [
+        {'id': 1, 'name': 'OnlyGuessed'},
+        {'id': 2, 'name': 'MixedFeedback'},
+    ]
+
+    def get_fetish_log(self):
+        return {
+            1: {'guessed': 10, 'correct': 0, 'wrong': 0},
+            2: {'guessed': 10, 'correct': 3, 'wrong': 1},
+        }
+
+
 class TestServices(unittest.TestCase):
+    def test_admin_fetish_log_uses_feedback_accuracy_not_guess_count(self):
+        rows = admin_helpers.build_fetish_log_rows(DummyLogEngine())
+        by_id = {row['id']: row for row in rows}
+        self.assertIsNone(by_id[1]['acc'])
+        self.assertEqual(by_id[1]['unfeedback'], 10)
+        self.assertEqual(by_id[1]['guess_confirm_rate'], 0)
+        self.assertEqual(by_id[2]['feedback_total'], 4)
+        self.assertEqual(by_id[2]['acc'], 75)
+        self.assertEqual(by_id[2]['unfeedback'], 6)
+        self.assertEqual(by_id[2]['guess_confirm_rate'], 30)
+
     def test_share_events_builds_minimal_sanitized_event(self):
         now = type('Now', (), {'astimezone': lambda self, tz: self, 'isoformat': lambda self, timespec='seconds': '2026-05-23T00:00:00+00:00'})()
         event = share_events.build_event(
