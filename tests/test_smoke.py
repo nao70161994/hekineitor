@@ -80,6 +80,14 @@ class TestSmoke(unittest.TestCase):
             positions.append(body.index(script))
         self.assertEqual(positions, sorted(positions))
 
+    def test_index_uses_png_og_image(self):
+        res = self.client.get('/')
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        self.assertIn('property="og:image"', body)
+        self.assertIn('/ogp.png?f=%E3%81%B8%E3%81%8D%E3%83%8D%E3%82%A4%E3%82%BF%E3%83%BC', body)
+        self.assertIn('name="twitter:card" content="summary_large_image"', body)
+
     def test_result_share_uses_png_og_image(self):
         res = self.client.get('/r?f=Test&p=88&d=desc')
         self.assertEqual(res.status_code, 200)
