@@ -32,6 +32,7 @@ class TestE2ESmoke(unittest.TestCase):
         res = self.client.get('/')
         self.assertEqual(res.status_code, 200)
         self.assertIn(b'data-action="start-game"', res.data)
+        self.assertIn('タイトルに戻る'.encode('utf-8'), res.data)
 
         res = self.client.post('/api/start')
         self.assertEqual(res.status_code, 200)
@@ -39,7 +40,7 @@ class TestE2ESmoke(unittest.TestCase):
         self.assertIn('question_id', data)
 
         qid = data['question_id']
-        for _ in range(25):
+        for _ in range(35):
             res = self.client.post('/api/answer', json={'question_id': qid, 'answer': 1})
             self.assertEqual(res.status_code, 200)
             data = res.get_json()
@@ -49,7 +50,7 @@ class TestE2ESmoke(unittest.TestCase):
                 return
             self.assertEqual(data.get('action'), 'question')
             qid = data['question_id']
-        self.fail('diagnosis did not reach a result')
+        self.fail('diagnosis did not reach a result within hard question limit')
 
     def test_resume_back_and_continue_flow(self):
         res = self.client.post('/api/start')
