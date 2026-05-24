@@ -66,6 +66,15 @@ window.HekiFeedback = (() => {
           wrong_ids: [],
         });
         if (!data) return;
+        if (data.fetishes && data.fetishes.length > 0) {
+          window._teachSelected = new Map();
+          window._teachCorrectIds = [];
+          window._addOnlyMode = 'maybe';
+          document.getElementById('teach-label').textContent = 'あなたの癖に近いものを選んでください（なければ下から追加できます）';
+          renderTeachCandidates(data.fetishes);
+          show('teach-screen');
+          return;
+        }
         const finalizeData = await apiFetch('/api/finalize_added', {items: []});
         showQuickFeedbackStatus(testPlayMessage(finalizeData || data, 'ありがとうございます。あなたの癖に近いものとして学習しました。'));
       } else if (kind === 'no') {
