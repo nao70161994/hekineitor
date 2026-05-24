@@ -82,3 +82,35 @@ def quality_event_summary_from_totals(totals, days):
             'questions': totals['q_additional_question'],
         },
     }
+
+
+def dropoff_totals_from_history(raw, date_range):
+    total = 0
+    by_answered = {}
+    for day in date_range:
+        for key, value in raw.get(day, {}).items():
+            value = int(value or 0)
+            if key == 'dropoff':
+                total += value
+            elif key.startswith('dropoff_q_'):
+                try:
+                    answered_count = int(key[len('dropoff_q_'):])
+                except ValueError:
+                    continue
+                by_answered[answered_count] = by_answered.get(answered_count, 0) + value
+    return {'total': total, 'by_answered': by_answered}
+
+
+def format_dropoff_summary(totals, days, top_n=8):
+    by_answered = totals.get('by_answered', {}) or {}
+    rows = [
+        {'answered_count': int(answered_count), 'count': int(count or 0)}
+        for answered_count, count in by_answered.items()
+        if int(count or 0) > 0
+    ]
+    rows.sort(key=lambda row: (-row['count'], row['answered_count']))
+    return {
+        'days': days,
+        'total': int(totals.get('total', 0) or 0),
+        'by_answered': rows[:top_n],
+    }

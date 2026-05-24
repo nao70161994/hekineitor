@@ -34,10 +34,13 @@ def history_rows_from_file(path, date_range):
     return [
         {
             'date': day,
+            'start': raw.get(day, {}).get('start', 0),
             'play': raw.get(day, {}).get('play', 0),
+            'completion': raw.get(day, {}).get('completion', 0),
             'learn': raw.get(day, {}).get('learn', 0),
             'correct': raw.get(day, {}).get('correct', 0),
             'wrong': raw.get(day, {}).get('wrong', 0),
+            'dropoff': raw.get(day, {}).get('dropoff', 0),
         }
         for day in date_range
     ]

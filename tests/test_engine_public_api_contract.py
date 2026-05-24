@@ -33,9 +33,12 @@ EXPECTED_MODULE_EXPORTS = {
 }
 
 EXPECTED_PUBLIC_METHOD_SIGNATURES = {
+    'increment_start_count': '(self)',
     'increment_play_count': '(self)',
+    'log_dropoff': '(self, answered_count)',
     'get_stats': '(self)',
     'get_stats_history': '(self, days=30)',
+    'get_dropoff_summary': '(self, days=7, top_n=8)',
     'get_recent_fetish_ranking': '(self, days=7, top_n=10)',
     'get_fetish_history': '(self, fetish_db_id, days=30)',
     'get_quality_event_summary': '(self, days=30)',

@@ -84,9 +84,12 @@ def start(ctx):
     test_play_enabled = ctx.preserve_test_play_flag()
     ctx.session.clear()
     ctx.restore_test_play_flag(test_play_enabled)
+    ctx.engine.increment_start_count()
     ctx.session['answers'] = {}
     ctx.session['asked'] = []
     ctx.session['started'] = True
+    ctx.session['completed'] = False
+    ctx.session['dropoff_recorded'] = False
     ctx.session['exclude_ids'] = _parse_exclude_ids(data.get('exclude_ids', []))
     question_id = ctx.best_question(ctx.engine, {}, set())
     ctx.session['asked'].append(question_id)
@@ -107,6 +110,8 @@ def resume(ctx):
     ctx.session.clear()
     ctx.restore_test_play_flag(test_play_enabled)
     ctx.session['started'] = True
+    ctx.session['completed'] = False
+    ctx.session['dropoff_recorded'] = False
     ctx.session['answers'] = {}
     ctx.session['asked'] = []
     ctx.session['idk_streak'] = 0
@@ -558,6 +563,22 @@ def share_event(ctx):
     return ctx.jsonify({'status': 'ok', 'recorded': bool(event)})
 
 
+
+def dropoff(ctx):
+    limited = ctx.rate_limit('api_dropoff', 240)
+    if limited:
+        return limited
+    if not ctx.session.get('started'):
+        return ctx.jsonify({'status': 'ignored', 'reason': 'not_started'})
+    if ctx.session.get('completed') or ctx.session.get('dropoff_recorded'):
+        return ctx.jsonify({'status': 'ignored', 'reason': 'already_finalized'})
+    answers = ctx.session.get('answers', {})
+    answered_count = len(answers) if isinstance(answers, dict) else 0
+    ctx.engine.log_dropoff(answered_count)
+    ctx.session['dropoff_recorded'] = True
+    return ctx.jsonify({'status': 'ok', 'answered_count': answered_count})
+
+
 def create_blueprint(ctx_factory):
     bp = Blueprint('game', __name__)
 
@@ -576,6 +597,10 @@ def create_blueprint(ctx_factory):
     @bp.route('/api/answer', methods=['POST'])
     def answer_route():
         return answer(ctx_factory())
+
+    @bp.route('/api/dropoff', methods=['POST'])
+    def dropoff_route():
+        return dropoff(ctx_factory())
 
     @bp.route('/api/back', methods=['POST'])
     def back_route():

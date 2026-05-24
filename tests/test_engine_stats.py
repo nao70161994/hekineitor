@@ -48,7 +48,7 @@ class TestEngineStatsHelpers(unittest.TestCase):
             with open(stats_path, 'w', encoding='utf-8') as f:
                 json.dump({'play_count': 5}, f)
             with open(history_path, 'w', encoding='utf-8') as f:
-                json.dump({'2026-05-23': {'play': 2, 'wrong': 1}}, f)
+                json.dump({'2026-05-23': {'start': 4, 'completion': 2, 'play': 2, 'wrong': 1, 'dropoff': 1}}, f)
 
             self.assertEqual(
                 engine_stats.counters_from_file(stats_path, ('play_count', 'learn_count')),
@@ -57,8 +57,8 @@ class TestEngineStatsHelpers(unittest.TestCase):
             self.assertEqual(
                 engine_stats.history_rows_from_file(history_path, ['2026-05-22', '2026-05-23']),
                 [
-                    {'date': '2026-05-22', 'play': 0, 'learn': 0, 'correct': 0, 'wrong': 0},
-                    {'date': '2026-05-23', 'play': 2, 'learn': 0, 'correct': 0, 'wrong': 1},
+                    {'date': '2026-05-22', 'start': 0, 'play': 0, 'completion': 0, 'learn': 0, 'correct': 0, 'wrong': 0, 'dropoff': 0},
+                    {'date': '2026-05-23', 'start': 4, 'play': 2, 'completion': 2, 'learn': 0, 'correct': 0, 'wrong': 1, 'dropoff': 1},
                 ],
             )
 

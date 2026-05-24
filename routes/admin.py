@@ -79,6 +79,8 @@ def admin_page(ctx):
     fetish_log_page = ctx.paged_fetish_log_rows(fetish_log_rows, ctx.request.args)
     domain_suggestions = ctx.engine.get_top_questions_per_fetish(top_n=5)
     stats_history = ctx.engine.get_stats_history(days=30)
+    dropoff_summary = ctx.engine.get_dropoff_summary(days=30)
+    completion_metrics = ctx.build_completion_metrics(app_stats, stats_history, dropoff_summary)
     matrix_heatmap = ctx.engine.get_matrix_heatmap(n_fetishes=20, n_questions=20)
     axis_stats = ctx.engine.get_axis_stats()
     quality = ctx.engine.get_quality_report()
@@ -90,8 +92,11 @@ def admin_page(ctx):
     return ctx.render_template(
         'admin.html',
         stats=stats,
+        start_count=app_stats.get('start_count', 0),
+        completion_count=app_stats.get('completion_count', 0),
         play_count=app_stats['play_count'],
         learn_count=app_stats['learn_count'],
+        completion_metrics=completion_metrics,
         player_fetishes=player_fetishes,
         question_stats=question_stats,
         corr_stats=corr_stats,
@@ -197,11 +202,11 @@ def recent_fetish_ranking(ctx):
 
 def export_stats_history(ctx):
     history = ctx.engine.get_stats_history(days=90)
-    lines = ['date,play,learn,correct,wrong']
+    lines = ['date,start,completion,play,learn,correct,wrong,dropoff']
     for row in history:
         lines.append(
-            f"{row['date']},{row.get('play', 0)},{row.get('learn', 0)},"
-            f"{row.get('correct', 0)},{row.get('wrong', 0)}"
+            f"{row['date']},{row.get('start', 0)},{row.get('completion', 0)},{row.get('play', 0)},"
+            f"{row.get('learn', 0)},{row.get('correct', 0)},{row.get('wrong', 0)},{row.get('dropoff', 0)}"
         )
     return ctx.Response(
         '\n'.join(lines),

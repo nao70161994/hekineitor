@@ -6,6 +6,53 @@ def bounded_int(value, default, min_value=1, max_value=100):
     return max(min_value, min(max_value, number))
 
 
+
+def _as_int(value):
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _pct(part, total):
+    return round(part / total * 100, 1) if total else None
+
+
+def build_completion_metrics(app_stats, stats_history, dropoff_summary):
+    start_count = _as_int(app_stats.get('start_count'))
+    completion_count = _as_int(app_stats.get('completion_count'))
+    play_count = _as_int(app_stats.get('play_count'))
+    learn_count = _as_int(app_stats.get('learn_count'))
+
+    def window(days):
+        rows = list(stats_history or [])[-days:]
+        starts = sum(_as_int(row.get('start')) for row in rows)
+        completions = sum(_as_int(row.get('completion')) for row in rows)
+        dropoffs = sum(_as_int(row.get('dropoff')) for row in rows)
+        feedback = sum(_as_int(row.get('correct')) + _as_int(row.get('wrong')) for row in rows)
+        return {
+            'days': days,
+            'starts': starts,
+            'completions': completions,
+            'dropoffs': dropoffs,
+            'feedback_total': feedback,
+            'completion_rate': _pct(completions, starts),
+            'feedback_rate': _pct(feedback, completions),
+        }
+
+    return {
+        'start_count': start_count,
+        'completion_count': completion_count,
+        'legacy_play_count': play_count,
+        'learn_count': learn_count,
+        'completion_rate': _pct(completion_count, start_count),
+        'estimated_dropoff_count': max(start_count - completion_count, 0),
+        'dropoff_summary': dropoff_summary,
+        'recent_7_days': window(7),
+        'recent_30_days': window(30),
+    }
+
+
 def build_fetish_log_rows(engine):
     fetish_log = engine.get_fetish_log()
     rows = []

@@ -1,5 +1,8 @@
 window.HekiGameFlow = (() => {
   let currentQuestionId = null;
+  let answeredCount = 0;
+  let resultShown = false;
+  let dropoffSent = false;
   const axisLabels = {content: 'コンテンツ軸', abstract: '抽象軸', personality: 'パーソナリティ軸'};
 
 function startExcluding() {
@@ -18,6 +21,9 @@ function startExcluding() {
 
 async function startGame(excludeIds) {
   _clearDraft();
+  answeredCount = 0;
+  resultShown = false;
+  dropoffSent = false;
   document.getElementById('resume-banner').classList.add('hidden');
   const btn = document.querySelector('.btn-start');
   const origText = btn ? btn.textContent : '';
@@ -41,6 +47,8 @@ async function startGame(excludeIds) {
 
 function showQuestion(data) {
   currentQuestionId = data.question_id;
+  answeredCount = Number(data.count || 0);
+  resultShown = false;
   if (window.HekiRenderers) {
     window.HekiRenderers.setText('question-text', data.question);
     window.HekiRenderers.setProgressMessage(data.progress_message);
@@ -116,6 +124,7 @@ async function sendAnswer(ans) {
 }
 
 function showGuess(data) {
+  resultShown = true;
   setGenieState('reveal');
   window._guessedId = data.fetish_id;
   window._compoundIds = (data.compound || []).map(c => c.fetish_id);
@@ -149,6 +158,27 @@ function showGuess(data) {
   saveHistory(data.fetish_name, data.probability, data.fetish_id);
   show('result-screen');
 }
+
+
+function reportDropoff() {
+  if (dropoffSent || resultShown || currentQuestionId == null) return;
+  const questionScreen = document.getElementById('question-screen');
+  if (!questionScreen || questionScreen.classList.contains('hidden')) return;
+  dropoffSent = true;
+  const payload = JSON.stringify({answered_count: answeredCount, question_id: currentQuestionId});
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon('/api/dropoff', new Blob([payload], {type: 'application/json'}));
+    return;
+  }
+  fetch('/api/dropoff', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: payload,
+    keepalive: true,
+  }).catch(() => {});
+}
+
+window.addEventListener('pagehide', reportDropoff);
 
 
 async function quickRetry() {

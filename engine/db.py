@@ -205,7 +205,7 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                     value INTEGER NOT NULL DEFAULT 0
                 )
             ''')
-            for key in ('learn_count', 'play_count'):
+            for key in ('start_count', 'completion_count', 'learn_count', 'play_count'):
                 cur.execute(
                     "INSERT INTO stats (key, value) VALUES (%s, 0) ON CONFLICT DO NOTHING", (key,)
                 )
@@ -448,16 +448,44 @@ def load_stats_history(date_range, *, get_conn, put_conn):
         return [
             {
                 'date': day,
+                'start': raw.get(day, {}).get('start', 0),
                 'play': raw.get(day, {}).get('play', 0),
+                'completion': raw.get(day, {}).get('completion', 0),
                 'learn': raw.get(day, {}).get('learn', 0),
                 'correct': raw.get(day, {}).get('correct', 0),
                 'wrong': raw.get(day, {}).get('wrong', 0),
+                'dropoff': raw.get(day, {}).get('dropoff', 0),
             }
             for day in date_range
         ]
     finally:
         put_conn(conn)
 
+
+
+def load_dropoff_totals(since, *, get_conn, put_conn):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT key, SUM(value) FROM stats_history WHERE date >= %s AND (key = 'dropoff' OR key LIKE 'dropoff_q_%%') GROUP BY key",
+            (since,),
+        )
+        total = 0
+        by_answered = {}
+        for key, value in cur.fetchall():
+            value = int(value or 0)
+            if key == 'dropoff':
+                total += value
+            elif key.startswith('dropoff_q_'):
+                try:
+                    answered_count = int(key[len('dropoff_q_'):])
+                except ValueError:
+                    continue
+                by_answered[answered_count] = by_answered.get(answered_count, 0) + value
+        return {'total': total, 'by_answered': by_answered}
+    finally:
+        put_conn(conn)
 
 def load_feedback_totals(since, *, get_conn, put_conn):
     conn = get_conn()

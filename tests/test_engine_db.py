@@ -345,7 +345,7 @@ class TestEngineDbStatsAdapters(unittest.TestCase):
         cursor = FakeCursor(
             fetchall_values=[
                 [('play_count', 2)],
-                [('2026-05-23', 'play', 3), ('2026-05-23', 'wrong', 1)],
+                [('2026-05-23', 'start', 5), ('2026-05-23', 'completion', 3), ('2026-05-23', 'play', 3), ('2026-05-23', 'wrong', 1), ('2026-05-23', 'dropoff', 2)],
             ]
         )
         conn = FakeConn(cursor)
@@ -357,10 +357,21 @@ class TestEngineDbStatsAdapters(unittest.TestCase):
         self.assertEqual(
             engine_db.load_stats_history(['2026-05-22', '2026-05-23'], get_conn=lambda: conn, put_conn=lambda _conn: None),
             [
-                {'date': '2026-05-22', 'play': 0, 'learn': 0, 'correct': 0, 'wrong': 0},
-                {'date': '2026-05-23', 'play': 3, 'learn': 0, 'correct': 0, 'wrong': 1},
+                {'date': '2026-05-22', 'start': 0, 'play': 0, 'completion': 0, 'learn': 0, 'correct': 0, 'wrong': 0, 'dropoff': 0},
+                {'date': '2026-05-23', 'start': 5, 'play': 3, 'completion': 3, 'learn': 0, 'correct': 0, 'wrong': 1, 'dropoff': 2},
             ],
         )
+
+
+    def test_load_dropoff_totals_groups_answered_counts(self):
+        cursor = FakeCursor(fetchall_values=[[('dropoff', 3), ('dropoff_q_0', 1), ('dropoff_q_3', 2)]])
+        conn = FakeConn(cursor)
+
+        self.assertEqual(
+            engine_db.load_dropoff_totals('2026-05-20', get_conn=lambda: conn, put_conn=lambda _conn: None),
+            {'total': 3, 'by_answered': {0: 1, 3: 2}},
+        )
+        self.assertIn("key = 'dropoff' OR key LIKE 'dropoff_q_%%'", cursor.executed[0][0])
 
     def test_feedback_quality_and_fetish_history_loaders_keep_raw_contracts(self):
         cursor = FakeCursor(

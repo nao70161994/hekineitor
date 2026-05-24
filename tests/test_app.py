@@ -1743,13 +1743,52 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn('text/csv', res.content_type)
         first_line = res.data.decode('utf-8').split('\n')[0]
-        self.assertEqual(first_line, 'date,play,learn,correct,wrong')
+        self.assertEqual(first_line, 'date,start,completion,play,learn,correct,wrong,dropoff')
 
     def test_start_returns_axis(self):
         res = self.client.post('/api/start')
         d = res.get_json()
         self.assertIn('axis', d)
         self.assertIn(d['axis'], ('content', 'abstract', 'personality', None))
+
+    def test_start_increments_start_count(self):
+        from app import engine as app_engine
+        before = app_engine.get_stats().get('start_count', 0)
+        res = self.client.post('/api/start')
+        self.assertEqual(res.status_code, 200)
+        after = app_engine.get_stats().get('start_count', 0)
+        self.assertGreater(after, before)
+
+    def test_dropoff_records_answered_count_once_before_completion(self):
+        from app import engine as app_engine
+        self.client.post('/api/start')
+        with self.client.session_transaction() as sess:
+            sess['answers'] = {'1': 1.0, '2': -1.0}
+            sess['started'] = True
+            sess['completed'] = False
+            sess['dropoff_recorded'] = False
+        with patch.object(app_engine, 'log_dropoff') as recorder:
+            res = self.client.post('/api/dropoff', json={'answered_count': 2})
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.get_json()['status'], 'ok')
+            recorder.assert_called_once_with(2)
+            res2 = self.client.post('/api/dropoff', json={'answered_count': 2})
+            self.assertEqual(res2.status_code, 200)
+            self.assertEqual(res2.get_json()['status'], 'ignored')
+            recorder.assert_called_once()
+
+    def test_dropoff_ignored_after_completion(self):
+        from app import engine as app_engine
+        with self.client.session_transaction() as sess:
+            sess['started'] = True
+            sess['completed'] = True
+            sess['answers'] = {'1': 1.0}
+            sess['dropoff_recorded'] = False
+        with patch.object(app_engine, 'log_dropoff') as recorder:
+            res = self.client.post('/api/dropoff', json={'answered_count': 1})
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.get_json()['status'], 'ignored')
+            recorder.assert_not_called()
 
     def test_answer_returns_axis(self):
         self._start()

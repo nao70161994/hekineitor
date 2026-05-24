@@ -51,6 +51,7 @@ def build(
     reporting = context.admin_reporting(
         bounded_int=admin_helpers.bounded_int,
         build_fetish_log_rows=lambda: admin_helpers.build_fetish_log_rows(engine),
+        build_completion_metrics=admin_helpers.build_completion_metrics,
         paged_fetish_log_rows=admin_helpers.paged_fetish_log_rows,
         perf_counter=perf_counter,
         best_question=question_selection.best_question,

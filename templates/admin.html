@@ -361,11 +361,51 @@
 </h2>
 <p class="sub" style="margin-bottom:8px;">少ない性癖ほど要プレイ。</p>
 <p style="color:#f5a623;font-size:1rem;margin-bottom:6px;">
-  累計プレイ回数（最後まで）: <strong>{{ play_count }}</strong> 回
+  累計プレイ回数（最後まで・旧指標）: <strong>{{ play_count }}</strong> 回
 </p>
 <p style="color:#aaa;font-size:0.85rem;margin-bottom:12px;">
   累計学習回数（フィードバックあり）: <strong>{{ learn_count }}</strong> 回
 </p>
+
+{% if completion_metrics %}
+<div style="background:#0d1b2a;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:16px;">
+  <div style="text-align:center;min-width:72px;">
+    <div style="font-size:1.35rem;font-weight:bold;color:#7af0a0;">{{ completion_metrics.start_count }}</div>
+    <div style="font-size:0.7rem;color:#777;">開始数（新計測）</div>
+  </div>
+  <div style="text-align:center;min-width:72px;">
+    <div style="font-size:1.35rem;font-weight:bold;color:#f5a623;">{{ completion_metrics.completion_count }}</div>
+    <div style="font-size:0.7rem;color:#777;">結果到達（新計測）</div>
+  </div>
+  <div style="text-align:center;min-width:72px;">
+    <div style="font-size:1.35rem;font-weight:bold;color:#5b8dd9;">{{ completion_metrics.completion_rate if completion_metrics.completion_rate is not none else '—' }}{% if completion_metrics.completion_rate is not none %}%{% endif %}</div>
+    <div style="font-size:0.7rem;color:#777;">完走率（新計測）</div>
+  </div>
+  <div style="text-align:center;min-width:72px;">
+    <div style="font-size:1.35rem;font-weight:bold;color:#e74c3c;">{{ completion_metrics.estimated_dropoff_count }}</div>
+    <div style="font-size:0.7rem;color:#777;">未完走推定</div>
+  </div>
+  <div style="text-align:center;min-width:72px;">
+    <div style="font-size:1.35rem;font-weight:bold;color:#aaa;">{{ completion_metrics.recent_7_days.feedback_rate if completion_metrics.recent_7_days.feedback_rate is not none else '—' }}{% if completion_metrics.recent_7_days.feedback_rate is not none %}%{% endif %}</div>
+    <div style="font-size:0.7rem;color:#777;">7日FB率</div>
+  </div>
+</div>
+{% if completion_metrics.dropoff_summary and completion_metrics.dropoff_summary.by_answered %}
+<div style="background:#101820;border:1px solid #263244;border-radius:8px;padding:10px 12px;margin-bottom:16px;">
+  <div style="color:#aaa;font-size:0.78rem;margin-bottom:6px;">途中離脱位置（直近{{ completion_metrics.dropoff_summary.days }}日 / pagehide推定）</div>
+  {% set max_dropoff = completion_metrics.dropoff_summary.by_answered | map(attribute='count') | max %}
+  {% for row in completion_metrics.dropoff_summary.by_answered %}
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+    <div style="width:72px;color:#aaa;font-size:0.72rem;text-align:right;">{{ row.answered_count }}問後</div>
+    <div style="height:9px;background:#111;border-radius:3px;overflow:hidden;flex:1;max-width:220px;"><div style="height:9px;width:{{ (row.count / max_dropoff * 100)|round|int if max_dropoff else 0 }}%;background:#e74c3c;"></div></div>
+    <div style="color:#777;font-size:0.72rem;min-width:30px;">{{ row.count }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p style="color:#555;font-size:0.76rem;margin-bottom:16px;">途中離脱位置はこのリリース以降に集計されます。</p>
+{% endif %}
+{% endif %}
 
 {% if stats_history %}
 <div style="margin-bottom:24px;">
@@ -377,7 +417,8 @@
   </div>
   <div id="stats-chart" style="display:flex;align-items:flex-end;gap:2px;height:60px;background:#1a1a1a;border-radius:6px;padding:6px 8px;overflow-x:auto;"></div>
   <div style="display:flex;gap:12px;margin-top:4px;font-size:0.72rem;color:#888;flex-wrap:wrap;">
-    <span><span style="display:inline-block;width:10px;height:10px;background:#f5a623;border-radius:2px;margin-right:3px;"></span>プレイ</span>
+    <span><span style="display:inline-block;width:10px;height:10px;background:#7af0a0;border-radius:2px;margin-right:3px;"></span>開始</span>
+    <span><span style="display:inline-block;width:10px;height:10px;background:#f5a623;border-radius:2px;margin-right:3px;"></span>結果到達</span>
     <span><span style="display:inline-block;width:10px;height:10px;background:#5b8dd9;border-radius:2px;margin-right:3px;"></span>学習</span>
     <span><span style="display:inline-block;width:10px;height:10px;background:#27ae60;border-radius:2px;margin-right:3px;"></span>正解FB</span>
     <span><span style="display:inline-block;width:10px;height:10px;background:#e74c3c;border-radius:2px;margin-right:3px;"></span>外れFB</span>

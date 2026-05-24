@@ -243,12 +243,27 @@ class Engine:
         self._increment_stat('learn_count')
         self._record_daily_stat('learn')
 
+    def increment_start_count(self):
+        self._increment_stat('start_count')
+        self._record_daily_stat('start')
+
     def increment_play_count(self):
         self._increment_stat('play_count')
         self._record_daily_stat('play')
+        self._increment_stat('completion_count')
+        self._record_daily_stat('completion')
+
+    def log_dropoff(self, answered_count):
+        try:
+            answered_count = int(answered_count)
+        except (TypeError, ValueError):
+            answered_count = 0
+        answered_count = max(0, min(999, answered_count))
+        self._record_daily_stat('dropoff')
+        self._record_daily_stat(f'dropoff_q_{answered_count}')
 
     def get_stats(self):
-        keys = ('play_count', 'learn_count')
+        keys = ('start_count', 'completion_count', 'play_count', 'learn_count')
         if _use_db():
             return engine_db.load_stats(keys, get_conn=_get_conn, put_conn=_put_conn)
         path = os.path.join(DATA_DIR, 'stats.json')
@@ -263,6 +278,21 @@ class Engine:
             return engine_db.load_stats_history(date_range, get_conn=_get_conn, put_conn=_put_conn)
         path = os.path.join(DATA_DIR, 'stats_history.json')
         return engine_stats.history_rows_from_file(path, date_range)
+
+
+    def get_dropoff_summary(self, days=7, top_n=8):
+        """途中離脱を回答済み質問数ごとに集計する。"""
+        from datetime import date as _date, timedelta
+        today = _date.today()
+        since = (today - timedelta(days=days - 1)).isoformat()
+        if _use_db():
+            totals = engine_db.load_dropoff_totals(since, get_conn=_get_conn, put_conn=_put_conn)
+        else:
+            path = os.path.join(DATA_DIR, 'stats_history.json')
+            raw = engine_stats.read_json_path(path, {})
+            date_range = [(today - timedelta(days=i)).isoformat() for i in range(days - 1, -1, -1)]
+            totals = engine_reporting.dropoff_totals_from_history(raw, date_range)
+        return engine_reporting.format_dropoff_summary(totals, days, top_n=top_n)
 
     def get_recent_fetish_ranking(self, days=7, top_n=10):
         """過去N日間に診断結果へ出た性癖TOP n件とFB指標を返す。"""

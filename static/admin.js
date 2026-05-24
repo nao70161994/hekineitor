@@ -60,7 +60,7 @@ function renderStatsChart(days) {
   const btn30 = document.getElementById('chart-btn-30');
   if (!chart || !label || !btn7 || !btn30) return;
   const data = (window.ADMIN_STATS_HISTORY || []).slice(-days);
-  const maxV = Math.max(1, ...data.map(r => Math.max(r.play, r.learn)));
+  const maxV = Math.max(1, ...data.map(r => Math.max(r.start || 0, r.completion || 0, r.play || 0, r.learn || 0)));
   label.textContent = `過去${days}日間の推移`;
   btn7.style.background  = days === 7  ? '#e94560' : '#0f3460';
   btn7.style.borderColor = days === 7  ? '#e94560' : '#444';
@@ -69,13 +69,16 @@ function renderStatsChart(days) {
   btn30.style.borderColor = days === 30 ? '#e94560' : '#444';
   btn30.style.color       = days === 30 ? '#fff'    : '#aaa';
   chart.innerHTML = data.map(r => {
-    const ph = Math.round(r.play    / maxV * 48);
-    const lh = Math.round(r.learn   / maxV * 48);
-    const ch = Math.round(r.correct / maxV * 48);
-    const wh = Math.round(r.wrong   / maxV * 48);
-    const fb = r.correct + r.wrong;
-    const accStr = fb > 0 ? ` 正答率:${Math.round(r.correct/fb*100)}%` : '';
-    return `<div style="flex:1;min-width:7px;display:flex;flex-direction:column;align-items:center;gap:1px;height:100%;justify-content:flex-end;" title="${r.date}\nプレイ:${r.play} 学習:${r.learn}\n正解:${r.correct} 外れ:${r.wrong}${accStr}">
+    const sh = Math.round((r.start || 0) / maxV * 48);
+    const ph = Math.round((r.completion || r.play || 0) / maxV * 48);
+    const lh = Math.round((r.learn || 0) / maxV * 48);
+    const ch = Math.round((r.correct || 0) / maxV * 48);
+    const wh = Math.round((r.wrong || 0) / maxV * 48);
+    const fb = (r.correct || 0) + (r.wrong || 0);
+    const accStr = fb > 0 ? ` 正答率:${Math.round((r.correct || 0)/fb*100)}%` : '';
+    const completionRate = r.start > 0 ? ` 完走率:${Math.round((r.completion || 0)/r.start*100)}%` : '';
+    return `<div style="flex:1;min-width:7px;display:flex;flex-direction:column;align-items:center;gap:1px;height:100%;justify-content:flex-end;" title="${r.date}\n開始:${r.start || 0} 結果到達:${r.completion || 0}${completionRate}\n旧プレイ:${r.play || 0} 学習:${r.learn || 0}\n正解:${r.correct || 0} 外れ:${r.wrong || 0} 離脱:${r.dropoff || 0}${accStr}">
+      <div style="width:100%;background:#7af0a0;border-radius:2px 2px 0 0;height:${sh}px;"></div>
       <div style="width:100%;background:#f5a623;border-radius:2px 2px 0 0;height:${ph}px;"></div>
       <div style="width:100%;background:#5b8dd9;border-radius:2px 2px 0 0;height:${lh}px;"></div>
       <div style="width:100%;background:#27ae60;border-radius:2px 2px 0 0;height:${ch}px;"></div>

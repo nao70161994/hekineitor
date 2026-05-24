@@ -121,6 +121,7 @@ def make_guess(ctx, answers):
     result = compute_guess(ctx.inference_context(), answers)
     ctx.session['last_guess_fetish_id'] = result['fetish_id']
     ctx.session['last_guess_compound_ids'] = [item['fetish_id'] for item in result.get('compound', [])]
+    ctx.session['completed'] = True
     ctx.mark_guess_quality(ctx.engine, ctx.session, answers, ctx.soft_max_questions)
     ctx.engine.log_guessed(result['fetish_id'])
     return ctx.jsonify(result)

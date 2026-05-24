@@ -60,3 +60,18 @@ class TestEngineReportingHelpers(unittest.TestCase):
             'low_confidence': {'guesses': 1, 'correct': 0, 'wrong': 3},
             'additional_questions': {'guesses': 0, 'correct': 4, 'wrong': 0, 'questions': 2},
         })
+
+    def test_dropoff_summary_from_history_groups_by_answered_count(self):
+        raw = {
+            '2026-05-22': {'dropoff': 2, 'dropoff_q_0': 1, 'dropoff_q_3': 1},
+            '2026-05-23': {'dropoff': 1, 'dropoff_q_3': 1, 'other': 9},
+        }
+        totals = engine_reporting.dropoff_totals_from_history(raw, ['2026-05-22', '2026-05-23'])
+        self.assertEqual(totals, {'total': 3, 'by_answered': {0: 1, 3: 2}})
+        self.assertEqual(
+            engine_reporting.format_dropoff_summary(totals, days=2),
+            {'days': 2, 'total': 3, 'by_answered': [
+                {'answered_count': 3, 'count': 2},
+                {'answered_count': 0, 'count': 1},
+            ]},
+        )
