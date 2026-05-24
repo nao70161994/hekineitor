@@ -559,16 +559,41 @@
   .history-item .h-retry:hover { border-color:#e94560; color:#e94560; }
 
   /* 機能7: 作品レコメンド */
-  .works-section { margin-bottom:16px; border-top:1px solid #333; padding-top:10px; }
-  .works-label { color:#666; font-size:0.75rem; text-align:center; margin-bottom:6px; }
-  .works-tags { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
-  .works-tag { background:#1a3a1a; color:#7af0a0; font-size:0.73rem; padding:4px 10px; border-radius:12px; }
-  .works-tag.link { text-decoration:none; cursor:pointer; transition:background 0.15s, box-shadow 0.15s; }
-  .works-tag.link:hover { background:#2a5a2a; box-shadow:0 0 6px rgba(122,240,160,0.3); }
-  .works-tag.link::after { content:'↗'; font-size:0.6rem; margin-left:4px; opacity:0.6; }
-  .works-cross-label { color:#888; font-size:0.68rem; text-align:center; margin:6px 0 4px; letter-spacing:0.03em; }
-  .works-tag.cross { background:#2a2a1a; color:#f0d06a; border:1px solid rgba(240,208,106,0.3); }
-  .works-tag.cross.link:hover { background:#3a3a1a; box-shadow:0 0 6px rgba(240,208,106,0.3); }
+  .works-section {
+    margin: 18px 0 16px;
+    border: 1px solid rgba(245,166,35,0.35);
+    background: linear-gradient(180deg, rgba(255,248,226,0.96), rgba(237,250,255,0.96));
+    border-radius: 12px;
+    padding: 13px 12px 12px;
+    box-shadow: 0 8px 18px rgba(245,166,35,0.12);
+  }
+  .works-label {
+    color: #92400e;
+    font-size: 0.92rem;
+    font-weight: 800;
+    text-align: center;
+    margin-bottom: 9px;
+  }
+  .works-label::before { content: '📚 '; }
+  .works-tags { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+  .works-tag {
+    background:#fff;
+    color:#172554;
+    border:1px solid rgba(37,99,235,0.18);
+    font-size:0.82rem;
+    font-weight:700;
+    line-height:1.35;
+    padding:8px 11px;
+    border-radius:10px;
+    box-shadow:0 3px 10px rgba(15,23,42,0.08);
+    max-width:100%;
+  }
+  .works-tag.link { text-decoration:none; cursor:pointer; transition:transform 0.15s, box-shadow 0.15s, border-color 0.15s; }
+  .works-tag.link:hover { transform:translateY(-1px); border-color:#2563eb; box-shadow:0 6px 14px rgba(37,99,235,0.18); }
+  .works-tag.link::after { content:'↗'; font-size:0.68rem; margin-left:5px; opacity:0.65; }
+  .works-cross-label { color:#92400e; font-size:0.72rem; text-align:center; margin:8px 0 5px; letter-spacing:0.03em; font-weight:700; }
+  .works-tag.cross { background:#fff7ed; color:#7c2d12; border:1px solid rgba(245,158,11,0.35); }
+  .works-tag.cross.link:hover { border-color:#f59e0b; box-shadow:0 6px 14px rgba(245,158,11,0.18); }
 
 .test-play-banner {
   margin: 10px auto 14px;

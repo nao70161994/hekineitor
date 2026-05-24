@@ -264,7 +264,7 @@ window.HekiRenderers = (() => {
     const hasCross = data.cross_works && data.cross_works.length > 0;
     const hasWorks = data.works && data.works.length > 0;
     if (hasCross || hasWorks) {
-      worksLabel.textContent = isCompound ? 'これらの性癖が好きな方へ' : 'この性癖が好きな方へ';
+      worksLabel.textContent = isCompound ? 'この組み合わせが刺さる人へ' : 'おすすめ作品';
       crossTagsEl.innerHTML = hasCross
         ? `<div class="works-cross-label">▶ 両方の要素を持つ作品</div>` + data.cross_works.map(work => renderWorkTag(work, 'cross', helpers)).join('')
         : '';
