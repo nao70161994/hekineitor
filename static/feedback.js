@@ -78,6 +78,15 @@ window.HekiFeedback = (() => {
           wrong_ids: ids,
         });
         if (!data) return;
+        if (data.fetishes && data.fetishes.length > 0) {
+          window._teachSelected = new Map();
+          window._teachCorrectIds = [];
+          window._addOnlyMode = false;
+          document.getElementById('teach-label').textContent = '正解の性癖を選んでください（なければ下から追加できます）';
+          renderTeachCandidates(data.fetishes);
+          show('teach-screen');
+          return;
+        }
         const finalizeData = await apiFetch('/api/finalize_added', {items: []});
         showQuickFeedbackStatus(testPlayMessage(finalizeData || data, 'ありがとうございます。外れとして学習し、次の診断に反映します。'));
       }
