@@ -1259,6 +1259,19 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         with patch.dict(os.environ, {'OGP_FONT_PATH': '/tmp/custom-ogp-font.ttf'}):
             self.assertEqual(next(ogp_service._ogp_font_candidates()), '/tmp/custom-ogp-font.ttf')
 
+    def test_ogp_texts_fall_back_to_ascii_when_cjk_font_is_missing(self):
+        texts = ogp_service._ogp_texts('眼鏡', '88', cjk_supported=False)
+        self.assertEqual(texts['label'], 'Hekineitor Result')
+        self.assertEqual(texts['name'], 'Megane')
+        self.assertEqual(texts['prob'], 'AI Match 88%')
+        self.assertEqual(texts['side'], 'Share this result?')
+
+    def test_ogp_texts_keep_japanese_when_cjk_font_is_available(self):
+        texts = ogp_service._ogp_texts('眼鏡', '88', cjk_supported=True)
+        self.assertEqual(texts['label'], 'へきネイター診断結果')
+        self.assertEqual(texts['name'], '眼鏡')
+        self.assertEqual(texts['prob'], 'AI一致率 88%')
+
     def test_result_share_clamps_probability(self):
         res = self.client.get('/r?f=NTR&p=999&d=テスト')
         body = res.data.decode('utf-8')

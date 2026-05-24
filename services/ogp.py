@@ -8,6 +8,20 @@ OGP_WIDTH = 1200
 OGP_HEIGHT = 630
 _OGP_FONT_CACHE = {}
 
+_NAME_FALLBACKS = {
+    '眼鏡': 'Megane',
+    '白衣': 'Lab Coat',
+    '敬語': 'Polite Speech',
+    '共依存': 'Codependency',
+    '執着': 'Obsession',
+    '百合': 'Yuri',
+    '触手': 'Tentacles',
+    'ケモノ': 'Kemono',
+    '吸血鬼': 'Vampire',
+    '幼馴染': 'Childhood Friend',
+    '溺愛': 'Doting Love',
+}
+
 
 def _ogp_font_candidates():
     env_path = os.environ.get('OGP_FONT_PATH')
@@ -74,6 +88,56 @@ def _center_text(draw, x, y, text, font, fill):
     _draw_text_safe(draw, (x - width / 2, y), text, font=font, fill=fill)
 
 
+def _mask_signature(font, text):
+    mask = font.getmask(text)
+    return (mask.size, mask.getbbox(), bytes(mask))
+
+
+def _font_supports_text(font, text):
+    if not text or all(ord(char) < 128 for char in text):
+        return True
+    if font is None or not hasattr(font, 'getmask'):
+        return False
+    chars = [char for char in str(text) if ord(char) >= 128]
+    sample = list(dict.fromkeys(chars[:2] + ['眼', '鏡']))
+    if len(sample) < 2:
+        sample.append('鏡' if sample != ['鏡'] else '眼')
+    try:
+        signatures = [_mask_signature(font, char) for char in sample[:2]]
+    except Exception:
+        return False
+    return signatures[0] != signatures[1]
+
+
+def _ascii_name_fallback(name):
+    name = str(name or '').strip()
+    if not name:
+        return 'Unknown'
+    if all(ord(char) < 128 for char in name):
+        return name
+    return _NAME_FALLBACKS.get(name, 'Heki Result')
+
+
+def _ogp_texts(name, prob, cjk_supported=True):
+    if cjk_supported:
+        return {
+            'label': 'へきネイター診断結果',
+            'name': name or '???',
+            'prob': f'AI一致率 {prob}%' if prob else '',
+            'title': f'{_share.result_rarity(prob)} / {_share.result_title(prob)}' if prob else '',
+            'side': '友達にも踏ませる？',
+            'tagline': 'AIが性癖プロファイルを推定',
+        }
+    return {
+        'label': 'Hekineitor Result',
+        'name': _ascii_name_fallback(name),
+        'prob': f'AI Match {prob}%' if prob else '',
+        'title': _share.result_rarity(prob) if prob else '',
+        'side': 'Share this result?',
+        'tagline': 'AI profile diagnosis',
+    }
+
+
 def _split_ogp_name(name):
     if len(name) > 12:
         line1, line2 = name[:12], name[12:24]
@@ -138,23 +202,26 @@ def generate_png(name, prob):
     small_font = _load_ogp_font(18)
     mark_font = _load_ogp_font(80, bold=True)
 
-    _center_text(draw, 350, 100, 'へきネイター診断結果', label_font, (170, 170, 180))
-    lines = _split_ogp_name(name or '???')
+    cjk_supported = _font_supports_text(name_font, '眼鏡') and _font_supports_text(label_font, 'へきネイター')
+    texts = _ogp_texts(name, prob, cjk_supported=cjk_supported)
+
+    _center_text(draw, 350, 100, texts['label'], label_font, (170, 170, 180))
+    lines = _split_ogp_name(texts['name'])
     y1 = 235 if len(lines) > 1 else 270
     for i, line in enumerate(lines):
         _center_text(draw, 350, y1 + i * (name_font_size + 12), line, name_font, (233, 69, 96))
     if prob:
         prob_y = y1 + len(lines) * (name_font_size + 12) + 20
-        _center_text(draw, 350, prob_y, f'AI一致率 {prob}%', prob_font, bar_color)
-        _center_text(draw, 350, prob_y + 50, f'{_share.result_rarity(prob)} / {_share.result_title(prob)}', side_font, (230, 218, 190))
+        _center_text(draw, 350, prob_y, texts['prob'], prob_font, bar_color)
+        _center_text(draw, 350, prob_y + 50, texts['title'], side_font, (230, 218, 190))
     draw.rounded_rectangle((130, 490, 570, 502), radius=6, fill=(26, 26, 62))
     if bar_w:
         draw.rounded_rectangle((130, 490, 130 + bar_w, 502), radius=6, fill=(233, 69, 96))
 
-    _center_text(draw, 910, 145, '友達にも踏ませる？', side_font, (120, 130, 150))
+    _center_text(draw, 910, 145, texts['side'], side_font, (120, 130, 150))
     _center_text(draw, 910, 275, '?', mark_font, (80, 42, 65))
     _center_text(draw, 910, 430, 'hekineitor.onrender.com', small_font, (90, 93, 105))
-    _center_text(draw, 910, 465, 'AIが性癖プロファイルを推定', small_font, (75, 78, 90))
+    _center_text(draw, 910, 465, texts['tagline'], small_font, (75, 78, 90))
 
     buf = io.BytesIO()
     img.save(buf, format='PNG', optimize=True)
