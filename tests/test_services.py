@@ -218,6 +218,11 @@ class TestServices(unittest.TestCase):
             second = app_meta.app_version(tmp, paths=('app.py',))
         self.assertNotEqual(first, second)
 
+    def test_app_version_default_includes_pwa_assets(self):
+        self.assertIn('static/icon-192.png', app_meta.APP_VERSION_PATHS)
+        self.assertIn('static/icon-512.png', app_meta.APP_VERSION_PATHS)
+        self.assertIn('templates/sw.js', app_meta.APP_VERSION_PATHS)
+
     def test_app_bootstrap_groups_static_config(self):
         config = bootstrap.app_bootstrap(
             base_dir='/app',
