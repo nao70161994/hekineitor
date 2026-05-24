@@ -144,8 +144,9 @@
 
 1. Keep `app.py` as composition root; avoid further extraction unless a dependency group has clear ownership outside Flask wiring.
 2. Execute `docs/QA_EXECUTION_LOG.md` manual mobile/OGP/PWA backlog against real devices and a deployed URL.
-3. Browser E2E runner decision after manual QA gaps are confirmed.
-4. All engine helper modules now live under `engine/` with top-level compatibility shims; next PR can review shim retention/removal policy.
-5. Keep DB and mutation behavior locked with tests while reducing remaining facade method bodies.
-6. Share analytics follow-up: admin dashboard, result-name ranking, lightweight funnel rates, period comparison, growth columns, and CSV exports are available; review deployed SNS cycles before adding trend charts.
-7. Share improvement notes: implement the documented JSON-backed admin note editor with CSRF and escaping in a focused PR.
+3. OGP Japanese font follow-up: bundle or install a CJK-capable font and set `OGP_FONT_PATH`; current deployed fallback uses ASCII labels to avoid mojibake.
+4. Browser E2E runner decision after manual QA gaps are confirmed.
+5. All engine helper modules now live under `engine/` with top-level compatibility shims; next PR can review shim retention/removal policy.
+6. Keep DB and mutation behavior locked with tests while reducing remaining facade method bodies.
+7. Share analytics follow-up: admin dashboard, result-name ranking, lightweight funnel rates, period comparison, growth columns, and CSV exports are available; review deployed SNS cycles before adding trend charts.
+8. Share improvement notes: implement the documented JSON-backed admin note editor with CSRF and escaping in a focused PR.

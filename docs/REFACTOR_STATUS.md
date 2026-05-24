@@ -105,6 +105,7 @@
 - Keep remaining `app.py` factories as explicit composition-root adapters; only extract when ownership is clearer than Flask wiring.
 - Expand browser-oriented E2E coverage beyond Flask smoke paths when a lightweight browser runner is available.
 - Execute the manual QA backlog in `docs/QA_EXECUTION_LOG.md` for mobile CTA, OGP previews, and PWA install/update behavior.
+- OGP PNG currently falls back to ASCII text when Render lacks a Japanese/CJK font; add a CJK font via bundled asset or `OGP_FONT_PATH` in a follow-up.
 
 ## Guardrails
 
