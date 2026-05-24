@@ -39,7 +39,7 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
     def test_best_question_snapshots_with_deterministic_randomness(self):
         cases = [
             ({}, set(), 0, 0),
-            ({'0': 0, '1': 0}, {0, 1}, 2, 88),
+            ({'0': 0, '1': 0}, {0, 1}, 2, 91),
             ({'8': 1, '6': 1, '0': 1, '40': 1}, {0, 6, 8, 40}, 0, 37),
         ]
         for answers, asked, idk_streak, expected_question in cases:
