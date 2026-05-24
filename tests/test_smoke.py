@@ -202,6 +202,10 @@ class TestSmoke(unittest.TestCase):
         self.assertIn('保存せず確認しました'.encode('utf-8'), feedback)
         with open(os.path.join(root, 'static', 'teach.js'), 'rb') as f:
             teach = f.read()
+        with open(os.path.join(root, 'templates', 'index.html'), 'rb') as f:
+            index = f.read()
+        self.assertIn('この性癖を追加する'.encode('utf-8'), index)
+        self.assertIn('候補にない場合'.encode('utf-8'), index)
         self.assertIn('保存せず確認しました'.encode('utf-8'), teach)
 
     def test_share_ogp_and_pwa_static_contracts(self):

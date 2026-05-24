@@ -228,19 +228,19 @@
   <!-- 正解選択画面 -->
   <div id="teach-screen" class="hidden">
     <p id="teach-label" style="margin-bottom:12px;color:#aaa;font-size:0.9rem;text-align:center;"></p>
+    <div class="teach-add-panel" id="add-step1">
+      <div class="teach-add-label">候補にない場合</div>
+      <input id="new-fetish-name" type="text" placeholder="例: 眼鏡 / 白衣 / 共依存" autocomplete="off">
+      <button class="btn btn-yes teach-add-primary" data-action="add-fetish-step1">この性癖を追加する</button>
+    </div>
+    <div class="teach-or">または候補から選ぶ</div>
     <div class="fetish-list" id="fetish-list"></div>
     <button class="btn btn-yes" id="teach-submit-btn" style="width:100%;margin-bottom:8px;display:none;" data-action="submit-teach">学習する</button>
     <hr style="border-color:#333;margin:14px 0;">
-    <div id="add-step1">
-      <p style="color:#aaa;font-size:0.85rem;margin-bottom:10px;">あなたにとって重要な性癖がリストにない場合はこちらに記入</p>
-      <input id="new-fetish-name" type="text" placeholder="性癖の名前（例：獣耳ヒロイン）"
-        style="width:100%;padding:10px;border-radius:8px;border:1px solid #333;background:#0f3460;color:#eee;font-size:0.95rem;margin-bottom:8px;">
-      <button class="btn btn-yes" style="width:100%;margin-bottom:8px;" data-action="add-fetish-step1">記入する</button>
-    </div>
     <div id="add-step-similar" style="display:none">
-      <p style="color:#f5a623;font-size:0.85rem;margin-bottom:8px;text-align:center;">似た性癖が見つかりました。これと同じですか？</p>
+      <p style="color:#f5a623;font-size:0.85rem;margin-bottom:8px;text-align:center;">似た性癖が見つかりました。同じなら候補を選んでください。</p>
       <div id="add-similar-list"></div>
-      <button class="btn btn-idk" style="width:100%;margin-top:6px;font-size:0.85rem;" data-action="add-fetish-confirm-new">違う、新しく追加する</button>
+      <button class="btn btn-idk" style="width:100%;margin-top:6px;font-size:0.85rem;" data-action="add-fetish-confirm-new">候補と違うので新しく追加する</button>
     </div>
     <div id="add-step2" style="display:none">
       <p style="color:#aaa;font-size:0.85rem;margin-bottom:6px;">「<span id="add-confirmed-name"></span>」の説明を入力してください</p>

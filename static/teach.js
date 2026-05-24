@@ -36,7 +36,7 @@ window.HekiTeach = (() => {
   function updateTeachSubmitBtn() {
     const btn = document.getElementById('teach-submit-btn');
     const selectedCount = window._teachSelected ? window._teachSelected.size : 0;
-    btn.textContent = selectedCount > 0 ? `${selectedCount}件を学習する` : '選んで学習する';
+    btn.textContent = selectedCount > 0 ? `${selectedCount}件を学習する` : '候補を選んで学習する';
     btn.disabled = selectedCount === 0;
   }
 

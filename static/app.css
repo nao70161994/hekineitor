@@ -361,6 +361,43 @@
   .fetish-item.selected { background: #27ae60; color: #fff; }
   .fetish-item.selected:hover { background: #219a52; }
 
+  .teach-add-panel {
+    border: 1px solid rgba(233, 69, 96, 0.32);
+    background: rgba(233, 69, 96, 0.08);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  .teach-add-label {
+    color: #f5a623;
+    font-size: 0.8rem;
+    font-weight: bold;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  #new-fetish-name {
+    width: 100%;
+    padding: 13px 12px;
+    border-radius: 10px;
+    border: 1px solid #555;
+    background: #fff;
+    color: #172554;
+    font-size: 1rem;
+    margin-bottom: 10px;
+  }
+  #new-fetish-name::placeholder { color: #64748b; }
+  .teach-add-primary {
+    width: 100%;
+    min-height: 48px;
+    font-size: 0.95rem;
+  }
+  .teach-or {
+    color: #888;
+    font-size: 0.78rem;
+    text-align: center;
+    margin: 4px 0 10px;
+  }
+
   .msg {
     text-align: center;
     padding: 12px;
