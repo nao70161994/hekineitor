@@ -67,7 +67,7 @@ window.HekiFeedback = (() => {
         });
         if (!data) return;
         const finalizeData = await apiFetch('/api/finalize_added', {items: []});
-        showQuickFeedbackStatus(testPlayMessage(finalizeData || data, 'ありがとうございます。近い結果として学習しました。'));
+        showQuickFeedbackStatus(testPlayMessage(finalizeData || data, 'ありがとうございます。あなたの癖に近いものとして学習しました。'));
       } else if (kind === 'no') {
         setAllItemStates('no');
         const data = await apiFetch('/api/confirm', {
@@ -170,7 +170,7 @@ window.HekiFeedback = (() => {
     window._teachCorrectIds = correctIds;
     if (wrongIds.length === 0 && maybeIds.length > 0) {
       window._addOnlyMode = 'maybe';
-      document.getElementById('teach-label').textContent = '正解の性癖があれば選べます（任意）';
+      document.getElementById('teach-label').textContent = 'あなたの癖に近いものがあれば選べます（任意）';
     } else {
       window._addOnlyMode = false;
       document.getElementById('teach-label').textContent = '正解の性癖を選んでください（複数選択可）';

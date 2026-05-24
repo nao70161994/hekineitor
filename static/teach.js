@@ -11,7 +11,7 @@ window.HekiTeach = (() => {
     } else if (window._addOnlyMode === 'maybe') {
       window._addOnlyMode = false;
       const data = await apiFetch('/api/finalize_added', {items: []});
-      document.getElementById('done-msg').textContent = testPlayMessage(data, '近い候補として学習しました。');
+      document.getElementById('done-msg').textContent = testPlayMessage(data, 'あなたの癖に近いものとして学習しました。');
       show('done-screen');
     } else {
       showStart();
