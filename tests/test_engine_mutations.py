@@ -84,7 +84,7 @@ class TestEngineMutations(unittest.TestCase):
         self.assertEqual(len(self.engine.matrix['yes']), len(self.engine.fetishes))
         self.assertEqual(len(self.engine.matrix['total']), len(self.engine.fetishes))
         self.assertGreaterEqual(save_fetishes.call_count, 1)
-        save_matrix.assert_called_once_with()
+        self.assertEqual(save_matrix.call_count, 2)
 
     def test_merge_fetishes_local_adds_matrix_rows_and_merges_log_entries(self):
         id_keep = self.engine.fetishes[0]['id']

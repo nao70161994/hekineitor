@@ -36,6 +36,46 @@ def _question_text(ctx, question_id):
     return q_data, text
 
 
+def _clear_active_guess(ctx):
+    ctx.session.pop('last_guess_fetish_id', None)
+    ctx.session.pop('last_guess_compound_ids', None)
+
+
+def _require_started(ctx):
+    if not ctx.session.get('started'):
+        return ctx.jsonify({'status': 'session_expired'}), 440
+    return None
+
+
+def _active_guess_ids(ctx):
+    try:
+        main_id = int(ctx.session.get('last_guess_fetish_id'))
+    except (TypeError, ValueError):
+        return None, set()
+    compound_ids = ctx.parse_id_list(ctx.session.get('last_guess_compound_ids', []))
+    return main_id, compound_ids
+
+
+def _require_active_guess(ctx):
+    started_error = _require_started(ctx)
+    if started_error:
+        return started_error
+    main_id, _ = _active_guess_ids(ctx)
+    if main_id is None:
+        return ctx.jsonify({'status': 'session_expired', 'message': '診断結果が見つかりません'}), 440
+    return None
+
+
+def _validate_guess_payload(ctx, fetish_db_id, compound_ids=None):
+    main_id, active_compound_ids = _active_guess_ids(ctx)
+    if main_id is None or fetish_db_id != main_id:
+        return ctx.jsonify({'status': 'error', 'message': '現在の診断結果と一致しません'}), 409
+    requested_compound_ids = ctx.parse_id_list(compound_ids or [])
+    if not requested_compound_ids.issubset(active_compound_ids):
+        return ctx.jsonify({'status': 'error', 'message': '現在の診断結果と一致しません'}), 409
+    return None
+
+
 def start(ctx):
     limited = ctx.rate_limit('api_start', 120)
     if limited:
@@ -110,8 +150,10 @@ def resume(ctx):
 
 
 def continue_game(ctx):
-    if not ctx.session.get('started'):
-        return ctx.jsonify({'status': 'session_expired'}), 440
+    started_error = _require_started(ctx)
+    if started_error:
+        return started_error
+    _clear_active_guess(ctx)
     answers = ctx.session.get('answers', {})
     asked = ctx.session.get('asked', [])
     top2 = ctx.top_guess(ctx.engine, answers, n=2)
@@ -128,8 +170,10 @@ def continue_game(ctx):
 
 
 def back(ctx):
-    if not ctx.session.get('started'):
-        return ctx.jsonify({'status': 'session_expired'}), 440
+    started_error = _require_started(ctx)
+    if started_error:
+        return started_error
+    _clear_active_guess(ctx)
     asked = ctx.session.get('asked', [])
     answers = ctx.session.get('answers', {})
     if len(asked) < 2:
@@ -137,15 +181,15 @@ def back(ctx):
     asked.pop()
     previous_q = asked[-1]
     answers.pop(str(previous_q), None)
-    asked.pop()
     ctx.session['asked'] = asked
     ctx.session['answers'] = answers
     ctx.session['idk_streak'] = 0
+    count = max(0, len(asked) - 1)
     return ctx.jsonify({
         'question_id': previous_q,
         'question': ctx.engine.questions[previous_q]['text'],
-        'count': len(asked),
-        'total': ctx.question_total_for_count(len(asked)),
+        'count': count,
+        'total': ctx.question_total_for_count(count),
     })
 
 
@@ -153,8 +197,9 @@ def answer(ctx):
     limited = ctx.rate_limit('api_answer', 240)
     if limited:
         return limited
-    if not ctx.session.get('started'):
-        return ctx.jsonify({'status': 'session_expired'}), 440
+    started_error = _require_started(ctx)
+    if started_error:
+        return started_error
     data = ctx.request.get_json(silent=True) or {}
     if 'question_id' not in data or 'answer' not in data:
         return ctx.jsonify({'status': 'error', 'message': 'question_id と answer が必要です'}), 400
@@ -170,10 +215,11 @@ def answer(ctx):
 
     answers = ctx.session.get('answers', {})
     asked = ctx.session.get('asked', [])
+    if not asked or asked[-1] != question_id or str(question_id) in answers:
+        return ctx.jsonify({'status': 'error', 'message': '現在の質問IDと一致しません'}), 409
+    _clear_active_guess(ctx)
     answers[str(question_id)] = answer_value
     ctx.session['answers'] = answers
-    if question_id not in asked:
-        asked.append(question_id)
 
     idk_streak = ctx.session.get('idk_streak', 0)
     idk_streak = idk_streak + 1 if answer_value == 0 else 0
@@ -250,6 +296,12 @@ def teach(ctx):
     fetish_idx = ctx.engine.index_of(fetish_db_id)
     if fetish_idx is None:
         return ctx.jsonify({'status': 'error', 'message': '存在しない fetish_id です'}), 400
+    active_guess_error = _require_active_guess(ctx)
+    if active_guess_error:
+        return active_guess_error
+    main_id, compound_ids = _active_guess_ids(ctx)
+    if fetish_db_id not in ({main_id} | compound_ids):
+        return ctx.jsonify({'status': 'error', 'message': '現在の診断結果と一致しません'}), 409
     answers = ctx.session.get('answers', {})
     try:
         total_n = max(1, int(data.get('total_n', 1)))
@@ -277,6 +329,12 @@ def confirm(ctx):
     fetish_idx = ctx.engine.index_of(fetish_db_id)
     if fetish_idx is None:
         return ctx.jsonify({'status': 'error', 'message': '存在しない fetish_id です'}), 400
+    active_guess_error = _require_active_guess(ctx)
+    if active_guess_error:
+        return active_guess_error
+    guess_payload_error = _validate_guess_payload(ctx, fetish_db_id, data.get('compound_ids', []))
+    if guess_payload_error:
+        return guess_payload_error
     answers = ctx.session.get('answers', {})
     learning_disabled = ctx.learning_disabled()
     defer_learning = bool(data.get('defer_learning'))
@@ -367,6 +425,9 @@ def add_fetish(ctx):
         return ctx.jsonify({'status': 'error', 'message': '名前は100文字以内で入力してください'}), 400
     if len(desc) > 500:
         return ctx.jsonify({'status': 'error', 'message': '説明は500文字以内で入力してください'}), 400
+    active_guess_error = _require_active_guess(ctx)
+    if active_guess_error:
+        return active_guess_error
     existing = next((fetish for fetish in ctx.engine.fetishes if fetish['name'] == name), None)
     if existing:
         return ctx.jsonify({
@@ -402,6 +463,9 @@ def finalize_added(ctx):
     items = data.get('items', [])
     if not isinstance(items, list):
         return ctx.jsonify({'status': 'error', 'message': 'items はリストで指定してください'}), 400
+    active_guess_error = _require_active_guess(ctx)
+    if active_guess_error:
+        return active_guess_error
     if ctx.learning_disabled():
         ctx.session.pop('wrong_db_ids', None)
         ctx.session.pop('candidate_db_ids', None)

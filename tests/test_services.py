@@ -61,6 +61,30 @@ class TestServices(unittest.TestCase):
         self.assertEqual(event['channel'], 'button')
         self.assertTrue(event['success'])
 
+    def test_share_events_blanks_sensitive_result_names(self):
+        event = share_events.build_event(
+            'result_page_view',
+            result_name='alice@example.com',
+            channel='result_page',
+            success=True,
+        )
+        self.assertEqual(event['result_name'], '')
+        token_event = share_events.build_event(
+            'ogp_png_view',
+            result_name='secret-token-123456789012345678901234567890',
+            channel='ogp',
+            success=True,
+        )
+        self.assertEqual(token_event['result_name'], '')
+
+    def test_share_events_read_events_keeps_only_tail_without_full_limit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'events.jsonl')
+            for idx in range(8):
+                share_events.record_event('result_page_view', result_name=f'R{idx}', channel='result_page', success=True, path=path)
+            events = share_events.read_events(path=path, limit=3)
+        self.assertEqual([event['result_name'] for event in events], ['R5', 'R6', 'R7'])
+
     def test_share_events_report_counts_event_channel_and_success(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'events.jsonl')

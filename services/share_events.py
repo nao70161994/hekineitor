@@ -2,7 +2,9 @@ import csv
 import io
 import json
 import os
+import re
 import threading
+from collections import deque
 from datetime import datetime, timezone
 
 from storage import data_path
@@ -20,6 +22,8 @@ _ALLOWED_EVENTS = {
 }
 _ALLOWED_CHANNELS = {'button', 'web_share', 'clipboard', 'x', 'result_page', 'ogp'}
 _LOCK = threading.Lock()
+_MAX_LOG_BYTES = 5 * 1024 * 1024
+_SENSITIVE_RESULT_RE = re.compile(r'(@|https?://|postgres(?:ql)?://|\b(?:token|secret|passwd|password|api[_-]?key)\b|(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{32,})', re.IGNORECASE)
 
 
 def event_log_path(environ=None):
@@ -29,6 +33,13 @@ def event_log_path(environ=None):
 
 def _clean_text(value, max_len=80):
     return str(value or '').strip()[:max_len]
+
+
+def _clean_result_name(value, max_len=80):
+    text = _clean_text(value, max_len)
+    if _SENSITIVE_RESULT_RE.search(text):
+        return ''
+    return text
 
 
 def _clean_bool(value):
@@ -48,10 +59,25 @@ def build_event(event_name, *, result_name='', channel='', success=None, now_fn=
     return {
         'timestamp': now.astimezone(timezone.utc).isoformat(timespec='seconds'),
         'event_name': event_name,
-        'result_name': _clean_text(result_name, 80),
+        'result_name': _clean_result_name(result_name, 80),
         'channel': channel,
         'success': _clean_bool(success),
     }
+
+
+def _rotate_if_needed(target, max_bytes=_MAX_LOG_BYTES):
+    try:
+        if os.path.getsize(target) <= max_bytes:
+            return
+    except OSError:
+        return
+    rotated = target + '.1'
+    try:
+        if os.path.exists(rotated):
+            os.remove(rotated)
+        os.replace(target, rotated)
+    except OSError:
+        pass
 
 
 def record_event(event_name, *, result_name='', channel='', success=None, path=None, environ=None, now_fn=None):
@@ -60,6 +86,7 @@ def record_event(event_name, *, result_name='', channel='', success=None, path=N
     os.makedirs(os.path.dirname(os.path.abspath(target)), exist_ok=True)
     line = json.dumps(event, ensure_ascii=False, separators=(',', ':')) + '\n'
     with _LOCK:
+        _rotate_if_needed(target)
         with open(target, 'a', encoding='utf-8') as file_obj:
             file_obj.write(line)
     return event
@@ -75,8 +102,12 @@ def safe_record_event(*args, **kwargs):
 def read_events(path=None, environ=None, limit=500):
     target = path or event_log_path(environ)
     try:
+        max_lines = min(max(1, int(limit or 500)), 5000)
+    except (TypeError, ValueError):
+        max_lines = 500
+    try:
         with open(target, encoding='utf-8') as file_obj:
-            lines = file_obj.readlines()[-max(1, int(limit or 500)):]
+            lines = list(deque(file_obj, maxlen=max_lines))
     except OSError:
         return []
     events = []
@@ -223,7 +254,7 @@ def _finalize_result_row(row):
 def result_ranking(events, limit=20):
     ranking = {}
     for event in events:
-        result_name = _clean_text(event.get('result_name'), 80)
+        result_name = _clean_result_name(event.get('result_name'), 80)
         if not result_name:
             continue
         row = ranking.setdefault(result_name, _empty_result_row(result_name))

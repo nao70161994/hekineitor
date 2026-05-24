@@ -177,10 +177,14 @@ class Engine:
         )
 
     def _save_async(self, all_updates, idx_to_db_id):
-        """バックグラウンドスレッドで matrix 保存を行う（レスポンスをブロックしない）。"""
+        """Persist matrix updates before reporting learning success.
+
+        The public method name is kept for compatibility with older tests and
+        wrappers, but DB writes are synchronous so a successful API response does
+        not race with worker shutdown or stale reloads.
+        """
         if _use_db():
-            t = threading.Thread(target=self._save_to_db, args=(all_updates, idx_to_db_id), daemon=True)
-            t.start()
+            self._save_to_db(all_updates, idx_to_db_id)
         else:
             self._save_matrix_file()
 
@@ -619,6 +623,7 @@ class Engine:
 
             if not _use_db():
                 self._save_fetishes_file()
+                self._save_matrix_file()
 
         return array_idx, db_id
 

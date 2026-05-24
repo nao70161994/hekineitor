@@ -87,11 +87,20 @@ class TestE2ESmoke(unittest.TestCase):
         start = self.client.post('/api/start')
         self.assertEqual(start.status_code, 200)
         qid = start.get_json()['question_id']
-        answer = self.client.post('/api/answer', json={'question_id': qid, 'answer': 1})
-        self.assertEqual(answer.status_code, 200)
+        guess = None
+        for _ in range(35):
+            answer = self.client.post('/api/answer', json={'question_id': qid, 'answer': 1})
+            self.assertEqual(answer.status_code, 200)
+            data = answer.get_json()
+            if data.get('action') == 'guess':
+                guess = data
+                break
+            qid = data['question_id']
+        self.assertIsNotNone(guess)
         feedback = self.client.post('/api/confirm', json={
             'correct': False,
-            'fetish_id': app_engine.fetishes[0]['id'],
+            'fetish_id': guess['fetish_id'],
+            'compound_ids': [c['fetish_id'] for c in guess.get('compound', [])],
             'add_only': True,
         })
         self.assertEqual(feedback.status_code, 200)

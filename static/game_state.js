@@ -3,6 +3,7 @@ window.gameState = window.gameState || {
   guessData: null,
   excludedIds: [],
   lastFetishName: '',
+  confirmedIds: [],
 };
 
 window.HekiState = (() => {
@@ -35,13 +36,20 @@ window.HekiState = (() => {
     return state.guessData;
   }
 
+  function setConfirmedIds(ids) {
+    state.confirmedIds = Array.isArray(ids) ? ids.filter(id => id != null) : [];
+    window._confirmedIds = state.confirmedIds;
+    return state.confirmedIds;
+  }
+
   function setLastFetishName(value) {
     state.lastFetishName = value || '';
     window.lastFetishName = state.lastFetishName;
     return state.lastFetishName;
   }
 
-  return {setFetching, setExcludedIds, getExcludedIds, resetExcludedIds, setGuessData, setLastFetishName};
+  return {setFetching, setExcludedIds, getExcludedIds, resetExcludedIds, setGuessData, setConfirmedIds, setLastFetishName};
 })();
 
 window.setLastFetishName = value => window.HekiState.setLastFetishName(value);
+window.setConfirmedIds = ids => window.HekiState.setConfirmedIds(ids);

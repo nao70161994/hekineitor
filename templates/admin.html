@@ -15,9 +15,9 @@
   <strong>{% if test_play_active %}学習OFFテストプレイ中{% else %}通常モード{% endif %}</strong>
   <span>{% if test_play_active %}このセッションの診断は学習に反映されません。{% else %}通常プレイは従来通り学習ONです。{% endif %}</span>
   {% if test_play_active %}
-  <a href="/admin/test_play/stop" rel="nofollow" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">テストプレイ終了</a>
+  <button type="button" class="btn-action" data-action="test-play-stop" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">テストプレイ終了</button>
   {% else %}
-  <a href="/admin/test_play/start" rel="nofollow" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">🧪 学習OFFでテストプレイ開始</a>
+  <button type="button" class="btn-action" data-action="test-play-start" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">学習OFFでテストプレイ開始</button>
   {% endif %}
 </div>
 {% if test_play_audit_rows %}

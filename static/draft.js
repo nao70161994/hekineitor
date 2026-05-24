@@ -7,12 +7,20 @@ window.HekiDraft = (() => {
   }
 
   function saveDraft() {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({pairs: draftPairs, ts: Date.now()}));
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({pairs: draftPairs, ts: Date.now()}));
+    } catch {
+      // Draft persistence is optional; gameplay must continue when storage is unavailable.
+    }
   }
 
   function clearDraft() {
     draftPairs = [];
-    localStorage.removeItem(DRAFT_KEY);
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      // Ignore storage failures.
+    }
   }
 
   function checkDraft() {
@@ -22,7 +30,7 @@ window.HekiDraft = (() => {
       const draft = JSON.parse(raw);
       if (!draft.pairs || !draft.pairs.length) return;
       if (Date.now() - draft.ts > 3600 * 1000) {
-        localStorage.removeItem(DRAFT_KEY);
+        try { localStorage.removeItem(DRAFT_KEY); } catch {}
         return;
       }
       draftPairs = draft.pairs;

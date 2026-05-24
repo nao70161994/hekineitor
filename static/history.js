@@ -10,7 +10,11 @@ window.HekiHistory = (() => {
   }
 
   function save(items) {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(items));
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(items));
+    } catch {
+      // History is optional; never block result rendering on storage failures.
+    }
   }
 
   function saveHistory(name, probability, fetishId) {

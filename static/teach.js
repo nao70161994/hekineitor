@@ -56,6 +56,8 @@ window.HekiTeach = (() => {
       const allNames = [...correctNames, ...wrongNames];
       window._addedItems = [];
       if (window.setLastFetishName) window.setLastFetishName(allNames.join(' × '));
+      if (window.setDiagnosedName) window.setDiagnosedName(allNames.join(' × '));
+      if (window.setConfirmedIds) window.setConfirmedIds([...selected.keys(), ...(window._teachCorrectIds || [])]);
       const msg = testPlayMessage(teachData, allNames.length > 0
         ? `✓「${allNames.join('」「')}」として学習しました！`
         : '✓ 学習しました！ありがとうございます。');
@@ -195,10 +197,6 @@ window.HekiTeach = (() => {
   async function addFetishDone() {
     if (window.gameState?.fetching) return;
     const items = window._addedItems || [];
-    window._addedItems = [];
-    document.getElementById('add-step-more').style.display = 'none';
-    document.getElementById('add-step1').style.display = '';
-    document.getElementById('add-skip-btn').style.display = '';
     if (items.length > 0) {
       setFetching(true);
       try {
@@ -209,8 +207,14 @@ window.HekiTeach = (() => {
         setFetching(false);
       }
     }
+    window._addedItems = [];
+    document.getElementById('add-step-more').style.display = 'none';
+    document.getElementById('add-step1').style.display = '';
+    document.getElementById('add-skip-btn').style.display = '';
     const names = items.map(item => item.name);
     if (window.setLastFetishName) window.setLastFetishName(names.join(' × '));
+    if (window.setDiagnosedName) window.setDiagnosedName(names.join(' × '));
+    if (window.setConfirmedIds) window.setConfirmedIds(items.map(item => item.id));
     document.getElementById('done-msg').textContent = testPlayMessage(finalizeData, `✓「${names.join('」「')}」を学習しました！`);
     show('done-screen');
   }

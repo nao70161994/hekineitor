@@ -70,6 +70,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             p.start()
         self.client = app.test_client()
         self.client.post('/api/start')
+        self._set_active_guess(0, [1, 10, 23])
 
     def tearDown(self):
         for p in reversed(self._patches):
@@ -77,7 +78,14 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
 
     def _start(self):
         res = self.client.post('/api/start')
+        self._set_active_guess(0, [1, 10, 23])
         return res.get_json()
+
+    def _set_active_guess(self, fetish_id=0, compound_ids=None):
+        with self.client.session_transaction() as sess:
+            sess['started'] = True
+            sess['last_guess_fetish_id'] = fetish_id
+            sess['last_guess_compound_ids'] = list(compound_ids or [])
 
     def _force_guess(self):
         """上限まで yes と答えて強制診断を得る"""
@@ -267,7 +275,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(plain.status_code, 200)
         self.assertNotIn('テストプレイ中', plain.data.decode('utf-8'))
 
-        res = self.client.get('/admin/test_play/start', headers=headers, follow_redirects=False)
+        res = self.client.post('/admin/test_play/start', headers=headers, follow_redirects=False)
         self.assertEqual(res.status_code, 302)
         self.assertEqual(res.headers.get('Location'), '/')
         banner = self.client.get('/')
@@ -277,9 +285,9 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             self.assertTrue(test_play_service.is_learning_disabled(sess))
 
     def test_test_play_route_requires_admin(self):
-        res = self.client.get('/admin/test_play/start')
+        res = self.client.post('/admin/test_play/start')
         self.assertEqual(res.status_code, 401)
-        stop = self.client.get('/admin/test_play/stop')
+        stop = self.client.post('/admin/test_play/stop')
         self.assertEqual(stop.status_code, 401)
         with self.client.session_transaction() as sess:
             self.assertFalse(test_play_service.is_learning_disabled(sess))
@@ -288,18 +296,18 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         headers = self._admin_headers()
         normal_admin = self.client.get('/admin', headers=headers)
         self.assertIn('通常モード', normal_admin.data.decode('utf-8'))
-        self.assertIn('/admin/test_play/start', normal_admin.data.decode('utf-8'))
+        self.assertIn('data-action="test-play-start"', normal_admin.data.decode('utf-8'))
 
-        self.client.get('/admin/test_play/start', headers=headers)
+        self.client.post('/admin/test_play/start', headers=headers)
         active_admin = self.client.get('/admin', headers=headers)
         active_body = active_admin.data.decode('utf-8')
         self.assertIn('学習OFFテストプレイ中', active_body)
-        self.assertIn('/admin/test_play/stop', active_body)
+        self.assertIn('data-action="test-play-stop"', active_body)
         self.assertIn('テストプレイ開始/終了履歴', active_body)
         self.assertIn('test_play_start', active_body)
         self.assertIn('学習OFFテストプレイ中へ変更', active_body)
 
-        res = self.client.get('/admin/test_play/stop', headers=headers, follow_redirects=False)
+        res = self.client.post('/admin/test_play/stop', headers=headers, follow_redirects=False)
         self.assertEqual(res.status_code, 302)
         self.assertEqual(res.headers.get('Location'), '/admin')
         with self.client.session_transaction() as sess:
@@ -380,6 +388,8 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             sess['candidate_db_ids'] = [f0_id]
             sess['near_miss_db_ids'] = []
             sess['candidate_negative_factor'] = 0.3
+            sess['last_guess_fetish_id'] = f0_id
+            sess['last_guess_compound_ids'] = []
         res = self.client.post('/api/finalize_added', json={'items': [{'id': f0_id, 'is_new': False}]})
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.get_json()['status'], 'done')
@@ -407,7 +417,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
 
     def test_test_play_keeps_inference_and_result_flow_working(self):
         headers = self._admin_headers()
-        self.client.get('/admin/test_play/start', headers=headers)
+        self.client.post('/admin/test_play/start', headers=headers)
         data = self._force_guess()
         self.assertEqual(data.get('action'), 'guess')
         self.assertIn('fetish_name', data)
@@ -619,6 +629,26 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         res = fresh.post('/api/back')
         self.assertEqual(res.status_code, 440)
 
+    def test_learning_endpoints_without_start_return_440(self):
+        fresh = app.test_client()
+        cases = [
+            ('/api/confirm', {'correct': True, 'fetish_id': 0}),
+            ('/api/teach', {'fetish_id': 0}),
+            ('/api/add_fetish', {'name': '未開始テスト', 'confirmed': True}),
+            ('/api/finalize_added', {'items': []}),
+        ]
+        for url, payload in cases:
+            with self.subTest(url=url):
+                res = fresh.post(url, json=payload)
+                self.assertEqual(res.status_code, 440)
+
+    def test_answer_rejects_non_current_question_id(self):
+        start = self._start()
+        current = start['question_id']
+        other = 0 if current != 0 else 1
+        res = self.client.post('/api/answer', json={'question_id': other, 'answer': 1.0})
+        self.assertEqual(res.status_code, 409)
+
     # ── question disable ──────────────────────────────────
     def test_disabled_question_not_asked(self):
         """無効化した質問が asked リストに含まれないこと。"""
@@ -655,12 +685,17 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
 
     def test_log_correct_increments(self):
         from app import engine as app_engine
-        self._force_guess()
+        data = self._force_guess()
+        fid = data['fetish_id']
         log_before = app_engine.get_fetish_log()
-        self.client.post('/api/confirm', json={'correct': True, 'fetish_id': 0})
+        self.client.post('/api/confirm', json={
+            'correct': True,
+            'fetish_id': fid,
+            'compound_ids': [c['fetish_id'] for c in data.get('compound', [])],
+        })
         log_after = app_engine.get_fetish_log()
-        before = log_before.get(0, {}).get('correct', 0)
-        after  = log_after.get(0, {}).get('correct', 0)
+        before = log_before.get(fid, {}).get('correct', 0)
+        after  = log_after.get(fid, {}).get('correct', 0)
         self.assertGreater(after, before)
 
     def test_fetish_log_uses_configured_temp_path(self):
@@ -685,6 +720,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         f1_id = app_engine.fetishes[1]['id']
         before0 = sum(app_engine.matrix['total'][0])
         before1 = sum(app_engine.matrix['total'][1])
+        self._set_active_guess(0)
         res = self.client.post('/api/finalize_added', json={
             'items': [{'id': f0_id, 'is_new': False}, {'id': f1_id, 'is_new': False}]
         })
@@ -2037,8 +2073,8 @@ class TestCompoundWorks(FileSnapshotMixin, unittest.TestCase):
         client = app.test_client()
         res = client.post('/api/start')
         q_id = res.get_json()['question_id']
-        # 20問答えて強制終了させる
-        for _ in range(20):
+        # 上限まで答えて強制終了させる
+        for _ in range(35):
             r = client.post('/api/answer', json={'question_id': q_id, 'answer': 1})
             d = r.get_json()
             if d.get('action') == 'guess':

@@ -22,7 +22,7 @@ def write_audit(action, status='ok', detail=None, request=None):
     if request is not None:
         row['method'] = request.method
         row['path'] = request.path
-        row['remote_addr'] = request.headers.get('X-Forwarded-For', request.remote_addr)
+        row['remote_addr'] = request.remote_addr
     name = _audit_file_name(now)
     rows = load_json_file(name, default=[])
     if not isinstance(rows, list):

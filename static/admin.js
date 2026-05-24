@@ -4,6 +4,18 @@ function escapeHtml(value) {
   }[ch]));
 }
 
+
+async function setTestPlayMode(action) {
+  const url = action === 'start' ? '/admin/test_play/start' : '/admin/test_play/stop';
+  const res = await adminFetch(url, {method: 'POST', body: JSON.stringify({})});
+  if (!res) return;
+  if (res.ok) {
+    window.location.href = action === 'start' ? '/' : '/admin';
+    return;
+  }
+  alert('テストプレイ状態の変更に失敗しました。ページを再読み込みしてください。');
+}
+
 async function loadRecentRanking(days) {
   const rank7 = document.getElementById('rank-btn-7');
   const rank30 = document.getElementById('rank-btn-30');
@@ -557,6 +569,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!el) return;
     const action = el.dataset.action;
     if (action === 'save-params') saveParams();
+    else if (action === 'test-play-start') setTestPlayMode('start');
+    else if (action === 'test-play-stop') setTestPlayMode('stop');
     else if (action === 'capture-priors') capturepriors();
     else if (action === 'admin-add-fetish') adminAddFetish();
     else if (action === 'cleanup-sessions') cleanupSessions();

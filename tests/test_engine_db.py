@@ -255,8 +255,9 @@ class TestEngineDbMutationAdapters(unittest.TestCase):
         )
 
         self.assertEqual(db_id, 10002)
-        self.assertIn('SELECT COALESCE(MAX(id), %s - 1) + 1', cursor.executed[0][0])
-        self.assertEqual(cursor.executed[1][1], (10002, 'Name', 'Desc', '[]'))
+        self.assertIn('SELECT pg_advisory_xact_lock', cursor.executed[0][0])
+        self.assertIn('SELECT COALESCE(MAX(id), %s - 1) + 1', cursor.executed[1][0])
+        self.assertEqual(cursor.executed[2][1], (10002, 'Name', 'Desc', '[]'))
         self.assertIn('INSERT INTO matrix', execute_values_calls[0][0])
         self.assertEqual(execute_values_calls[0][1], [(10002, 0, 2.0, 4.0), (10002, 1, 3.0, 5.0)])
         self.assertEqual(returned, [conn])

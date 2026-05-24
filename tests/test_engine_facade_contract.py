@@ -327,17 +327,14 @@ class TestEnginePersistenceFacadeContract(unittest.TestCase):
         save_matrix.assert_called_once_with()
         thread_cls.assert_not_called()
 
-    def test_save_async_starts_daemon_db_thread_with_snapshot_args(self):
-        with patch('engine._use_db', return_value=True), patch('engine.threading.Thread') as thread_cls:
-            thread = thread_cls.return_value
+    def test_save_async_persists_db_updates_synchronously(self):
+        with patch('engine._use_db', return_value=True), \
+                patch.object(self.engine, '_save_to_db', return_value=None) as save_to_db, \
+                patch('engine.threading.Thread') as thread_cls:
             self.engine._save_async({0: [(1, 1.0, 1.0)]}, {0: 10})
 
-        thread_cls.assert_called_once_with(
-            target=self.engine._save_to_db,
-            args=({0: [(1, 1.0, 1.0)]}, {0: 10}),
-            daemon=True,
-        )
-        thread.start.assert_called_once_with()
+        save_to_db.assert_called_once_with({0: [(1, 1.0, 1.0)]}, {0: 10})
+        thread_cls.assert_not_called()
 
     def test_reload_matrix_if_stale_keeps_timestamp_when_db_disabled(self):
         self.engine._matrix_last_loaded = 50.0

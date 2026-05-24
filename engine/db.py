@@ -299,6 +299,7 @@ def insert_fetish_with_matrix(name, desc, yes_row, total_row, *, get_conn, put_c
     try:
         with conn:
             cur = conn.cursor()
+            cur.execute('SELECT pg_advisory_xact_lock(%s)', (player_base_id,))
             cur.execute(
                 'SELECT COALESCE(MAX(id), %s - 1) + 1 FROM fetishes WHERE id >= %s',
                 (player_base_id, player_base_id),

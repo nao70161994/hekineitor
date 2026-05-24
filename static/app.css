@@ -301,7 +301,9 @@
   .confirm-item.state-maybe { border-color: #f39c12; background: #2a1e00; }
   .confirm-item.state-no    { border-color: #555;    background: #1a1a1a; }
   .confirm-item-name {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
     font-size: 0.9rem;
     color: #eee;
   }
@@ -312,6 +314,7 @@
   }
   .confirm-toggle {
     display: flex;
+    flex: 0 0 auto;
     gap: 4px;
   }
   .confirm-toggle button {
@@ -323,6 +326,12 @@
     font-size: 0.8rem;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
+  }
+
+  @media (max-width: 420px) {
+    .confirm-item { flex-wrap: wrap; }
+    .confirm-toggle { width: 100%; justify-content: space-between; }
+    .confirm-toggle button { flex: 1 1 0; min-height: 36px; }
   }
   .confirm-toggle button.active-yes {
     background: #27ae60;

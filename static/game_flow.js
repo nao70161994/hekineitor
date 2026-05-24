@@ -7,6 +7,7 @@ function startExcluding() {
   const excludeIds = window._excludedIds ? [...window._excludedIds] : [];
   if (window._guessedId != null) excludeIds.push(window._guessedId);
   (window._compoundIds || []).forEach(id => excludeIds.push(id));
+  (window._confirmedIds || []).forEach(id => excludeIds.push(id));
   if (window.HekiState) window.HekiState.setExcludedIds([...new Set(excludeIds)]);
   else {
     window._excludedIds = [...new Set(excludeIds)];
@@ -118,6 +119,8 @@ function showGuess(data) {
   setGenieState('reveal');
   window._guessedId = data.fetish_id;
   window._compoundIds = (data.compound || []).map(c => c.fetish_id);
+  if (window.setConfirmedIds) window.setConfirmedIds([]);
+  else window._confirmedIds = [];
   if (window.HekiState) window.HekiState.setGuessData(data);
   else {
     window._guessData = data;
@@ -153,6 +156,7 @@ async function quickRetry() {
     ...(window._excludedIds || []),
     window._guessedId,
     ...(window._compoundIds || []),
+    ...(window._confirmedIds || []),
   ].filter(id => id != null);
   if (window.HekiState) window.HekiState.setExcludedIds([...new Set(excludeIds)]);
   else {

@@ -674,12 +674,12 @@ def create_blueprint(ctx_factory, require_admin):
     def admin_page_route():
         return admin_page(ctx_factory())
 
-    @bp.route('/admin/test_play/start')
+    @bp.route('/admin/test_play/start', methods=['POST'])
     @require_admin
     def start_test_play_route():
         return start_test_play(ctx_factory())
 
-    @bp.route('/admin/test_play/stop')
+    @bp.route('/admin/test_play/stop', methods=['POST'])
     @require_admin
     def stop_test_play_route():
         return stop_test_play(ctx_factory())

@@ -38,13 +38,12 @@ self.addEventListener('fetch', e => {
     return;
   }
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(res => {
+    fetch(e.request).then(res => {
+      if (res.ok && !url.pathname.startsWith('/r')) {
         const clone = res.clone();
         caches.open(CACHE).then(c => c.put(e.request, clone));
-        return res;
-      }).catch(() => caches.match('/offline'));
-    })
+      }
+      return res;
+    }).catch(() => caches.match(e.request).then(cached => cached || caches.match('/offline')))
   );
 });

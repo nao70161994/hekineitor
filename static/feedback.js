@@ -117,76 +117,85 @@ window.HekiFeedback = (() => {
   }
 
   async function submitConfirm() {
+    if (window.gameState?.fetching) return;
     const items = document.querySelectorAll('#confirm-items .confirm-item');
     if (Array.from(items).some(item => !item.dataset.state)) {
       showToast('すべての項目に○△×を選んでください', '#c0392b');
       show('result-screen');
       return;
     }
-    const correctIds = [];
-    const maybeIds = [];
-    const wrongIds = [];
-    items.forEach(item => {
-      const id = parseInt(item.dataset.id);
-      if (item.dataset.state === 'yes') correctIds.push(id);
-      else if (item.dataset.state === 'maybe') maybeIds.push(id);
-      else if (item.dataset.state === 'no') wrongIds.push(id);
-    });
+    setFetching(true);
+    try {
+      const correctIds = [];
+      const maybeIds = [];
+      const wrongIds = [];
+      items.forEach(item => {
+        const id = parseInt(item.dataset.id, 10);
+        if (item.dataset.state === 'yes') correctIds.push(id);
+        else if (item.dataset.state === 'maybe') maybeIds.push(id);
+        else if (item.dataset.state === 'no') wrongIds.push(id);
+      });
 
-    if (correctIds.length > 0) {
-      for (const fid of correctIds) {
-        await apiFetch('/api/teach', {fetish_id: fid, total_n: correctIds.length});
+      if (correctIds.length > 0) {
+        for (const fid of correctIds) {
+          await apiFetch('/api/teach', {fetish_id: fid, total_n: correctIds.length});
+        }
       }
-    }
 
-    const hasWrong = wrongIds.length > 0 || maybeIds.length > 0;
-    if (!hasWrong) {
-      const names = correctIds.map(id => {
-        const el = document.getElementById(`ci-${id}`);
-        return el ? el.querySelector('.confirm-item-name').textContent : '';
-      }).filter(Boolean);
-      if (window.setLastFetishName) window.setLastFetishName(names.join(' × '));
-      const addData = await apiFetch('/api/confirm', {
+      const hasWrong = wrongIds.length > 0 || maybeIds.length > 0;
+      if (!hasWrong) {
+        const names = correctIds.map(id => {
+          const el = document.getElementById(`ci-${id}`);
+          return el ? el.querySelector('.confirm-item-name').textContent : '';
+        }).filter(Boolean);
+        const displayName = names.join(' × ');
+        if (window.setLastFetishName) window.setLastFetishName(displayName);
+        if (window.setDiagnosedName) window.setDiagnosedName(displayName);
+        if (window.setConfirmedIds) window.setConfirmedIds(correctIds);
+        const addData = await apiFetch('/api/confirm', {
+          correct: false,
+          fetish_id: window._guessedId,
+          compound_ids: window._compoundIds || [],
+          add_only: true,
+        });
+        if (!addData || !addData.fetishes) {
+          document.getElementById('done-msg').textContent = testPlayMessage(addData, `✓「${names.join('」「')}」として学習しました！`);
+          show('done-screen');
+          return;
+        }
+        window._teachSelected = new Map();
+        window._teachCorrectIds = correctIds;
+        window._addOnlyMode = 'add';
+        window._addOnlyDoneMsg = testPlayMessage(addData, `✓「${names.join('」「')}」として学習しました！`);
+        document.getElementById('teach-label').textContent = '他に該当する性癖があれば追加できます（任意）';
+        renderTeachCandidates(addData.fetishes);
+        show('teach-screen');
+        return;
+      }
+
+      const data = await apiFetch('/api/confirm', {
         correct: false,
         fetish_id: window._guessedId,
         compound_ids: window._compoundIds || [],
-        add_only: true,
+        maybe_ids: maybeIds,
+        wrong_ids: wrongIds,
       });
-      if (!addData || !addData.fetishes) {
-        document.getElementById('done-msg').textContent = testPlayMessage(addData, `✓「${names.join('」「')}」として学習しました！`);
-        show('done-screen');
-        return;
-      }
+      if (!data || !data.fetishes) return;
+
       window._teachSelected = new Map();
       window._teachCorrectIds = correctIds;
-      window._addOnlyMode = 'add';
-      window._addOnlyDoneMsg = testPlayMessage(addData, `✓「${names.join('」「')}」として学習しました！`);
-      document.getElementById('teach-label').textContent = '他に該当する性癖があれば追加できます（任意）';
-      renderTeachCandidates(addData.fetishes);
+      if (wrongIds.length === 0 && maybeIds.length > 0) {
+        window._addOnlyMode = 'maybe';
+        document.getElementById('teach-label').textContent = 'あなたの癖に近いものがあれば選べます（任意）';
+      } else {
+        window._addOnlyMode = false;
+        document.getElementById('teach-label').textContent = '正解の性癖を選んでください（複数選択可）';
+      }
+      renderTeachCandidates(data.fetishes);
       show('teach-screen');
-      return;
+    } finally {
+      setFetching(false);
     }
-
-    const data = await apiFetch('/api/confirm', {
-      correct: false,
-      fetish_id: window._guessedId,
-      compound_ids: window._compoundIds || [],
-      maybe_ids: maybeIds,
-      wrong_ids: wrongIds,
-    });
-    if (!data || !data.fetishes) return;
-
-    window._teachSelected = new Map();
-    window._teachCorrectIds = correctIds;
-    if (wrongIds.length === 0 && maybeIds.length > 0) {
-      window._addOnlyMode = 'maybe';
-      document.getElementById('teach-label').textContent = 'あなたの癖に近いものがあれば選べます（任意）';
-    } else {
-      window._addOnlyMode = false;
-      document.getElementById('teach-label').textContent = '正解の性癖を選んでください（複数選択可）';
-    }
-    renderTeachCandidates(data.fetishes);
-    show('teach-screen');
   }
 
   function renderTeachCandidates(fetishes) {
