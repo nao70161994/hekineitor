@@ -644,7 +644,7 @@ def create_share_link(ctx):
     if limited:
         return limited
     data = ctx.request.get_json(silent=True) or {}
-    name = str(data.get('name') or data.get('result_name') or data.get('f') or '')[:60]
+    name = str(data.get('name') or data.get('result_name') or data.get('fetish') or data.get('f') or '')[:60]
     probability = share.clean_probability(data.get('probability') or data.get('percent') or data.get('p') or '')
     desc = str(data.get('desc') or data.get('d') or '')[:120]
     if not name:

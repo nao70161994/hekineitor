@@ -1578,8 +1578,8 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             path = os.path.join(tmp, 'share_links.json')
             with patch.dict(os.environ, {'SHARE_LINKS_PATH': path}):
                 created = self.client.post('/api/share_link', json={
-                    'name': '感覚遮断落とし穴',
-                    'probability': '93',
+                    'fetish': '感覚遮断落とし穴',
+                    'percent': '93',
                     'desc': 'テスト説明',
                 })
                 self.assertEqual(created.status_code, 200)
