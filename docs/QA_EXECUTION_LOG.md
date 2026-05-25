@@ -133,5 +133,6 @@ Use a deployed public URL for OGP checks and real mobile browsers for touch/PWA 
 | Admin/export guards | `pytest tests/test_services.py tests/test_script_safety.py tests/test_app.py -q` | Passed | Local pytest | CSV formula escaping, config validation, health/preflight env fallback, audit redaction, restore workflow CSRF/artifact checks covered. |
 | Client smoke guards | `pytest tests/test_smoke.py tests/test_script_safety.py -q` | Passed | Local pytest | Draft/back sync markers, X share action, safer PWA SW install/update, and CI JS check markers covered. |
 | JS syntax | `for js in static/*.js; do node --check "$js"; done` | Passed | Local Node | Static JS syntax verified. |
+| DB stale reload | `pytest tests/test_engine_facade_contract.py tests/test_engine_inference_regression.py -q` | Passed | Local pytest | Fetish list refresh before DB matrix reload covered. |
 
 Manual mobile/OGP/PWA QA is still required on deployed devices/services because these fixes were validated with static/smoke tests only.

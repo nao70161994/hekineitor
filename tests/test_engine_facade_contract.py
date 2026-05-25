@@ -339,9 +339,12 @@ class TestEnginePersistenceFacadeContract(unittest.TestCase):
     def test_reload_matrix_if_stale_keeps_timestamp_when_db_disabled(self):
         self.engine._matrix_last_loaded = 50.0
         self.engine.matrix = {'yes': [[1.0]], 'total': [[2.0]]}
-        with patch('engine._use_db', return_value=False), patch.object(self.engine, '_load_from_db') as load_db:
+        with patch('engine._use_db', return_value=False), \
+                patch.object(self.engine, '_load_from_db') as load_db, \
+                patch.object(self.engine, '_load_fetishes_from_db') as load_fetishes:
             self.engine._reload_matrix_if_stale()
         load_db.assert_not_called()
+        load_fetishes.assert_not_called()
         self.assertEqual(self.engine._matrix_last_loaded, 50.0)
         self.assertEqual(self.engine.matrix, {'yes': [[1.0]], 'total': [[2.0]]})
 
@@ -350,9 +353,11 @@ class TestEnginePersistenceFacadeContract(unittest.TestCase):
         fresh = {'yes': [[3.0]], 'total': [[4.0]]}
         with patch('engine._use_db', return_value=True), \
                 patch('engine.time.monotonic', side_effect=[20.0, 20.0, 21.0]), \
+                patch.object(self.engine, '_load_fetishes_from_db', return_value=self.engine.fetishes) as load_fetishes, \
                 patch.object(self.engine, '_load_from_db', return_value=fresh) as load_db:
             self.engine._reload_matrix_if_stale()
 
+        load_fetishes.assert_called_once_with()
         load_db.assert_called_once_with()
         self.assertIs(self.engine.matrix, fresh)
         self.assertEqual(self.engine._matrix_last_loaded, 21.0)
@@ -361,8 +366,25 @@ class TestEnginePersistenceFacadeContract(unittest.TestCase):
         self.engine._matrix_last_loaded = 18.0
         with patch('engine._use_db', return_value=True), \
                 patch('engine.time.monotonic', return_value=20.0), \
+                patch.object(self.engine, '_load_fetishes_from_db') as load_fetishes, \
                 patch.object(self.engine, '_load_from_db') as load_db:
             self.engine._reload_matrix_if_stale()
 
+        load_fetishes.assert_not_called()
         load_db.assert_not_called()
         self.assertEqual(self.engine._matrix_last_loaded, 18.0)
+
+    def test_reload_matrix_if_stale_refreshes_fetish_ids_before_matrix(self):
+        self.engine._matrix_last_loaded = 10.0
+        fresh_fetishes = [dict(self.engine.fetishes[0]), {'id': 9999, 'name': '追加', 'desc': '追加', 'works': []}]
+        fresh = {'yes': [[3.0], [4.0]], 'total': [[5.0], [6.0]]}
+        with patch('engine._use_db', return_value=True), \
+                patch('engine.time.monotonic', side_effect=[20.0, 20.0, 21.0]), \
+                patch.object(self.engine, '_load_fetishes_from_db', return_value=fresh_fetishes), \
+                patch.object(self.engine, '_load_from_db', return_value=fresh):
+            self.engine._reload_matrix_if_stale()
+
+        self.assertEqual([fetish['id'] for fetish in self.engine.fetishes], [fresh_fetishes[0]['id'], 9999])
+        self.assertIsNone(self.engine._disc_cache)
+        self.assertEqual(self.engine._dynamic_prior_time, 0.0)
+        self.assertIs(self.engine.matrix, fresh)

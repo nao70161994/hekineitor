@@ -148,6 +148,7 @@
 - Resume safety PR: client-resumed sessions are rate-limited and unverified resumed guesses do not write learning data until a fresh server-issued answer is submitted.
 - Admin operations guard PR: CSV exports, config updates, audit detail storage, health/preflight, and restore workflow CSRF handling have regression tests.
 - Client smoke guard PR: draft/back sync, PWA edge cases, X/native share CTA split, and JS syntax checks are locked by smoke/static tests.
+- DB worker sync PR: stale DB reload now refreshes fetishes before matrix data so cross-worker player additions do not disappear from inference state.
 
 
 ## Next PRs

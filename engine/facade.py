@@ -512,6 +512,11 @@ class Engine:
         with self._lock:
             if time.monotonic() - self._matrix_last_loaded < _MATRIX_RELOAD_INTERVAL:
                 return
+            fresh_fetishes = self._load_fetishes_from_db()
+            if [fetish['id'] for fetish in fresh_fetishes] != [fetish['id'] for fetish in self.fetishes]:
+                self.fetishes = fresh_fetishes
+                self._disc_cache = None
+                self._dynamic_prior_time = 0.0
             self.matrix = self._load_from_db()
             self._matrix_last_loaded = time.monotonic()
 

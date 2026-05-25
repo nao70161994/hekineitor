@@ -104,6 +104,7 @@
 - Result statistics now log compound candidates as guessed and public fetish detail accuracy uses feedback accuracy instead of guessed-count denominator.
 - Admin/export operations now sanitize CSV cells, reject non-finite/out-of-range config values, redact sensitive audit details, harden health/preflight env parsing, and fetch CSRF before matrix restore.
 - Client smoke fixes keep draft state in sync on back navigation, separate X share clicks from native share CTA tracking, harden PWA install/update edge cases, and gate JS syntax in `scripts/check.sh` when Node is available.
+- DB-backed multi-worker reload now refreshes fetish IDs before matrix rows so player-added fetishes from another worker are visible on stale-state refresh.
 
 ## Still Open
 
