@@ -100,6 +100,11 @@
 - Share analytics module boundaries are documented; write-oriented improvement notes stay separate from read-oriented event aggregation.
 - Admin-only test play mode now disables learning writes through a server-side session flag while keeping inference/share flows active. It also exposes admin start/stop controls, current-mode status, learning-off completion copy, and non-PII start/stop audit history in admin.
 
+- Release hardening pass tightened feedback learning writes: duplicate result feedback is rejected, correction finalization only accepts active/candidate/newly-added IDs, and unverified client-resumed guesses skip learning writes until the user answers a server-issued question.
+- Result statistics now log compound candidates as guessed and public fetish detail accuracy uses feedback accuracy instead of guessed-count denominator.
+- Admin/export operations now sanitize CSV cells, reject non-finite/out-of-range config values, redact sensitive audit details, harden health/preflight env parsing, and fetch CSRF before matrix restore.
+- Client smoke fixes keep draft state in sync on back navigation, separate X share clicks from native share CTA tracking, harden PWA install/update edge cases, and gate JS syntax in `scripts/check.sh` when Node is available.
+
 ## Still Open
 
 - Keep remaining `app.py` factories as explicit composition-root adapters; only extract when ownership is clearer than Flask wiring.

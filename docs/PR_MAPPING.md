@@ -140,6 +140,16 @@
 - Share analytics module boundary decision documented.
 - Admin-only learning-off test play mode added and operationalized with stop/status/copy/audit controls.
 
+
+## Release Hardening Addendum - 2026-05-25
+
+- Feedback learning guard PR: confirm/teach/finalize paths are idempotent enough to prevent duplicate learning from repeated result submissions.
+- Correction candidate guard PR: `finalize_added` now limits item count and only accepts active result, displayed candidates, near-miss IDs, or session-owned newly added IDs.
+- Resume safety PR: client-resumed sessions are rate-limited and unverified resumed guesses do not write learning data until a fresh server-issued answer is submitted.
+- Admin operations guard PR: CSV exports, config updates, audit detail storage, health/preflight, and restore workflow CSRF handling have regression tests.
+- Client smoke guard PR: draft/back sync, PWA edge cases, X/native share CTA split, and JS syntax checks are locked by smoke/static tests.
+
+
 ## Next PRs
 
 1. Keep `app.py` as composition root; avoid further extraction unless a dependency group has clear ownership outside Flask wiring.

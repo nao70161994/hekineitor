@@ -124,3 +124,14 @@ Use a deployed public URL for OGP checks and real mobile browsers for touch/PWA 
 2. Open iOS Safari and confirm add-to-home-screen guidance or acceptable fallback.
 3. Install the PWA or use an existing install, then deploy a service worker version change.
 4. Confirm update prompt/reload behavior does not trap the user on a stale screen.
+
+## Automated QA Run - 2026-05-25 Release Hardening
+
+| Area | Command / Check | Status | Environment | Notes |
+| --- | --- | --- | --- | --- |
+| Feedback learning guards | `pytest tests/test_app.py -q` | Passed | Local pytest | Duplicate confirm/wrong, finalize ID limits, unverified resume learning skip, compound guessed logging, and public accuracy denominator covered. |
+| Admin/export guards | `pytest tests/test_services.py tests/test_script_safety.py tests/test_app.py -q` | Passed | Local pytest | CSV formula escaping, config validation, health/preflight env fallback, audit redaction, restore workflow CSRF/artifact checks covered. |
+| Client smoke guards | `pytest tests/test_smoke.py tests/test_script_safety.py -q` | Passed | Local pytest | Draft/back sync markers, X share action, safer PWA SW install/update, and CI JS check markers covered. |
+| JS syntax | `for js in static/*.js; do node --check "$js"; done` | Passed | Local Node | Static JS syntax verified. |
+
+Manual mobile/OGP/PWA QA is still required on deployed devices/services because these fixes were validated with static/smoke tests only.
