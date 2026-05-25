@@ -1529,7 +1529,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('82', body)
         self.assertIn('称号「濃厚反応タイプ」', body)
         self.assertIn('AI一致率82%', body)
-        self.assertIn('友達にも踏ませる', body)
+        self.assertIn('友達にも試してもらう', body)
         self.assertIn('og:url', body)
         self.assertIn('SR級診断: NTR', body)
         self.assertIn('/ogp.png?f=NTR&amp;p=82', body)

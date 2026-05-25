@@ -156,7 +156,7 @@ def _ogp_texts(name, prob, cjk_supported=True):
             'name': name or '???',
             'prob': f'AI一致率 {prob}%' if prob else '',
             'title': f'{_share.result_rarity(prob)} / {_share.result_title(prob)}' if prob else '',
-            'side': '友達にも踏ませる？',
+            'side': '友達にも試してもらう？',
             'tagline': 'AIが性癖プロファイルを推定',
         }
     return {
@@ -310,7 +310,7 @@ def render_svg(name, prob):
   <rect x="130" y="490" width="440" height="12" rx="6" fill="#1a1a3e"/>
   <rect x="130" y="490" width="{bar_w}" height="12" rx="6" fill="url(#bar)"/>
   <rect x="680" y="60" width="460" height="510" rx="20" fill="#0a0f1e" fill-opacity="0.6"/>
-  <text x="910" y="160" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#555">友達にも踏ませる？</text>
+  <text x="910" y="160" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#555">友達にも試してもらう？</text>
   <text x="910" y="320" text-anchor="middle" font-family="sans-serif" font-size="80" fill="#e94560" opacity="0.15">?</text>
   <text x="910" y="440" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#444">hekineitor.onrender.com</text>
   <text x="910" y="480" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#333">AIが性癖プロファイルを推定</text>
