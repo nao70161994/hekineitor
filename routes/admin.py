@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from flask import Blueprint
 from services.works_links import collect_work_link_queue
 from services import share_events as share_events_service
+from services import ogp as ogp_service
 from services.csv_safety import csv_text
 
 
@@ -341,6 +342,8 @@ def preflight(ctx):
         len(backups) <= backup_keep,
         f'{len(backups)} import backups present / keep={backup_keep}',
     )
+    ogp_font = ogp_service.cjk_font_status()
+    add_check('ogp_cjk_font_available', ogp_font['available'], ogp_font['detail'])
     add_check('csrf_enabled', ctx.should_enforce_runtime_guard('csrf'), 'enabled for non-test runtime')
     add_check('rate_limit_enabled', ctx.should_enforce_runtime_guard('rate_limit'), 'enabled for non-test runtime')
     ok = all(check['ok'] for check in checks)
@@ -489,6 +492,38 @@ def edit_fetish(ctx, fetish_id):
     return ctx.jsonify({'status': 'ok', 'name': fetish['name'], 'desc': fetish['desc'], 'works': fetish.get('works', [])})
 
 
+def _missing_export_player_fetishes(ctx, exported_fetishes):
+    if not isinstance(exported_fetishes, list):
+        return []
+    current_ids = {fetish['id'] for fetish in ctx.engine.fetishes}
+    missing = []
+    for fetish in exported_fetishes:
+        if not isinstance(fetish, dict):
+            continue
+        try:
+            fetish_id = int(fetish.get('id'))
+        except (TypeError, ValueError):
+            continue
+        if fetish_id >= ctx.player_fetish_base_id and fetish_id not in current_ids:
+            missing.append({
+                'id': fetish_id,
+                'name': str(fetish.get('name') or '')[:80],
+            })
+    return missing[:50]
+
+
+def _missing_export_fetishes_error(ctx, data):
+    missing = _missing_export_player_fetishes(ctx, data.get('fetishes')) if isinstance(data, dict) else []
+    if not missing:
+        return None
+    return ctx.jsonify({
+        'status': 'error',
+        'message': 'export payload includes player-added fetishes that are missing locally. Restore those fetishes before matrix import.',
+        'missing_player_fetishes': missing,
+        'missing_player_fetish_count': len(missing),
+    }), 400
+
+
 def export_matrix(ctx):
     fetishes = ctx.engine.fetishes
     questions = ctx.engine.questions
@@ -529,6 +564,9 @@ def import_matrix(ctx):
     rows = data.get('matrix_rows', [])
     if not rows:
         return ctx.jsonify({'status': 'error', 'message': 'matrix_rows が空です'}), 400
+    missing_error = _missing_export_fetishes_error(ctx, data)
+    if missing_error:
+        return missing_error
     try:
         report = ctx.engine.validate_matrix_rows(rows)
         complete_error = ctx.matrix_import_completeness_error(report)
@@ -557,6 +595,7 @@ def import_matrix_dry_run(ctx):
     rows = data.get('matrix_rows', [])
     if not rows:
         return ctx.jsonify({'status': 'error', 'message': 'matrix_rows が空です'}), 400
+    missing = _missing_export_player_fetishes(ctx, data.get('fetishes'))
     try:
         report = ctx.engine.validate_matrix_rows(rows)
     except ValueError as exc:
@@ -568,7 +607,9 @@ def import_matrix_dry_run(ctx):
         'status': 'ok',
         **report,
         'expected_rows': expected_rows,
-        'complete': report['skipped_rows'] == 0 and report['valid_rows'] == expected_rows,
+        'complete': report['skipped_rows'] == 0 and report['valid_rows'] == expected_rows and not missing,
+        'missing_player_fetishes': missing,
+        'missing_player_fetish_count': len(missing),
     })
 
 
@@ -587,6 +628,9 @@ def restore_matrix_backup(ctx, name):
     rows = payload.get('matrix_rows', []) if isinstance(payload, dict) else []
     if not rows:
         return ctx.jsonify({'status': 'error', 'message': 'matrix_rows が見つかりません'}), 400
+    missing_error = _missing_export_fetishes_error(ctx, payload)
+    if missing_error:
+        return missing_error
     try:
         report = ctx.engine.validate_matrix_rows(rows)
         complete_error = ctx.matrix_import_completeness_error(report)

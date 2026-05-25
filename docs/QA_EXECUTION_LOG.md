@@ -136,3 +136,12 @@ Use a deployed public URL for OGP checks and real mobile browsers for touch/PWA 
 | DB stale reload | `pytest tests/test_engine_facade_contract.py tests/test_engine_inference_regression.py -q` | Passed | Local pytest | Fetish list refresh before DB matrix reload covered. |
 
 Manual mobile/OGP/PWA QA is still required on deployed devices/services because these fixes were validated with static/smoke tests only.
+
+## Automated QA Run - 2026-05-25 OGP/Restore Follow-up
+
+| Area | Command / Check | Status | Environment | Notes |
+| --- | --- | --- | --- | --- |
+| OGP font diagnostics | `pytest tests/test_app.py::TestAPI::test_preflight_includes_ogp_font_check tests/test_services.py::TestServices::test_ogp_cjk_font_status_shape_and_android_candidate -q` | Passed | Local pytest | Preflight exposes CJK font status and OGP candidate list includes additional CJK locations. |
+| Matrix restore missing fetish guard | `pytest tests/test_app.py::TestAPI::test_import_matrix_dry_run_reports_missing_player_fetishes -q` | Passed | Local pytest | Import/dry-run now reports exported player-added fetishes missing from current state. |
+
+Manual verification is still required after setting `OGP_FONT_PATH` on Render to confirm `/ogp.png?f=眼鏡&p=88` renders Japanese instead of ASCII fallback.

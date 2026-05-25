@@ -32,6 +32,13 @@ def _ogp_font_candidates():
         '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc',
         '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
         '/usr/share/fonts/truetype/noto/NotoSansJP-Regular.otf',
+        '/usr/share/fonts/opentype/ipafont-gothic/ipagp.ttf',
+        '/usr/share/fonts/truetype/fonts-japanese-gothic.ttf',
+        '/usr/share/fonts/truetype/vlgothic/VL-Gothic-Regular.ttf',
+        '/usr/local/share/fonts/NotoSansCJK-Regular.ttc',
+        '/system/fonts/NotoSansCJK-Regular.ttc',
+        'static/fonts/NotoSansCJK-Regular.ttc',
+        'data/fonts/NotoSansCJK-Regular.ttc',
         '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
         '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
     ):
@@ -107,6 +114,21 @@ def _font_supports_text(font, text):
     except Exception:
         return False
     return signatures[0] != signatures[1]
+
+
+def _font_source(font):
+    return getattr(font, 'path', '') or getattr(font, 'font', None) and getattr(font.font, 'family', '') or ''
+
+
+def cjk_font_status():
+    font = _load_ogp_font(32)
+    available = _font_supports_text(font, 'へきネイター眼鏡')
+    source = _font_source(font)
+    if available:
+        detail = f'CJK-capable font available: {source or "unknown source"}'
+    else:
+        detail = 'CJK-capable font not found; PNG OGP will use ASCII fallback unless OGP_FONT_PATH points to a Japanese font'
+    return {'available': available, 'source': source, 'detail': detail}
 
 
 def _ascii_name_fallback(name):

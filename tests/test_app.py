@@ -966,6 +966,39 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('backup_path', res.get_json())
         snapshot.assert_called_once()
 
+    def test_import_matrix_dry_run_reports_missing_player_fetishes(self):
+        headers = self._admin_headers()
+        from app import engine as app_engine
+        missing_id = max(f['id'] for f in app_engine.fetishes) + 1000
+        if missing_id < PLAYER_FETISH_BASE_ID:
+            missing_id = PLAYER_FETISH_BASE_ID + 1000
+        rows = self._full_matrix_rows()
+        for qi, question in enumerate(app_engine.questions):
+            rows.append({
+                'fetish_id': missing_id,
+                'fetish_name': '復元待ち',
+                'question_id': qi,
+                'question_text': question['text'],
+                'yes': 1,
+                'total': 2,
+            })
+        payload = {
+            'fetishes': app_engine.fetishes + [{'id': missing_id, 'name': '復元待ち', 'desc': '復元待ち', 'works': []}],
+            'matrix_rows': rows,
+        }
+        dry = self.client.post('/api/admin/import_matrix/dry_run', json=payload, headers=headers)
+        self.assertEqual(dry.status_code, 200)
+        dry_data = dry.get_json()
+        self.assertFalse(dry_data['complete'])
+        self.assertEqual(dry_data['missing_player_fetish_count'], 1)
+        self.assertEqual(dry_data['missing_player_fetishes'][0]['id'], missing_id)
+
+        payload['confirm_text'] = 'IMPORT'
+        res = self.client.post('/api/admin/import_matrix', json=payload, headers=headers)
+        self.assertEqual(res.status_code, 400)
+        data = res.get_json()
+        self.assertEqual(data['missing_player_fetish_count'], 1)
+
     def test_import_matrix_requires_confirmation_after_validation(self):
         headers = self._admin_headers()
         res = self.client.post('/api/admin/import_matrix',
@@ -1105,6 +1138,13 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(data['updated'], {})
         self.assertGreaterEqual(len(data['errors']), 2)
         self.assertEqual(app_engine.config.get('guess_threshold'), before)
+
+    def test_preflight_includes_ogp_font_check(self):
+        headers = self._admin_headers()
+        res = self.client.get('/api/admin/preflight', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        names = {row['name'] for row in res.get_json()['checks']}
+        self.assertIn('ogp_cjk_font_available', names)
 
     def test_audit_log_export_and_preflight(self):
         headers = self._admin_headers()

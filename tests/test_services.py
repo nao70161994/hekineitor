@@ -6,7 +6,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import audit
-from services import admin_context, admin_helpers, admin_security, bootstrap, context, csv_safety, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, share_notes, system_context, test_play
+from services import admin_context, admin_helpers, admin_security, bootstrap, context, csv_safety, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, ogp, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, share_notes, system_context, test_play
 
 
 class DummyRequest:
@@ -76,6 +76,13 @@ class TestServices(unittest.TestCase):
             'token': '[redacted]',
             'nested': {'password': '[redacted]'},
         })
+
+    def test_ogp_cjk_font_status_shape_and_android_candidate(self):
+        candidates = list(ogp._ogp_font_candidates())
+        self.assertIn('/system/fonts/NotoSansCJK-Regular.ttc', candidates)
+        status = ogp.cjk_font_status()
+        self.assertIn('available', status)
+        self.assertIn('detail', status)
 
     def test_csv_safety_prefixes_formula_values(self):
         self.assertEqual(csv_safety.safe_csv_cell('=cmd'), "'=cmd")

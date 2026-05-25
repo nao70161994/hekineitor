@@ -105,6 +105,8 @@
 - Admin/export operations now sanitize CSV cells, reject non-finite/out-of-range config values, redact sensitive audit details, harden health/preflight env parsing, and fetch CSRF before matrix restore.
 - Client smoke fixes keep draft state in sync on back navigation, separate X share clicks from native share CTA tracking, harden PWA install/update edge cases, and gate JS syntax in `scripts/check.sh` when Node is available.
 - DB-backed multi-worker reload now refreshes fetish IDs before matrix rows so player-added fetishes from another worker are visible on stale-state refresh.
+- Admin preflight now exposes `ogp_cjk_font_available`; OGP PNG searches more CJK font locations and documents `OGP_FONT_PATH` setup.
+- Matrix import/dry-run now detects exported player-added fetishes that are missing locally, preventing confusing partial restores before full fetish restore is implemented.
 
 ## Still Open
 
