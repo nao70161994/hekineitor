@@ -6,6 +6,10 @@ on:
       confirm:
         description: '「restore」と入力して実行確認'
         required: true
+      backup_run_id:
+        description: '復元する Matrix Backup workflow の run_id（空なら checkout 内の data/matrix_backup.json を使用）'
+        required: false
+        default: ''
 
 jobs:
   restore:
@@ -14,6 +18,15 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download backup artifact
+        if: ${{ github.event.inputs.backup_run_id != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: matrix-backup-${{ github.event.inputs.backup_run_id }}
+          run-id: ${{ github.event.inputs.backup_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: data
 
       - name: Check backup exists
         run: |
@@ -85,10 +98,25 @@ jobs:
           with open('/tmp/restore_payload.json', 'w', encoding='utf-8') as f:
               json.dump(payload, f, ensure_ascii=False)
           PY
+          curl -s -c /tmp/admin_cookies.txt \
+            -u "${{ secrets.ADMIN_USER }}:${{ secrets.ADMIN_PASS }}" \
+            "${{ secrets.APP_URL }}/admin" \
+            -o /tmp/admin.html
+          CSRF=$(python - <<'PY'
+          import re
+          html = open('/tmp/admin.html', encoding='utf-8').read()
+          match = re.search(r'csrfToken\s*[:=]\s*["\']([^"\']+)', html)
+          if not match:
+              raise SystemExit('CSRF token not found in /admin response')
+          print(match.group(1))
+          PY
+          )
           HTTP=$(curl -s -w "%{http_code}" -o /tmp/restore_result.json \
             -X POST \
+            -b /tmp/admin_cookies.txt \
             -u "${{ secrets.ADMIN_USER }}:${{ secrets.ADMIN_PASS }}" \
             -H "Content-Type: application/json" \
+            -H "X-CSRF-Token: $CSRF" \
             -d @/tmp/restore_payload.json \
             "${{ secrets.APP_URL }}/api/admin/import_matrix")
           echo "HTTP status: $HTTP"

@@ -8,6 +8,7 @@ from flask.sessions import SessionInterface, SessionMixin
 from werkzeug.datastructures import CallbackDict
 
 from engine import _get_conn, _put_conn, _use_db
+from services.app_meta import is_production_env
 
 
 SESSION_TTL = 86400
@@ -100,7 +101,11 @@ class ServerSessionInterface(SessionInterface):
         if not session.modified and not session.is_new:
             return
         session_save(session.sid, dict(session))
-        secure = bool(os.environ.get('DATABASE_URL'))
+        secure = (
+            os.environ.get('COOKIE_SECURE') == '1'
+            or bool(os.environ.get('DATABASE_URL'))
+            or is_production_env(os.environ)
+        )
         response.set_cookie(
             self._cookie, session.sid,
             httponly=True, secure=secure, samesite='Lax',

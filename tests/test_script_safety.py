@@ -224,6 +224,15 @@ class RestoreMatrixWorkflowTests(unittest.TestCase):
         self.assertIn('imported_rows mismatch', workflow)
         self.assertIn('Restore skipped rows', workflow)
 
+    def test_workflow_fetches_csrf_and_can_download_backup_artifact(self):
+        workflow = (ROOT / '.github' / 'workflows' / 'restore_matrix.yml').read_text(encoding='utf-8')
+
+        self.assertIn('backup_run_id', workflow)
+        self.assertIn('actions/download-artifact@v4', workflow)
+        self.assertIn('/tmp/admin_cookies.txt', workflow)
+        self.assertIn('X-CSRF-Token: $CSRF', workflow)
+        self.assertIn('CSRF token not found', workflow)
+
     def test_workflow_requires_backup_freshness_metadata(self):
         workflow = (ROOT / '.github' / 'workflows' / 'restore_matrix.yml').read_text(encoding='utf-8')
 

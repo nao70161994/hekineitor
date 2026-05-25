@@ -1,4 +1,14 @@
 from flask import Blueprint
+
+
+def _bounded_int_env(environ, name, default, min_value=0, max_value=1000000):
+    try:
+        value = int(environ.get(name, default))
+    except (TypeError, ValueError):
+        return default
+    return max(min_value, min(max_value, value))
+
+
 def health(ctx):
     db_ok = False
     matrix_rows = len(ctx.engine.matrix.get('yes', []))
@@ -31,12 +41,13 @@ def health(ctx):
     degraded_reasons = []
     if not matrix_ok:
         degraded_reasons.append('matrix_shape')
-    if ctx.error_counts['5xx'] >= int(ctx.environ.get('HEALTH_5XX_DEGRADED_THRESHOLD', '5')):
+    if ctx.error_counts['5xx'] >= _bounded_int_env(ctx.environ, 'HEALTH_5XX_DEGRADED_THRESHOLD', 5):
         degraded_reasons.append('5xx_threshold')
-    if error_total >= int(ctx.environ.get('HEALTH_ERROR_DEGRADED_THRESHOLD', '50')):
+    if error_total >= _bounded_int_env(ctx.environ, 'HEALTH_ERROR_DEGRADED_THRESHOLD', 50):
         degraded_reasons.append('error_threshold')
     if ctx.use_db() and not db_ok:
         degraded_reasons.append('db_unavailable')
+    status_code = 503 if degraded_reasons and ctx.environ.get('HEALTH_STRICT_STATUS') == '1' else 200
     return ctx.jsonify({
         'status': 'ok' if not degraded_reasons else 'degraded',
         'degraded_reasons': degraded_reasons,
@@ -56,7 +67,7 @@ def health(ctx):
             'matrix_saved_mtime': matrix_mtime,
             'audit_entries': len(ctx.recent_audit(500)),
         },
-    })
+    }), status_code
 
 
 def manifest(ctx):

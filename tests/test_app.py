@@ -851,6 +851,19 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertGreater(data['fetishes'], 0)
         self.assertGreater(data['questions'], 0)
 
+    def test_health_ignores_invalid_threshold_env(self):
+        old_threshold = os.environ.get('HEALTH_5XX_DEGRADED_THRESHOLD')
+        try:
+            os.environ['HEALTH_5XX_DEGRADED_THRESHOLD'] = 'bad'
+            res = self.client.get('/health')
+            self.assertEqual(res.status_code, 200)
+            self.assertIn('status', res.get_json())
+        finally:
+            if old_threshold is None:
+                os.environ.pop('HEALTH_5XX_DEGRADED_THRESHOLD', None)
+            else:
+                os.environ['HEALTH_5XX_DEGRADED_THRESHOLD'] = old_threshold
+
     def test_health_degrades_on_5xx_threshold(self):
         import app as app_module
         old_counts = dict(app_module._ERROR_COUNTS)
@@ -899,6 +912,20 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('text/csv', res.content_type)
         body = res.data.decode('utf-8')
         self.assertTrue(body.startswith('id,name,guessed,correct,wrong,feedback_total,feedback_accuracy,unfeedback,guess_confirm_rate'))
+
+    def test_export_log_escapes_formula_names(self):
+        headers = self._admin_headers()
+        from app import engine as app_engine
+        fid = app_engine.fetishes[0]['id']
+        original_name = app_engine.fetishes[0]['name']
+        try:
+            app_engine.fetishes[0]['name'] = '=cmd'
+            with patch.object(app_engine, 'get_fetish_log', return_value={fid: {'guessed': 1, 'correct': 1, 'wrong': 0}}):
+                res = self.client.get('/api/admin/export_log', headers=headers)
+            self.assertEqual(res.status_code, 200)
+            self.assertIn("'=cmd", res.data.decode('utf-8'))
+        finally:
+            app_engine.fetishes[0]['name'] = original_name
 
     def test_export_matrix_returns_json(self):
         headers = self._admin_headers()
@@ -1068,6 +1095,17 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             headers=headers)
         self.assertEqual(res.status_code, 400)
 
+    def test_admin_params_rejects_non_finite_and_out_of_range_values(self):
+        headers = self._admin_headers()
+        from app import engine as app_engine
+        before = app_engine.config.get('guess_threshold')
+        res = self.client.post('/api/admin/params', json={'guess_threshold': 'nan', 'compound_ratio': 2}, headers=headers)
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['updated'], {})
+        self.assertGreaterEqual(len(data['errors']), 2)
+        self.assertEqual(app_engine.config.get('guess_threshold'), before)
+
     def test_audit_log_export_and_preflight(self):
         headers = self._admin_headers()
         res = self.client.get('/api/admin/audit_log', headers=headers)
@@ -1077,9 +1115,17 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn('text/csv', res.content_type)
         self.assertTrue(res.data.decode('utf-8').startswith('ts,action,status'))
-        res = self.client.get('/api/admin/preflight', headers=headers)
-        self.assertEqual(res.status_code, 200)
-        self.assertIn('checks', res.get_json())
+        old_keep = os.environ.get('MATRIX_IMPORT_BACKUP_KEEP')
+        try:
+            os.environ['MATRIX_IMPORT_BACKUP_KEEP'] = 'bad'
+            res = self.client.get('/api/admin/preflight', headers=headers)
+            self.assertEqual(res.status_code, 200)
+            self.assertIn('checks', res.get_json())
+        finally:
+            if old_keep is None:
+                os.environ.pop('MATRIX_IMPORT_BACKUP_KEEP', None)
+            else:
+                os.environ['MATRIX_IMPORT_BACKUP_KEEP'] = old_keep
 
     def test_admin_fetish_log_rows_paginates(self):
         headers = self._admin_headers()

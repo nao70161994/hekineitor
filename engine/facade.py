@@ -1,3 +1,4 @@
+import math
 import os
 import threading
 import time
@@ -446,6 +447,13 @@ class Engine:
         'ucb_explore_c':   0.05,
         'focus_threshold': 0.40,
     }
+    _CONFIG_RANGES = {
+        'guess_threshold': (0.0, 1.0),
+        'compound_ratio': (0.0, 1.0),
+        'triple_ratio': (0.0, 1.0),
+        'ucb_explore_c': (0.0, 10.0),
+        'focus_threshold': (0.0, 1.0),
+    }
 
     def _load_config(self):
         return engine_db.load_config(
@@ -461,6 +469,11 @@ class Engine:
         if key not in self._CONFIG_DEFAULTS:
             raise ValueError(f'未知のパラメータ: {key}')
         fval = float(value)
+        if not math.isfinite(fval):
+            raise ValueError(f'不正なパラメータ値: {key}')
+        min_value, max_value = self._CONFIG_RANGES[key]
+        if fval < min_value or fval > max_value:
+            raise ValueError(f'{key} は {min_value}〜{max_value} の範囲で指定してください')
         self.config[key] = fval
         engine_db.save_config_value(
             key,

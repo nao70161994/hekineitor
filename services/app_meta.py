@@ -10,11 +10,16 @@ SECRET_KEY_SHORT_WARNING = 'SECRET_KEY が短すぎます（16文字以上推奨
 DEV_SECRET_KEY = 'hekineitor_dev_secret_2024'
 
 
+def is_production_env(environ):
+    app_env = str(environ.get('APP_ENV') or environ.get('FLASK_ENV') or '').lower()
+    return app_env in ('production', 'prod') or bool(environ.get('RENDER'))
+
+
 def secret_key(environ, stderr=None, warn_fn=None):
     secret = environ.get('SECRET_KEY')
     stderr = stderr or sys.stderr
     if not secret:
-        if environ.get('DATABASE_URL'):
+        if environ.get('DATABASE_URL') or is_production_env(environ):
             raise RuntimeError(SECRET_KEY_REQUIRED_MESSAGE)
         print(f'WARNING: {SECRET_KEY_MISSING_WARNING}', file=stderr)
         (warn_fn or warnings.warn)(SECRET_KEY_MISSING_WARNING, stacklevel=1)

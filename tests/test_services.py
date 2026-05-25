@@ -5,7 +5,8 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from services import admin_context, admin_helpers, admin_security, bootstrap, context, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, share_notes, system_context, test_play
+import audit
+from services import admin_context, admin_helpers, admin_security, bootstrap, context, csv_safety, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, share_notes, system_context, test_play
 
 
 class DummyRequest:
@@ -68,6 +69,23 @@ class TestServices(unittest.TestCase):
         self.assertEqual(by_id[2]['acc'], 75)
         self.assertEqual(by_id[2]['unfeedback'], 6)
         self.assertEqual(by_id[2]['guess_confirm_rate'], 30)
+
+    def test_audit_redacts_remote_addr_and_sensitive_detail(self):
+        self.assertEqual(audit._redact_remote_addr('203.0.113.42'), '203.0.113.0/24')
+        self.assertEqual(audit._sanitize_detail({'token': 'secret', 'nested': {'password': 'x'}}), {
+            'token': '[redacted]',
+            'nested': {'password': '[redacted]'},
+        })
+
+    def test_csv_safety_prefixes_formula_values(self):
+        self.assertEqual(csv_safety.safe_csv_cell('=cmd'), "'=cmd")
+        self.assertEqual(csv_safety.safe_csv_cell(' +SUM(A1)'), "' +SUM(A1)")
+        self.assertEqual(csv_safety.safe_csv_cell('plain'), 'plain')
+
+    def test_share_events_csv_escapes_formula_result_names(self):
+        report = {'ranking': [{'result_name': '=HYPERLINK("x")', 'total': 1}], 'filters': {}}
+        body = share_events.ranking_csv(report)
+        self.assertIn("'=HYPERLINK", body)
 
     def test_share_events_builds_minimal_sanitized_event(self):
         now = type('Now', (), {'astimezone': lambda self, tz: self, 'isoformat': lambda self, timespec='seconds': '2026-05-23T00:00:00+00:00'})()
@@ -284,6 +302,11 @@ class TestServices(unittest.TestCase):
         self.assertEqual(config.soft_max_questions, 20)
         self.assertEqual(config.hard_max_questions, 30)
         self.assertEqual(config.max_questions, 20)
+
+    def test_secret_key_requires_value_in_production_env(self):
+        with open(os.devnull, 'w') as stderr:
+            with self.assertRaises(RuntimeError):
+                app_meta.secret_key({'APP_ENV': 'production'}, stderr=stderr)
 
     def test_secret_key_requires_value_with_database_url(self):
         with open(os.devnull, 'w') as stderr:

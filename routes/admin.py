@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from flask import Blueprint
 from services.works_links import collect_work_link_queue
 from services import share_events as share_events_service
+from services.csv_safety import csv_text
 
 
 def _date_arg(value):
@@ -144,7 +145,8 @@ def works_link_queue_payload(engine, *, sample_limit=20):
 def export_log(ctx):
     log = ctx.engine.get_fetish_log()
     fetish_map = {fetish['id']: fetish['name'] for fetish in ctx.engine.fetishes}
-    lines = ['id,name,guessed,correct,wrong,feedback_total,feedback_accuracy,unfeedback,guess_confirm_rate']
+    fieldnames = ['id', 'name', 'guessed', 'correct', 'wrong', 'feedback_total', 'feedback_accuracy', 'unfeedback', 'guess_confirm_rate']
+    rows = []
     for fid, entry in sorted(log.items(), key=lambda item: -item[1].get('guessed', 0)):
         name = fetish_map.get(fid, str(fid))
         guessed = entry.get('guessed', 0)
@@ -154,10 +156,19 @@ def export_log(ctx):
         feedback_acc = f"{round(correct / feedback_total * 100, 1)}" if feedback_total else ''
         unfeedback = max(0, guessed - feedback_total)
         guess_confirm_rate = f"{round(correct / guessed * 100, 1)}" if guessed else ''
-        name_esc = '"' + name.replace('"', '""') + '"'
-        lines.append(f'{fid},{name_esc},{guessed},{correct},{wrong},{feedback_total},{feedback_acc},{unfeedback},{guess_confirm_rate}')
+        rows.append({
+            'id': fid,
+            'name': name,
+            'guessed': guessed,
+            'correct': correct,
+            'wrong': wrong,
+            'feedback_total': feedback_total,
+            'feedback_accuracy': feedback_acc,
+            'unfeedback': unfeedback,
+            'guess_confirm_rate': guess_confirm_rate,
+        })
     return ctx.Response(
-        '\n'.join(lines),
+        csv_text(rows, fieldnames),
         mimetype='text/csv; charset=utf-8',
         headers={'Content-Disposition': 'attachment; filename="fetish_log.csv"'},
     )
@@ -202,14 +213,22 @@ def recent_fetish_ranking(ctx):
 
 def export_stats_history(ctx):
     history = ctx.engine.get_stats_history(days=90)
-    lines = ['date,start,completion,play,learn,correct,wrong,dropoff']
-    for row in history:
-        lines.append(
-            f"{row['date']},{row.get('start', 0)},{row.get('completion', 0)},{row.get('play', 0)},"
-            f"{row.get('learn', 0)},{row.get('correct', 0)},{row.get('wrong', 0)},{row.get('dropoff', 0)}"
-        )
+    fieldnames = ['date', 'start', 'completion', 'play', 'learn', 'correct', 'wrong', 'dropoff']
+    rows = [
+        {
+            'date': row['date'],
+            'start': row.get('start', 0),
+            'completion': row.get('completion', 0),
+            'play': row.get('play', 0),
+            'learn': row.get('learn', 0),
+            'correct': row.get('correct', 0),
+            'wrong': row.get('wrong', 0),
+            'dropoff': row.get('dropoff', 0),
+        }
+        for row in history
+    ]
     return ctx.Response(
-        '\n'.join(lines),
+        csv_text(rows, fieldnames),
         mimetype='text/csv; charset=utf-8',
         headers={'Content-Disposition': 'attachment; filename="stats_history.csv"'},
     )
@@ -263,22 +282,20 @@ def maintenance_checklist(ctx):
 def audit_log(ctx):
     rows = ctx.recent_audit(ctx.bounded_int(ctx.request.args.get('limit'), 500, 1, 500))
     if ctx.request.args.get('format') == 'csv':
-        lines = ['ts,action,status,method,path,remote_addr,detail']
+        fieldnames = ['ts', 'action', 'status', 'method', 'path', 'remote_addr', 'detail']
+        csv_rows = []
         for row in rows:
-            detail = ctx.json_dumps(row.get('detail', {}), ensure_ascii=False)
-            vals = [
-                str(row.get('ts', '')),
-                row.get('action', ''),
-                row.get('status', ''),
-                row.get('method', ''),
-                row.get('path', ''),
-                row.get('remote_addr', ''),
-                detail,
-            ]
-            escaped = ['"' + str(value).replace('"', '""') + '"' for value in vals]
-            lines.append(','.join(escaped))
+            csv_rows.append({
+                'ts': str(row.get('ts', '')),
+                'action': row.get('action', ''),
+                'status': row.get('status', ''),
+                'method': row.get('method', ''),
+                'path': row.get('path', ''),
+                'remote_addr': row.get('remote_addr', ''),
+                'detail': ctx.json_dumps(row.get('detail', {}), ensure_ascii=False),
+            })
         return ctx.Response(
-            '\n'.join(lines),
+            csv_text(csv_rows, fieldnames),
             mimetype='text/csv; charset=utf-8',
             headers={'Content-Disposition': 'attachment; filename="admin_audit_log.csv"'},
         )
@@ -302,16 +319,27 @@ def preflight(ctx):
         'ADMIN_PASS is set' if ctx.environ.get('ADMIN_PASS') else 'ADMIN_PASS is missing',
     )
     add_check('storage_available', True, 'postgres' if ctx.use_db() else 'local_json')
+    yes_rows = ctx.engine.matrix.get('yes', [])
+    total_rows = ctx.engine.matrix.get('total', [])
+    expected_rows = len(ctx.engine.fetishes)
+    expected_cols = len(ctx.engine.questions)
+    matrix_ok = (
+        len(yes_rows) == expected_rows
+        and len(total_rows) == expected_rows
+        and all(len(row) == expected_cols for row in yes_rows)
+        and all(len(row) == expected_cols for row in total_rows)
+    )
     add_check(
         'matrix_shape',
-        len(ctx.engine.matrix.get('yes', [])) == len(ctx.engine.fetishes),
-        f"{len(ctx.engine.matrix.get('yes', []))} matrix rows / {len(ctx.engine.fetishes)} fetishes",
+        matrix_ok,
+        f"yes={len(yes_rows)} total={len(total_rows)} / fetishes={expected_rows} questions={expected_cols}",
     )
     backups = ctx.list_matrix_import_backups()
+    backup_keep = ctx.bounded_int(ctx.environ.get('MATRIX_IMPORT_BACKUP_KEEP'), 20, 1, 1000)
     add_check(
         'matrix_backups_retained',
-        len(backups) <= int(ctx.environ.get('MATRIX_IMPORT_BACKUP_KEEP', '20')),
-        f'{len(backups)} import backups present',
+        len(backups) <= backup_keep,
+        f'{len(backups)} import backups present / keep={backup_keep}',
     )
     add_check('csrf_enabled', ctx.should_enforce_runtime_guard('csrf'), 'enabled for non-test runtime')
     add_check('rate_limit_enabled', ctx.should_enforce_runtime_guard('rate_limit'), 'enabled for non-test runtime')

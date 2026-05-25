@@ -1,5 +1,3 @@
-import csv
-import io
 import json
 import os
 import re
@@ -8,6 +6,7 @@ from collections import deque
 from datetime import datetime, timezone
 
 from storage import data_path
+from services.csv_safety import csv_text
 
 _ALLOWED_EVENTS = {
     'share_button_click',
@@ -404,15 +403,6 @@ def _filter_metadata(report):
 def _rows_with_metadata(report, rows):
     meta = _filter_metadata(report)
     return [{**row, **meta} for row in rows]
-
-def csv_text(rows, fieldnames):
-    buffer = io.StringIO()
-    writer = csv.DictWriter(buffer, fieldnames=fieldnames, extrasaction='ignore')
-    writer.writeheader()
-    for row in rows:
-        writer.writerow(row)
-    return buffer.getvalue()
-
 
 def ranking_csv(report):
     return csv_text(_rows_with_metadata(report, report.get('ranking', [])), [
