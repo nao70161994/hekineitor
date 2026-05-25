@@ -1972,7 +1972,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             self.assertIn('関連作品を探す', body)
             self.assertIn('https://www.amazon.co.jp/s?k=', body)
             self.assertIn('tag=hekinator-22', body)
-            self.assertLess(body.index('おすすめ作品'), body.index('この性癖とは'))
+            self.assertLess(body.index('<div class="section-title">この性癖とは</div>'), body.index('<h2 class="section-title">おすすめ作品</h2>'))
         finally:
             BOOTSTRAP.amazon_associate_id = original_associate_id
             app_engine.fetishes[0]['works'] = original_works

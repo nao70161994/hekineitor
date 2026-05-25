@@ -54,6 +54,14 @@ def fallback_work_link(ctx, fetish_name):
     return {'title': f'{fetish_name}の関連作品を探す', 'url': affiliate_search_url(ctx, fetish_name)}
 
 
+def work_links(ctx, works, fallback_name=None):
+    links = [work_link(ctx, work) for work in (works or [])]
+    links = [link for link in links if link.get('title')]
+    if not links and fallback_name:
+        links = [fallback_work_link(ctx, fallback_name)]
+    return links
+
+
 def fetish_index(ctx):
     base_url = ctx.public_base_url()
     fetish_log = ctx.engine.get_fetish_log()
@@ -61,7 +69,7 @@ def fetish_index(ctx):
     for fetish in ctx.engine.fetishes:
         if fetish['id'] >= ctx.player_fetish_base_id:
             continue
-        works = [work_link(ctx, work) for work in (fetish.get('works') or [])[:3]]
+        works = work_links(ctx, (fetish.get('works') or [])[:3])
         log = fetish_log.get(fetish['id'], {'guessed': 0, 'correct': 0, 'wrong': 0})
         rows.append({
             'id': fetish['id'],
@@ -113,9 +121,7 @@ def fetish_detail(ctx, fetish_id):
         if related_idx is not None:
             related.append({'id': related_id, 'name': ctx.engine.fetishes[related_idx]['name']})
 
-    works = [work_link(ctx, work) for work in (fetish.get('works') or [])]
-    if not works:
-        works = [fallback_work_link(ctx, fetish['name'])]
+    works = work_links(ctx, fetish.get('works'), fallback_name=fetish['name'])
 
     char_qs = []
     if idx < len(ctx.engine.matrix['yes']):
