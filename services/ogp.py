@@ -158,7 +158,7 @@ def _ogp_texts(name, prob, cjk_supported=True):
             'title': f'{_share.result_rarity(prob)} / {_share.result_title(prob)}' if prob else '',
             'side': '友達にも試してもらう？',
             'mark': 'AI',
-            'mark_sub': '診断結果',
+            'mark_sub': 'あなたの癖は',
             'tagline': 'AIが性癖プロファイルを推定',
         }
     return {
@@ -320,7 +320,7 @@ def render_svg(name, prob):
   <text x="910" y="160" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#555">友達にも試してもらう？</text>
   <rect x="795" y="222" width="230" height="130" rx="26" fill="#14182c" stroke="#602844" stroke-width="2"/>
   <text x="910" y="285" text-anchor="middle" font-family="sans-serif" font-size="72" font-weight="bold" fill="#e94560">AI</text>
-  <text x="910" y="333" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="bold" fill="#e6dabe">診断結果</text>
+  <text x="910" y="333" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="bold" fill="#e6dabe">あなたの癖は</text>
   <text x="910" y="440" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#444">hekineitor.onrender.com</text>
   <text x="910" y="480" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#333">AIが性癖プロファイルを推定</text>
 </svg>'''

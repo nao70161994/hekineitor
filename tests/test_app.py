@@ -1562,12 +1562,12 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(texts['name'], '眼鏡')
         self.assertEqual(texts['prob'], 'AI一致率 88%')
         self.assertEqual(texts['mark'], 'AI')
-        self.assertEqual(texts['mark_sub'], '診断結果')
+        self.assertEqual(texts['mark_sub'], 'あなたの癖は')
 
     def test_legacy_svg_ogp_uses_ai_badge_instead_of_question_mark(self):
         svg = ogp_service.render_svg('眼鏡', '88')
         self.assertIn('>AI</text>', svg)
-        self.assertIn('>診断結果</text>', svg)
+        self.assertIn('>あなたの癖は</text>', svg)
         self.assertNotIn('>?</text>', svg)
 
     def test_result_share_clamps_probability(self):
