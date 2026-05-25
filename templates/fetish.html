@@ -82,13 +82,6 @@ body {
   <h1 class="name">{{ fetish.name }}</h1>
   <div class="desc">{{ fetish.desc }}</div>
 
-  <div class="section-title">この性癖とは</div>
-  <p class="seo-copy">
-    <strong>{{ fetish.name }}</strong>は、{{ fetish.desc }}
-    {% if work_names %}代表的な入口として{% for title in work_names[:3] %}{% if loop.index > 1 %}、{% endif %}「{{ title }}」{% endfor %}などがあります。{% endif %}
-    へきネイターでは質問への回答から、この性癖にどれくらい近いかを推定します。
-  </p>
-
   {% if works %}
   <h2 class="section-title">おすすめ作品</h2>
   <div class="works-list">
@@ -101,6 +94,14 @@ body {
     {% endfor %}
   </div>
   {% endif %}
+
+  <div class="section-title">この性癖とは</div>
+  <p class="seo-copy">
+    <strong>{{ fetish.name }}</strong>は、{{ fetish.desc }}
+    {% if work_names %}代表的な入口として{% for title in work_names[:3] %}{% if loop.index > 1 %}、{% endif %}「{{ title }}」{% endfor %}などがあります。{% endif %}
+    へきネイターでは質問への回答から、この性癖にどれくらい近いかを推定します。
+  </p>
+
 
   {% if char_qs %}
   <h2 class="section-title">{{ fetish.name }}になりやすい回答傾向</h2>

@@ -28,19 +28,30 @@ def ogp_cache_headers():
     return {'Cache-Control': 'public, max-age=3600'}
 
 
+def affiliate_search_url(ctx, query):
+    query = str(query or '').strip()
+    if not query or not ctx.amazon_associate_id:
+        return ''
+    url = f'https://www.amazon.co.jp/s?k={urllib.parse.quote(query)}'
+    return url + f'&tag={urllib.parse.quote(ctx.amazon_associate_id)}'
+
+
 def work_link(ctx, work):
     title = ctx.work_title(work)
     raw_url = work.get('url', '') if isinstance(work, dict) else ''
     url = ctx.safe_work_url(raw_url)
     if raw_url and not url:
         return {'title': title, 'url': ''}
-    if not url and ctx.amazon_associate_id and title:
-        search_title = title.strip()
-        url = f'https://www.amazon.co.jp/s?k={urllib.parse.quote(search_title)}'
+    if not url:
+        url = affiliate_search_url(ctx, title)
     if url and ctx.amazon_associate_id and 'tag=' not in url:
         separator = '&' if '?' in url else '?'
         url = url + f'{separator}tag={urllib.parse.quote(ctx.amazon_associate_id)}'
     return {'title': title, 'url': url}
+
+
+def fallback_work_link(ctx, fetish_name):
+    return {'title': f'{fetish_name}の関連作品を探す', 'url': affiliate_search_url(ctx, fetish_name)}
 
 
 def fetish_index(ctx):
@@ -103,6 +114,8 @@ def fetish_detail(ctx, fetish_id):
             related.append({'id': related_id, 'name': ctx.engine.fetishes[related_idx]['name']})
 
     works = [work_link(ctx, work) for work in (fetish.get('works') or [])]
+    if not works:
+        works = [fallback_work_link(ctx, fetish['name'])]
 
     char_qs = []
     if idx < len(ctx.engine.matrix['yes']):

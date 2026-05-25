@@ -1957,6 +1957,26 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             headers=headers)
         self.assertEqual(res.status_code, 400)
 
+    def test_fetish_detail_shows_affiliate_search_fallback_without_works(self):
+        from app import BOOTSTRAP, engine as app_engine
+        fid = app_engine.fetishes[0]['id']
+        original_works = app_engine.fetishes[0].get('works', [])
+        original_associate_id = BOOTSTRAP.amazon_associate_id
+        try:
+            BOOTSTRAP.amazon_associate_id = 'hekinator-22'
+            app_engine.fetishes[0]['works'] = []
+            res = self.client.get(f'/fetish/{fid}')
+            self.assertEqual(res.status_code, 200)
+            body = res.data.decode('utf-8')
+            self.assertIn('おすすめ作品', body)
+            self.assertIn('関連作品を探す', body)
+            self.assertIn('https://www.amazon.co.jp/s?k=', body)
+            self.assertIn('tag=hekinator-22', body)
+            self.assertLess(body.index('おすすめ作品'), body.index('この性癖とは'))
+        finally:
+            BOOTSTRAP.amazon_associate_id = original_associate_id
+            app_engine.fetishes[0]['works'] = original_works
+
     def test_fetish_detail_drops_unsafe_work_url(self):
         from app import engine as app_engine
         fid = app_engine.fetishes[0]['id']
