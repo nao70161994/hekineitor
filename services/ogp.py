@@ -46,6 +46,19 @@ def _ogp_font_candidates():
         yield path
 
 
+def _ordered_ogp_font_candidates(bold=False):
+    candidates = list(_ogp_font_candidates())
+    if not bold:
+        return candidates
+    ordered = []
+    for path in candidates:
+        bold_path = path.replace('Regular', 'Bold').replace('DejaVuSans.ttf', 'DejaVuSans-Bold.ttf')
+        for candidate in (bold_path, path):
+            if candidate not in ordered:
+                ordered.append(candidate)
+    return ordered
+
+
 def _load_ogp_font(size, bold=False):
     try:
         from PIL import ImageFont
@@ -54,12 +67,7 @@ def _load_ogp_font(size, bold=False):
     key = (size, bold, os.environ.get('OGP_FONT_PATH', ''))
     if key in _OGP_FONT_CACHE:
         return _OGP_FONT_CACHE[key]
-    candidates = list(_ogp_font_candidates())
-    if bold:
-        candidates = [
-            p.replace('Regular', 'Bold').replace('DejaVuSans.ttf', 'DejaVuSans-Bold.ttf')
-            for p in candidates
-        ] + candidates
+    candidates = _ordered_ogp_font_candidates(bold=bold)
     for path in candidates:
         if not path or not os.path.exists(path):
             continue

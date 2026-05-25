@@ -85,6 +85,13 @@ class TestServices(unittest.TestCase):
         self.assertIn('available', status)
         self.assertIn('detail', status)
 
+    def test_ogp_bold_font_prefers_downloaded_cjk_before_latin_bold(self):
+        candidates = ogp._ordered_ogp_font_candidates(bold=True)
+        self.assertLess(
+            candidates.index('data/fonts/NotoSansCJKjp-Regular.otf'),
+            candidates.index('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'),
+        )
+
     def test_csv_safety_prefixes_formula_values(self):
         self.assertEqual(csv_safety.safe_csv_cell('=cmd'), "'=cmd")
         self.assertEqual(csv_safety.safe_csv_cell(' +SUM(A1)'), "' +SUM(A1)")
