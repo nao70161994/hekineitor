@@ -173,6 +173,16 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.get_json()['status'], 'learned')
 
+    def test_confirm_correct_is_not_applied_twice(self):
+        from app import engine as app_engine
+        before = app_engine.get_fetish_log().get(0, {}).get('correct', 0)
+        first = self.client.post('/api/confirm', json={'correct': True, 'fetish_id': 0})
+        second = self.client.post('/api/confirm', json={'correct': True, 'fetish_id': 0})
+        after = app_engine.get_fetish_log().get(0, {}).get('correct', 0)
+        self.assertEqual(first.status_code, 200)
+        self.assertIn(second.status_code, (409, 440))
+        self.assertEqual(after, before + 1)
+
     def test_confirm_correct_with_compound_ids(self):
         res = self.client.post('/api/confirm',
             json={'correct': True, 'fetish_id': 0, 'compound_ids': [10, 23]})
@@ -197,6 +207,16 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         ids = [f['id'] for f in data['fetishes']]
         self.assertNotIn(0, ids)
         self.assertNotIn(10, ids)
+
+    def test_confirm_wrong_is_not_applied_twice(self):
+        from app import engine as app_engine
+        before = app_engine.get_fetish_log().get(0, {}).get('wrong', 0)
+        first = self.client.post('/api/confirm', json={'correct': False, 'fetish_id': 0})
+        second = self.client.post('/api/confirm', json={'correct': False, 'fetish_id': 0})
+        after = app_engine.get_fetish_log().get(0, {}).get('wrong', 0)
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 409)
+        self.assertEqual(after, before + 1)
 
     # ── teach ──────────────────────────────────────────────
     def test_teach_invalid_fetish_id(self):
@@ -430,11 +450,15 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.get_json()['status'], 'done')
 
-    def test_finalize_added_invalid_id_skipped(self):
+    def test_finalize_added_invalid_id_rejected(self):
         res = self.client.post('/api/finalize_added',
-            json={'items': [{'id': 99999, 'is_new': False}]})
-        self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.get_json()['status'], 'done')
+            json={'items': [{'id': 2, 'is_new': False}]})
+        self.assertEqual(res.status_code, 409)
+
+    def test_finalize_added_limits_items(self):
+        items = [{'id': 0, 'is_new': False} for _ in range(11)]
+        res = self.client.post('/api/finalize_added', json={'items': items})
+        self.assertEqual(res.status_code, 400)
 
     def test_finalize_added_empty_items(self):
         res = self.client.post('/api/finalize_added', json={'items': []})
@@ -496,7 +520,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         with self.client.session_transaction() as sess:
             self.assertEqual(sess.get('wrong_db_ids'), [])
             self.assertEqual(sess.get('near_miss_db_ids'), [])
-            self.assertEqual(sess.get('candidate_db_ids'), [])
+            self.assertTrue(sess.get('candidate_db_ids'))
 
         app_engine.matrix['yes'][idx][q] = before_yes
         app_engine.matrix['total'][idx][q] = before_total
@@ -720,7 +744,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         f1_id = app_engine.fetishes[1]['id']
         before0 = sum(app_engine.matrix['total'][0])
         before1 = sum(app_engine.matrix['total'][1])
-        self._set_active_guess(0)
+        self._set_active_guess(0, [f1_id])
         res = self.client.post('/api/finalize_added', json={
             'items': [{'id': f0_id, 'is_new': False}, {'id': f1_id, 'is_new': False}]
         })
@@ -1275,12 +1299,56 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(data.get('action'), 'question')
         self.assertIn('question_id', data)
 
+    def test_unverified_resumed_guess_skips_learning(self):
+        from app import engine as app_engine
+        q = 8
+        idx = app_engine.index_of(0)
+        before_yes = app_engine.matrix['yes'][idx][q]
+        before_total = app_engine.matrix['total'][idx][q]
+        before_log = dict(app_engine.get_fetish_log().get(0, {}))
+        with self.client.session_transaction() as sess:
+            sess['started'] = True
+            sess['answers'] = {str(q): 1.0}
+            sess['last_guess_fetish_id'] = 0
+            sess['last_guess_compound_ids'] = []
+            sess['client_resumed'] = True
+            sess['resume_learning_verified'] = False
+        res = self.client.post('/api/confirm', json={'correct': True, 'fetish_id': 0})
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.get_json()['learning_disabled'])
+        self.assertEqual(app_engine.matrix['yes'][idx][q], before_yes)
+        self.assertEqual(app_engine.matrix['total'][idx][q], before_total)
+        self.assertEqual(app_engine.get_fetish_log().get(0, {}), before_log)
+
     def test_continue_after_guess(self):
         self._force_guess()
         res = self.client.post('/api/continue')
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertIn(data.get('action'), ('question',))
+
+    def test_guess_logs_compound_candidates_as_guessed(self):
+        from app import engine as app_engine
+        old_compound = app_engine.config.get('compound_ratio')
+        old_triple = app_engine.config.get('triple_ratio')
+        try:
+            app_engine.config['compound_ratio'] = 0.0
+            app_engine.config['triple_ratio'] = 0.0
+            data = self._force_guess()
+            compound_ids = [item['fetish_id'] for item in data.get('compound', [])]
+            self.assertTrue(compound_ids)
+            log = app_engine.get_fetish_log()
+            for fetish_id in {data['fetish_id']} | set(compound_ids):
+                self.assertGreaterEqual(log.get(fetish_id, {}).get('guessed', 0), 1)
+        finally:
+            if old_compound is None:
+                app_engine.config.pop('compound_ratio', None)
+            else:
+                app_engine.config['compound_ratio'] = old_compound
+            if old_triple is None:
+                app_engine.config.pop('triple_ratio', None)
+            else:
+                app_engine.config['triple_ratio'] = old_triple
 
     def test_edit_question(self):
         headers = self._admin_headers()
@@ -1717,6 +1785,15 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             self.assertNotIn('href=""', body)
         finally:
             app_engine.fetishes[0]['works'] = original_works
+
+    def test_fetish_detail_uses_feedback_accuracy(self):
+        from app import engine as app_engine
+        fid = app_engine.fetishes[0]['id']
+        with patch.object(app_engine, 'get_fetish_log', return_value={fid: {'guessed': 100, 'correct': 1, 'wrong': 3}}):
+            res = self.client.get(f'/fetish/{fid}')
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        self.assertIn('25%', body)
 
     def test_fetish_detail_has_seo_content(self):
         from app import engine as app_engine

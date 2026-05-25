@@ -37,8 +37,36 @@ def _question_text(ctx, question_id):
 
 
 def _clear_active_guess(ctx):
+    ctx.session.pop('feedback_status', None)
+    _clear_pending_feedback(ctx)
+    _clear_guess_ids(ctx)
+
+
+def _clear_guess_ids(ctx):
     ctx.session.pop('last_guess_fetish_id', None)
     ctx.session.pop('last_guess_compound_ids', None)
+
+
+def _clear_pending_feedback(ctx):
+    ctx.session.pop('wrong_db_ids', None)
+    ctx.session.pop('candidate_db_ids', None)
+    ctx.session.pop('near_miss_db_ids', None)
+    ctx.session.pop('candidate_negative_factor', None)
+
+
+def _finish_feedback(ctx):
+    _clear_pending_feedback(ctx)
+    _clear_guess_ids(ctx)
+    ctx.session['feedback_status'] = 'done'
+
+
+def _require_feedback_open(ctx):
+    if ctx.session.get('feedback_status') in ('pending_correction', 'done'):
+        return ctx.jsonify({
+            'status': 'error',
+            'message': 'この診断結果へのフィードバックは処理済みです',
+        }), 409
+    return None
 
 
 def _require_started(ctx):
@@ -76,6 +104,23 @@ def _validate_guess_payload(ctx, fetish_db_id, compound_ids=None):
     return None
 
 
+def _feedback_allowed_ids(ctx):
+    main_id, active_compound_ids = _active_guess_ids(ctx)
+    allowed = set()
+    if main_id is not None:
+        allowed.add(main_id)
+    allowed.update(active_compound_ids)
+    allowed.update(ctx.parse_id_list(ctx.session.get('candidate_db_ids', [])))
+    allowed.update(ctx.parse_id_list(ctx.session.get('near_miss_db_ids', [])))
+    allowed.update(ctx.parse_id_list(ctx.session.get('owned_added_fetish_ids', [])))
+    return allowed
+
+
+def _learning_skipped(ctx):
+    resumed_unverified = ctx.session.get('client_resumed') and not ctx.session.get('resume_learning_verified')
+    return ctx.learning_disabled() or resumed_unverified
+
+
 def start(ctx):
     limited = ctx.rate_limit('api_start', 120)
     if limited:
@@ -90,6 +135,7 @@ def start(ctx):
     ctx.session['started'] = True
     ctx.session['completed'] = False
     ctx.session['dropoff_recorded'] = False
+    ctx.session['completion_recorded'] = False
     ctx.session['exclude_ids'] = _parse_exclude_ids(data.get('exclude_ids', []))
     question_id = ctx.best_question(ctx.engine, {}, set())
     ctx.session['asked'].append(question_id)
@@ -105,30 +151,43 @@ def start(ctx):
 
 
 def resume(ctx):
+    limited = ctx.rate_limit('api_resume', 60)
+    if limited:
+        return limited
     data = ctx.request.get_json(silent=True) or {}
+    pairs = data.get('pairs', [])
+    if not isinstance(pairs, list):
+        return ctx.jsonify({'status': 'error', 'message': 'pairs はリストで指定してください'}), 400
+    if len(pairs) > ctx.hard_max_questions:
+        return ctx.jsonify({'status': 'error', 'message': '復元する回答数が多すぎます'}), 400
+
     test_play_enabled = ctx.preserve_test_play_flag()
     ctx.session.clear()
     ctx.restore_test_play_flag(test_play_enabled)
     ctx.session['started'] = True
     ctx.session['completed'] = False
     ctx.session['dropoff_recorded'] = False
+    ctx.session['completion_recorded'] = False
     ctx.session['answers'] = {}
     ctx.session['asked'] = []
     ctx.session['idk_streak'] = 0
     ctx.session['exclude_ids'] = _parse_exclude_ids(data.get('exclude_ids', []))
-    for item in data.get('pairs', []):
+    ctx.session['client_resumed'] = bool(pairs)
+    ctx.session['resume_learning_verified'] = not bool(pairs)
+    for item in pairs:
         try:
             question_id = int(item['q_id'])
             answer = float(item['answer'])
         except (KeyError, ValueError, TypeError):
-            continue
+            return ctx.jsonify({'status': 'error', 'message': '不正な復元データです'}), 400
         if answer not in (1, 0.5, 0, -0.5, -1):
-            continue
+            return ctx.jsonify({'status': 'error', 'message': '不正な回答値です'}), 400
         if question_id < 0 or question_id >= len(ctx.engine.questions):
-            continue
+            return ctx.jsonify({'status': 'error', 'message': '不正な質問IDです'}), 400
+        if str(question_id) in ctx.session['answers']:
+            return ctx.jsonify({'status': 'error', 'message': '重複した質問IDです'}), 400
         ctx.session['answers'][str(question_id)] = answer
-        if question_id not in ctx.session['asked']:
-            ctx.session['asked'].append(question_id)
+        ctx.session['asked'].append(question_id)
         ctx.session['idk_streak'] = ctx.session['idk_streak'] + 1 if answer == 0 else 0
 
     answers = ctx.session['answers']
@@ -159,6 +218,7 @@ def continue_game(ctx):
     if started_error:
         return started_error
     _clear_active_guess(ctx)
+    ctx.session['completed'] = False
     answers = ctx.session.get('answers', {})
     asked = ctx.session.get('asked', [])
     top2 = ctx.top_guess(ctx.engine, answers, n=2)
@@ -225,6 +285,8 @@ def answer(ctx):
     _clear_active_guess(ctx)
     answers[str(question_id)] = answer_value
     ctx.session['answers'] = answers
+    if ctx.session.get('client_resumed'):
+        ctx.session['resume_learning_verified'] = True
 
     idk_streak = ctx.session.get('idk_streak', 0)
     idk_streak = idk_streak + 1 if answer_value == 0 else 0
@@ -304,6 +366,9 @@ def teach(ctx):
     active_guess_error = _require_active_guess(ctx)
     if active_guess_error:
         return active_guess_error
+    feedback_error = _require_feedback_open(ctx)
+    if feedback_error:
+        return feedback_error
     main_id, compound_ids = _active_guess_ids(ctx)
     if fetish_db_id not in ({main_id} | compound_ids):
         return ctx.jsonify({'status': 'error', 'message': '現在の診断結果と一致しません'}), 409
@@ -312,7 +377,8 @@ def teach(ctx):
         total_n = max(1, int(data.get('total_n', 1)))
     except (ValueError, TypeError):
         return ctx.jsonify({'status': 'error', 'message': '不正な total_n です'}), 400
-    if ctx.learning_disabled():
+    if _learning_skipped(ctx):
+        _finish_feedback(ctx)
         return ctx.jsonify({
             'status': 'learned',
             'fetish_name': ctx.engine.fetishes[fetish_idx]['name'],
@@ -320,6 +386,7 @@ def teach(ctx):
         })
     ctx.learn_positive(ctx.engine, answers, fetish_idx, strength_factor=ctx.learn_factor(answers, total_n))
     ctx.engine.log_correct(ctx.engine.fetishes[fetish_idx]['id'])
+    _finish_feedback(ctx)
     return ctx.jsonify({'status': 'learned', 'fetish_name': ctx.engine.fetishes[fetish_idx]['name']})
 
 
@@ -337,11 +404,14 @@ def confirm(ctx):
     active_guess_error = _require_active_guess(ctx)
     if active_guess_error:
         return active_guess_error
+    feedback_error = _require_feedback_open(ctx)
+    if feedback_error:
+        return feedback_error
     guess_payload_error = _validate_guess_payload(ctx, fetish_db_id, data.get('compound_ids', []))
     if guess_payload_error:
         return guess_payload_error
     answers = ctx.session.get('answers', {})
-    learning_disabled = ctx.learning_disabled()
+    learning_disabled = _learning_skipped(ctx)
     defer_learning = bool(data.get('defer_learning'))
 
     if data['correct']:
@@ -354,6 +424,7 @@ def confirm(ctx):
             except (ValueError, TypeError):
                 pass
         if learning_disabled:
+            _finish_feedback(ctx)
             return ctx.jsonify({'status': 'learned', 'learning_disabled': True})
         factor = ctx.learn_factor(answers, total_n=len(learn_idxs))
         for idx in learn_idxs:
@@ -363,6 +434,7 @@ def confirm(ctx):
             for j in range(i + 1, len(learn_idxs)):
                 ctx.learn_cooccurrence(ctx.engine, answers, learn_idxs[i], learn_idxs[j], factor * 0.3)
         ctx.record_guess_quality_feedback(True)
+        _finish_feedback(ctx)
         return ctx.jsonify({'status': 'learned'})
 
     compound_db_ids = set()
@@ -397,21 +469,23 @@ def confirm(ctx):
     candidates.sort(key=lambda item: item[0], reverse=True)
     sorted_fetishes = [dict(fetish, prob=round(probability * 100, 1)) for probability, fetish in candidates[:20]]
 
+    candidate_ids = [fetish['id'] for fetish in sorted_fetishes]
     if defer_learning:
         ctx.session['wrong_db_ids'] = []
         ctx.session['near_miss_db_ids'] = []
-        ctx.session['candidate_db_ids'] = []
+        ctx.session['candidate_db_ids'] = candidate_ids
         ctx.session['candidate_negative_factor'] = 0.3
     elif not data.get('add_only', False):
         ctx.session['wrong_db_ids'] = sorted(wrong_db_ids)
         ctx.session['near_miss_db_ids'] = sorted(maybe_db_ids)
-        ctx.session['candidate_db_ids'] = [fetish['id'] for fetish in sorted_fetishes]
+        ctx.session['candidate_db_ids'] = candidate_ids
         ctx.session['candidate_negative_factor'] = 0.15 if maybe_db_ids else 0.3
     else:
         ctx.session['wrong_db_ids'] = []
         ctx.session['near_miss_db_ids'] = []
-        ctx.session['candidate_db_ids'] = []
+        ctx.session['candidate_db_ids'] = candidate_ids
         ctx.session['candidate_negative_factor'] = 0.3
+    ctx.session['feedback_status'] = 'pending_correction'
     payload = {'status': 'wrong', 'fetishes': sorted_fetishes}
     if learning_disabled:
         payload['learning_disabled'] = True
@@ -442,7 +516,7 @@ def add_fetish(ctx):
             'is_new': False,
         })
     if confirmed:
-        if ctx.learning_disabled():
+        if _learning_skipped(ctx):
             return ctx.jsonify({
                 'status': 'learned',
                 'fetish_name': name,
@@ -468,14 +542,24 @@ def finalize_added(ctx):
     items = data.get('items', [])
     if not isinstance(items, list):
         return ctx.jsonify({'status': 'error', 'message': 'items はリストで指定してください'}), 400
+    if len(items) > 10:
+        return ctx.jsonify({'status': 'error', 'message': 'items は10件以内で指定してください'}), 400
     active_guess_error = _require_active_guess(ctx)
     if active_guess_error:
         return active_guess_error
-    if ctx.learning_disabled():
-        ctx.session.pop('wrong_db_ids', None)
-        ctx.session.pop('candidate_db_ids', None)
-        ctx.session.pop('near_miss_db_ids', None)
-        ctx.session.pop('candidate_negative_factor', None)
+    allowed_ids = _feedback_allowed_ids(ctx)
+    submitted_ids = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        try:
+            submitted_ids.add(int(item.get('id')))
+        except (ValueError, TypeError):
+            return ctx.jsonify({'status': 'error', 'message': '不正な fetish_id です'}), 400
+    if submitted_ids and not submitted_ids.issubset(allowed_ids):
+        return ctx.jsonify({'status': 'error', 'message': '現在の診断候補と一致しません'}), 409
+    if _learning_skipped(ctx):
+        _finish_feedback(ctx)
         return ctx.jsonify({'status': 'done', 'learning_disabled': True})
     answers = ctx.session.get('answers', {})
     total_n = max(1, len([item for item in items if isinstance(item, dict)]))
@@ -493,6 +577,7 @@ def finalize_added(ctx):
         if idx is None:
             continue
         correct_db_ids.add(db_id)
+        ctx.engine.log_correct(db_id)
         if is_new:
             ctx.engine.boost_learn_new(idx, answers)
         else:
@@ -526,6 +611,7 @@ def finalize_added(ctx):
                 candidate_idx,
                 strength_factor=factor * candidate_negative_factor / (n_unsel ** 0.5),
             )
+    _finish_feedback(ctx)
     return ctx.jsonify({'status': 'done'})
 
 

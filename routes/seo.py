@@ -112,7 +112,8 @@ def fetish_detail(ctx, fetish_id):
 
     fetish_log = ctx.engine.get_fetish_log()
     log = fetish_log.get(fetish_id, {'guessed': 0, 'correct': 0, 'wrong': 0})
-    accuracy = round(log['correct'] / log['guessed'] * 100) if log['guessed'] else None
+    feedback_total = log.get('correct', 0) + log.get('wrong', 0)
+    accuracy = round(log.get('correct', 0) / feedback_total * 100) if feedback_total else None
     base_url = ctx.public_base_url()
     work_names = [work['title'] for work in works[:6]]
     seo_desc = f"{fetish['name']}とは、{fetish['desc']} へきネイターでこの性癖に当てはまるか診断できます。"[:155]

@@ -117,11 +117,16 @@ def compute_guess(ctx, answers):
 
 
 def make_guess(ctx, answers):
-    ctx.engine.increment_play_count()
     result = compute_guess(ctx.inference_context(), answers)
+    if not ctx.session.get('completion_recorded'):
+        ctx.engine.increment_play_count()
+        ctx.session['completion_recorded'] = True
     ctx.session['last_guess_fetish_id'] = result['fetish_id']
     ctx.session['last_guess_compound_ids'] = [item['fetish_id'] for item in result.get('compound', [])]
+    ctx.session.pop('feedback_status', None)
     ctx.session['completed'] = True
     ctx.mark_guess_quality(ctx.engine, ctx.session, answers, ctx.soft_max_questions)
-    ctx.engine.log_guessed(result['fetish_id'])
+    guessed_ids = {result['fetish_id']} | {item['fetish_id'] for item in result.get('compound', [])}
+    for fetish_id in guessed_ids:
+        ctx.engine.log_guessed(fetish_id)
     return ctx.jsonify(result)
