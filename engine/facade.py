@@ -688,6 +688,70 @@ class Engine:
 
         return array_idx, db_id
 
+    def _sanitize_restored_player_fetishes(self, exported_fetishes):
+        existing_ids = {fetish['id'] for fetish in self.fetishes}
+        restored = []
+        seen = set()
+        for raw in exported_fetishes or []:
+            if not isinstance(raw, dict):
+                continue
+            try:
+                fetish_id = int(raw.get('id'))
+            except (TypeError, ValueError):
+                continue
+            if fetish_id < PLAYER_FETISH_BASE_ID or fetish_id in existing_ids or fetish_id in seen:
+                continue
+            name = str(raw.get('name') or '').strip()[:100]
+            if not name:
+                continue
+            desc = str(raw.get('desc') or name).strip()[:500] or name
+            works = raw.get('works') if isinstance(raw.get('works'), list) else []
+            restored.append({'id': fetish_id, 'name': name, 'desc': desc, 'works': works})
+            seen.add(fetish_id)
+        return restored
+
+    def restore_player_fetishes(self, exported_fetishes):
+        """Restore missing player-added fetish rows before matrix import.
+
+        Matrix values are initialized neutral first and overwritten by import_matrix().
+        Seed fetishes and existing ids are ignored.
+        """
+        missing = self._sanitize_restored_player_fetishes(exported_fetishes)
+        if not missing:
+            return []
+        nq = len(self.questions)
+        neutral_yes = [2.0] * nq
+        neutral_total = [4.0] * nq
+        with self._lock:
+            missing = self._sanitize_restored_player_fetishes(missing)
+            if not missing:
+                return []
+            if _use_db():
+                engine_db.insert_fetishes_with_neutral_matrix(
+                    missing,
+                    nq,
+                    get_conn=_get_conn,
+                    put_conn=_put_conn,
+                    execute_values=psycopg2.extras.execute_values,
+                )
+            for fetish in missing:
+                engine_mutations.append_fetish(
+                    self.fetishes,
+                    self.matrix,
+                    db_id=fetish['id'],
+                    name=fetish['name'],
+                    desc=fetish['desc'],
+                    yes_row=list(neutral_yes),
+                    total_row=list(neutral_total),
+                )
+                self.fetishes[-1]['works'] = fetish.get('works', [])
+            if not _use_db():
+                self._save_fetishes_file()
+                self._save_matrix_file()
+            self._disc_cache = None
+            self._dynamic_prior_time = 0.0
+        return missing
+
     def boost_learn_new(self, fetish_idx, answers):
         """新規追加時の初期ブースト：cold_start で _learn_silent × 5 + learn × 1。
         cold_start=True により蓄積データの減衰を無視し、回答済みの質問の値を確実に動かす。"""

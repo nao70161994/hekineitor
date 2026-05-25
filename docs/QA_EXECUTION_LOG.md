@@ -142,6 +142,6 @@ Manual mobile/OGP/PWA QA is still required on deployed devices/services because 
 | Area | Command / Check | Status | Environment | Notes |
 | --- | --- | --- | --- | --- |
 | OGP font diagnostics | `pytest tests/test_app.py::TestAPI::test_preflight_includes_ogp_font_check tests/test_services.py::TestServices::test_ogp_cjk_font_status_shape_and_android_candidate -q` | Passed | Local pytest | Preflight exposes CJK font status and OGP candidate list includes additional CJK locations. |
-| Matrix restore missing fetish guard | `pytest tests/test_app.py::TestAPI::test_import_matrix_dry_run_reports_missing_player_fetishes -q` | Passed | Local pytest | Import/dry-run now reports exported player-added fetishes missing from current state. |
+| Matrix restore player fetish recovery | `pytest tests/test_app.py::TestAPI::test_import_matrix_dry_run_reports_missing_player_fetishes tests/test_app.py::TestAPI::test_restore_matrix_backup_restores_missing_player_fetishes tests/test_engine_facade_contract.py::TestEnginePersistenceFacadeContract::test_restore_player_fetishes_adds_missing_player_rows_only -q` | Passed | Local pytest | Import/dry-run/backup restore now validates exported player-added fetishes against the prospective restored set and restores missing player rows before matrix import. |
 
 Manual verification is still required after setting `OGP_FONT_PATH` on Render to confirm `/ogp.png?f=眼鏡&p=88` renders Japanese instead of ASCII fallback.

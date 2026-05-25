@@ -986,18 +986,31 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             'fetishes': app_engine.fetishes + [{'id': missing_id, 'name': '復元待ち', 'desc': '復元待ち', 'works': []}],
             'matrix_rows': rows,
         }
-        dry = self.client.post('/api/admin/import_matrix/dry_run', json=payload, headers=headers)
-        self.assertEqual(dry.status_code, 200)
-        dry_data = dry.get_json()
-        self.assertFalse(dry_data['complete'])
-        self.assertEqual(dry_data['missing_player_fetish_count'], 1)
-        self.assertEqual(dry_data['missing_player_fetishes'][0]['id'], missing_id)
+        try:
+            dry = self.client.post('/api/admin/import_matrix/dry_run', json=payload, headers=headers)
+            self.assertEqual(dry.status_code, 200)
+            dry_data = dry.get_json()
+            self.assertTrue(dry_data['complete'])
+            self.assertEqual(dry_data['missing_player_fetish_count'], 1)
+            self.assertEqual(dry_data['restorable_player_fetish_count'], 1)
+            self.assertEqual(dry_data['missing_player_fetishes'][0]['id'], missing_id)
 
-        payload['confirm_text'] = 'IMPORT'
-        res = self.client.post('/api/admin/import_matrix', json=payload, headers=headers)
-        self.assertEqual(res.status_code, 400)
-        data = res.get_json()
-        self.assertEqual(data['missing_player_fetish_count'], 1)
+            payload['confirm_text'] = 'IMPORT'
+            res = self.client.post('/api/admin/import_matrix', json=payload, headers=headers)
+            self.assertEqual(res.status_code, 200)
+            data = res.get_json()
+            self.assertEqual(data['restored_player_fetish_count'], 1)
+            idx = app_engine.index_of(missing_id)
+            self.assertIsNotNone(idx)
+            self.assertEqual(app_engine.fetishes[idx]['name'], '復元待ち')
+            self.assertEqual(app_engine.matrix['yes'][idx][0], 1)
+            self.assertEqual(app_engine.matrix['total'][idx][0], 2)
+        finally:
+            idx = app_engine.index_of(missing_id)
+            if idx is not None:
+                app_engine.fetishes.pop(idx)
+                app_engine.matrix['yes'].pop(idx)
+                app_engine.matrix['total'].pop(idx)
 
     def test_import_matrix_requires_confirmation_after_validation(self):
         headers = self._admin_headers()
@@ -1050,6 +1063,59 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             self.assertEqual(data['status'], 'ok')
             self.assertEqual(data['restored_rows'], len(rows))
         finally:
+            try:
+                os.remove(backup_path)
+            except OSError:
+                pass
+
+    def test_restore_matrix_backup_restores_missing_player_fetishes(self):
+        headers = self._admin_headers()
+        from app import engine as app_engine
+        backup_dir = os.path.join(DATA_DIR, 'matrix_import_backups')
+        os.makedirs(backup_dir, exist_ok=True)
+        backup_name = 'test_restore_missing_player_matrix.json'
+        backup_path = os.path.join(backup_dir, backup_name)
+        missing_id = max(f['id'] for f in app_engine.fetishes) + 2000
+        if missing_id < PLAYER_FETISH_BASE_ID:
+            missing_id = PLAYER_FETISH_BASE_ID + 2000
+        rows = self._full_matrix_rows()
+        for qi, question in enumerate(app_engine.questions):
+            rows.append({
+                'fetish_id': missing_id,
+                'fetish_name': 'バックアップ復元',
+                'question_id': qi,
+                'question_text': question['text'],
+                'yes': 3,
+                'total': 4,
+            })
+        payload = {
+            'fetishes': app_engine.fetishes + [{
+                'id': missing_id,
+                'name': 'バックアップ復元',
+                'desc': 'バックアップ復元',
+                'works': [],
+            }],
+            'matrix_rows': rows,
+        }
+        try:
+            with open(backup_path, 'w', encoding='utf-8') as f:
+                json.dump(payload, f)
+            res = self.client.post(f'/api/admin/matrix_backups/{backup_name}/restore',
+                json={'confirm_text': 'RESTORE'}, headers=headers)
+            self.assertEqual(res.status_code, 200)
+            data = res.get_json()
+            self.assertEqual(data['restored_player_fetish_count'], 1)
+            idx = app_engine.index_of(missing_id)
+            self.assertIsNotNone(idx)
+            self.assertEqual(app_engine.fetishes[idx]['name'], 'バックアップ復元')
+            self.assertEqual(app_engine.matrix['yes'][idx][0], 3)
+            self.assertEqual(app_engine.matrix['total'][idx][0], 4)
+        finally:
+            idx = app_engine.index_of(missing_id)
+            if idx is not None:
+                app_engine.fetishes.pop(idx)
+                app_engine.matrix['yes'].pop(idx)
+                app_engine.matrix['total'].pop(idx)
             try:
                 os.remove(backup_path)
             except OSError:

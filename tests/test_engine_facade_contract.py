@@ -16,6 +16,7 @@ from engine import (
     FETISH_PRIOR_WEIGHTS,
     FOCUS_THRESHOLD,
     FOCUS_TOP_N,
+    PLAYER_FETISH_BASE_ID,
     PSEUDO,
     QUESTION_AXES,
     UCB_EXPLORE_C,
@@ -335,6 +336,22 @@ class TestEnginePersistenceFacadeContract(unittest.TestCase):
 
         save_to_db.assert_called_once_with({0: [(1, 1.0, 1.0)]}, {0: 10})
         thread_cls.assert_not_called()
+
+    def test_restore_player_fetishes_adds_missing_player_rows_only(self):
+        new_id = max(f['id'] for f in self.engine.fetishes) + 1000
+        if new_id < PLAYER_FETISH_BASE_ID:
+            new_id = PLAYER_FETISH_BASE_ID + 1000
+        restored = self.engine.restore_player_fetishes([
+            {'id': 1, 'name': 'seed ignored', 'desc': 'seed'},
+            {'id': new_id, 'name': '復元テスト', 'desc': '説明', 'works': [{'title': '作品'}]},
+        ])
+        self.assertEqual([fetish['id'] for fetish in restored], [new_id])
+        idx = self.engine.index_of(new_id)
+        self.assertIsNotNone(idx)
+        self.assertEqual(self.engine.fetishes[idx]['name'], '復元テスト')
+        self.assertEqual(len(self.engine.matrix['yes'][idx]), len(self.engine.questions))
+        self.assertEqual(len(self.engine.matrix['total'][idx]), len(self.engine.questions))
+        self.assertEqual(self.engine.restore_player_fetishes([{'id': new_id, 'name': 'duplicate'}]), [])
 
     def test_reload_matrix_if_stale_keeps_timestamp_when_db_disabled(self):
         self.engine._matrix_last_loaded = 50.0

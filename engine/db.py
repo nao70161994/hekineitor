@@ -293,6 +293,43 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
         put_conn(conn)
 
 
+def insert_fetishes_with_neutral_matrix(fetishes, question_count, *, get_conn, put_conn, execute_values):
+    if not fetishes:
+        return 0
+    alpha = 2.0
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            execute_values(
+                cur,
+                'INSERT INTO fetishes (id, name, "desc", works) VALUES %s ON CONFLICT DO NOTHING',
+                [
+                    (
+                        fetish['id'],
+                        fetish['name'],
+                        fetish.get('desc', fetish['name']),
+                        json.dumps(fetish.get('works', []), ensure_ascii=False),
+                    )
+                    for fetish in fetishes
+                ],
+            )
+            rows = [
+                (fetish['id'], question_idx, alpha, alpha * 2.0)
+                for fetish in fetishes
+                for question_idx in range(question_count)
+            ]
+            if rows:
+                execute_values(
+                    cur,
+                    'INSERT INTO matrix (fetish_id, question_id, yes_count, total_count) VALUES %s ON CONFLICT DO NOTHING',
+                    rows,
+                )
+            return len(fetishes)
+    finally:
+        put_conn(conn)
+
+
 def insert_fetish_with_matrix(name, desc, yes_row, total_row, *, get_conn, put_conn, execute_values, player_base_id):
     nq = len(yes_row)
     conn = get_conn()

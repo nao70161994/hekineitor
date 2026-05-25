@@ -150,14 +150,14 @@
 - Client smoke guard PR: draft/back sync, PWA edge cases, X/native share CTA split, and JS syntax checks are locked by smoke/static tests.
 - DB worker sync PR: stale DB reload now refreshes fetishes before matrix data so cross-worker player additions do not disappear from inference state.
 - OGP font deployment PR: preflight reports CJK font availability, OGP searches the build-downloaded font path, and `scripts/render_build.sh` can fetch Noto Sans CJK during Render builds.
-- Matrix restore guard PR: import/dry-run now reports missing player-added fetishes from export payloads instead of silently skipping their matrix rows.
+- Matrix restore PR: import/dry-run/backup restore now validates export payloads with missing player-added fetishes and restores those rows before importing matrix values.
 
 
 ## Next PRs
 
 1. Keep `app.py` as composition root; avoid further extraction unless a dependency group has clear ownership outside Flask wiring.
 2. Execute `docs/QA_EXECUTION_LOG.md` manual mobile/OGP/PWA backlog against real devices and a deployed URL.
-3. OGP Japanese font follow-up: bundle or install a CJK-capable font and set `OGP_FONT_PATH`; current deployed fallback uses ASCII labels to avoid mojibake.
+3. OGP Japanese font follow-up: enable `DOWNLOAD_OGP_FONT=1 sh scripts/render_build.sh` or set `OGP_FONT_PATH` on Render, then manually verify Japanese PNG output.
 4. Browser E2E runner decision after manual QA gaps are confirmed.
 5. All engine helper modules now live under `engine/` with top-level compatibility shims; next PR can review shim retention/removal policy.
 6. Keep DB and mutation behavior locked with tests while reducing remaining facade method bodies.

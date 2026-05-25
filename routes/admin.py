@@ -4,6 +4,7 @@ from flask import Blueprint
 from services.works_links import collect_work_link_queue
 from services import share_events as share_events_service
 from services import ogp as ogp_service
+from matrix_service import matrix_validation_report
 from services.csv_safety import csv_text
 
 
@@ -492,11 +493,12 @@ def edit_fetish(ctx, fetish_id):
     return ctx.jsonify({'status': 'ok', 'name': fetish['name'], 'desc': fetish['desc'], 'works': fetish.get('works', [])})
 
 
-def _missing_export_player_fetishes(ctx, exported_fetishes):
+def _export_player_fetishes_to_restore(ctx, exported_fetishes):
     if not isinstance(exported_fetishes, list):
         return []
     current_ids = {fetish['id'] for fetish in ctx.engine.fetishes}
     missing = []
+    seen = set()
     for fetish in exported_fetishes:
         if not isinstance(fetish, dict):
             continue
@@ -504,24 +506,48 @@ def _missing_export_player_fetishes(ctx, exported_fetishes):
             fetish_id = int(fetish.get('id'))
         except (TypeError, ValueError):
             continue
-        if fetish_id >= ctx.player_fetish_base_id and fetish_id not in current_ids:
-            missing.append({
-                'id': fetish_id,
-                'name': str(fetish.get('name') or '')[:80],
-            })
-    return missing[:50]
+        if fetish_id < ctx.player_fetish_base_id or fetish_id in current_ids or fetish_id in seen:
+            continue
+        name = str(fetish.get('name') or '').strip()[:100]
+        if not name:
+            continue
+        missing.append({
+            'id': fetish_id,
+            'name': name,
+            'desc': str(fetish.get('desc') or name).strip()[:500] or name,
+            'works': fetish.get('works') if isinstance(fetish.get('works'), list) else [],
+        })
+        seen.add(fetish_id)
+    return missing
 
 
-def _missing_export_fetishes_error(ctx, data):
-    missing = _missing_export_player_fetishes(ctx, data.get('fetishes')) if isinstance(data, dict) else []
-    if not missing:
-        return None
-    return ctx.jsonify({
-        'status': 'error',
-        'message': 'export payload includes player-added fetishes that are missing locally. Restore those fetishes before matrix import.',
-        'missing_player_fetishes': missing,
-        'missing_player_fetish_count': len(missing),
-    }), 400
+def _missing_export_player_fetishes(ctx, exported_fetishes):
+    return [
+        {'id': fetish['id'], 'name': fetish['name']}
+        for fetish in _export_player_fetishes_to_restore(ctx, exported_fetishes)
+    ]
+
+
+def _import_validation_report(ctx, rows, fetishes_to_restore):
+    if not fetishes_to_restore:
+        report = ctx.engine.validate_matrix_rows(rows)
+        expected_rows = ctx.matrix_import_expected_rows()
+    else:
+        prospective_fetishes = ctx.engine.fetishes + fetishes_to_restore
+        report = matrix_validation_report(prospective_fetishes, ctx.engine.questions, rows)
+        expected_rows = len(prospective_fetishes) * len(ctx.engine.questions)
+    return report, expected_rows
+
+
+def _matrix_import_completeness_error(ctx, report, expected_rows):
+    if report.get('skipped_rows') != 0 or report.get('valid_rows') != expected_rows:
+        return ctx.jsonify({
+            'status': 'error',
+            'message': 'matrix_rows は現在の全 fetish/question 組み合わせを含む必要があります',
+            **report,
+            'expected_rows': expected_rows,
+        }), 400
+    return None
 
 
 def export_matrix(ctx):
@@ -564,18 +590,17 @@ def import_matrix(ctx):
     rows = data.get('matrix_rows', [])
     if not rows:
         return ctx.jsonify({'status': 'error', 'message': 'matrix_rows が空です'}), 400
-    missing_error = _missing_export_fetishes_error(ctx, data)
-    if missing_error:
-        return missing_error
+    fetishes_to_restore = _export_player_fetishes_to_restore(ctx, data.get('fetishes'))
     try:
-        report = ctx.engine.validate_matrix_rows(rows)
-        complete_error = ctx.matrix_import_completeness_error(report)
+        report, expected_rows = _import_validation_report(ctx, rows, fetishes_to_restore)
+        complete_error = _matrix_import_completeness_error(ctx, report, expected_rows)
         if complete_error:
             return complete_error
         confirm_error = ctx.require_confirm('IMPORT')
         if confirm_error:
             return confirm_error
         backup_path = ctx.snapshot_current_matrix('before_import_matrix')
+        restored_fetishes = ctx.engine.restore_player_fetishes(fetishes_to_restore)
         count = ctx.engine.import_matrix(rows)
     except ValueError as exc:
         ctx.write_audit('import_matrix', 'error', {'message': str(exc)}, ctx.request)
@@ -586,8 +611,15 @@ def import_matrix(ctx):
         'input_rows': report['input_rows'],
         'skipped_rows': report['skipped_rows'],
         'backup_path': backup_relpath,
+        'restored_player_fetish_count': len(restored_fetishes),
     }, ctx.request)
-    return ctx.jsonify({'status': 'ok', 'imported_rows': count, 'backup_path': backup_relpath})
+    return ctx.jsonify({
+        'status': 'ok',
+        'imported_rows': count,
+        'backup_path': backup_relpath,
+        'restored_player_fetishes': [{'id': fetish['id'], 'name': fetish['name']} for fetish in restored_fetishes],
+        'restored_player_fetish_count': len(restored_fetishes),
+    })
 
 
 def import_matrix_dry_run(ctx):
@@ -595,21 +627,22 @@ def import_matrix_dry_run(ctx):
     rows = data.get('matrix_rows', [])
     if not rows:
         return ctx.jsonify({'status': 'error', 'message': 'matrix_rows が空です'}), 400
-    missing = _missing_export_player_fetishes(ctx, data.get('fetishes'))
+    fetishes_to_restore = _export_player_fetishes_to_restore(ctx, data.get('fetishes'))
+    missing = [{'id': fetish['id'], 'name': fetish['name']} for fetish in fetishes_to_restore]
     try:
-        report = ctx.engine.validate_matrix_rows(rows)
+        report, expected_rows = _import_validation_report(ctx, rows, fetishes_to_restore)
     except ValueError as exc:
         ctx.write_audit('import_matrix_dry_run', 'error', {'message': str(exc)}, ctx.request)
         return ctx.jsonify({'status': 'error', 'message': str(exc)}), 400
     ctx.write_audit('import_matrix_dry_run', 'ok', report, ctx.request)
-    expected_rows = ctx.matrix_import_expected_rows()
     return ctx.jsonify({
         'status': 'ok',
         **report,
         'expected_rows': expected_rows,
-        'complete': report['skipped_rows'] == 0 and report['valid_rows'] == expected_rows and not missing,
+        'complete': report['skipped_rows'] == 0 and report['valid_rows'] == expected_rows,
         'missing_player_fetishes': missing,
         'missing_player_fetish_count': len(missing),
+        'restorable_player_fetish_count': len(fetishes_to_restore),
     })
 
 
@@ -628,18 +661,17 @@ def restore_matrix_backup(ctx, name):
     rows = payload.get('matrix_rows', []) if isinstance(payload, dict) else []
     if not rows:
         return ctx.jsonify({'status': 'error', 'message': 'matrix_rows が見つかりません'}), 400
-    missing_error = _missing_export_fetishes_error(ctx, payload)
-    if missing_error:
-        return missing_error
+    fetishes_to_restore = _export_player_fetishes_to_restore(ctx, payload.get('fetishes') if isinstance(payload, dict) else [])
     try:
-        report = ctx.engine.validate_matrix_rows(rows)
-        complete_error = ctx.matrix_import_completeness_error(report)
+        report, expected_rows = _import_validation_report(ctx, rows, fetishes_to_restore)
+        complete_error = _matrix_import_completeness_error(ctx, report, expected_rows)
         if complete_error:
             return complete_error
         confirm_error = ctx.require_confirm('RESTORE')
         if confirm_error:
             return confirm_error
         snapshot = ctx.snapshot_current_matrix('before_restore_matrix_backup')
+        restored_fetishes = ctx.engine.restore_player_fetishes(fetishes_to_restore)
         count = ctx.engine.import_matrix(rows)
     except ValueError as exc:
         ctx.write_audit('restore_matrix_backup', 'error', {'name': safe_name, 'message': str(exc)}, ctx.request)
@@ -651,8 +683,15 @@ def restore_matrix_backup(ctx, name):
         'input_rows': report['input_rows'],
         'skipped_rows': report['skipped_rows'],
         'pre_restore_backup': snapshot_relpath,
+        'restored_player_fetish_count': len(restored_fetishes),
     }, ctx.request)
-    return ctx.jsonify({'status': 'ok', 'restored_rows': count, 'pre_restore_backup': snapshot_relpath})
+    return ctx.jsonify({
+        'status': 'ok',
+        'restored_rows': count,
+        'pre_restore_backup': snapshot_relpath,
+        'restored_player_fetishes': [{'id': fetish['id'], 'name': fetish['name']} for fetish in restored_fetishes],
+        'restored_player_fetish_count': len(restored_fetishes),
+    })
 
 
 def merge_fetishes(ctx):

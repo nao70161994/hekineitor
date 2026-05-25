@@ -106,14 +106,14 @@
 - Client smoke fixes keep draft state in sync on back navigation, separate X share clicks from native share CTA tracking, harden PWA install/update edge cases, and gate JS syntax in `scripts/check.sh` when Node is available.
 - DB-backed multi-worker reload now refreshes fetish IDs before matrix rows so player-added fetishes from another worker are visible on stale-state refresh.
 - Admin preflight now exposes `ogp_cjk_font_available`; OGP PNG searches more CJK font locations and `scripts/ensure_ogp_font.py` / `scripts/render_build.sh` provide a Render build path for Japanese PNG OGP.
-- Matrix import/dry-run now detects exported player-added fetishes that are missing locally, preventing confusing partial restores before full fetish restore is implemented.
+- Matrix import/dry-run/backup restore now recognizes exported player-added fetishes that are missing locally, validates against the prospective restored set, and restores those player-added fetish rows before importing matrix values.
 
 ## Still Open
 
 - Keep remaining `app.py` factories as explicit composition-root adapters; only extract when ownership is clearer than Flask wiring.
 - Expand browser-oriented E2E coverage beyond Flask smoke paths when a lightweight browser runner is available.
 - Execute the manual QA backlog in `docs/QA_EXECUTION_LOG.md` for mobile CTA, OGP previews, and PWA install/update behavior.
-- OGP PNG currently falls back to ASCII text when Render lacks a Japanese/CJK font; add a CJK font via bundled asset or `OGP_FONT_PATH` in a follow-up.
+- Deploy `scripts/render_build.sh` with `DOWNLOAD_OGP_FONT=1` or set `OGP_FONT_PATH`, then manually verify `/ogp.png?f=眼鏡&p=88` renders Japanese on Render.
 
 ## Guardrails
 

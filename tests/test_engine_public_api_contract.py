@@ -67,6 +67,7 @@ EXPECTED_PUBLIC_METHOD_SIGNATURES = {
     'learn_near_miss': '(self, answers, fetish_idx, strength_factor=1.0)',
     'learn_negative': '(self, answers, fetish_idx, strength_factor=1.0)',
     'add_fetish': '(self, name, desc, answers)',
+    'restore_player_fetishes': '(self, exported_fetishes)',
     'boost_learn_new': '(self, fetish_idx, answers)',
     'index_of': '(self, db_id)',
     'merge_fetishes': '(self, id_keep, id_remove, new_name=None, new_desc=None)',

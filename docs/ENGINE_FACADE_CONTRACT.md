@@ -41,7 +41,7 @@ These methods coordinate state, locks, persistence side effects, or public API r
 - Construction and persistence setup: `__init__`, `_ensure_db`, `_load_fetishes_from_db`, `_load_from_db`, `_load_config`.
 - Matrix and config persistence: `_save_async`, `_save_to_db`, `_import_to_db`, `set_config`, `import_matrix`. Engine keeps state assignment/save orchestration; local matrix shape/init/load helpers may live outside the facade.
 - Stats and logs: `_increment_stat`, `_record_daily_stat`, `get_stats`, `get_stats_history`, `get_dropoff_summary`, `get_recent_fetish_ranking`, `get_fetish_history`, `get_quality_event_summary`, `increment_start_count`, `log_dropoff`, `log_guessed`, `log_correct`, `log_wrong`, `get_fetish_log`. Engine keeps public orchestration and local-file branches; DB SQL is delegated to `engine_db.py`.
-- Mutation workflows: `add_fetish`, `edit_fetish`, `delete_fetish`, `merge_fetishes`, `promote_fetish`, `boost_learn_new`, `edit_question`, `toggle_question_disabled`.
+- Mutation workflows: `add_fetish`, `restore_player_fetishes`, `edit_fetish`, `delete_fetish`, `merge_fetishes`, `promote_fetish`, `boost_learn_new`, `edit_question`, `toggle_question_disabled`.
 - Runtime caches: `_reload_matrix_if_stale`, `_get_disc_scales`, `get_correlation_stats`, `detect_contradictions`.
 
 ## Helper-Owned Behavior
@@ -94,6 +94,7 @@ The following public `Engine` methods are route/script contract. Their names, ca
 - `learn_near_miss(answers, fetish_idx, strength_factor=1.0)` -> near-miss matrix mutation side effects.
 - `learn_negative(answers, fetish_idx, strength_factor=1.0)` -> negative learning matrix mutation side effects.
 - `add_fetish(name, desc, answers)` -> `(array_idx, db_id)`.
+- `restore_player_fetishes(exported_fetishes)` -> restored player-added fetish list; seed/existing ids are ignored and matrix rows are initialized neutrally before import overwrites them.
 - `boost_learn_new(fetish_idx, answers)` -> learning side effects.
 - `index_of(db_id)` -> array index or `None`.
 - `merge_fetishes(id_keep, id_remove, new_name=None, new_desc=None)` -> bool.
