@@ -152,24 +152,24 @@ def _ascii_name_fallback(name):
 def _ogp_texts(name, prob, cjk_supported=True):
     if cjk_supported:
         return {
-            'label': 'へきネイター診断結果',
+            'label': "あなたの『癖』は……",
             'name': name or '???',
-            'prob': f'AI一致率 {prob}%' if prob else '',
-            'title': f'{_share.result_rarity(prob)} / {_share.result_title(prob)}' if prob else '',
-            'side': '友達にも試してもらう？',
+            'prob': f'AI精度 {prob}%' if prob else '',
+            'title': '',
+            'side': '次はあなたの番です……',
             'mark': 'AI',
-            'mark_sub': 'あなたの癖は？',
-            'tagline': 'AIが性癖プロファイルを推定',
+            'mark_sub': '観測ログ',
+            'tagline': '',
         }
     return {
-        'label': 'Hekineitor Result',
+        'label': 'Your observed pattern is...',
         'name': _ascii_name_fallback(name),
-        'prob': f'AI Match {prob}%' if prob else '',
-        'title': _share.result_rarity(prob) if prob else '',
-        'side': 'Share this result?',
+        'prob': f'AI Precision {prob}%' if prob else '',
+        'title': '',
+        'side': 'Next observation: you.',
         'mark': 'AI',
-        'mark_sub': 'Diagnosis',
-        'tagline': 'AI profile diagnosis',
+        'mark_sub': 'LOG',
+        'tagline': '',
     }
 
 
@@ -208,58 +208,39 @@ def generate_png(name, prob):
         prob_val = max(0, min(float(prob), 100)) if prob else 0
     except ValueError:
         prob_val = 0
-    bar_w = int(max(8, min(prob_val * 5.6, 560))) if prob else 0
-    bar_color = (245, 166, 35) if prob_val >= 75 else ((233, 69, 96) if prob_val >= 50 else (91, 141, 217))
+    bar_color = (185, 202, 224)
 
-    img = Image.new('RGB', (OGP_WIDTH, OGP_HEIGHT), (13, 27, 42))
+    img = Image.new('RGB', (OGP_WIDTH, OGP_HEIGHT), (9, 16, 27))
     draw = ImageDraw.Draw(img)
     for y in range(OGP_HEIGHT):
         mix = y / OGP_HEIGHT
         color = (
-            int(13 + (22 - 13) * mix),
-            int(27 + (33 - 27) * mix),
-            int(42 + (62 - 42) * mix),
+            int(9 + (15 - 9) * mix),
+            int(16 + (24 - 16) * mix),
+            int(27 + (42 - 27) * mix),
         )
         draw.line((0, y, OGP_WIDTH, y), fill=color)
-    for x in range(OGP_WIDTH):
-        mix = x / OGP_WIDTH
-        color = (int(233 + (245 - 233) * mix), int(69 + (166 - 69) * mix), int(96 + (35 - 96) * mix))
-        draw.line((x, 0, x, 7), fill=color)
 
-    draw.rounded_rectangle((60, 60, 640, 570), radius=20, fill=(31, 30, 54), outline=(96, 40, 68), width=2)
-    draw.rounded_rectangle((680, 60, 1140, 570), radius=20, fill=(10, 15, 30), outline=(32, 41, 65), width=2)
-
-    label_font = _load_ogp_font(28)
-    name_font_size = 72 if len(name) <= 8 else 60
+    label_font = _load_ogp_font(38)
+    name_font_size = 86 if len(name) <= 8 else 70
     name_font = _load_ogp_font(name_font_size, bold=True)
-    prob_font = _load_ogp_font(36)
-    side_font = _load_ogp_font(24)
+    prob_font = _load_ogp_font(42)
+    side_font = _load_ogp_font(28)
     small_font = _load_ogp_font(18)
-    badge_font = _load_ogp_font(72, bold=True)
-    badge_sub_font = _load_ogp_font(26, bold=True)
 
     cjk_supported = _font_supports_text(name_font, '眼鏡') and _font_supports_text(label_font, 'へきネイター')
     texts = _ogp_texts(name, prob, cjk_supported=cjk_supported)
 
-    _center_text(draw, 350, 100, texts['label'], label_font, (170, 170, 180))
+    _center_text(draw, 600, 105, texts['label'], label_font, (164, 176, 194))
     lines = _split_ogp_name(texts['name'])
-    y1 = 235 if len(lines) > 1 else 270
+    y1 = 245 if len(lines) > 1 else 278
     for i, line in enumerate(lines):
-        _center_text(draw, 350, y1 + i * (name_font_size + 12), line, name_font, (233, 69, 96))
+        _center_text(draw, 600, y1 + i * (name_font_size + 12), line, name_font, (238, 242, 247))
     if prob:
-        prob_y = y1 + len(lines) * (name_font_size + 12) + 20
-        _center_text(draw, 350, prob_y, texts['prob'], prob_font, bar_color)
-        _center_text(draw, 350, prob_y + 50, texts['title'], side_font, (230, 218, 190))
-    draw.rounded_rectangle((130, 490, 570, 502), radius=6, fill=(26, 26, 62))
-    if bar_w:
-        draw.rounded_rectangle((130, 490, 130 + bar_w, 502), radius=6, fill=(233, 69, 96))
-
-    _center_text(draw, 910, 145, texts['side'], side_font, (120, 130, 150))
-    draw.rounded_rectangle((795, 222, 1025, 352), radius=26, fill=(20, 24, 44), outline=(96, 40, 68), width=2)
-    _center_text(draw, 910, 230, texts['mark'], badge_font, (233, 69, 96))
-    _center_text(draw, 910, 312, texts['mark_sub'], badge_sub_font, (230, 218, 190))
-    _center_text(draw, 910, 430, 'hekineitor.onrender.com', small_font, (90, 93, 105))
-    _center_text(draw, 910, 465, texts['tagline'], small_font, (75, 78, 90))
+        prob_y = y1 + len(lines) * (name_font_size + 12) + 26
+        _center_text(draw, 600, prob_y, texts['prob'], prob_font, bar_color)
+    _center_text(draw, 600, 520, texts['side'], side_font, (96, 108, 128))
+    _center_text(draw, 600, 565, 'hekineitor.onrender.com', small_font, (58, 69, 86))
 
     buf = io.BytesIO()
     img.save(buf, format='PNG', optimize=True)
@@ -293,35 +274,17 @@ def render_svg(name, prob):
     svg = f'''<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0.6" y2="1">
-      <stop offset="0%" stop-color="#0d1b2a"/>
-      <stop offset="100%" stop-color="#16213e"/>
-    </linearGradient>
-    <linearGradient id="bar" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#e94560"/>
-      <stop offset="100%" stop-color="#f5a623"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#e94560" stop-opacity="0.15"/>
-      <stop offset="100%" stop-color="#f5a623" stop-opacity="0.05"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#09101b"/>
+      <stop offset="100%" stop-color="#0f182a"/>
     </linearGradient>
   </defs>
   <rect width="1200" height="630" fill="url(#bg)"/>
-  <rect x="0" y="0" width="1200" height="8" fill="url(#bar)"/>
-  <rect x="60" y="60" width="580" height="510" rx="20" fill="url(#accent)"/>
-  <rect x="60" y="60" width="580" height="510" rx="20" fill="none" stroke="#e94560" stroke-width="1" stroke-opacity="0.3"/>
-  <text x="350" y="130" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#888">🔮 へきネイター診断結果</text>
-  <text x="350" y="{y1}" text-anchor="middle" font-family="sans-serif" font-size="{fs_name}" font-weight="bold" fill="#e94560">{line1}</text>
-  {'<text x="350" y="' + str(y2) + '" text-anchor="middle" font-family="sans-serif" font-size="' + str(fs_name) + '" font-weight="bold" fill="#e94560">' + line2 + '</text>' if line2 else ''}
-  {'<text x="350" y="' + str((y2 if line2 else y1)+70) + '" text-anchor="middle" font-family="sans-serif" font-size="36" fill="' + bar_color + '">AI一致率 ' + prob_text + '%</text>' if prob else ''}
-  <rect x="130" y="490" width="440" height="12" rx="6" fill="#1a1a3e"/>
-  <rect x="130" y="490" width="{bar_w}" height="12" rx="6" fill="url(#bar)"/>
-  <rect x="680" y="60" width="460" height="510" rx="20" fill="#0a0f1e" fill-opacity="0.6"/>
-  <text x="910" y="160" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#555">友達にも試してもらう？</text>
-  <rect x="795" y="222" width="230" height="130" rx="26" fill="#14182c" stroke="#602844" stroke-width="2"/>
-  <text x="910" y="285" text-anchor="middle" font-family="sans-serif" font-size="72" font-weight="bold" fill="#e94560">AI</text>
-  <text x="910" y="333" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="bold" fill="#e6dabe">あなたの癖は？</text>
-  <text x="910" y="440" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#444">hekineitor.onrender.com</text>
-  <text x="910" y="480" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#333">AIが性癖プロファイルを推定</text>
+  <text x="600" y="120" text-anchor="middle" font-family="sans-serif" font-size="38" fill="#a4b0c2">あなたの『癖』は……</text>
+  <text x="600" y="{y1}" text-anchor="middle" font-family="sans-serif" font-size="{fs_name}" font-weight="bold" fill="#eef2f7">{line1}</text>
+  {'<text x="600" y="' + str(y2) + '" text-anchor="middle" font-family="sans-serif" font-size="' + str(fs_name) + '" font-weight="bold" fill="#eef2f7">' + line2 + '</text>' if line2 else ''}
+  {'<text x="600" y="' + str((y2 if line2 else y1)+80) + '" text-anchor="middle" font-family="sans-serif" font-size="42" fill="#b9cae0">AI精度 ' + prob_text + '%</text>' if prob else ''}
+  <text x="600" y="525" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#607086">次はあなたの番です……</text>
+  <text x="600" y="570" text-anchor="middle" font-family="sans-serif" font-size="18" fill="#3a4657">hekineitor.onrender.com</text>
 </svg>'''
     return svg

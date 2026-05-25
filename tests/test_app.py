@@ -1563,12 +1563,14 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         body = res.data.decode('utf-8')
         self.assertIn('NTR', body)
         self.assertIn('82', body)
-        self.assertIn('称号「濃厚反応タイプ」', body)
-        self.assertIn('AI一致率82%', body)
-        self.assertIn('友達にも試してもらう', body)
+        self.assertIn("あなたの『癖』は……", body)
+        self.assertIn('AI精度82%', body)
+        self.assertIn('次はあなたの番です……', body)
+        self.assertNotIn('称号', body)
+        self.assertNotIn('レア度', body)
         self.assertIn('og:url', body)
         self.assertRegex(body, r'https?://[^" ]+/r/[0-9A-Za-z]{4,6}')
-        self.assertIn('SR級診断: NTR', body)
+        self.assertIn("あなたの『癖』は…… NTR", body)
         self.assertIn('/ogp.png?f=NTR&amp;p=82', body)
         self.assertEqual(res.headers.get('X-Robots-Tag'), 'noindex, follow')
         self.assertIn('name="robots" content="noindex,follow"', body)
@@ -1592,7 +1594,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
                 self.assertEqual(res.status_code, 200)
                 body = res.data.decode('utf-8')
                 self.assertIn('感覚遮断落とし穴', body)
-                self.assertIn('AI一致率 93%', body)
+                self.assertIn('AI精度93%', body)
                 self.assertIn(f"/r/{data['share_id']}", body)
                 self.assertIn('/ogp.png?f=%E6%84%9F%E8%A6%9A%E9%81%AE%E6%96%AD%E8%90%BD%E3%81%A8%E3%81%97%E7%A9%B4&amp;p=93', body)
 
@@ -1614,24 +1616,24 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
 
     def test_ogp_texts_fall_back_to_ascii_when_cjk_font_is_missing(self):
         texts = ogp_service._ogp_texts('眼鏡', '88', cjk_supported=False)
-        self.assertEqual(texts['label'], 'Hekineitor Result')
+        self.assertEqual(texts['label'], 'Your observed pattern is...')
         self.assertEqual(texts['name'], 'Megane')
-        self.assertEqual(texts['prob'], 'AI Match 88%')
-        self.assertEqual(texts['side'], 'Share this result?')
-        self.assertEqual(texts['mark_sub'], 'Diagnosis')
+        self.assertEqual(texts['prob'], 'AI Precision 88%')
+        self.assertEqual(texts['side'], 'Next observation: you.')
+        self.assertEqual(texts['mark_sub'], 'LOG')
 
     def test_ogp_texts_keep_japanese_when_cjk_font_is_available(self):
         texts = ogp_service._ogp_texts('眼鏡', '88', cjk_supported=True)
-        self.assertEqual(texts['label'], 'へきネイター診断結果')
+        self.assertEqual(texts['label'], "あなたの『癖』は……")
         self.assertEqual(texts['name'], '眼鏡')
-        self.assertEqual(texts['prob'], 'AI一致率 88%')
+        self.assertEqual(texts['prob'], 'AI精度 88%')
         self.assertEqual(texts['mark'], 'AI')
-        self.assertEqual(texts['mark_sub'], 'あなたの癖は？')
+        self.assertEqual(texts['mark_sub'], '観測ログ')
 
     def test_legacy_svg_ogp_uses_ai_badge_instead_of_question_mark(self):
         svg = ogp_service.render_svg('眼鏡', '88')
-        self.assertIn('>AI</text>', svg)
-        self.assertIn('>あなたの癖は？</text>', svg)
+        self.assertIn(">あなたの『癖』は……</text>", svg)
+        self.assertIn('>AI精度 88%</text>', svg)
         self.assertNotIn('>?</text>', svg)
 
     def test_result_share_clamps_probability(self):
@@ -1640,7 +1642,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             with patch.dict(os.environ, {'SHARE_LINKS_PATH': path}):
                 res = self.client.get('/r?f=NTR&p=999&d=テスト')
         body = res.data.decode('utf-8')
-        self.assertIn('AI一致率 100%', body)
+        self.assertIn('AI精度100%', body)
         self.assertIn('/ogp.png?f=NTR&amp;p=100', body)
         self.assertRegex(body, r'/r/[0-9A-Za-z]{4,6}')
 

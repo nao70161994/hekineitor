@@ -112,31 +112,14 @@ window.HekiRenderers = (() => {
 
 
   function renderResultDrama(data, displayName, escapeHtml) {
-    const probability = Number.parseFloat(data.probability) || 0;
-    const title = window.HekiShare?.resultTitle ? window.HekiShare.resultTitle(probability) : '診断タイプ';
-    const rarity = window.HekiShare?.resultRarity ? window.HekiShare.resultRarity(probability) : 'R';
     const kicker = document.getElementById('result-kicker');
     const badges = document.getElementById('result-badges');
     const rival = document.getElementById('result-rival');
-    if (kicker) {
-      kicker.textContent = probability >= 75 ? 'AIが強く反応しました' : 'AIがあなたの気配を検出しました';
-    }
+    if (kicker) kicker.textContent = 'あなたの『癖』は……';
     if (badges) {
-      badges.innerHTML = `
-        <span>称号: ${escapeHtml(title)}</span>
-        <span>レア度: ${escapeHtml(rarity)}</span>
-        <span>AI一致率: ${escapeHtml(data.probability)}%</span>
-      `;
+      badges.innerHTML = `<span>AI精度 ${escapeHtml(data.probability)}%</span>`;
     }
-    if (!rival) return;
-    const top = Array.isArray(data.top_chart) ? data.top_chart : [];
-    if (top.length > 1) {
-      const second = top[1];
-      const gap = Math.abs((top[0].probability || 0) - (second.probability || 0));
-      const verb = gap <= 12 ? '最後まで迷いました' : '次点で見ていました';
-      rival.innerHTML = `AIは「${escapeHtml(displayName)}」と「${escapeHtml(second.fetish_name)}」で${verb}`;
-      rival.classList.remove('hidden');
-    } else {
+    if (rival) {
       rival.textContent = '';
       rival.classList.add('hidden');
     }
@@ -149,7 +132,7 @@ window.HekiRenderers = (() => {
     const step = Math.max(1, Math.round(target / 30));
     const timer = setInterval(() => {
       current = Math.min(current + step, target);
-      probEl.textContent = `一致度: ${current}%`;
+      probEl.textContent = `AI精度 ${current}%`;
       if (current >= target) clearInterval(timer);
     }, 30);
   }

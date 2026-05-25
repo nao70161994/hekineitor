@@ -25,31 +25,22 @@ window.HekiShare = (() => {
   }
 
   function resultTitle(probability) {
-    const p = parseFloat(probability) || 0;
-    if (p >= 90) return 'AIに完全看破された人';
-    if (p >= 75) return '濃厚反応タイプ';
-    if (p >= 50) return '否定しきれない人';
-    return '未確認レアタイプ';
+    return 'あなたの『癖』は……';
   }
 
   function resultRarity(probability) {
-    const p = parseFloat(probability) || 0;
-    if (p >= 90) return 'SSR';
-    if (p >= 75) return 'SR';
-    if (p >= 50) return 'R';
-    return 'SECRET';
+    return 'AI観測ログ';
   }
 
   function buildShareText(name, probability, guessData = {}) {
-    const compound = guessData.compound && guessData.compound.length > 0;
-    const p = parseFloat(probability) || 0;
-    const title = resultTitle(probability);
-    const rarity = resultRarity(probability);
-    if (compound) return `へきネイターで複合性癖「${name}」を検出。称号「${title}」/ レア度${rarity}`;
-    if (p >= 90) return `へきネイターに性癖を完全看破された。称号「${title}」/ レア度${rarity}: ${name} ${probability}%`;
-    if (p >= 75) return `へきネイターの診断結果は「${name}」。称号「${title}」/ AI一致率${probability}%。これ当たってる？`;
-    if (p >= 50) return `へきネイターに「${name}」の気配を検出された。称号「${title}」/ AI一致率${probability}%`;
-    return `へきネイターに「${name}」って言われた。称号「${title}」。これは当たってる？`;
+    const lines = [
+      'あなたの『癖』は……',
+      '',
+      name || '???',
+    ];
+    if (probability !== '') lines.push('', `AI精度${probability}%`);
+    lines.push('', '次はあなたの番です……');
+    return lines.join('\n');
   }
 
   function legacyShareUrl(name, probability, desc) {
@@ -105,7 +96,7 @@ window.HekiShare = (() => {
     const payload = await sharePayload(name);
     trackShareEvent('share_button_click', {resultName: name, channel: 'button', success: true});
     if (navigator.share) {
-      navigator.share({title: `私の性癖は「${name}」`, text: payload.text, url: payload.url})
+      navigator.share({title: `あなたの『癖』は…… ${name}`, text: payload.text, url: payload.url})
         .then(() => trackShareEvent('web_share_success', {resultName: name, channel: 'web_share', success: true}))
         .catch(() => trackShareEvent('web_share_failure', {resultName: name, channel: 'web_share', success: false}));
       return;
