@@ -149,7 +149,7 @@
 - Admin operations guard PR: CSV exports, config updates, audit detail storage, health/preflight, and restore workflow CSRF handling have regression tests.
 - Client smoke guard PR: draft/back sync, PWA edge cases, X/native share CTA split, and JS syntax checks are locked by smoke/static tests.
 - DB worker sync PR: stale DB reload now refreshes fetishes before matrix data so cross-worker player additions do not disappear from inference state.
-- OGP font diagnostics PR: preflight reports CJK font availability and `docs/OGP_FONT_SETUP.md` documents Render setup via `OGP_FONT_PATH`.
+- OGP font deployment PR: preflight reports CJK font availability, OGP searches the build-downloaded font path, and `scripts/render_build.sh` can fetch Noto Sans CJK during Render builds.
 - Matrix restore guard PR: import/dry-run now reports missing player-added fetishes from export payloads instead of silently skipping their matrix rows.
 
 

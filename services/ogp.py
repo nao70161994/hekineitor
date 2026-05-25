@@ -39,6 +39,7 @@ def _ogp_font_candidates():
         '/system/fonts/NotoSansCJK-Regular.ttc',
         'static/fonts/NotoSansCJK-Regular.ttc',
         'data/fonts/NotoSansCJK-Regular.ttc',
+        'data/fonts/NotoSansCJKjp-Regular.otf',
         '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
         '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
     ):
@@ -127,7 +128,7 @@ def cjk_font_status():
     if available:
         detail = f'CJK-capable font available: {source or "unknown source"}'
     else:
-        detail = 'CJK-capable font not found; PNG OGP will use ASCII fallback unless OGP_FONT_PATH points to a Japanese font'
+        detail = 'CJK-capable font not found; run scripts/ensure_ogp_font.py during build or set OGP_FONT_PATH to a Japanese font'
     return {'available': available, 'source': source, 'detail': detail}
 
 

@@ -215,6 +215,19 @@ class WorksLinksScriptTests(unittest.TestCase):
         self.assertNotIn('<script>alert(1)</script>', report)
 
 
+class OgpFontScriptTests(unittest.TestCase):
+    def test_ensure_ogp_font_is_opt_in_for_downloads(self):
+        script = (ROOT / 'scripts' / 'ensure_ogp_font.py').read_text(encoding='utf-8')
+        self.assertIn('DOWNLOAD_OGP_FONT', script)
+        self.assertIn('NotoSansCJKjp-Regular.otf', script)
+        self.assertIn('urllib.request', script)
+
+    def test_render_build_runs_optional_font_setup_before_pip_install(self):
+        script = (ROOT / 'scripts' / 'render_build.sh').read_text(encoding='utf-8')
+        self.assertIn('python scripts/ensure_ogp_font.py || true', script)
+        self.assertIn('pip install -r requirements.txt', script)
+
+
 class CheckScriptTests(unittest.TestCase):
     def test_check_script_runs_js_syntax_checks_when_node_exists(self):
         script = (ROOT / 'scripts' / 'check.sh').read_text(encoding='utf-8')

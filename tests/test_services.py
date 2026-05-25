@@ -80,6 +80,7 @@ class TestServices(unittest.TestCase):
     def test_ogp_cjk_font_status_shape_and_android_candidate(self):
         candidates = list(ogp._ogp_font_candidates())
         self.assertIn('/system/fonts/NotoSansCJK-Regular.ttc', candidates)
+        self.assertIn('data/fonts/NotoSansCJKjp-Regular.otf', candidates)
         status = ogp.cjk_font_status()
         self.assertIn('available', status)
         self.assertIn('detail', status)
