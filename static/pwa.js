@@ -2,10 +2,18 @@ window.HekiPwa = (() => {
   let deferredPrompt = null;
   const banner = document.getElementById('install-banner');
 
+  function storageGet(key) {
+    try { return localStorage.getItem(key); } catch { return null; }
+  }
+
+  function storageSet(key, value) {
+    try { localStorage.setItem(key, value); } catch {}
+  }
+
   function dismissInstall() {
     if (!banner) return;
     banner.classList.add('hidden');
-    localStorage.setItem('install-dismissed', '1');
+    storageSet('install-dismissed', '1');
   }
 
   function showUpdateBanner(swReg) {
@@ -26,7 +34,7 @@ window.HekiPwa = (() => {
     window.addEventListener('beforeinstallprompt', event => {
       event.preventDefault();
       deferredPrompt = event;
-      if (!localStorage.getItem('install-dismissed')) banner.classList.remove('hidden');
+      if (!storageGet('install-dismissed')) banner.classList.remove('hidden');
     });
 
     const installBtn = document.getElementById('btn-install');
@@ -47,8 +55,8 @@ window.HekiPwa = (() => {
     window.addEventListener('appinstalled', () => banner.classList.add('hidden'));
 
     const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    if (isIos && !isStandalone && !localStorage.getItem('install-dismissed')) {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    if (isIos && !isStandalone && !storageGet('install-dismissed')) {
       const msg = document.getElementById('install-msg');
       const btn = document.getElementById('btn-install');
       if (msg) msg.textContent = 'ホーム画面に追加：Safari の 共有ボタン → "ホーム画面に追加"';
@@ -70,6 +78,7 @@ window.HekiPwa = (() => {
         if (reg.waiting) { showUpdateBanner(swReg); return; }
         reg.addEventListener('updatefound', () => {
           const newSW = reg.installing;
+          if (!newSW) return;
           newSW.addEventListener('statechange', () => {
             if (newSW.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner(swReg);
           });

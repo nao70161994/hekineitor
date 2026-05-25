@@ -215,6 +215,14 @@ class WorksLinksScriptTests(unittest.TestCase):
         self.assertNotIn('<script>alert(1)</script>', report)
 
 
+class CheckScriptTests(unittest.TestCase):
+    def test_check_script_runs_js_syntax_checks_when_node_exists(self):
+        script = (ROOT / 'scripts' / 'check.sh').read_text(encoding='utf-8')
+        self.assertIn('command -v node', script)
+        self.assertIn('node --check', script)
+        self.assertIn('static/*.js', script)
+
+
 class RestoreMatrixWorkflowTests(unittest.TestCase):
     def test_workflow_validates_restore_result_counts(self):
         workflow = (ROOT / '.github' / 'workflows' / 'restore_matrix.yml').read_text(encoding='utf-8')

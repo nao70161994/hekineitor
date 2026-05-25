@@ -164,8 +164,8 @@ class TestSmoke(unittest.TestCase):
             'static/feedback.js': [b'window.quickFeedback', b'window.submitConfirm'],
             'static/teach.js': [b'window.submitTeach', b'window.addFetishStep1'],
             'static/history.js': [b'window.toggleHistory', b'window.retryExcluding'],
-            'static/draft.js': [b'window.resumeGame', b'window._checkDraft'],
-            'static/share.js': [b'window.shareResult', b'window.setDiagnosedName'],
+            'static/draft.js': [b'window.resumeGame', b'window._checkDraft', b'window._popDraft'],
+            'static/share.js': [b'window.shareResult', b'window.shareResultX', b'window.setDiagnosedName'],
             'static/pwa.js': [b'window.dismissInstall'],
         }
         for relpath, markers in expectations.items():
@@ -190,6 +190,8 @@ class TestSmoke(unittest.TestCase):
         self.assertIn(b"const DRAFT_KEY = 'heki_draft'", draft)
         self.assertIn(b"apiFetch('/api/resume'", draft)
         self.assertIn(b'localStorage.setItem(DRAFT_KEY', draft)
+        self.assertIn(b'VALID_ANSWERS', draft)
+        self.assertIn(b'function popLast', draft)
 
         with open(os.path.join(root, 'static', 'feedback.js'), 'rb') as f:
             feedback = f.read()
@@ -204,6 +206,8 @@ class TestSmoke(unittest.TestCase):
             teach = f.read()
         with open(os.path.join(root, 'templates', 'index.html'), 'rb') as f:
             index = f.read()
+        self.assertIn('data-action="share-x-result"'.encode('utf-8'), index)
+        self.assertIn('ホーム画面に追加してすぐ開けます'.encode('utf-8'), index)
         self.assertIn('この性癖を追加する'.encode('utf-8'), index)
         self.assertIn('候補にない場合'.encode('utf-8'), index)
         self.assertIn('おすすめ作品'.encode('utf-8'), index)
@@ -214,7 +218,8 @@ class TestSmoke(unittest.TestCase):
         root = os.path.dirname(os.path.dirname(__file__))
         with open(os.path.join(root, 'static', 'share.js'), 'rb') as f:
             share = f.read()
-        self.assertIn(b'/r?f=', share)
+        self.assertIn(b"new URL('/r'", share)
+        self.assertIn(b"searchParams.set('f'", share)
         self.assertIn(b'navigator.share', share)
         self.assertIn(b'twitter.com/intent/tweet', share)
 
@@ -223,6 +228,7 @@ class TestSmoke(unittest.TestCase):
         self.assertIn(b"const STATIC = ['/', '/manifest.json'", sw)
         self.assertIn(b"url.pathname.includes('/admin')", sw)
         self.assertIn(b"caches.match('/offline')", sw)
+        self.assertIn(b'Promise.all(STATIC.map', sw)
 
 
 if __name__ == '__main__':

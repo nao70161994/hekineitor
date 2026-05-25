@@ -3,7 +3,7 @@ const STATIC = ['/', '/manifest.json', '/static/icon-192.png', '/static/icon-512
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(STATIC))
+    caches.open(CACHE).then(c => Promise.all(STATIC.map(url => c.add(url).catch(() => null))))
   );
   // skipWaiting は page からの SKIP_WAITING メッセージで行う
 });

@@ -36,6 +36,7 @@ window.HekiEvents = (() => {
     else if (action === 'add-fetish-done') addFetishDone();
     else if (action === 'skip-teach') skipTeach();
     else if (action === 'share-result') shareResult();
+    else if (action === 'share-x-result') shareResultX();
     else if (action === 'close-modal') closeModal(el.dataset.modalId);
     else if (action === 'do-restart') doRestart();
     else if (action === 'dismiss-install') dismissInstall();

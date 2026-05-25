@@ -52,43 +52,61 @@ window.HekiShare = (() => {
     return `へきネイターに「${name}」って言われた。称号「${title}」。これは当たってる？`;
   }
 
-  function shareResult(name = diagnosedName) {
-    const origin = window.location.origin;
+  function sharePayload(name = diagnosedName) {
     const guessData = window._guessData || {};
     const probability = guessData.probability || '';
     const desc = (guessData.fetish_desc || '').slice(0, 80);
-    const shareUrl = `${origin}/r?f=${encodeURIComponent(name)}&p=${probability}&d=${encodeURIComponent(desc)}`;
+    const shareUrl = new URL('/r', window.location.origin);
+    shareUrl.searchParams.set('f', name);
+    if (probability !== '') shareUrl.searchParams.set('p', probability);
+    if (desc) shareUrl.searchParams.set('d', desc);
     const opening = buildShareText(name, probability, guessData);
-    const text = `${opening}\n#へきネイター`;
+    return {
+      guessData,
+      probability,
+      url: shareUrl.toString(),
+      text: `${opening}\n#へきネイター`,
+    };
+  }
+
+  function openXShare(name = diagnosedName, trackButton = true) {
+    const payload = sharePayload(name);
+    if (trackButton) trackShareEvent('share_button_click', {resultName: name, channel: 'x', success: true});
+    trackShareEvent('x_share_click', {resultName: name, channel: 'x', success: true});
+    window.open(
+      'https://twitter.com/intent/tweet?text=' + encodeURIComponent(payload.text) + '&url=' + encodeURIComponent(payload.url),
+      '_blank',
+      'noopener'
+    );
+  }
+
+  function shareResult(name = diagnosedName) {
+    const payload = sharePayload(name);
     trackShareEvent('share_button_click', {resultName: name, channel: 'button', success: true});
     if (navigator.share) {
-      navigator.share({title: `私の性癖は「${name}」`, text, url: shareUrl})
+      navigator.share({title: `私の性癖は「${name}」`, text: payload.text, url: payload.url})
         .then(() => trackShareEvent('web_share_success', {resultName: name, channel: 'web_share', success: true}))
         .catch(() => trackShareEvent('web_share_failure', {resultName: name, channel: 'web_share', success: false}));
       return;
     }
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(`${text}\n${shareUrl}`)
+      navigator.clipboard.writeText(`${payload.text}\n${payload.url}`)
         .then(() => {
           showToast('クリップボードにコピーしました', '#27ae60');
           trackShareEvent('copy_success', {resultName: name, channel: 'clipboard', success: true});
         })
         .catch(() => trackShareEvent('copy_failure', {resultName: name, channel: 'clipboard', success: false}));
     }
-    trackShareEvent('x_share_click', {resultName: name, channel: 'x', success: true});
-    window.open(
-      'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(shareUrl),
-      '_blank',
-      'noopener'
-    );
+    openXShare(name, false);
   }
 
-  return {buildShareText, resultTitle, resultRarity, setDiagnosedName, shareResult, trackShareEvent};
+  return {buildShareText, resultTitle, resultRarity, setDiagnosedName, shareResult, openXShare, trackShareEvent};
 })();
 
 window.setDiagnosedName = value => window.HekiShare.setDiagnosedName(value);
 window._buildShareText = (name, prob, guessData) => window.HekiShare.buildShareText(name, prob, guessData);
 window.shareResult = () => window.HekiShare.shareResult();
+window.shareResultX = () => window.HekiShare.openXShare();
 window._trackShareEvent = (eventName, options) => window.HekiShare.trackShareEvent(eventName, options);
 
 window._resultTitle = prob => window.HekiShare.resultTitle(prob);

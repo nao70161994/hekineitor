@@ -95,6 +95,7 @@ async function goBack() {
   try {
     const data = await apiFetch('/api/back');
     if (data.status === 'no_history') return;
+    if (window._popDraft) window._popDraft();
     showQuestion(data);
   } finally {
     setFetching(false);

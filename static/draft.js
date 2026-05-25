@@ -2,8 +2,30 @@ window.HekiDraft = (() => {
   const DRAFT_KEY = 'heki_draft';
   let draftPairs = [];
 
+  const VALID_ANSWERS = new Set([1, 0.5, 0, -0.5, -1]);
+  const MAX_DRAFT_PAIRS = 30;
+
+  function validPair(pair) {
+    if (!pair || pair.q_id === undefined) return false;
+    const questionId = Number(pair.q_id);
+    const answer = Number(pair.answer);
+    return Number.isInteger(questionId) && questionId >= 0 && VALID_ANSWERS.has(answer);
+  }
+
+  function normalizePairs(pairs) {
+    if (!Array.isArray(pairs) || pairs.length > MAX_DRAFT_PAIRS) return [];
+    const normalized = pairs.map(pair => ({q_id: Number(pair.q_id), answer: Number(pair.answer)}));
+    return normalized.every(validPair) ? normalized : [];
+  }
+
   function push(questionId, answer) {
     draftPairs.push({q_id: questionId, answer});
+  }
+
+  function popLast() {
+    draftPairs.pop();
+    if (draftPairs.length) saveDraft();
+    else clearDraft();
   }
 
   function saveDraft() {
@@ -28,13 +50,17 @@ window.HekiDraft = (() => {
       const raw = localStorage.getItem(DRAFT_KEY);
       if (!raw) return;
       const draft = JSON.parse(raw);
-      if (!draft.pairs || !draft.pairs.length) return;
+      const pairs = normalizePairs(draft.pairs);
+      if (!pairs.length) {
+        try { localStorage.removeItem(DRAFT_KEY); } catch {}
+        return;
+      }
       if (Date.now() - draft.ts > 3600 * 1000) {
         try { localStorage.removeItem(DRAFT_KEY); } catch {}
         return;
       }
-      draftPairs = draft.pairs;
-      document.getElementById('resume-count').textContent = draft.pairs.length;
+      draftPairs = pairs;
+      document.getElementById('resume-count').textContent = pairs.length;
       document.getElementById('resume-banner').classList.remove('hidden');
     } catch {}
   }
@@ -64,11 +90,12 @@ window.HekiDraft = (() => {
     }
   }
 
-  return {push, saveDraft, clearDraft, checkDraft, resumeGame};
+  return {push, popLast, saveDraft, clearDraft, checkDraft, resumeGame};
 })();
 
 window._pushDraft = (questionId, answer) => window.HekiDraft.push(questionId, answer);
 window._saveDraft = () => window.HekiDraft.saveDraft();
+window._popDraft = () => window.HekiDraft.popLast();
 window._clearDraft = () => window.HekiDraft.clearDraft();
 window._checkDraft = () => window.HekiDraft.checkDraft();
 window.resumeGame = () => window.HekiDraft.resumeGame();
