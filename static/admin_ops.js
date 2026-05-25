@@ -177,6 +177,34 @@ function renderWorksQueueSamples(samples) {
   }).join('');
 }
 
+async function applyWorksSeedBackfill() {
+  const msg = document.getElementById('works-seed-backfill-msg');
+  const text = prompt('seed の作品リストで、DB上の作品なし性癖だけを補完します。既存作品は上書きしません。\n続行するには BACKFILL_WORKS と入力してください。');
+  if (text !== 'BACKFILL_WORKS') return;
+  if (msg) {
+    msg.style.color = '#aaa';
+    msg.textContent = '復元中...';
+  }
+  const res = await adminFetch('/api/admin/works_seed_backfill', {
+    method: 'POST',
+    body: JSON.stringify({confirm_text: text}),
+  });
+  if (!res) return;
+  const data = await res.json();
+  if (!res.ok) {
+    if (msg) {
+      msg.style.color = '#e74c3c';
+      msg.textContent = data.message || '復元に失敗しました';
+    }
+    return;
+  }
+  if (msg) {
+    msg.style.color = '#27ae60';
+    msg.textContent = `復元しました: ${Number.parseInt(data.updated_count || 0, 10)}件 / 候補 ${Number.parseInt(data.candidate_count || 0, 10)}件`;
+  }
+}
+
+
 async function loadWorksLinkQueue() {
   const el = document.getElementById('works-link-queue-result');
   if (!el) return;

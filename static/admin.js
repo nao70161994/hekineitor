@@ -587,6 +587,7 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (action === 'refresh-matrix-backups') refreshMatrixBackups();
     else if (action === 'load-preflight') loadPreflight();
     else if (action === 'load-performance') loadPerformance();
+    else if (action === 'apply-works-seed-backfill') applyWorksSeedBackfill();
     else if (action === 'load-works-link-queue') loadWorksLinkQueue();
     else if (action === 'render-stats') renderStatsChart(parseInt(el.dataset.days, 10));
     else if (action === 'recent-ranking') loadRecentRanking(parseInt(el.dataset.days, 10));

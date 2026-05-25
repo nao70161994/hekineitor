@@ -352,6 +352,8 @@
 <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
   <a href="/api/admin/maintenance_checklist" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">JSONで確認</a>
   <a href="/api/admin/works_seed_backfill" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">seed作品復元候補</a>
+  <button type="button" class="btn-action" data-action="apply-works-seed-backfill" style="font-size:0.74rem;padding:3px 10px;">seed作品をDBへ復元</button>
+  <span id="works-seed-backfill-msg" style="font-size:0.76rem;color:#888;"></span>
 </div>
 </details>
 {% endif %}
