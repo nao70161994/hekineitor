@@ -1808,6 +1808,8 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('<link rel="canonical"', body)
         self.assertIn('application/ld+json', body)
         self.assertIn('href="/fetish/0"', body)
+        self.assertIn('data-href="/fetish/0"', body)
+        self.assertIn("event.target.closest('a')", body)
 
     def test_fetish_index_links_work_examples_with_affiliate_tag(self):
         from app import BOOTSTRAP, engine as app_engine

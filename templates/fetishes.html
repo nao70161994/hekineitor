@@ -27,8 +27,9 @@ h1 { color:#e94560; font-size:1.55rem; line-height:1.35; margin-bottom:8px; }
 .btn-primary { background:linear-gradient(135deg,#e94560,#f5a623); color:#fff; }
 .btn-secondary { background:#16213e; color:#ccc; border:1px solid #263554; }
 .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px; }
-.item { background:#111b32; border:1px solid #22304b; border-radius:8px; padding:14px; min-height:158px; }
+.item { background:#111b32; border:1px solid #22304b; border-radius:8px; padding:14px; min-height:158px; cursor:pointer; }
 .item:hover { border-color:#e94560; background:#14213d; }
+.item:focus { outline:2px solid #e94560; outline-offset:2px; }
 .name { font-size:1rem; font-weight:bold; line-height:1.45; margin-bottom:7px; }
 .name-link { color:#f1f1f1; text-decoration:none; }
 .name-link:hover { color:#e94560; }
@@ -54,7 +55,7 @@ h1 { color:#e94560; font-size:1.55rem; line-height:1.35; margin-bottom:8px; }
 
   <div class="grid">
     {% for f in fetishes %}
-    <div class="item">
+    <div class="item" data-href="/fetish/{{ f.id }}" tabindex="0" role="link" aria-label="{{ f.name }}の詳細を見る">
       <div class="name"><a class="name-link" href="/fetish/{{ f.id }}">{{ f.name }}</a></div>
       <div class="desc">{{ f.desc }}</div>
       {% if f.works %}
@@ -74,5 +75,19 @@ h1 { color:#e94560; font-size:1.55rem; line-height:1.35; margin-bottom:8px; }
   </div>
   <div class="footer">へきネイター {{ display_version }}</div>
 </div>
+<script>
+document.addEventListener('click', event => {
+  if (event.target.closest('a')) return;
+  const item = event.target.closest('.item[data-href]');
+  if (item) window.location.href = item.dataset.href;
+});
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  const item = event.target.closest('.item[data-href]');
+  if (!item) return;
+  event.preventDefault();
+  window.location.href = item.dataset.href;
+});
+</script>
 </body>
 </html>
