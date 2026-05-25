@@ -1554,12 +1554,21 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(texts['name'], 'Megane')
         self.assertEqual(texts['prob'], 'AI Match 88%')
         self.assertEqual(texts['side'], 'Share this result?')
+        self.assertEqual(texts['mark_sub'], 'Diagnosis')
 
     def test_ogp_texts_keep_japanese_when_cjk_font_is_available(self):
         texts = ogp_service._ogp_texts('眼鏡', '88', cjk_supported=True)
         self.assertEqual(texts['label'], 'へきネイター診断結果')
         self.assertEqual(texts['name'], '眼鏡')
         self.assertEqual(texts['prob'], 'AI一致率 88%')
+        self.assertEqual(texts['mark'], 'AI')
+        self.assertEqual(texts['mark_sub'], '診断結果')
+
+    def test_legacy_svg_ogp_uses_ai_badge_instead_of_question_mark(self):
+        svg = ogp_service.render_svg('眼鏡', '88')
+        self.assertIn('>AI</text>', svg)
+        self.assertIn('>診断結果</text>', svg)
+        self.assertNotIn('>?</text>', svg)
 
     def test_result_share_clamps_probability(self):
         res = self.client.get('/r?f=NTR&p=999&d=テスト')

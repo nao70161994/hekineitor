@@ -157,6 +157,8 @@ def _ogp_texts(name, prob, cjk_supported=True):
             'prob': f'AI一致率 {prob}%' if prob else '',
             'title': f'{_share.result_rarity(prob)} / {_share.result_title(prob)}' if prob else '',
             'side': '友達にも試してもらう？',
+            'mark': 'AI',
+            'mark_sub': '診断結果',
             'tagline': 'AIが性癖プロファイルを推定',
         }
     return {
@@ -165,6 +167,8 @@ def _ogp_texts(name, prob, cjk_supported=True):
         'prob': f'AI Match {prob}%' if prob else '',
         'title': _share.result_rarity(prob) if prob else '',
         'side': 'Share this result?',
+        'mark': 'AI',
+        'mark_sub': 'Diagnosis',
         'tagline': 'AI profile diagnosis',
     }
 
@@ -231,7 +235,8 @@ def generate_png(name, prob):
     prob_font = _load_ogp_font(36)
     side_font = _load_ogp_font(24)
     small_font = _load_ogp_font(18)
-    mark_font = _load_ogp_font(80, bold=True)
+    badge_font = _load_ogp_font(72, bold=True)
+    badge_sub_font = _load_ogp_font(26, bold=True)
 
     cjk_supported = _font_supports_text(name_font, '眼鏡') and _font_supports_text(label_font, 'へきネイター')
     texts = _ogp_texts(name, prob, cjk_supported=cjk_supported)
@@ -250,7 +255,9 @@ def generate_png(name, prob):
         draw.rounded_rectangle((130, 490, 130 + bar_w, 502), radius=6, fill=(233, 69, 96))
 
     _center_text(draw, 910, 145, texts['side'], side_font, (120, 130, 150))
-    _center_text(draw, 910, 275, '?', mark_font, (80, 42, 65))
+    draw.rounded_rectangle((795, 222, 1025, 352), radius=26, fill=(20, 24, 44), outline=(96, 40, 68), width=2)
+    _center_text(draw, 910, 230, texts['mark'], badge_font, (233, 69, 96))
+    _center_text(draw, 910, 312, texts['mark_sub'], badge_sub_font, (230, 218, 190))
     _center_text(draw, 910, 430, 'hekineitor.onrender.com', small_font, (90, 93, 105))
     _center_text(draw, 910, 465, texts['tagline'], small_font, (75, 78, 90))
 
@@ -311,7 +318,9 @@ def render_svg(name, prob):
   <rect x="130" y="490" width="{bar_w}" height="12" rx="6" fill="url(#bar)"/>
   <rect x="680" y="60" width="460" height="510" rx="20" fill="#0a0f1e" fill-opacity="0.6"/>
   <text x="910" y="160" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#555">友達にも試してもらう？</text>
-  <text x="910" y="320" text-anchor="middle" font-family="sans-serif" font-size="80" fill="#e94560" opacity="0.15">?</text>
+  <rect x="795" y="222" width="230" height="130" rx="26" fill="#14182c" stroke="#602844" stroke-width="2"/>
+  <text x="910" y="285" text-anchor="middle" font-family="sans-serif" font-size="72" font-weight="bold" fill="#e94560">AI</text>
+  <text x="910" y="333" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="bold" fill="#e6dabe">診断結果</text>
   <text x="910" y="440" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#444">hekineitor.onrender.com</text>
   <text x="910" y="480" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#333">AIが性癖プロファイルを推定</text>
 </svg>'''
