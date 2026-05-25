@@ -41,17 +41,21 @@ def work_link(ctx, work):
     raw_url = work.get('url', '') if isinstance(work, dict) else ''
     url = ctx.safe_work_url(raw_url)
     if raw_url and not url:
-        return {'title': title, 'url': ''}
+        return {'title': title, 'url': '', 'fallback': False}
     if not url:
         url = affiliate_search_url(ctx, title)
     if url and ctx.amazon_associate_id and 'tag=' not in url:
         separator = '&' if '?' in url else '?'
         url = url + f'{separator}tag={urllib.parse.quote(ctx.amazon_associate_id)}'
-    return {'title': title, 'url': url}
+    return {'title': title, 'url': url, 'fallback': False}
 
 
 def fallback_work_link(ctx, fetish_name):
-    return {'title': f'{fetish_name}の関連作品を探す', 'url': affiliate_search_url(ctx, fetish_name)}
+    return {
+        'title': f'{fetish_name}の関連作品を探す',
+        'url': affiliate_search_url(ctx, fetish_name),
+        'fallback': True,
+    }
 
 
 def work_links(ctx, works, fallback_name=None):
@@ -121,7 +125,8 @@ def fetish_detail(ctx, fetish_id):
         if related_idx is not None:
             related.append({'id': related_id, 'name': ctx.engine.fetishes[related_idx]['name']})
 
-    works = work_links(ctx, fetish.get('works'), fallback_name=fetish['name'])
+    works = work_links(ctx, fetish.get('works'))
+    fallback_work = fallback_work_link(ctx, fetish['name']) if not works else None
 
     char_qs = []
     if idx < len(ctx.engine.matrix['yes']):
@@ -159,6 +164,7 @@ def fetish_detail(ctx, fetish_id):
         'fetish.html',
         fetish=fetish,
         works=works,
+        fallback_work=fallback_work,
         work_names=work_names,
         related=related,
         char_qs=char_qs,

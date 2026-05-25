@@ -101,6 +101,15 @@ body {
     {% endif %}
     {% endfor %}
   </div>
+  {% elif fallback_work %}
+  <h2 class="section-title">関連作品を探す</h2>
+  <div class="works-list">
+    {% if fallback_work.url %}
+    <a class="work-tag" href="{{ fallback_work.url }}" target="_blank" rel="noopener sponsored">{{ fallback_work.title }}</a>
+    {% else %}
+    <span class="work-tag">{{ fallback_work.title }}</span>
+    {% endif %}
+  </div>
   {% endif %}
 
 

@@ -349,7 +349,10 @@
   <a href="{{ maintenance_checklist.works.works_review_url }}" target="_blank" class="btn-action" style="font-size:0.72rem;padding:2px 10px;text-decoration:none;margin-left:8px;">作品リンク確認</a>
 </div>
 {% endif %}
-<div style="margin-top:10px;"><a href="/api/admin/maintenance_checklist" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">JSONで確認</a></div>
+<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+  <a href="/api/admin/maintenance_checklist" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">JSONで確認</a>
+  <a href="/api/admin/works_seed_backfill" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">seed作品復元候補</a>
+</div>
 </details>
 {% endif %}
 

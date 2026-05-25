@@ -1254,6 +1254,35 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('missing_asin', data['counts'])
         self.assertIn('samples', data)
 
+    def test_admin_works_seed_backfill_dry_run_and_apply(self):
+        from app import engine as app_engine
+        headers = self._admin_headers()
+        idx = next(i for i, fetish in enumerate(app_engine.fetishes) if fetish['id'] < PLAYER_FETISH_BASE_ID and fetish.get('works'))
+        original = [dict(work) for work in app_engine.fetishes[idx].get('works', [])]
+        try:
+            app_engine.fetishes[idx]['works'] = []
+            res = self.client.get('/api/admin/works_seed_backfill?sample_limit=200', headers=headers)
+            self.assertEqual(res.status_code, 200)
+            data = res.get_json()
+            self.assertEqual(data['status'], 'ok')
+            self.assertEqual(data['mode'], 'dry_run')
+            self.assertGreaterEqual(data['candidate_count'], 1)
+            self.assertIn(app_engine.fetishes[idx]['id'], {row['id'] for row in data['candidates']})
+
+            res = self.client.post('/api/admin/works_seed_backfill', headers=headers, json={})
+            self.assertEqual(res.status_code, 400)
+            self.assertEqual(res.get_json()['required_confirm_text'], 'BACKFILL_WORKS')
+
+            res = self.client.post('/api/admin/works_seed_backfill', headers=headers, json={'confirm_text': 'BACKFILL_WORKS'})
+            self.assertEqual(res.status_code, 200)
+            applied = res.get_json()
+            self.assertEqual(applied['status'], 'ok')
+            self.assertEqual(applied['mode'], 'applied')
+            self.assertGreaterEqual(applied['updated_count'], 1)
+            self.assertTrue(app_engine.fetishes[idx].get('works'))
+        finally:
+            app_engine.fetishes[idx]['works'] = original
+
     def test_admin_performance_endpoint(self):
         headers = self._admin_headers()
         res = self.client.get('/api/admin/performance', headers=headers)
@@ -1957,7 +1986,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             headers=headers)
         self.assertEqual(res.status_code, 400)
 
-    def test_fetish_detail_shows_affiliate_search_fallback_without_works(self):
+    def test_fetish_detail_shows_search_fallback_separately_without_works(self):
         from app import BOOTSTRAP, engine as app_engine
         fid = app_engine.fetishes[0]['id']
         original_works = app_engine.fetishes[0].get('works', [])
@@ -1968,11 +1997,11 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             res = self.client.get(f'/fetish/{fid}')
             self.assertEqual(res.status_code, 200)
             body = res.data.decode('utf-8')
-            self.assertIn('おすすめ作品', body)
-            self.assertIn('関連作品を探す', body)
+            self.assertNotIn('<h2 class="section-title">おすすめ作品</h2>', body)
+            self.assertIn('<h2 class="section-title">関連作品を探す</h2>', body)
             self.assertIn('https://www.amazon.co.jp/s?k=', body)
             self.assertIn('tag=hekinator-22', body)
-            self.assertLess(body.index('<div class="section-title">この性癖とは</div>'), body.index('<h2 class="section-title">おすすめ作品</h2>'))
+            self.assertLess(body.index('<div class="section-title">この性癖とは</div>'), body.index('<h2 class="section-title">関連作品を探す</h2>'))
         finally:
             BOOTSTRAP.amazon_associate_id = original_associate_id
             app_engine.fetishes[0]['works'] = original_works

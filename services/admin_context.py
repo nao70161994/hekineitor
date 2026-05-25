@@ -75,6 +75,7 @@ def build(
     )
     maintenance = context.admin_maintenance(
         parse_works_list=parse_works_list,
+        work_title=work_title,
         list_compound_works=list_compound_works,
         set_compound_works=set_compound_works,
         delete_compound_works=delete_compound_works,

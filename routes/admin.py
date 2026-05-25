@@ -144,6 +144,52 @@ def works_link_queue_payload(engine, *, sample_limit=20):
     return collect_work_link_queue(engine.fetishes, sample_limit=sample_limit)
 
 
+def _seed_fetish_works(ctx):
+    rows = ctx.load_json_file('fetishes.json', default=[])
+    return {int(row['id']): row.get('works') or [] for row in rows if isinstance(row, dict) and 'id' in row}
+
+
+def seed_works_backfill_payload(ctx, *, sample_limit=50, apply=False):
+    seed_works = _seed_fetish_works(ctx)
+    candidates = []
+    for fetish in ctx.engine.fetishes:
+        fetish_id = fetish.get('id')
+        if fetish_id is None or fetish_id >= ctx.player_fetish_base_id:
+            continue
+        current_works = fetish.get('works') or []
+        replacement = seed_works.get(fetish_id) or []
+        if current_works or not replacement:
+            continue
+        normalized = ctx.parse_works_list(replacement)
+        if not normalized:
+            continue
+        candidates.append({
+            'id': fetish_id,
+            'name': fetish.get('name', ''),
+            'seed_work_count': len(normalized),
+            'seed_titles': [ctx.work_title(work) for work in normalized[:5]],
+        })
+
+    updated = 0
+    if apply:
+        confirm_error = ctx.require_confirm('BACKFILL_WORKS')
+        if confirm_error:
+            return confirm_error
+        for row in candidates:
+            if ctx.engine.edit_fetish(row['id'], works=ctx.parse_works_list(seed_works[row['id']])):
+                updated += 1
+        ctx.write_audit('works_seed_backfill', 'ok', {'updated_count': updated})
+
+    return ctx.jsonify({
+        'status': 'ok',
+        'mode': 'applied' if apply else 'dry_run',
+        'candidate_count': len(candidates),
+        'updated_count': updated,
+        'required_confirm_text': 'BACKFILL_WORKS',
+        'candidates': candidates[:sample_limit],
+    })
+
+
 def export_log(ctx):
     log = ctx.engine.get_fetish_log()
     fetish_map = {fetish['id']: fetish['name'] for fetish in ctx.engine.fetishes}
@@ -878,6 +924,20 @@ def create_blueprint(ctx_factory, require_admin):
         except ValueError:
             sample_limit = 20
         return ctx.jsonify(works_link_queue_payload(ctx.engine, sample_limit=sample_limit))
+
+    @bp.route('/api/admin/works_seed_backfill', methods=['GET', 'POST'])
+    @require_admin
+    def works_seed_backfill_route():
+        ctx = ctx_factory()
+        try:
+            sample_limit = max(1, min(int(ctx.request.args.get('sample_limit', 50)), 200))
+        except ValueError:
+            sample_limit = 50
+        return seed_works_backfill_payload(
+            ctx,
+            sample_limit=sample_limit,
+            apply=ctx.request.method == 'POST',
+        )
 
     @bp.route('/api/admin/export_matrix', methods=['GET'])
     @require_admin
