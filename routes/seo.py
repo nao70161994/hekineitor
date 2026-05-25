@@ -28,6 +28,21 @@ def ogp_cache_headers():
     return {'Cache-Control': 'public, max-age=3600'}
 
 
+def work_link(ctx, work):
+    title = ctx.work_title(work)
+    raw_url = work.get('url', '') if isinstance(work, dict) else ''
+    url = ctx.safe_work_url(raw_url)
+    if raw_url and not url:
+        return {'title': title, 'url': ''}
+    if not url and ctx.amazon_associate_id and title:
+        search_title = title.strip()
+        url = f'https://www.amazon.co.jp/s?k={urllib.parse.quote(search_title)}'
+    if url and ctx.amazon_associate_id and 'tag=' not in url:
+        separator = '&' if '?' in url else '?'
+        url = url + f'{separator}tag={urllib.parse.quote(ctx.amazon_associate_id)}'
+    return {'title': title, 'url': url}
+
+
 def fetish_index(ctx):
     base_url = ctx.public_base_url()
     fetish_log = ctx.engine.get_fetish_log()
@@ -35,7 +50,7 @@ def fetish_index(ctx):
     for fetish in ctx.engine.fetishes:
         if fetish['id'] >= ctx.player_fetish_base_id:
             continue
-        works = [ctx.work_title(work) for work in fetish.get('works', [])][:3]
+        works = [work_link(ctx, work) for work in (fetish.get('works') or [])[:3]]
         log = fetish_log.get(fetish['id'], {'guessed': 0, 'correct': 0, 'wrong': 0})
         rows.append({
             'id': fetish['id'],
@@ -87,15 +102,7 @@ def fetish_detail(ctx, fetish_id):
         if related_idx is not None:
             related.append({'id': related_id, 'name': ctx.engine.fetishes[related_idx]['name']})
 
-    works = []
-    for work in fetish.get('works', []):
-        title = ctx.work_title(work)
-        url = work.get('url', '') if isinstance(work, dict) else ''
-        url = ctx.safe_work_url(url)
-        if url and ctx.amazon_associate_id and 'tag=' not in url:
-            separator = '&' if '?' in url else '?'
-            url = url + f'{separator}tag={urllib.parse.quote(ctx.amazon_associate_id)}'
-        works.append({'title': title, 'url': url})
+    works = [work_link(ctx, work) for work in (fetish.get('works') or [])]
 
     char_qs = []
     if idx < len(ctx.engine.matrix['yes']):

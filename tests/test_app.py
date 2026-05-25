@@ -1809,6 +1809,29 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('application/ld+json', body)
         self.assertIn('href="/fetish/0"', body)
 
+    def test_fetish_index_links_work_examples_with_affiliate_tag(self):
+        from app import BOOTSTRAP, engine as app_engine
+        original_works = app_engine.fetishes[0].get('works', [])
+        original_associate_id = BOOTSTRAP.amazon_associate_id
+        try:
+            BOOTSTRAP.amazon_associate_id = 'hekinator-22'
+            app_engine.fetishes[0]['works'] = [
+                {'title': 'ListDirect', 'url': 'https://www.amazon.co.jp/dp/B000000000'},
+                'ListSearch',
+                {'title': 'UnsafeList', 'url': 'javascript:alert(1)'},
+            ]
+            res = self.client.get('/fetishes')
+            self.assertEqual(res.status_code, 200)
+            body = res.data.decode('utf-8')
+            self.assertIn('href="https://www.amazon.co.jp/dp/B000000000?tag=hekinator-22"', body)
+            self.assertIn('href="https://www.amazon.co.jp/s?k=ListSearch&amp;tag=hekinator-22"', body)
+            self.assertIn('UnsafeList', body)
+            self.assertNotIn('javascript:alert', body)
+            self.assertIn('rel="noopener sponsored"', body)
+        finally:
+            BOOTSTRAP.amazon_associate_id = original_associate_id
+            app_engine.fetishes[0]['works'] = original_works
+
     def test_stats_page_has_seo_metadata(self):
         res = self.client.get('/stats')
         self.assertEqual(res.status_code, 200)

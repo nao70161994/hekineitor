@@ -94,7 +94,7 @@ body {
   <div class="works-list">
     {% for w in works %}
     {% if w.url %}
-    <a class="work-tag" href="{{ w.url }}" target="_blank" rel="noopener">{{ w.title }}</a>
+    <a class="work-tag" href="{{ w.url }}" target="_blank" rel="noopener sponsored">{{ w.title }}</a>
     {% else %}
     <span class="work-tag">{{ w.title }}</span>
     {% endif %}

@@ -27,11 +27,16 @@ h1 { color:#e94560; font-size:1.55rem; line-height:1.35; margin-bottom:8px; }
 .btn-primary { background:linear-gradient(135deg,#e94560,#f5a623); color:#fff; }
 .btn-secondary { background:#16213e; color:#ccc; border:1px solid #263554; }
 .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px; }
-.item { display:block; background:#111b32; border:1px solid #22304b; border-radius:8px; padding:14px; text-decoration:none; min-height:158px; }
+.item { background:#111b32; border:1px solid #22304b; border-radius:8px; padding:14px; min-height:158px; }
 .item:hover { border-color:#e94560; background:#14213d; }
-.name { color:#f1f1f1; font-size:1rem; font-weight:bold; line-height:1.45; margin-bottom:7px; }
+.name { font-size:1rem; font-weight:bold; line-height:1.45; margin-bottom:7px; }
+.name-link { color:#f1f1f1; text-decoration:none; }
+.name-link:hover { color:#e94560; }
 .desc { color:#999; font-size:0.78rem; line-height:1.65; margin-bottom:10px; }
 .works { color:#5f93bf; font-size:0.72rem; line-height:1.55; }
+.work-link, .work-text { display:inline; color:#5f93bf; }
+.work-link { text-decoration:underline; text-underline-offset:2px; }
+.work-link:hover { color:#8cc7f0; }
 .count { color:#555; font-size:0.74rem; margin-bottom:12px; }
 .footer { color:#333; text-align:center; font-size:0.72rem; margin-top:24px; }
 </style>
@@ -49,13 +54,22 @@ h1 { color:#e94560; font-size:1.55rem; line-height:1.35; margin-bottom:8px; }
 
   <div class="grid">
     {% for f in fetishes %}
-    <a class="item" href="/fetish/{{ f.id }}">
-      <div class="name">{{ f.name }}</div>
+    <div class="item">
+      <div class="name"><a class="name-link" href="/fetish/{{ f.id }}">{{ f.name }}</a></div>
       <div class="desc">{{ f.desc }}</div>
       {% if f.works %}
-      <div class="works">作品例: {{ f.works|join(' / ') }}</div>
+      <div class="works">作品例:
+        {% for w in f.works %}
+          {% if loop.index > 1 %} / {% endif %}
+          {% if w.url %}
+          <a class="work-link" href="{{ w.url }}" target="_blank" rel="noopener sponsored">{{ w.title }}</a>
+          {% else %}
+          <span class="work-text">{{ w.title }}</span>
+          {% endif %}
+        {% endfor %}
+      </div>
       {% endif %}
-    </a>
+    </div>
     {% endfor %}
   </div>
   <div class="footer">へきネイター {{ display_version }}</div>
