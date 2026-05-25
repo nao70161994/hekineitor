@@ -145,3 +145,39 @@ Manual mobile/OGP/PWA QA is still required on deployed devices/services because 
 | Matrix restore player fetish recovery | `pytest tests/test_app.py::TestAPI::test_import_matrix_dry_run_reports_missing_player_fetishes tests/test_app.py::TestAPI::test_restore_matrix_backup_restores_missing_player_fetishes tests/test_engine_facade_contract.py::TestEnginePersistenceFacadeContract::test_restore_player_fetishes_adds_missing_player_rows_only -q` | Passed | Local pytest | Import/dry-run/backup restore now validates exported player-added fetishes against the prospective restored set and restores missing player rows before matrix import. |
 
 Manual verification is still required after setting `OGP_FONT_PATH` on Render to confirm `/ogp.png?f=眼鏡&p=88` renders Japanese instead of ASCII fallback.
+
+
+## QA Run - 2026-05-26 Twitter/X Release Smoke
+
+| Area | Command / Check | Status | Environment | Notes |
+| --- | --- | --- | --- | --- |
+| Health | `GET https://hekineitor.onrender.com/health` | Passed | Production public URL | `status=ok`, `storage=postgres`, `fetishes=132`, `questions=135`, `matrix.ok=true`, `rows=132`, `cols=135`. |
+| Home | `GET /` | Passed | Production public URL | HTML loaded successfully. |
+| Start API | `POST /api/start` | Passed | Production public URL | JSON response included `question_id` and `question`. |
+| Fetish index | `GET /fetishes` | Passed | Production public URL | Page loaded and included `/fetish/` detail links. |
+| Fetish detail | `GET /fetish/0` | Passed | Production public URL | Detail page loaded and included `おすすめ作品`. |
+| Works restore spot check | Full public `/fetish/<id>` scan | Passed | Production public URL | 128 public detail pages have `おすすめ作品`; fallback-only pages: 0; recommendation links: 380; affiliate-tagged recommendation links: 380. |
+| OGP PNG | `GET /ogp.png?f=眼鏡&p=88` | Passed | Production public URL | Returned PNG, `1200x630`, `image/png`. Manual visual inspection in X/LINE/Discord remains required. |
+| Result share page | `GET /r?f=眼鏡&p=88&d=テスト` | Passed | Production public URL | Page loaded with `og:image` pointing to PNG OGP. |
+| Manifest | `GET /manifest.json` | Passed | Production public URL | Manifest loaded; app name is `へきネイター`. |
+| Service worker | `GET /sw.js` | Passed | Production public URL | JavaScript loaded successfully. Browser install/update lifecycle remains manual. |
+| Offline page | `GET /offline` | Passed | Production public URL | Offline HTML loaded successfully. |
+| Admin preflight auth guard | `GET /api/admin/preflight` without credentials | Passed | Production public URL | Returned `401 Unauthorized` as expected. Normal admin response requires credentials in browser. |
+| Admin preflight normal path | Flask test client `GET /api/admin/preflight` | Passed with warning | Local test client | Route responded `200`; local shell reported `warning` because local QA env lacks production-equivalent settings. Production preflight should be checked in the admin browser before launch. |
+| Test play start | Flask test client `POST /admin/test_play/start` with admin auth + CSRF | Passed | Local test client | Returned `302 /`; admin page showed `学習OFFテストプレイ中`; audit row appeared. |
+| Test play stop | Flask test client `POST /admin/test_play/stop` with admin auth + CSRF | Passed | Local test client | Returned `302 /admin`; admin page returned to `通常モード`; audit row appeared. |
+| Audit log display/API | Admin page and `GET /api/admin/audit_log` | Passed | Local test client | Start/stop events were present in page/audit API. |
+
+### Release Smoke Notes
+
+No critical bug was found in automated production smoke checks or local admin workflow checks. The production admin preflight normal path, external SNS unfurls, native share sheets, and PWA install/update lifecycle still require a logged-in administrator and real browser/device surfaces.
+
+### Human Checks Before Twitter/X Announcement
+
+| Area | Status | Required Human Check |
+| --- | --- | --- |
+| Admin preflight | Not run with production credentials by Codex | Open `/api/admin/preflight` from the production admin browser and confirm `status=ok`. |
+| OGP Preview | Not run in external apps by Codex | Paste `/r?f=眼鏡&p=88&d=テスト` into X, LINE, and Discord and confirm the PNG card text/image. |
+| Native Share | Not run by Codex | Complete a diagnosis on iOS Safari / Android Chrome and confirm native share or fallback copy works. |
+| PWA install/update | Not run by Codex | Verify install/offline/update behavior in a real browser profile. |
+| Mobile tap/wrapping | Not run by Codex | Confirm result CTA, works links, and long result names do not overflow on a physical phone. |
