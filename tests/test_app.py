@@ -15,6 +15,7 @@ from app import app
 from services import ogp as ogp_service
 from services import quality_stats as quality_stats_service
 from services import share_events as share_events_service
+from services import share_links as share_links_service
 from services import share_notes as share_notes_service
 from services import test_play as test_play_service
 import engine as eng_module
@@ -25,7 +26,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
 DATA_FILES = (
     'fetish_log.json', 'stats.json', 'stats_history.json', 'fetishes.json',
     'matrix.json', 'questions.json', 'compound_works.json', 'question_flags.json',
-    'config.json', 'admin_audit_log.json', 'share_events.jsonl',
+    'config.json', 'admin_audit_log.json', 'share_events.jsonl', 'share_links.json',
     time.strftime('admin_audit_log_%Y%m.json'),
 )
 
@@ -1554,7 +1555,10 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(res.status_code, 400)
 
     def test_result_share_page(self):
-        res = self.client.get('/r?f=NTR&p=82&d=テスト')
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'share_links.json')
+            with patch.dict(os.environ, {'SHARE_LINKS_PATH': path}):
+                res = self.client.get('/r?f=NTR&p=82&d=テスト')
         self.assertEqual(res.status_code, 200)
         body = res.data.decode('utf-8')
         self.assertIn('NTR', body)
@@ -1563,10 +1567,38 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('AI一致率82%', body)
         self.assertIn('友達にも試してもらう', body)
         self.assertIn('og:url', body)
+        self.assertRegex(body, r'https?://[^" ]+/r/[0-9A-Za-z]{4,6}')
         self.assertIn('SR級診断: NTR', body)
         self.assertIn('/ogp.png?f=NTR&amp;p=82', body)
         self.assertEqual(res.headers.get('X-Robots-Tag'), 'noindex, follow')
         self.assertIn('name="robots" content="noindex,follow"', body)
+
+    def test_short_result_share_link_round_trip(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'share_links.json')
+            with patch.dict(os.environ, {'SHARE_LINKS_PATH': path}):
+                created = self.client.post('/api/share_link', json={
+                    'name': '感覚遮断落とし穴',
+                    'probability': '93',
+                    'desc': 'テスト説明',
+                })
+                self.assertEqual(created.status_code, 200)
+                data = created.get_json()
+                self.assertEqual(data['status'], 'ok')
+                self.assertRegex(data['share_id'], r'^[0-9A-Za-z]{4,6}$')
+                self.assertEqual(data['share_url'], f"/r/{data['share_id']}")
+
+                res = self.client.get(data['share_url'])
+                self.assertEqual(res.status_code, 200)
+                body = res.data.decode('utf-8')
+                self.assertIn('感覚遮断落とし穴', body)
+                self.assertIn('AI一致率 93%', body)
+                self.assertIn(f"/r/{data['share_id']}", body)
+                self.assertIn('/ogp.png?f=%E6%84%9F%E8%A6%9A%E9%81%AE%E6%96%AD%E8%90%BD%E3%81%A8%E3%81%97%E7%A9%B4&amp;p=93', body)
+
+    def test_share_link_api_rejects_missing_name(self):
+        res = self.client.post('/api/share_link', json={'probability': '88'})
+        self.assertEqual(res.status_code, 400)
 
     def test_ogp_png_image(self):
         res = self.client.get('/ogp.png?f=NTR&p=82')
@@ -1603,11 +1635,14 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertNotIn('>?</text>', svg)
 
     def test_result_share_clamps_probability(self):
-        res = self.client.get('/r?f=NTR&p=999&d=テスト')
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'share_links.json')
+            with patch.dict(os.environ, {'SHARE_LINKS_PATH': path}):
+                res = self.client.get('/r?f=NTR&p=999&d=テスト')
         body = res.data.decode('utf-8')
         self.assertIn('AI一致率 100%', body)
         self.assertIn('/ogp.png?f=NTR&amp;p=100', body)
-        self.assertIn('p%3D100', body)
+        self.assertRegex(body, r'/r/[0-9A-Za-z]{4,6}')
 
     def test_share_event_api_records_minimal_event(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1645,7 +1680,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
     def test_result_share_and_ogp_views_are_logged(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'share_events.jsonl')
-            with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path}):
+            with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path, 'SHARE_LINKS_PATH': os.path.join(tmp, 'share_links.json')}):
                 self.client.get('/r?f=NTR&p=82&d=テスト')
                 self.client.get('/ogp.png?f=NTR&p=82')
                 self.client.get('/ogp?f=NTR&p=82')

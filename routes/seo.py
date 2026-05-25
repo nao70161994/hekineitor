@@ -2,6 +2,8 @@ from flask import Blueprint
 import html as _html
 import urllib.parse
 
+from services import share_links
+
 
 def index(ctx):
     base_url = ctx.public_base_url()
@@ -179,13 +181,8 @@ def fetish_detail(ctx, fetish_id):
     )
 
 
-def result_share(ctx):
-    name = ctx.request.args.get('f', '')[:60]
-    probability = ctx.clean_probability(ctx.request.args.get('p', ''))
-    desc = ctx.request.args.get('d', '')[:120]
+def _render_result_share(ctx, *, name, probability, desc, share_url):
     base_url = ctx.public_base_url()
-    ctx.record_share_event('result_page_view', result_name=name, channel='result_page', success=True)
-    share_url = f"{base_url}/r?f={urllib.parse.quote(name)}&p={urllib.parse.quote(probability)}&d={urllib.parse.quote(desc)}"
     body = ctx.render_template(
         'result_share.html',
         fetish_name=name,
@@ -200,6 +197,51 @@ def result_share(ctx):
         result_rarity=ctx.result_rarity(probability),
     )
     return ctx.Response(body, headers={'X-Robots-Tag': 'noindex, follow'})
+
+
+def _short_result_share_url(ctx, *, name, probability, desc):
+    base_url = ctx.public_base_url()
+    fallback = f"{base_url}/r?f={urllib.parse.quote(name)}&p={urllib.parse.quote(probability)}&d={urllib.parse.quote(desc)}"
+    try:
+        share_id, _payload = share_links.create_link({
+            'name': name,
+            'probability': probability,
+            'desc': desc,
+            'title': ctx.result_title(probability),
+            'rank': ctx.result_rarity(probability),
+        })
+    except (OSError, RuntimeError, ValueError):
+        return fallback
+    return f'{base_url}/r/{share_id}'
+
+
+def result_share(ctx):
+    name = ctx.request.args.get('f', '')[:60]
+    probability = ctx.clean_probability(ctx.request.args.get('p', ''))
+    desc = ctx.request.args.get('d', '')[:120]
+    ctx.record_share_event('result_page_view', result_name=name, channel='result_page', success=True)
+    share_url = _short_result_share_url(ctx, name=name, probability=probability, desc=desc)
+    return _render_result_share(ctx, name=name, probability=probability, desc=desc, share_url=share_url)
+
+
+def result_share_by_id(ctx, share_id):
+    payload = share_links.resolve_link(share_id)
+    if not payload:
+        return ctx.error_page.format(
+            title='見つかりません', emoji='🔍', code='404',
+            message='共有リンクが存在しないか、期限切れです。'
+        ), 404
+    name = payload.get('name', '')[:60]
+    probability = ctx.clean_probability(payload.get('probability', ''))
+    desc = payload.get('desc', '')[:120]
+    ctx.record_share_event('result_page_view', result_name=name, channel='result_page', success=True)
+    return _render_result_share(
+        ctx,
+        name=name,
+        probability=probability,
+        desc=desc,
+        share_url=f'{ctx.public_base_url()}/r/{share_id}',
+    )
 
 
 def ogp_png_image(ctx):
@@ -302,6 +344,10 @@ def create_blueprint(ctx_factory):
     @bp.route('/r')
     def result_share_route():
         return result_share(ctx_factory())
+
+    @bp.route('/r/<share_id>')
+    def result_share_by_id_route(share_id):
+        return result_share_by_id(ctx_factory(), share_id)
 
     @bp.route('/ogp.png')
     def ogp_png_image_route():

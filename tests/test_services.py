@@ -6,7 +6,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import audit
-from services import admin_context, admin_helpers, admin_security, bootstrap, context, csv_safety, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, ogp, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, share_notes, system_context, test_play
+from services import admin_context, admin_helpers, admin_security, bootstrap, context, csv_safety, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, ogp, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, share_links, share_notes, system_context, test_play
 
 
 class DummyRequest:
@@ -971,3 +971,35 @@ class TestServices(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class TestShareLinks(unittest.TestCase):
+    def test_share_link_round_trip_uses_short_base62_id_and_no_personal_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'share_links.json')
+            seq = iter(['7f3k'])
+            share_id, payload = share_links.create_link(
+                {
+                    'name': '感覚遮断落とし穴',
+                    'probability': '93',
+                    'desc': 'テスト',
+                    'title': 'AIに完全看破された人',
+                    'rank': 'SSR',
+                    'ip': '127.0.0.1',
+                    'user_agent': 'secret',
+                },
+                path=path,
+                token_fn=lambda length: next(seq),
+            )
+            self.assertEqual(share_id, '7f3k')
+            self.assertEqual(payload['name'], '感覚遮断落とし穴')
+            resolved = share_links.resolve_link('7f3k', path=path)
+            self.assertEqual(resolved['probability'], '93')
+            self.assertNotIn('ip', resolved)
+            self.assertNotIn('user_agent', resolved)
+
+    def test_share_link_rejects_invalid_id_and_missing_name(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'share_links.json')
+            self.assertIsNone(share_links.resolve_link('../bad', path=path))
+            with self.assertRaises(ValueError):
+                share_links.create_link({'probability': '88'}, path=path)

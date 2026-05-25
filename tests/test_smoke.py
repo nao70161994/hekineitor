@@ -1,7 +1,9 @@
 import base64
 import os
 import sys
+import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 os.environ.setdefault('SECRET_KEY', 'test_secret_key_for_testing')
@@ -89,7 +91,9 @@ class TestSmoke(unittest.TestCase):
         self.assertIn('name="twitter:card" content="summary_large_image"', body)
 
     def test_result_share_uses_png_og_image(self):
-        res = self.client.get('/r?f=Test&p=88&d=desc')
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {'SHARE_LINKS_PATH': os.path.join(tmp, 'share_links.json')}):
+                res = self.client.get('/r?f=Test&p=88&d=desc')
         self.assertEqual(res.status_code, 200)
         body = res.data.decode('utf-8')
         self.assertIn('/ogp.png?f=Test&amp;p=88', body)
@@ -102,7 +106,9 @@ class TestSmoke(unittest.TestCase):
         self.assertIn(b'SvgTest', res.data)
 
     def test_share_page_keeps_social_metadata(self):
-        res = self.client.get('/r?f=ShareTest&p=91&d=hello')
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {'SHARE_LINKS_PATH': os.path.join(tmp, 'share_links.json')}):
+                res = self.client.get('/r?f=ShareTest&p=91&d=hello')
         self.assertEqual(res.status_code, 200)
         body = res.data.decode('utf-8')
         self.assertIn('property="og:image"', body)

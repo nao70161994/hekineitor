@@ -12,6 +12,7 @@ data/stats_history.json
 data/admin_audit_log*.json
 data/share_events*.jsonl
 data/share_improvement_notes.json
+data/share_links.json
 data/matrix_import_backups/
 .env
 gen_icons.py

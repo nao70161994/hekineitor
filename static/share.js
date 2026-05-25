@@ -52,25 +52,46 @@ window.HekiShare = (() => {
     return `へきネイターに「${name}」って言われた。称号「${title}」。これは当たってる？`;
   }
 
-  function sharePayload(name = diagnosedName) {
-    const guessData = window._guessData || {};
-    const probability = guessData.probability || '';
-    const desc = (guessData.fetish_desc || '').slice(0, 80);
+  function legacyShareUrl(name, probability, desc) {
     const shareUrl = new URL('/r', window.location.origin);
     shareUrl.searchParams.set('f', name);
     if (probability !== '') shareUrl.searchParams.set('p', probability);
     if (desc) shareUrl.searchParams.set('d', desc);
+    return shareUrl.toString();
+  }
+
+  async function createShortShareUrl(name, probability, desc) {
+    try {
+      const res = await fetch('/api/share_link', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name, probability, desc}),
+      });
+      if (!res.ok) return '';
+      const data = await res.json();
+      if (!data.share_url) return '';
+      return new URL(data.share_url, window.location.origin).toString();
+    } catch (error) {
+      return '';
+    }
+  }
+
+  async function sharePayload(name = diagnosedName) {
+    const guessData = window._guessData || {};
+    const probability = guessData.probability || '';
+    const desc = (guessData.fetish_desc || '').slice(0, 80);
     const opening = buildShareText(name, probability, guessData);
+    const shortUrl = await createShortShareUrl(name, probability, desc);
     return {
       guessData,
       probability,
-      url: shareUrl.toString(),
+      url: shortUrl || legacyShareUrl(name, probability, desc),
       text: `${opening}\n#へきネイター`,
     };
   }
 
-  function openXShare(name = diagnosedName, trackButton = true) {
-    const payload = sharePayload(name);
+  async function openXShare(name = diagnosedName, trackButton = true) {
+    const payload = await sharePayload(name);
     if (trackButton) trackShareEvent('share_button_click', {resultName: name, channel: 'x', success: true});
     trackShareEvent('x_share_click', {resultName: name, channel: 'x', success: true});
     window.open(
@@ -80,8 +101,8 @@ window.HekiShare = (() => {
     );
   }
 
-  function shareResult(name = diagnosedName) {
-    const payload = sharePayload(name);
+  async function shareResult(name = diagnosedName) {
+    const payload = await sharePayload(name);
     trackShareEvent('share_button_click', {resultName: name, channel: 'button', success: true});
     if (navigator.share) {
       navigator.share({title: `私の性癖は「${name}」`, text: payload.text, url: payload.url})
@@ -100,7 +121,7 @@ window.HekiShare = (() => {
     openXShare(name, false);
   }
 
-  return {buildShareText, resultTitle, resultRarity, setDiagnosedName, shareResult, openXShare, trackShareEvent};
+  return {buildShareText, resultTitle, resultRarity, setDiagnosedName, shareResult, openXShare, trackShareEvent, legacyShareUrl};
 })();
 
 window.setDiagnosedName = value => window.HekiShare.setDiagnosedName(value);

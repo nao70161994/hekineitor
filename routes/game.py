@@ -1,4 +1,8 @@
 from flask import Blueprint
+
+from services import share, share_links
+
+
 def question_payload(engine, question_id, question_text, count, total, *, hint=None, progress_message=None, contradictions=None):
     q_data = engine.questions[question_id]
     payload = {
@@ -635,6 +639,34 @@ def delete_fetish(ctx, fetish_id):
     return ctx.jsonify({'status': 'deleted'})
 
 
+def create_share_link(ctx):
+    limited = ctx.rate_limit('api_share_link', 120)
+    if limited:
+        return limited
+    data = ctx.request.get_json(silent=True) or {}
+    name = str(data.get('name') or data.get('result_name') or data.get('f') or '')[:60]
+    probability = share.clean_probability(data.get('probability') or data.get('percent') or data.get('p') or '')
+    desc = str(data.get('desc') or data.get('d') or '')[:120]
+    if not name:
+        return ctx.jsonify({'status': 'error', 'message': 'name is required'}), 400
+    try:
+        share_id, payload = share_links.create_link({
+            'name': name,
+            'probability': probability,
+            'desc': desc,
+            'title': share.result_title(probability),
+            'rank': share.result_rarity(probability),
+        })
+    except (OSError, RuntimeError, ValueError):
+        return ctx.jsonify({'status': 'error', 'message': 'share link could not be created'}), 500
+    return ctx.jsonify({
+        'status': 'ok',
+        'share_id': share_id,
+        'share_url': f'/r/{share_id}',
+        'result': payload,
+    })
+
+
 def share_event(ctx):
     limited = ctx.rate_limit('api_share_event', 180)
     if limited:
@@ -711,6 +743,10 @@ def create_blueprint(ctx_factory):
     @bp.route('/api/fetish/<int:fetish_id>', methods=['DELETE'])
     def delete_fetish_route(fetish_id):
         return delete_fetish(ctx_factory(), fetish_id)
+
+    @bp.route('/api/share_link', methods=['POST'])
+    def create_share_link_route():
+        return create_share_link(ctx_factory())
 
     @bp.route('/api/share_event', methods=['POST'])
     def share_event_route():

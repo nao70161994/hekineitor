@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -106,7 +107,9 @@ class TestE2ESmoke(unittest.TestCase):
         self.assertEqual(feedback.status_code, 200)
         self.assertEqual(feedback.get_json().get('status'), 'wrong')
 
-        share = self.client.get('/r?f=Browser&p=88&d=E2E')
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {'SHARE_LINKS_PATH': os.path.join(tmp, 'share_links.json')}):
+                share = self.client.get('/r?f=Browser&p=88&d=E2E')
         self.assertEqual(share.status_code, 200)
         self.assertIn(b'/ogp.png?f=Browser', share.data)
 
