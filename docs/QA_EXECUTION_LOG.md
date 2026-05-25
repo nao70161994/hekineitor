@@ -181,3 +181,25 @@ No critical bug was found in automated production smoke checks or local admin wo
 | Native Share | Not run by Codex | Complete a diagnosis on iOS Safari / Android Chrome and confirm native share or fallback copy works. |
 | PWA install/update | Not run by Codex | Verify install/offline/update behavior in a real browser profile. |
 | Mobile tap/wrapping | Not run by Codex | Confirm result CTA, works links, and long result names do not overflow on a physical phone. |
+
+
+## QA Run - 2026-05-26 Automated Device-QA Substitutes
+
+| Area | Command / Check | Status | Environment | Notes |
+| --- | --- | --- | --- | --- |
+| Health | `GET https://hekineitor.onrender.com/health` | Passed | Production HTTP smoke | `status=ok`, `storage=postgres`, `fetishes=132`, `questions=135`, `matrix.ok=true`, `rows=132`, `cols=135`. |
+| Home | `GET /` | Passed | Production HTTP smoke | Title was `へきネイター v1.9.2 — 性癖診断`. |
+| Start API | `POST /api/start` | Passed | Production HTTP smoke | Response included `question_id=89`, `question`, and `count=0`. |
+| Result page OGP | `GET /r?f=眼鏡&p=88&d=テスト` | Passed | Production HTTP smoke | `og:title=SR級診断: 眼鏡 — へきネイター`; `og:image` points to `/ogp.png?f=眼鏡&p=88`. |
+| OGP PNG | `GET /ogp.png?f=眼鏡&p=88` | Passed | Production HTTP smoke | PNG signature valid, `1200x630`, `image/png`, 46650 bytes. |
+| Fetish index | `GET /fetishes` | Passed | Production HTTP smoke | 128 public detail IDs found. |
+| Fetish detail works | Full public `/fetish/<id>` scan | Passed | Production HTTP smoke | 128 recommendation sections, 0 fallback-only pages, 380 affiliate-tag occurrences. |
+| Manifest | `GET /manifest.json` | Passed | Production HTTP smoke | `name=へきネイター`, 3 icons, `display=standalone`. |
+| Service worker | `GET /sw.js` | Passed | Production HTTP smoke | JavaScript loaded, 1650 bytes. |
+| Offline | `GET /offline` | Passed | Production HTTP smoke | Offline HTML loaded. |
+| Admin preflight guard | `GET /api/admin/preflight` without auth | Passed | Production HTTP smoke | Returned `401`; admin-only guard active. |
+| Admin page guard | `GET /admin` without auth | Passed | Production HTTP smoke | Returned `401`; admin-only guard active. |
+
+### Remaining Manual Device QA
+
+Only the items documented in `docs/MANUAL_DEVICE_QA.md` remain manual: X/LINE/Discord external card previews, iPhone/Android Web Share sheets, screenshot appeal, mobile work-link tap targets, and PWA install/update/offline lifecycle. These require real apps, crawlers, or browser install state and cannot be faithfully replaced by HTTP smoke checks.
