@@ -6,7 +6,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import audit
-from services import admin_context, admin_helpers, admin_security, bootstrap, context, csv_safety, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, ogp, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, share_links, share_notes, system_context, test_play
+from services import admin_context, admin_helpers, admin_security, bootstrap, context, csv_safety, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, ogp, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, question_events, share_links, share_notes, system_context, test_play
 
 
 class DummyRequest:
@@ -96,6 +96,33 @@ class TestServices(unittest.TestCase):
         self.assertEqual(csv_safety.safe_csv_cell('=cmd'), "'=cmd")
         self.assertEqual(csv_safety.safe_csv_cell(' +SUM(A1)'), "' +SUM(A1)")
         self.assertEqual(csv_safety.safe_csv_cell('plain'), 'plain')
+
+
+    def test_question_events_report_counts_rates_categories_and_warnings(self):
+        class Engine:
+            questions = [
+                {'text': 'Q0', 'category': 'relation', 'axis': 'abstract'},
+                {'text': 'Q1', 'category': 'attachment', 'axis': 'abstract'},
+                {'text': 'Q2', 'category': 'world', 'axis': 'abstract'},
+            ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'question_events.jsonl')
+            for _ in range(6):
+                question_events.record_event('question_shown', question_id=0, category='relation', path=path)
+            for _ in range(4):
+                question_events.record_event('question_shown', question_id=1, category='attachment', path=path)
+            question_events.record_event('question_answered', question_id=0, answer=1.0, category='relation', path=path)
+            question_events.record_event('question_answered', question_id=0, answer=-1.0, category='relation', path=path)
+            question_events.record_event('question_dropoff', question_id=0, answered_count=1, category='relation', path=path)
+            question_events.record_event('question_result_contribution', question_id=0, result_name='共依存', answer=1.0, path=path)
+            report = question_events.event_report(Engine(), path=path)
+        self.assertEqual(report['metrics']['shown'], 10)
+        self.assertEqual(report['metrics']['answered'], 2)
+        self.assertEqual(report['metrics']['relation_attachment_share'], 100.0)
+        self.assertEqual(report['questions'][0]['yes_rate'], 50.0)
+        self.assertEqual(report['contribution_ranking'][0]['top_results'][0]['result_name'], '共依存')
+        self.assertEqual(report['warnings'][0]['type'], 'relation_attachment_bias')
 
     def test_share_events_csv_escapes_formula_result_names(self):
         report = {'ranking': [{'result_name': '=HYPERLINK("x")', 'total': 1}], 'filters': {}}
@@ -503,6 +530,7 @@ class TestServices(unittest.TestCase):
                 load_json_file=lambda path, default=None: default,
             ),
             share_event_report=lambda **kwargs: {'total': 0},
+            question_event_report=lambda **kwargs: {'total': 0},
             load_share_notes=lambda: {},
             save_share_note=lambda result_name, note: {'note': note, 'updated_at': 'now'},
             enable_test_play=lambda: None,
@@ -596,6 +624,7 @@ class TestServices(unittest.TestCase):
             work_title=lambda work: str(work),
             get_compound_works=lambda a, b: [],
             record_share_event=lambda *args, **kwargs: None,
+            record_question_event=lambda *args, **kwargs: None,
             preserve_test_play_flag=lambda: False,
             restore_test_play_flag=lambda enabled: None,
             learning_disabled=lambda: False,

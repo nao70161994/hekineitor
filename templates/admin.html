@@ -195,6 +195,74 @@
 </details>
 {% endif %}
 
+{% if question_events %}
+<details open style="margin-bottom:24px;background:#101622;border:1px solid #263244;border-radius:8px;padding:12px 14px;">
+<summary style="color:#b38cff;font-size:0.9rem;cursor:pointer;">質問分析ダッシュボード</summary>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-top:12px;">
+  <div><div style="font-size:1.35rem;color:#f5a623;font-weight:bold;">{{ question_events.metrics.shown }}</div><div style="font-size:0.72rem;color:#888;">質問表示</div></div>
+  <div><div style="font-size:1.35rem;color:#7af0a0;font-weight:bold;">{{ question_events.metrics.answered }}</div><div style="font-size:0.72rem;color:#888;">回答</div></div>
+  <div><div style="font-size:1.35rem;color:#e74c3c;font-weight:bold;">{{ question_events.metrics.dropoffs }}</div><div style="font-size:0.72rem;color:#888;">離脱記録</div></div>
+  <div><div style="font-size:1.35rem;color:#5b8dd9;font-weight:bold;">{{ question_events.metrics.contributions }}</div><div style="font-size:0.72rem;color:#888;">結果寄与</div></div>
+  <div><div style="font-size:1.35rem;color:{% if question_events.metrics.relation_attachment_share >= 55 %}#e74c3c{% else %}#aaa{% endif %};font-weight:bold;">{{ question_events.metrics.relation_attachment_share }}%</div><div style="font-size:0.72rem;color:#888;">relation/attachment比率</div></div>
+</div>
+{% if question_events.warnings %}
+<div style="margin-top:10px;border:1px solid #5a3320;background:#21150f;border-radius:8px;padding:8px 10px;">
+  {% for warning in question_events.warnings %}<div style="font-size:0.76rem;color:#f5a623;">{{ warning.message }}</div>{% endfor %}
+</div>
+{% endif %}
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+  <a href="/api/admin/question_events" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">JSON</a>
+  <a href="/api/admin/question_events/questions.csv" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">質問CSV</a>
+  <a href="/api/admin/question_events/category.csv" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">カテゴリCSV</a>
+</div>
+<h3 style="font-size:0.82rem;color:#ddd;margin:14px 0 6px;">質問ランキング</h3>
+<table style="width:100%;border-collapse:collapse;font-size:0.74rem;">
+<tr style="color:#888;border-bottom:1px solid #263244;"><th style="text-align:left;padding:4px;">Q</th><th style="text-align:left;padding:4px;">カテゴリ</th><th style="text-align:left;padding:4px;">質問</th><th style="text-align:right;padding:4px;">表示</th><th style="text-align:right;padding:4px;">YES</th><th style="text-align:right;padding:4px;">NO</th><th style="text-align:right;padding:4px;">未回答</th><th style="text-align:right;padding:4px;">離脱</th></tr>
+{% for row in question_events.questions[:10] %}
+<tr style="border-bottom:1px solid #1f2937;">
+  <td style="padding:4px;color:#888;">{{ row.question_id }}</td>
+  <td style="padding:4px;color:#b38cff;">{{ row.category }}</td>
+  <td style="padding:4px;color:#ddd;max-width:360px;">{{ row.question_text }}</td>
+  <td style="padding:4px;text-align:right;color:#eee;">{{ row.shown }}</td>
+  <td style="padding:4px;text-align:right;color:#7af0a0;">{{ row.yes_rate }}%</td>
+  <td style="padding:4px;text-align:right;color:#7ab7ff;">{{ row.no_rate }}%</td>
+  <td style="padding:4px;text-align:right;color:#aaa;">{{ row.unanswered_rate }}%</td>
+  <td style="padding:4px;text-align:right;color:{% if row.dropoff_rate >= 25 %}#e74c3c{% else %}#aaa{% endif %};">{{ row.dropoff_rate }}%</td>
+</tr>
+{% endfor %}
+</table>
+<h3 style="font-size:0.82rem;color:#ddd;margin:14px 0 6px;">離脱率順</h3>
+<table style="width:100%;border-collapse:collapse;font-size:0.74rem;">
+<tr style="color:#888;border-bottom:1px solid #263244;"><th style="text-align:left;padding:4px;">Q</th><th style="text-align:left;padding:4px;">カテゴリ</th><th style="text-align:left;padding:4px;">質問</th><th style="text-align:right;padding:4px;">表示</th><th style="text-align:right;padding:4px;">離脱率</th></tr>
+{% for row in question_events.dropoff_ranking[:8] %}
+<tr style="border-bottom:1px solid #1f2937;"><td style="padding:4px;color:#888;">{{ row.question_id }}</td><td style="padding:4px;color:#b38cff;">{{ row.category }}</td><td style="padding:4px;color:#ddd;">{{ row.question_text }}</td><td style="padding:4px;text-align:right;color:#eee;">{{ row.shown }}</td><td style="padding:4px;text-align:right;color:{% if row.dropoff_rate >= 25 %}#e74c3c{% else %}#aaa{% endif %};">{{ row.dropoff_rate }}%</td></tr>
+{% endfor %}
+</table>
+<h3 style="font-size:0.82rem;color:#ddd;margin:14px 0 6px;">カテゴリ別ヒートマップ</h3>
+<table style="width:100%;border-collapse:collapse;font-size:0.74rem;">
+<tr style="color:#888;border-bottom:1px solid #263244;"><th style="text-align:left;padding:4px;">カテゴリ</th><th style="text-align:right;padding:4px;">出現率</th><th style="text-align:right;padding:4px;">YES率</th><th style="text-align:right;padding:4px;">離脱率</th><th style="padding:4px;">分布</th></tr>
+{% for row in question_events.categories %}
+<tr style="border-bottom:1px solid #1f2937;">
+  <td style="padding:4px;color:#b38cff;">{{ row.category }}</td>
+  <td style="padding:4px;text-align:right;color:#eee;">{{ row.shown_share }}%</td>
+  <td style="padding:4px;text-align:right;color:#7af0a0;">{{ row.yes_rate }}%</td>
+  <td style="padding:4px;text-align:right;color:#aaa;">{{ row.dropoff_rate }}%</td>
+  <td style="padding:4px;"><div style="height:7px;background:#263244;border-radius:999px;overflow:hidden;"><div style="height:7px;width:{{ row.shown_share }}%;background:{% if row.category in ['relation','attachment'] %}#e74c3c{% else %}#5b8dd9{% endif %};"></div></div></td>
+</tr>
+{% endfor %}
+</table>
+{% if question_events.contribution_ranking %}
+<h3 style="font-size:0.82rem;color:#ddd;margin:14px 0 6px;">結果寄与ランキング</h3>
+<table style="width:100%;border-collapse:collapse;font-size:0.74rem;">
+<tr style="color:#888;border-bottom:1px solid #263244;"><th style="text-align:left;padding:4px;">Q</th><th style="text-align:left;padding:4px;">質問</th><th style="text-align:right;padding:4px;">寄与</th><th style="text-align:left;padding:4px;">押し上げた結果</th></tr>
+{% for row in question_events.contribution_ranking[:8] %}
+<tr style="border-bottom:1px solid #1f2937;"><td style="padding:4px;color:#888;">{{ row.question_id }}</td><td style="padding:4px;color:#ddd;">{{ row.question_text }}</td><td style="padding:4px;text-align:right;color:#f5a623;">{{ row.contribution }}</td><td style="padding:4px;color:#aaa;">{% for item in row.top_results %}{{ item.result_name }}({{ item.count }}){% if not loop.last %}, {% endif %}{% else %}—{% endfor %}</td></tr>
+{% endfor %}
+</table>
+{% endif %}
+</details>
+{% endif %}
+
 {% if share_events %}
 <details open style="margin-bottom:24px;background:#101622;border:1px solid #263244;border-radius:8px;padding:12px 14px;">
 <summary style="color:#7ab7ff;font-size:0.9rem;cursor:pointer;">拡散イベント</summary>

@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from flask import Blueprint
 from services.works_links import collect_work_link_queue
 from services import share_events as share_events_service
+from services import question_events as question_events_service
 from services import ogp as ogp_service
 from matrix_service import matrix_validation_report
 from services.csv_safety import csv_text
@@ -90,6 +91,7 @@ def admin_page(ctx):
     maintenance = ctx.build_admin_maintenance_checklist()
     share_event_filters = share_event_query(ctx, default_limit=1000)
     share_events = ctx.share_event_report(**share_event_filters)
+    question_events = ctx.question_event_report(limit=1000)
     share_notes = ctx.load_share_notes()
     audit_rows = ctx.recent_audit(50)
     return ctx.render_template(
@@ -114,6 +116,7 @@ def admin_page(ctx):
         quality_report=quality,
         maintenance_checklist=maintenance,
         share_events=share_events,
+        question_events=question_events,
         share_notes=share_notes,
         share_event_filters=share_event_filters,
         share_event_query=share_event_query_string(share_event_filters),
@@ -288,6 +291,27 @@ def quality_report(ctx):
 
 def share_events_report(ctx):
     return ctx.jsonify({'status': 'ok', **ctx.share_event_report(**share_event_query(ctx))})
+
+
+def question_events_report(ctx):
+    limit = ctx.bounded_int(ctx.request.args.get('limit'), 1000, 1, 50000)
+    return ctx.jsonify({'status': 'ok', **ctx.question_event_report(limit=limit)})
+
+
+def question_events_csv(ctx, kind):
+    limit = ctx.bounded_int(ctx.request.args.get('limit'), 5000, 1, 50000)
+    report = ctx.question_event_report(limit=limit)
+    if kind == 'category':
+        body = question_events_service.category_csv(report)
+        filename = 'question_events_category.csv'
+    else:
+        body = question_events_service.question_csv(report)
+        filename = 'question_events_questions.csv'
+    return ctx.Response(
+        body,
+        mimetype='text/csv; charset=utf-8',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'},
+    )
 
 
 def share_events_csv(ctx, kind):
@@ -1136,6 +1160,16 @@ def create_blueprint(ctx_factory, require_admin):
     @require_admin
     def share_events_report_route():
         return share_events_report(ctx_factory())
+
+    @bp.route('/api/admin/question_events', methods=['GET'])
+    @require_admin
+    def question_events_report_route():
+        return question_events_report(ctx_factory())
+
+    @bp.route('/api/admin/question_events/<kind>.csv', methods=['GET'])
+    @require_admin
+    def question_events_csv_route(kind):
+        return question_events_csv(ctx_factory(), kind)
 
     @bp.route('/api/admin/share_events/<kind>.csv', methods=['GET'])
     @require_admin

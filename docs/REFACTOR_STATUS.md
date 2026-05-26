@@ -121,3 +121,4 @@
 - Keep public API response shapes compatible unless a migration PR explicitly says otherwise.
 - Prefer moving code behind adapters before deleting compatibility wrappers.
 - Run `git diff --check`, full `node --check` for static JS, and `pytest` after each refactor unit.
+- 質問分析ダッシュボードを追加し、質問表示/回答/離脱/結果寄与を JSONL で観測できるようにした。

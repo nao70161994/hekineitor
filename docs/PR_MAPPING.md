@@ -163,3 +163,4 @@
 6. Keep DB and mutation behavior locked with tests while reducing remaining facade method bodies.
 7. Share analytics follow-up: admin dashboard, result-name ranking, lightweight funnel rates, period comparison, growth columns, and CSV exports are available; review deployed SNS cycles before adding trend charts.
 8. Share improvement notes: implement the documented JSON-backed admin note editor with CSRF and escaping in a focused PR.
+- Question analytics dashboard: 質問表示回数、YES/NO率、離脱率、カテゴリ偏重、結果寄与を管理画面とCSVで確認可能。

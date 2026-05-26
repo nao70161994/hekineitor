@@ -15,6 +15,7 @@ from app import app
 from services import ogp as ogp_service
 from services import quality_stats as quality_stats_service
 from services import share_events as share_events_service
+from services import question_events as question_events_service
 from services import share_links as share_links_service
 from services import share_notes as share_notes_service
 from services import test_play as test_play_service
@@ -26,7 +27,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
 DATA_FILES = (
     'fetish_log.json', 'stats.json', 'stats_history.json', 'fetishes.json',
     'matrix.json', 'questions.json', 'compound_works.json', 'question_flags.json',
-    'config.json', 'admin_audit_log.json', 'share_events.jsonl', 'share_links.json',
+    'config.json', 'admin_audit_log.json', 'share_events.jsonl', 'question_events.jsonl', 'share_links.json',
     time.strftime('admin_audit_log_%Y%m.json'),
 )
 
@@ -1775,6 +1776,50 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('ogp_png_view', names)
         self.assertIn('ogp_svg_view', names)
         self.assertTrue(all('ip' not in event and 'user_agent' not in event for event in events))
+
+
+    def test_admin_question_events_report_and_csv(self):
+        headers = self._admin_headers()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'question_events.jsonl')
+            question_events_service.record_event('question_shown', question_id=1, question_text='返信が遅いと気になる？', category='attachment', axis='abstract', path=path)
+            question_events_service.record_event('question_answered', question_id=1, answer=1.0, category='attachment', axis='abstract', path=path)
+            question_events_service.record_event('question_dropoff', question_id=1, answered_count=1, category='attachment', axis='abstract', path=path)
+            question_events_service.record_event('question_shown', question_id=2, question_text='現実寄りより、少し非現実感がある方が惹かれる？', category='world', axis='abstract', path=path)
+            question_events_service.record_event('question_result_contribution', question_id=1, result_name='共依存', answer=1.0, result_rank=1, path=path)
+            with patch.dict(os.environ, {'QUESTION_EVENT_LOG_PATH': path}):
+                report = self.client.get('/api/admin/question_events', headers=headers)
+                questions_csv = self.client.get('/api/admin/question_events/questions.csv', headers=headers)
+                category_csv = self.client.get('/api/admin/question_events/category.csv', headers=headers)
+        self.assertEqual(report.status_code, 200)
+        data = report.get_json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(data['metrics']['shown'], 2)
+        self.assertEqual(data['metrics']['answered'], 1)
+        self.assertEqual(data['metrics']['dropoffs'], 1)
+        self.assertEqual(data['questions'][0]['question_id'], 1)
+        self.assertEqual(data['questions'][0]['yes_rate'], 100.0)
+        self.assertEqual(data['contribution_ranking'][0]['top_results'][0]['result_name'], '共依存')
+        self.assertIn('text/csv', questions_csv.content_type)
+        self.assertIn('question_id,category,axis,shown', questions_csv.data.decode('utf-8').splitlines()[0])
+        self.assertIn('category,shown,shown_share', category_csv.data.decode('utf-8').splitlines()[0])
+
+    def test_question_events_are_recorded_without_personal_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'question_events.jsonl')
+            with patch.dict(os.environ, {'QUESTION_EVENT_LOG_PATH': path}):
+                start = self.client.post('/api/start').get_json()
+                self.client.post('/api/answer', json={'question_id': start['question_id'], 'answer': 1.0})
+                with self.client.session_transaction() as sess:
+                    sess['completed'] = False
+                    sess['dropoff_recorded'] = False
+                self.client.post('/api/dropoff', json={'question_id': start['question_id']})
+                events = question_events_service.read_events(path=path, limit=10)
+        names = [event['event_name'] for event in events]
+        self.assertIn('question_shown', names)
+        self.assertIn('question_answered', names)
+        self.assertIn('question_dropoff', names)
+        self.assertTrue(all('ip' not in event and 'user_agent' not in event and 'session' not in event for event in events))
 
     def test_admin_share_events_report(self):
         headers = self._admin_headers()

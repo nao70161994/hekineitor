@@ -40,6 +40,35 @@ def _question_text(ctx, question_id):
     return q_data, text
 
 
+def _record_question_event(ctx, event_name, question_id=None, question_text='', **kwargs):
+    recorder = getattr(ctx, 'record_question_event', None)
+    if not recorder:
+        return
+    category = ''
+    axis = ''
+    if question_id is not None and 0 <= question_id < len(ctx.engine.questions):
+        q_data = ctx.engine.questions[question_id]
+        category = q_data.get('category', '')
+        axis = q_data.get('axis', '')
+        question_text = question_text or q_data.get('text', '')
+    recorder(
+        event_name,
+        question_id=question_id,
+        question_text=question_text,
+        category=category,
+        axis=axis,
+        **kwargs,
+    )
+
+
+def _record_question_shown(ctx, question_id, question_text):
+    _record_question_event(ctx, 'question_shown', question_id, question_text)
+
+
+def _record_question_answered(ctx, question_id, answer_value):
+    _record_question_event(ctx, 'question_answered', question_id, answer=answer_value)
+
+
 def _clear_active_guess(ctx):
     ctx.session.pop('feedback_status', None)
     _clear_pending_feedback(ctx)
@@ -144,6 +173,7 @@ def start(ctx):
     question_id = ctx.best_question(ctx.engine, {}, set())
     ctx.session['asked'].append(question_id)
     q_data, q_text = _question_text(ctx, question_id)
+    _record_question_shown(ctx, question_id, q_text)
     return ctx.jsonify({
         'question_id': question_id,
         'question': q_text,
@@ -200,6 +230,7 @@ def resume(ctx):
         question_id = ctx.best_question(ctx.engine, {}, set())
         ctx.session['asked'].append(question_id)
         q_data, q_text = _question_text(ctx, question_id)
+        _record_question_shown(ctx, question_id, q_text)
         return ctx.jsonify(question_payload(ctx.engine, question_id, q_text, 0, ctx.soft_max_questions))
 
     next_q = ctx.best_question(ctx.engine, answers, set(asked), idk_streak=ctx.session['idk_streak'])
@@ -208,6 +239,7 @@ def resume(ctx):
     asked.append(next_q)
     ctx.session['asked'] = asked
     _, q_text = _question_text(ctx, next_q)
+    _record_question_shown(ctx, next_q, q_text)
     return ctx.jsonify(question_payload(
         ctx.engine,
         next_q,
@@ -235,6 +267,7 @@ def continue_game(ctx):
     asked.append(next_q)
     ctx.session['asked'] = asked
     _, q_text = _question_text(ctx, next_q)
+    _record_question_shown(ctx, next_q, q_text)
     return ctx.jsonify(question_payload(ctx.engine, next_q, q_text, len(asked) - 1, ctx.hard_max_questions))
 
 
@@ -289,6 +322,7 @@ def answer(ctx):
     _clear_active_guess(ctx)
     answers[str(question_id)] = answer_value
     ctx.session['answers'] = answers
+    _record_question_answered(ctx, question_id, answer_value)
     if ctx.session.get('client_resumed'):
         ctx.session['resume_learning_verified'] = True
 
@@ -340,6 +374,7 @@ def answer(ctx):
             ctx.session['low_confidence_extended'] = True
 
         _, question_text = _question_text(ctx, next_q)
+        _record_question_shown(ctx, next_q, question_text)
         contradictions = ctx.engine.detect_contradictions(answers)
         return ctx.jsonify(question_payload(
             ctx.engine,
@@ -692,6 +727,12 @@ def dropoff(ctx):
         return ctx.jsonify({'status': 'ignored', 'reason': 'already_finalized'})
     answers = ctx.session.get('answers', {})
     answered_count = len(answers) if isinstance(answers, dict) else 0
+    data = ctx.request.get_json(silent=True) or {}
+    question_id = data.get('question_id')
+    if question_id is None:
+        asked = ctx.session.get('asked', [])
+        question_id = asked[-1] if asked else None
+    _record_question_event(ctx, 'question_dropoff', question_id, answered_count=answered_count)
     ctx.engine.log_dropoff(answered_count)
     ctx.session['dropoff_recorded'] = True
     return ctx.jsonify({'status': 'ok', 'answered_count': answered_count})

@@ -18,6 +18,7 @@ from routes import seo as seo_routes
 from routes import system as system_routes
 from services import share as share_service
 from services import share_events as share_events_service
+from services import question_events as question_events_service
 from services import share_notes as share_notes_service
 from services import test_play as test_play_service
 from services import game_context as game_context_service
@@ -125,6 +126,7 @@ def _game_context():
         work_title=work_title,
         get_compound_works=get_compound_works,
         record_share_event=lambda *args, **kwargs: share_events_service.safe_record_event(*args, environ=os.environ, **kwargs),
+        record_question_event=lambda *args, **kwargs: question_events_service.safe_record_event(*args, environ=os.environ, **kwargs),
         preserve_test_play_flag=lambda: test_play_service.preserve_flag(session),
         restore_test_play_flag=lambda enabled: test_play_service.restore_flag(session, enabled),
         learning_disabled=lambda: test_play_service.is_learning_disabled(session),
@@ -154,6 +156,7 @@ def _admin_context():
         write_audit=write_audit,
         filesystem=_filesystem_context(),
         share_event_report=lambda **kwargs: share_events_service.event_report(environ=os.environ, **kwargs),
+        question_event_report=lambda **kwargs: question_events_service.event_report(engine, environ=os.environ, **kwargs),
         load_share_notes=lambda: share_notes_service.load_notes(environ=os.environ),
         save_share_note=lambda result_name, note: share_notes_service.save_note(result_name, note, environ=os.environ),
         enable_test_play=lambda: test_play_service.enable(session),

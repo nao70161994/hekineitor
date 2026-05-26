@@ -116,6 +116,21 @@ def compute_guess(ctx, answers):
     }
 
 
+def _record_result_contributions(ctx, result):
+    recorder = getattr(ctx, 'record_question_event', None)
+    if not recorder:
+        return
+    for rank, item in enumerate(result.get('reasons', [])[:5], start=1):
+        question_id = item.get('q_id') if isinstance(item, dict) else None
+        recorder(
+            'question_result_contribution',
+            question_id=question_id,
+            result_name=result.get('fetish_name', ''),
+            result_rank=rank,
+            answer=item.get('answer') if isinstance(item, dict) else None,
+        )
+
+
 def make_guess(ctx, answers):
     result = compute_guess(ctx.inference_context(), answers)
     if not ctx.session.get('completion_recorded'):
@@ -126,6 +141,7 @@ def make_guess(ctx, answers):
     ctx.session.pop('feedback_status', None)
     ctx.session['completed'] = True
     ctx.mark_guess_quality(ctx.engine, ctx.session, answers, ctx.soft_max_questions)
+    _record_result_contributions(ctx, result)
     guessed_ids = {result['fetish_id']} | {item['fetish_id'] for item in result.get('compound', [])}
     for fetish_id in guessed_ids:
         ctx.engine.log_guessed(fetish_id)

@@ -21,6 +21,7 @@ def build(
     work_title,
     get_compound_works,
     record_share_event,
+    record_question_event,
     preserve_test_play_flag,
     restore_test_play_flag,
     learning_disabled,
@@ -51,6 +52,7 @@ def build(
                 (lambda engine, session, answers, soft_max: None)
                 if learning_disabled() else quality_stats.mark_guess_quality
             ),
+            record_question_event=record_question_event,
         )
         return inference.make_guess(guess_context, answers)
 
@@ -63,6 +65,7 @@ def build(
         random_choice=random_choice,
         logger=logger,
         record_share_event=record_share_event,
+        record_question_event=record_question_event,
         preserve_test_play_flag=preserve_test_play_flag,
         restore_test_play_flag=restore_test_play_flag,
         learning_disabled=learning_disabled,
