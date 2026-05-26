@@ -226,6 +226,64 @@ async function repairPromotedStatsHistory(apply) {
   }
 }
 
+const _fetishLookupCache = new Map();
+
+async function lookupFetishName(id) {
+  const fetishId = Number.parseInt(id, 10);
+  if (!Number.isInteger(fetishId)) return null;
+  if (_fetishLookupCache.has(fetishId)) return _fetishLookupCache.get(fetishId);
+  const res = await adminFetch(`/api/admin/fetish_lookup/${fetishId}`, {method: 'GET', headers: {}});
+  if (!res || !res.ok) {
+    _fetishLookupCache.set(fetishId, null);
+    return null;
+  }
+  let data = {};
+  try { data = await res.json(); } catch { data = {}; }
+  const item = data.status === 'ok' ? data : null;
+  _fetishLookupCache.set(fetishId, item);
+  return item;
+}
+
+async function updateFetishLookup(input) {
+  const target = document.getElementById(input.dataset.lookupTarget || '');
+  if (!target) return;
+  const fetishId = Number.parseInt(input.value || '', 10);
+  if (!Number.isInteger(fetishId)) {
+    target.textContent = '';
+    return;
+  }
+  target.style.color = '#888';
+  target.textContent = '確認中...';
+  const item = await lookupFetishName(fetishId);
+  if (!item) {
+    target.style.color = '#e74c3c';
+    target.textContent = '見つかりません';
+    return;
+  }
+  target.style.color = item.is_player_fetish ? '#f5a623' : '#27ae60';
+  target.textContent = `${item.name || ''}（ID ${item.id}${item.is_player_fetish ? ' / プレイヤー追加' : ''}）`;
+}
+
+async function renderMoveStatsHistoryPreview() {
+  const preview = document.getElementById('move-stats-history-preview');
+  if (!preview) return;
+  const mappings = parseStatsHistoryMappings(document.getElementById('move-stats-history-mappings')?.value || '');
+  if (!mappings.length) {
+    preview.innerHTML = '';
+    return;
+  }
+  preview.textContent = 'ID名を確認中...';
+  const lines = [];
+  for (const mapping of mappings) {
+    const oldItem = await lookupFetishName(mapping.old_id);
+    const newItem = await lookupFetishName(mapping.new_id);
+    const oldName = oldItem ? oldItem.name : '見つかりません';
+    const newName = newItem ? newItem.name : '見つかりません';
+    lines.push(`<div><code>${mapping.old_id}</code> ${escapeHtml(oldName)} → <code>${mapping.new_id}</code> ${escapeHtml(newName)}</div>`);
+  }
+  preview.innerHTML = `<div style="color:#ccc;margin-bottom:4px;">移動先確認</div>${lines.join('')}`;
+}
+
 function parseStatsHistoryMappings(text) {
   return String(text || '').split(/\n+/).map(line => {
     const parts = line.trim().split(/[\s,>\-]+/).filter(Boolean);
@@ -757,13 +815,18 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (action === 'merge-fetishes') mergeFetishes();
   });
   document.addEventListener('input', event => {
-    const el = event.target.closest('[data-action]');
+    const target = event.target;
+    if (target?.id === 'move-stats-history-mappings') renderMoveStatsHistoryPreview();
+    const el = target?.closest?.('[data-action]');
     if (!el) return;
     if (el.dataset.action === 'filter-log') filterLogTable();
     else if (el.dataset.action === 'fill-id') fillId(el.id, el.dataset.target);
+    else if (el.dataset.action === 'lookup-fetish-id') updateFetishLookup(el);
   });
   document.addEventListener('change', event => {
-    const el = event.target.closest('[data-action]');
+    const target = event.target;
+    if (target?.id === 'move-stats-history-mappings') renderMoveStatsHistoryPreview();
+    const el = target?.closest?.('[data-action]');
     if (el && el.dataset.action === 'filter-log') filterLogTable();
   });
   if (document.getElementById('recent-rank-chart')) loadRecentRanking(7);

@@ -493,6 +493,18 @@ def capture_priors(ctx):
     return ctx.jsonify({'status': 'ok'})
 
 
+def lookup_fetish(ctx, fetish_id):
+    for fetish in ctx.engine.fetishes:
+        if fetish.get('id') == fetish_id:
+            return ctx.jsonify({
+                'status': 'ok',
+                'id': fetish_id,
+                'name': fetish.get('name', ''),
+                'is_player_fetish': fetish_id >= ctx.player_fetish_base_id,
+            })
+    return ctx.jsonify({'status': 'error', 'message': '性癖が見つかりません'}), 404
+
+
 def promote_fetish(ctx, fetish_id):
     if fetish_id < ctx.player_fetish_base_id:
         return ctx.jsonify({'status': 'error', 'message': 'シード性癖は格上げ不要です'}), 400
@@ -965,6 +977,11 @@ def create_blueprint(ctx_factory, require_admin):
     @require_admin
     def capture_priors_route():
         return capture_priors(ctx_factory())
+
+    @bp.route('/api/admin/fetish_lookup/<int:fetish_id>', methods=['GET'])
+    @require_admin
+    def fetish_lookup_route(fetish_id):
+        return lookup_fetish(ctx_factory(), fetish_id)
 
     @bp.route('/api/admin/promote_fetish/<int:fetish_id>', methods=['POST'])
     @require_admin

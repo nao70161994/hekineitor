@@ -1452,6 +1452,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn(b'repair-promoted-stats-apply', admin_page.data)
         self.assertIn(b'move-stats-history-dry-run', admin_page.data)
         self.assertIn(b'move-stats-history-apply', admin_page.data)
+        self.assertIn(b'lookup-fetish-id', admin_page.data)
         self.assertIn('checklist', data)
         self.assertIn('weak_fetishes', data)
         self.assertIn('duplicate_questions', data)
@@ -1551,6 +1552,19 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             self.assertEqual(app_engine.questions[0]['text'], 'テスト用質問文')
         finally:
             app_engine.edit_question(0, orig)
+
+    def test_admin_fetish_lookup_returns_name(self):
+        headers = self._admin_headers()
+        res = self.client.get('/api/admin/fetish_lookup/0', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(data['id'], 0)
+        self.assertIn('name', data)
+        self.assertFalse(data['is_player_fetish'])
+
+        missing = self.client.get('/api/admin/fetish_lookup/999999', headers=headers)
+        self.assertEqual(missing.status_code, 404)
 
     def test_repair_promoted_stats_history_requires_mapping_and_confirm(self):
         headers = self._admin_headers()
