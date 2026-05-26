@@ -7,6 +7,7 @@ import json
 import os
 import sys
 from typing import Any, Callable, Mapping
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 try:
@@ -65,6 +66,12 @@ def _pct(value: float | int | None) -> str:
     if value is None:
         return 'n/a'
     return f'{float(value):.1f}%'
+
+
+def _error_label(exc: Exception) -> str:
+    if isinstance(exc, HTTPError):
+        return f'HTTP {exc.code}'
+    return exc.__class__.__name__
 
 
 def _ratio(numerator: int | float, denominator: int | float) -> float:
@@ -172,7 +179,7 @@ def build_report(
             if failed:
                 critical.append('preflight failed: ' + ', '.join(str(name) for name in failed[:5]))
         except Exception as exc:
-            warn.append(f'preflight unavailable: {exc.__class__.__name__}')
+            warn.append(f'preflight unavailable: {_error_label(exc)}')
 
         try:
             works_health = json_getter('/api/admin/works_health')
@@ -181,7 +188,7 @@ def build_report(
             if min_works and works_count is not None and works_count < min_works:
                 critical.append(f'works_count={works_count} below {min_works}')
         except Exception as exc:
-            warn.append(f'works_health unavailable: {exc.__class__.__name__}')
+            warn.append(f'works_health unavailable: {_error_label(exc)}')
 
         try:
             ranking = json_getter('/api/admin/recent_fetish_ranking?days=7&top_n=20').get('ranking', [])
@@ -190,13 +197,16 @@ def build_report(
             if heavy_ratio >= _env_float(environ, 'NTFY_HEAVY_RESULT_WARN_RATIO', 65.0):
                 warn.append(f'heavy_result_ratio={_pct(heavy_ratio)} TOP: {", ".join(heavy_top[:4])}')
         except Exception as exc:
-            warn.append(f'result ranking unavailable: {exc.__class__.__name__}')
+            warn.append(f'result ranking unavailable: {_error_label(exc)}')
 
         try:
             question_report = json_getter('/api/admin/question_events?limit=5000')
             q_metrics = question_report.get('metrics') or {}
             relation_share = float(q_metrics.get('relation_attachment_share') or 0)
-            daily.append(f'question_events={question_report.get("total", 0)}')
+            question_total = int(question_report.get('total') or 0)
+            daily.append(f'question_events={question_total}')
+            if question_total == 0:
+                warn.append('question_events=0; 質問分析ログが未蓄積です')
             if relation_share >= _env_float(environ, 'NTFY_RELATION_ATTACHMENT_WARN_RATIO', 55.0):
                 warn.append(f'relation/attachment share={_pct(relation_share)}')
             min_answers = _env_int(environ, 'NTFY_QUESTION_MIN_ANSWERS', 5)
@@ -217,7 +227,7 @@ def build_report(
                 sample = ', '.join(f"Q{row.get('question_id')} {_pct(row.get('dropoff_rate'))}" for row in drop_questions[:3])
                 warn.append(f'離脱率{drop_threshold:.0f}%以上質問: {sample}')
         except Exception as exc:
-            warn.append(f'question analytics unavailable: {exc.__class__.__name__}')
+            warn.append(f'question analytics unavailable: {_error_label(exc)}')
 
         try:
             funnel = json_getter('/api/admin/funnel_metrics')
@@ -228,20 +238,32 @@ def build_report(
             if completion_rate is not None and completion_rate < min_feedback:
                 warn.append(f'feedback/completion rate low={_pct(completion_rate)}')
         except Exception as exc:
-            warn.append(f'funnel unavailable: {exc.__class__.__name__}')
+            warn.append(f'funnel unavailable: {_error_label(exc)}')
 
         try:
-            share_report = json_getter('/api/admin/share_events?days=7&limit=5000')
+            share_error = None
+            share_report = None
+            for path in ('/api/admin/share_events?days=7&limit=5000', '/api/admin/share_events?limit=5000'):
+                try:
+                    share_report = json_getter(path)
+                    break
+                except Exception as exc:
+                    share_error = exc
+            if share_report is None:
+                raise share_error or RuntimeError('share_events unavailable')
             share_metrics = share_report.get('metrics') or {}
             result_views = int(share_metrics.get('result_page_views') or 0)
             share_actions = int(share_metrics.get('share_actions') or 0)
             share_rate = _ratio(share_actions, result_views)
-            daily.append(f'share_events={share_report.get("total", 0)}')
+            share_total = int(share_report.get('total') or 0)
+            daily.append(f'share_events={share_total}')
             daily.append(f'share_rate={_pct(share_rate)}')
+            if share_total == 0:
+                warn.append('share_events=0; シェア分析ログが未蓄積です')
             if result_views >= _env_int(environ, 'NTFY_SHARE_MIN_RESULT_VIEWS', 20) and share_rate < _env_float(environ, 'NTFY_SHARE_WARN_RATE', 3.0):
                 warn.append(f'share rate low={_pct(share_rate)} ({share_actions}/{result_views})')
         except Exception as exc:
-            warn.append(f'share analytics unavailable: {exc.__class__.__name__}')
+            warn.append(f'share analytics unavailable: {_error_label(exc)}')
     else:
         warn.append('ADMIN_READ_TOKEN is not set; admin analytics checks skipped')
 

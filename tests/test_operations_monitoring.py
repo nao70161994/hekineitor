@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import patch
+from urllib.error import HTTPError
 from urllib.request import Request
 
 from scripts import daily_analytics_report, ntfy_notifier, operations_check
@@ -126,6 +127,68 @@ class OperationsMonitoringTests(unittest.TestCase):
                 patch.dict(operations_check.os.environ, {'NTFY_TOPIC': 'topic'}, clear=True):
             self.assertEqual(operations_check.main([]), 1)
 
+    def test_operations_report_falls_back_when_share_days_query_fails(self):
+        calls = []
+
+        def fake_json(path):
+            calls.append(path)
+            if path == '/health':
+                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+            if path == '/api/admin/preflight':
+                return {'checks': []}
+            if path == '/api/admin/works_health':
+                return {'maintenance': {'works_count': 100}}
+            if path.startswith('/api/admin/recent_fetish_ranking'):
+                return {'ranking': [{'fetish_name': '眼鏡', 'guessed': 10, 'total': 10}]}
+            if path.startswith('/api/admin/question_events'):
+                return {'total': 0, 'metrics': {}, 'questions': [], 'dropoff_ranking': []}
+            if path == '/api/admin/funnel_metrics':
+                return {'completion': {'recent_7_days': {'completion_rate': 50}}}
+            if path == '/api/admin/share_events?days=7&limit=5000':
+                raise HTTPError(path, 500, 'server error', hdrs=None, fp=None)
+            if path == '/api/admin/share_events?limit=5000':
+                return {'total': 0, 'metrics': {'result_page_views': 0, 'share_actions': 0}}
+            raise AssertionError(path)
+
+        report = operations_check.build_report(
+            environ={'ADMIN_READ_TOKEN': 'token'},
+            json_getter=fake_json,
+            bytes_getter=lambda path: operations_check.PNG_SIGNATURE + b'abc',
+        )
+
+        self.assertEqual(report['severity'], 'WARN')
+        self.assertIn('/api/admin/share_events?limit=5000', calls)
+        self.assertIn('question_events=0', report['message'])
+        self.assertIn('share_events=0', report['message'])
+        self.assertNotIn('share analytics unavailable', report['message'])
+
+    def test_operations_report_includes_http_status_when_share_fallback_fails(self):
+        def fake_json(path):
+            if path == '/health':
+                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+            if path == '/api/admin/preflight':
+                return {'checks': []}
+            if path == '/api/admin/works_health':
+                return {'maintenance': {'works_count': 100}}
+            if path.startswith('/api/admin/recent_fetish_ranking'):
+                return {'ranking': []}
+            if path.startswith('/api/admin/question_events'):
+                return {'total': 1, 'metrics': {}, 'questions': [], 'dropoff_ranking': []}
+            if path == '/api/admin/funnel_metrics':
+                return {'completion': {'recent_7_days': {'completion_rate': 50}}}
+            if path.startswith('/api/admin/share_events'):
+                raise HTTPError(path, 403, 'forbidden', hdrs=None, fp=None)
+            raise AssertionError(path)
+
+        report = operations_check.build_report(
+            environ={'ADMIN_READ_TOKEN': 'token'},
+            json_getter=fake_json,
+            bytes_getter=lambda path: operations_check.PNG_SIGNATURE + b'abc',
+        )
+
+        self.assertIn('share analytics unavailable: HTTP 403', report['message'])
+
+
     def test_daily_report_summarizes_safe_analytics(self):
         def fake_json(path):
             if path == '/api/admin/funnel_metrics':
@@ -154,7 +217,29 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertNotIn('unknown 40', report['message'])
         self.assertIn('heavy_result_ratio: 40.0%', report['message'])
         self.assertIn('share_rate: 10.0%', report['message'])
+        self.assertNotIn('note: question_events未蓄積', report['message'])
         self.assertNotIn('token', report['message'])
+
+    def test_daily_report_marks_empty_analytics_logs(self):
+        def fake_json(path):
+            if path == '/api/admin/funnel_metrics':
+                return {'stats_history': [{'date': '2026-05-26', 'start': 10, 'completion': 5}]}
+            if path.startswith('/api/admin/recent_fetish_ranking'):
+                return {'ranking': []}
+            if path.startswith('/api/admin/share_events'):
+                return {'total': 0, 'metrics': {'result_page_views': 0, 'share_actions': 0}}
+            if path.startswith('/api/admin/question_events'):
+                return {'total': 0, 'dropoff_ranking': [], 'questions': []}
+            raise AssertionError(path)
+
+        report = daily_analytics_report.build_daily_report(
+            environ={'ADMIN_READ_TOKEN': 'token', 'HEKI_REPORT_DATE': '2026-05-26'},
+            json_getter=fake_json,
+        )
+
+        self.assertIn('note: question_events未蓄積', report['message'])
+        self.assertIn('note: share_events未蓄積', report['message'])
+
 
     def test_daily_report_uses_jst_yesterday_and_latest_active_stats(self):
         stats = daily_analytics_report._previous_day_stats({

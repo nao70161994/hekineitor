@@ -155,6 +155,10 @@ def build_daily_report(
         f"question_events: {questions.get('total', 0)}",
         f"share_events: {share.get('total', 0)}",
     ]
+    if int(questions.get('total') or 0) == 0:
+        lines.append('note: question_events未蓄積')
+    if int(share.get('total') or 0) == 0:
+        lines.append('note: share_events未蓄積')
     if top_results:
         lines.append('top_results:')
         lines.extend(f'- {item}' for item in top_results)
