@@ -43,7 +43,7 @@ async function loadRecentRanking(days) {
     const accStr = acc != null ? `<span style="color:${acc>=60?'#27ae60':'#e74c3c'};min-width:38px;text-align:right;">FB ${acc}%</span>` : '<span style="color:#555;min-width:38px;text-align:right;">FB —</span>';
     const width = Math.max(Math.round(guessed / maxT * 160), guessed > 0 ? 2 : 0);
     return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-      <div style="width:90px;font-size:0.72rem;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;" title="${escapeHtml(r.fetish_name)}">${escapeHtml(r.fetish_name)}</div>
+      <div style="width:112px;font-size:0.72rem;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;" title="ID ${Number.parseInt(r.fetish_id, 10)}: ${escapeHtml(r.fetish_name)}">${escapeHtml(r.fetish_name)} <span style="color:#555;">ID ${Number.parseInt(r.fetish_id, 10)}</span></div>
       <div style="height:10px;border-radius:3px;overflow:hidden;flex:1;max-width:200px;background:#111;">
         <div style="width:${width}px;height:10px;background:#5b8dd9;"></div>
       </div>
@@ -352,6 +352,7 @@ let _logSortCol = -1, _logSortAsc = true;
 const _initialLogPage = window.ADMIN_CONFIG?.fetishLogPage || {};
 let _logPage = Number.parseInt(_initialLogPage.page, 10) || 1;
 let _logPages = Number.parseInt(_initialLogPage.pages, 10) || 1;
+const _logPerPage = Number.parseInt(_initialLogPage.per_page, 10) || 50;
 let _logSort = 'guessed';
 let _logOrder = 'desc';
 
@@ -364,16 +365,18 @@ function renderLogRows(rows) {
     const accColor = acc >= 0 && acc < 50 ? '#e74c3c' : (acc >= 0 ? '#27ae60' : '#555');
     return `<tr id="logrow-${Number.parseInt(r.id, 10)}"${warn ? ' style="background:#2a1010"' : ''}
       data-name="${escapeHtml(r.name)}" data-guessed="${Number.parseInt(r.guessed, 10)}" data-acc="${acc}">
-      <td style="color:#666;font-size:0.75rem">${i + 1 + ((_logPage - 1) * 50)}</td>
+      <td style="color:#666;font-size:0.75rem">${i + 1 + ((_logPage - 1) * _logPerPage)}</td>
+      <td style="color:#666;font-size:0.75rem">${Number.parseInt(r.id, 10)}</td>
       <td style="font-size:0.82rem">${escapeHtml(r.name)}${warn ? '<span class="tag-low" title="wrong率60%超">⚠</span>' : ''}</td>
       <td style="color:#aaa;font-size:0.8rem" data-val="${Number.parseInt(r.guessed, 10)}">${Number.parseInt(r.guessed, 10)}</td>
       <td style="color:#27ae60;font-size:0.8rem" data-val="${Number.parseInt(r.correct, 10)}">${Number.parseInt(r.correct, 10)}</td>
       <td style="color:#e74c3c;font-size:0.8rem" data-val="${Number.parseInt(r.wrong, 10)}">${Number.parseInt(r.wrong, 10)}</td>
       <td style="font-size:0.8rem;color:${accColor}" data-val="${acc}">${accText}</td>
+      <td style="color:#888;font-size:0.8rem" data-val="${Number.parseInt(r.unfeedback || 0, 10)}">${Number.parseInt(r.unfeedback || 0, 10)}</td>
       <td><button class="btn-toggle" data-action="toggle-fetish-history" data-fid="${Number.parseInt(r.id, 10)}" style="font-size:0.72rem;padding:2px 8px;">履歴</button></td>
     </tr>
     <tr id="logrow-hist-${Number.parseInt(r.id, 10)}" style="display:none;">
-      <td colspan="7" style="padding:8px 4px 12px;">
+      <td colspan="9" style="padding:8px 4px 12px;">
         <div id="logrow-hist-content-${Number.parseInt(r.id, 10)}" style="font-size:0.78rem;color:#888;"></div>
       </td>
     </tr>`;

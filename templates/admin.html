@@ -667,7 +667,7 @@ window.ADMIN_CONFIG = {
 <div style="background:#0d2010;border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:0.78rem;color:#27ae60;border:1px solid #1a4a1a;">✓ 問題のある質問なし（avg_ask={{ avg_ask }}）</div>
 {% endif %}
 <table id="q-table" style="margin-top:8px;">
-  <tr><th>#</th><th>質問</th><th data-action="sort-q-table" style="cursor:pointer;user-select:none;">識別力 ↕</th><th></th><th style="color:#888;font-size:0.75rem;white-space:nowrap;" title="UCB使用回数（学習累計）">使用量</th><th style="color:#888;font-size:0.75rem;white-space:nowrap;" title="バリアント（別表現）の数">Var</th><th>操作</th></tr>
+  <tr><th>QID</th><th>質問</th><th data-action="sort-q-table" style="cursor:pointer;user-select:none;">識別力 ↕</th><th></th><th style="color:#888;font-size:0.75rem;white-space:nowrap;" title="UCB使用回数（学習累計）">使用量</th><th style="color:#888;font-size:0.75rem;white-space:nowrap;" title="バリアント（別表現）の数">Var</th><th>操作</th></tr>
   {% set max_d = [question_stats[-1].disc, 0.01] | max if question_stats else 0.01 %}
   {% for q in question_stats %}
   <tr id="qrow-{{ q.id }}" style="{% if q.disabled %}opacity:0.4{% elif q.disc < 0.03 %}background:#1a0a0a{% elif q.ask_count < avg_ask*0.25 and avg_ask > 1 %}background:#1a1500{% endif %}">
@@ -872,7 +872,8 @@ window.ADMIN_CONFIG = {
 <table id="log-table" style="margin-top:8px;">
   <thead>
   <tr>
-    <th>#</th>
+    <th>順位</th>
+    <th>ID</th>
     <th data-action="sort-log" data-col="1" style="cursor:pointer;user-select:none;">性癖 ↕</th>
     <th data-action="sort-log" data-col="2" style="cursor:pointer;user-select:none;">診断 ↕</th>
     <th data-action="sort-log" data-col="3" style="cursor:pointer;user-select:none;">正解 ↕</th>
@@ -887,6 +888,7 @@ window.ADMIN_CONFIG = {
   <tr id="logrow-{{ r.id }}"{% if r.acc is not none and r.acc < 40 and r.feedback_total >= 3 %} style="background:#2a1010"{% endif %}
       data-name="{{ r.name }}" data-guessed="{{ r.guessed }}" data-acc="{{ r.acc if r.acc is not none else -1 }}">
     <td style="color:#666;font-size:0.75rem">{{ loop.index + ((fetish_log_page.page - 1) * fetish_log_page.per_page) }}</td>
+    <td style="color:#666;font-size:0.75rem">{{ r.id }}</td>
     <td style="font-size:0.82rem">{{ r.name }}{% if r.acc is not none and r.acc < 40 and r.feedback_total >= 3 %}<span class="tag-low" title="FB正解率40%未満">⚠</span>{% endif %}</td>
     <td style="color:#aaa;font-size:0.8rem" data-val="{{ r.guessed }}">{{ r.guessed }}</td>
     <td style="color:#27ae60;font-size:0.8rem" data-val="{{ r.correct }}">{{ r.correct }}</td>
@@ -899,7 +901,7 @@ window.ADMIN_CONFIG = {
     <td><button class="btn-toggle" data-action="toggle-fetish-history" data-fid="{{ r.id }}" style="font-size:0.72rem;padding:2px 8px;">履歴</button></td>
   </tr>
   <tr id="logrow-hist-{{ r.id }}" style="display:none;">
-    <td colspan="8" style="padding:8px 4px 12px;">
+    <td colspan="9" style="padding:8px 4px 12px;">
       <div id="logrow-hist-content-{{ r.id }}" style="font-size:0.78rem;color:#888;"></div>
     </td>
   </tr>
@@ -936,7 +938,7 @@ window.ADMIN_CONFIG = {
 <summary style="color:#888;font-size:0.85rem;cursor:pointer;">質問間の相関（類似ペア上位30、展開で表示）</summary>
 <p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">コサイン類似度が高いペアは情報が重複している可能性あり。|cos|≥0.8 は要検討。</p>
 <table style="margin-top:8px;">
-  <tr><th>#</th><th>Q1</th><th>Q2</th><th>cos</th></tr>
+  <tr><th>順位</th><th>Q1</th><th>Q2</th><th>cos</th></tr>
   {% for p in corr_stats %}
   <tr style="{% if p.cos|abs >= 0.8 %}color:#e74c3c{% elif p.cos|abs >= 0.6 %}color:#f5a623{% else %}color:#aaa{% endif %}">
     <td style="font-size:0.75rem;color:#555">{{ loop.index }}</td>
