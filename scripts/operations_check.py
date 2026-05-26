@@ -71,15 +71,27 @@ def _ratio(numerator: int | float, denominator: int | float) -> float:
     return round(float(numerator) / float(denominator) * 100, 1) if denominator else 0.0
 
 
+def _bounded_percent(value: float | int | None) -> float | None:
+    if value is None:
+        return None
+    return max(0.0, min(100.0, float(value)))
+
+
+def _result_name(row: dict[str, Any]) -> str:
+    return str(row.get('fetish_name') or row.get('name') or row.get('result_name') or 'unknown')
+
+
+def _result_count(row: dict[str, Any]) -> int:
+    return int(row.get('total') or row.get('count') or row.get('guessed') or 0)
+
+
 def _top_heavy_ratio(ranking: list[dict[str, Any]]) -> tuple[float, list[str]]:
-    total = sum(int(row.get('count') or row.get('total') or 0) for row in ranking)
-    heavy_rows = [row for row in ranking if row.get('name') in HEAVY_RESULTS or row.get('result_name') in HEAVY_RESULTS]
-    heavy_total = sum(int(row.get('count') or row.get('total') or 0) for row in heavy_rows)
+    total = sum(_result_count(row) for row in ranking)
+    heavy_rows = [row for row in ranking if _result_name(row) in HEAVY_RESULTS]
+    heavy_total = sum(_result_count(row) for row in heavy_rows)
     top = []
     for row in heavy_rows[:4]:
-        name = row.get('name') or row.get('result_name') or 'unknown'
-        count = int(row.get('count') or row.get('total') or 0)
-        top.append(f'{name} {count}')
+        top.append(f'{_result_name(row)} {_result_count(row)}')
     return _ratio(heavy_total, total), top
 
 
@@ -95,17 +107,23 @@ def _works_count(works_health: dict[str, Any]) -> int | None:
 
 def _latest_completion_rate(funnel: dict[str, Any]) -> float | None:
     completion = funnel.get('completion') or {}
+    for bucket_name in ('recent_7_days', 'recent_30_days'):
+        bucket = completion.get(bucket_name) or {}
+        value = bucket.get('completion_rate')
+        if isinstance(value, (int, float)):
+            return _bounded_percent(value)
     for key in ('completion_rate', 'recent_completion_rate', 'complete_rate'):
         value = completion.get(key)
         if isinstance(value, (int, float)):
-            return float(value)
+            return _bounded_percent(value)
     history = funnel.get('stats_history') or []
-    if history:
-        row = history[-1]
-        guessed = int(row.get('guessed') or row.get('plays') or row.get('total') or 0)
-        completed = int(row.get('confirmed') or row.get('completed') or row.get('feedback_total') or 0)
-        if guessed:
-            return _ratio(completed, guessed)
+    active_rows = [row for row in history if int(row.get('start') or row.get('play') or row.get('completion') or 0) > 0]
+    if active_rows:
+        row = active_rows[-1]
+        starts = int(row.get('start') or row.get('play') or 0)
+        completions = int(row.get('completion') or 0)
+        if starts:
+            return _bounded_percent(_ratio(completions, starts))
     return None
 
 

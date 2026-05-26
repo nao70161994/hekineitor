@@ -69,7 +69,7 @@ class OperationsMonitoringTests(unittest.TestCase):
             if path == '/api/admin/works_health':
                 return {'maintenance': {'works_count': 10}}
             if path.startswith('/api/admin/recent_fetish_ranking'):
-                return {'ranking': [{'name': '共依存', 'count': 80}, {'name': '眼鏡', 'count': 20}]}
+                return {'ranking': [{'fetish_name': '共依存', 'guessed': 80, 'total': 80}, {'fetish_name': '眼鏡', 'guessed': 20, 'total': 20}]}
             if path.startswith('/api/admin/question_events'):
                 return {
                     'total': 20,
@@ -78,7 +78,7 @@ class OperationsMonitoringTests(unittest.TestCase):
                     'dropoff_ranking': [{'question_id': 2, 'shown': 10, 'dropoff_rate': 40}],
                 }
             if path == '/api/admin/funnel_metrics':
-                return {'completion': {'completion_rate': 3}}
+                return {'completion': {'recent_7_days': {'completion_rate': 3}, 'completion_rate': 103}}
             if path.startswith('/api/admin/share_events'):
                 return {'total': 5, 'metrics': {'result_page_views': 30, 'share_actions': 0}}
             raise AssertionError(path)
@@ -129,9 +129,9 @@ class OperationsMonitoringTests(unittest.TestCase):
     def test_daily_report_summarizes_safe_analytics(self):
         def fake_json(path):
             if path == '/api/admin/funnel_metrics':
-                return {'stats_history': [{'date': '2026-05-26', 'guessed': 100, 'confirmed': 20}]}
+                return {'stats_history': [{'date': '2026-05-26', 'start': 100, 'completion': 20, 'correct': 7, 'wrong': 3}]}
             if path.startswith('/api/admin/recent_fetish_ranking'):
-                return {'ranking': [{'name': '共依存', 'count': 40}, {'name': '眼鏡', 'count': 60}]}
+                return {'ranking': [{'fetish_name': '共依存', 'guessed': 40, 'total': 40}, {'fetish_name': '眼鏡', 'guessed': 60, 'total': 60}]}
             if path.startswith('/api/admin/share_events'):
                 return {'total': 12, 'metrics': {'result_page_views': 50, 'share_actions': 5}}
             if path.startswith('/api/admin/question_events'):
@@ -150,9 +150,33 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertEqual(report['status'], 'ok')
         self.assertIn('plays: 100', report['message'])
         self.assertIn('completion_rate: 20.0%', report['message'])
+        self.assertIn('共依存 40', report['message'])
+        self.assertNotIn('unknown 40', report['message'])
         self.assertIn('heavy_result_ratio: 40.0%', report['message'])
         self.assertIn('share_rate: 10.0%', report['message'])
         self.assertNotIn('token', report['message'])
+
+    def test_daily_report_uses_jst_yesterday_and_latest_active_stats(self):
+        stats = daily_analytics_report._previous_day_stats({
+            'stats_history': [
+                {'date': '2026-05-25', 'start': 0, 'completion': 0},
+                {'date': '2026-05-26', 'start': 50, 'completion': 25},
+            ]
+        }, '2026-05-24')
+
+        self.assertEqual(stats['date'], '2026-05-26')
+        self.assertEqual(stats['plays'], 50)
+        self.assertEqual(stats['completion_rate'], 50.0)
+
+    def test_operations_completion_rate_prefers_recent_bucket_and_clamps(self):
+        self.assertEqual(
+            operations_check._latest_completion_rate({'completion': {'recent_7_days': {'completion_rate': 42}, 'completion_rate': 101.8}}),
+            42.0,
+        )
+        self.assertEqual(
+            operations_check._latest_completion_rate({'completion': {'completion_rate': 101.8}}),
+            100.0,
+        )
 
 
 if __name__ == '__main__':

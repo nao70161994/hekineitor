@@ -6,7 +6,8 @@ from __future__ import annotations
 import json
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import Any, Callable, Mapping
 from urllib.request import Request, urlopen
 
@@ -26,7 +27,7 @@ def fetch_json(path: str, *, environ: Mapping[str, str] | None = None, timeout: 
 
 
 def _yesterday() -> str:
-    return (datetime.now(timezone.utc).date() - timedelta(days=1)).isoformat()
+    return (datetime.now(ZoneInfo('Asia/Tokyo')).date() - timedelta(days=1)).isoformat()
 
 
 def _metric(row: dict[str, Any], *keys: str) -> int:
@@ -37,6 +38,20 @@ def _metric(row: dict[str, Any], *keys: str) -> int:
     return 0
 
 
+def _bounded_percent(value: float | int | None) -> float:
+    if value is None:
+        return 0.0
+    return max(0.0, min(100.0, float(value)))
+
+
+def _result_name(row: dict[str, Any]) -> str:
+    return str(row.get('fetish_name') or row.get('name') or row.get('result_name') or 'unknown')
+
+
+def _result_count(row: dict[str, Any]) -> int:
+    return int(row.get('total') or row.get('count') or row.get('guessed') or 0)
+
+
 def _previous_day_stats(funnel: dict[str, Any], target_date: str) -> dict[str, Any]:
     rows = funnel.get('stats_history') or []
     selected = None
@@ -44,35 +59,37 @@ def _previous_day_stats(funnel: dict[str, Any], target_date: str) -> dict[str, A
         if str(row.get('date') or row.get('day') or '')[:10] == target_date:
             selected = row
             break
-    if selected is None and rows:
-        selected = rows[-1]
+    if selected is None:
+        active = [row for row in rows if _metric(row, 'start', 'play', 'completion') > 0]
+        selected = active[-1] if active else (rows[-1] if rows else {})
     selected = selected or {}
-    plays = _metric(selected, 'guessed', 'plays', 'total')
-    feedback = _metric(selected, 'confirmed', 'completed', 'feedback_total')
+    plays = _metric(selected, 'start', 'play', 'guessed', 'plays', 'total')
+    completions = _metric(selected, 'completion', 'completed', 'confirmed')
+    feedback = _metric(selected, 'feedback_total') or (_metric(selected, 'correct') + _metric(selected, 'wrong'))
     return {
         'date': str(selected.get('date') or selected.get('day') or target_date)[:10],
         'plays': plays,
         'feedback': feedback,
-        'completion_rate': _ratio(feedback, plays),
+        'completion_rate': _bounded_percent(_ratio(completions, plays)),
     }
 
 
 def _top_results(ranking: list[dict[str, Any]], limit: int = 5) -> list[str]:
     rows = []
+    total = sum(_result_count(item) for item in ranking)
     for row in ranking[:limit]:
-        name = row.get('name') or row.get('result_name') or 'unknown'
-        count = int(row.get('count') or row.get('total') or 0)
+        name = _result_name(row)
+        count = _result_count(row)
         percent = row.get('percent')
         if percent is None:
-            total = sum(int(item.get('count') or item.get('total') or 0) for item in ranking)
             percent = _ratio(count, total)
         rows.append(f'{name} {count} ({_pct(percent)})')
     return rows
 
 
 def _heavy_ratio(ranking: list[dict[str, Any]]) -> float:
-    total = sum(int(row.get('count') or row.get('total') or 0) for row in ranking)
-    heavy = sum(int(row.get('count') or row.get('total') or 0) for row in ranking if (row.get('name') or row.get('result_name')) in HEAVY_RESULTS)
+    total = sum(_result_count(row) for row in ranking)
+    heavy = sum(_result_count(row) for row in ranking if _result_name(row) in HEAVY_RESULTS)
     return _ratio(heavy, total)
 
 
