@@ -65,6 +65,8 @@ def analysis_log_status(ctx, *, stats_history=None, share_events=None, question_
     question_events = question_events if question_events is not None else ctx.question_event_report(limit=1000)
     share_count = ctx.share_event_count()
     question_count = ctx.question_event_count()
+    share_storage = ctx.share_event_storage_status() if hasattr(ctx, 'share_event_storage_status') else {}
+    question_storage = ctx.question_event_storage_status() if hasattr(ctx, 'question_event_storage_status') else {}
     stats_history_count = len([row for row in stats_history if any(row.get(key, 0) for key in ('start', 'play', 'completion', 'learn', 'correct', 'wrong', 'dropoff'))])
     return {
         'stats_history_count': stats_history_count,
@@ -72,6 +74,8 @@ def analysis_log_status(ctx, *, stats_history=None, share_events=None, question_
         'question_event_count': question_count,
         'share_event_loaded': share_events.get('total', 0),
         'question_event_loaded': question_events.get('total', 0),
+        'share_event_storage': share_storage,
+        'question_event_storage': question_storage,
         'question_ready': question_count >= 50,
         'share_ready': share_count >= 20,
         'stats_ready': stats_history_count > 0,
@@ -624,8 +628,20 @@ def preflight(ctx):
     add_check('csrf_enabled', ctx.should_enforce_runtime_guard('csrf'), 'enabled for non-test runtime')
     logs = analysis_log_status(ctx, stats_history=ctx.engine.get_stats_history(days=90))
     add_check('analysis_stats_history_rows', True, f"{logs['stats_history_count']} active stats_history days")
-    add_check('analysis_share_events_rows', True, f"{logs['share_event_count']} share_events rows / {'ready' if logs['share_ready'] else 'insufficient for analysis'}")
-    add_check('analysis_question_events_rows', True, f"{logs['question_event_count']} question_events rows / {'ready' if logs['question_ready'] else 'insufficient for analysis'}")
+    share_storage = logs.get('share_event_storage') or {}
+    question_storage = logs.get('question_event_storage') or {}
+    share_storage_ok = bool(share_storage.get('parent_writable') and share_storage.get('file_writable'))
+    question_storage_ok = bool(question_storage.get('parent_writable') and question_storage.get('file_writable'))
+    add_check(
+        'analysis_share_events_rows',
+        share_storage_ok,
+        f"{logs['share_event_count']} share_events rows / {'ready' if logs['share_ready'] else 'insufficient for analysis'} / path={share_storage.get('path', 'unknown')} / writable={share_storage_ok}",
+    )
+    add_check(
+        'analysis_question_events_rows',
+        question_storage_ok,
+        f"{logs['question_event_count']} question_events rows / {'ready' if logs['question_ready'] else 'insufficient for analysis'} / path={question_storage.get('path', 'unknown')} / writable={question_storage_ok}",
+    )
     add_check('rate_limit_enabled', ctx.should_enforce_runtime_guard('rate_limit'), 'enabled for non-test runtime')
     ok = all(check['ok'] for check in checks)
     return ctx.jsonify({'status': 'ok' if ok else 'warning', 'checks': checks})

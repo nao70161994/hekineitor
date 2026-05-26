@@ -128,6 +128,24 @@ def safe_record_event(event_name, *, path=None, environ=None, now_fn=None, **kwa
         return None
 
 
+def storage_status(*, path=None, environ=None):
+    target = os.path.abspath(path or event_log_path(environ))
+    parent = os.path.dirname(target)
+    exists = os.path.exists(target)
+    parent_exists = os.path.isdir(parent)
+    parent_writable = os.access(parent, os.W_OK) if parent_exists else False
+    file_writable = os.access(target, os.W_OK) if exists else parent_writable
+    return {
+        'path': target,
+        'parent': parent,
+        'exists': exists,
+        'parent_exists': parent_exists,
+        'parent_writable': bool(parent_writable),
+        'file_writable': bool(file_writable),
+        'count': event_count(path=target),
+    }
+
+
 def event_count(*, path=None, environ=None):
     target = path or event_log_path(environ)
     count = 0

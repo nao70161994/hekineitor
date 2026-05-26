@@ -117,6 +117,24 @@ class TestServices(unittest.TestCase):
         self.assertEqual(csv_safety.safe_csv_cell('plain'), 'plain')
 
 
+    def test_event_storage_status_reports_paths_and_writability(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            share_path = os.path.join(tmp, 'share_events.jsonl')
+            question_path = os.path.join(tmp, 'question_events.jsonl')
+            share_events.record_event('result_page_view', result_name='NTR', channel='result_page', success=True, path=share_path)
+            question_events.record_event('question_shown', question_id=1, path=question_path)
+
+            share_status = share_events.storage_status(path=share_path)
+            question_status = question_events.storage_status(path=question_path)
+
+        self.assertEqual(share_status['path'], share_path)
+        self.assertEqual(question_status['path'], question_path)
+        self.assertTrue(share_status['parent_writable'])
+        self.assertTrue(question_status['file_writable'])
+        self.assertEqual(share_status['count'], 1)
+        self.assertEqual(question_status['count'], 1)
+
+
     def test_question_events_report_counts_rates_categories_and_warnings(self):
         class Engine:
             questions = [
@@ -552,6 +570,8 @@ class TestServices(unittest.TestCase):
             question_event_report=lambda **kwargs: {'total': 0},
             share_event_count=lambda: 0,
             question_event_count=lambda: 0,
+            share_event_storage_status=lambda: {'path': '/tmp/share_events.jsonl'},
+            question_event_storage_status=lambda: {'path': '/tmp/question_events.jsonl'},
             load_share_notes=lambda: {},
             save_share_note=lambda result_name, note: {'note': note, 'updated_at': 'now'},
             enable_test_play=lambda: None,

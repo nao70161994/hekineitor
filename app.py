@@ -159,6 +159,8 @@ def _admin_context():
         question_event_report=lambda **kwargs: question_events_service.event_report(engine, environ=os.environ, **kwargs),
         share_event_count=lambda: share_events_service.event_count(environ=os.environ),
         question_event_count=lambda: question_events_service.event_count(environ=os.environ),
+        share_event_storage_status=lambda: share_events_service.storage_status(environ=os.environ),
+        question_event_storage_status=lambda: question_events_service.storage_status(environ=os.environ),
         load_share_notes=lambda: share_notes_service.load_notes(environ=os.environ),
         save_share_note=lambda result_name, note: share_notes_service.save_note(result_name, note, environ=os.environ),
         enable_test_play=lambda: test_play_service.enable(session),

@@ -1377,6 +1377,10 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('analysis_stats_history_rows', checks)
         self.assertIn('1 question_events rows', checks['analysis_question_events_rows']['detail'])
         self.assertIn('1 share_events rows', checks['analysis_share_events_rows']['detail'])
+        self.assertIn(q_path, checks['analysis_question_events_rows']['detail'])
+        self.assertIn(s_path, checks['analysis_share_events_rows']['detail'])
+        self.assertIn('writable=True', checks['analysis_question_events_rows']['detail'])
+        self.assertIn('writable=True', checks['analysis_share_events_rows']['detail'])
 
     def test_audit_log_export_and_preflight(self):
         headers = self._admin_headers()
