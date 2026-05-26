@@ -544,19 +544,32 @@ def admin_read_overview(ctx):
     })
 
 
+def _safe_audit_row(ctx, row):
+    safe = {
+        'ts': str(row.get('ts', '')),
+        'action': row.get('action', ''),
+        'status': row.get('status', ''),
+        'detail': row.get('detail', {}) if isinstance(row.get('detail'), dict) else {},
+    }
+    if row.get('method'):
+        safe['method'] = row.get('method', '')
+    if row.get('path'):
+        safe['path'] = row.get('path', '')
+    return safe
+
+
 def audit_log(ctx):
-    rows = ctx.recent_audit(ctx.bounded_int(ctx.request.args.get('limit'), 500, 1, 500))
+    rows = [_safe_audit_row(ctx, row) for row in ctx.recent_audit(ctx.bounded_int(ctx.request.args.get('limit'), 500, 1, 500))]
     if ctx.request.args.get('format') == 'csv':
-        fieldnames = ['ts', 'action', 'status', 'method', 'path', 'remote_addr', 'detail']
+        fieldnames = ['ts', 'action', 'status', 'method', 'path', 'detail']
         csv_rows = []
         for row in rows:
             csv_rows.append({
-                'ts': str(row.get('ts', '')),
-                'action': row.get('action', ''),
-                'status': row.get('status', ''),
+                'ts': row['ts'],
+                'action': row['action'],
+                'status': row['status'],
                 'method': row.get('method', ''),
                 'path': row.get('path', ''),
-                'remote_addr': row.get('remote_addr', ''),
                 'detail': ctx.json_dumps(row.get('detail', {}), ensure_ascii=False),
             })
         return ctx.Response(
@@ -576,12 +589,12 @@ def preflight(ctx):
     add_check(
         'secret_key_configured',
         bool(ctx.environ.get('SECRET_KEY')),
-        'SECRET_KEY is set' if ctx.environ.get('SECRET_KEY') else 'SECRET_KEY is using local development fallback',
+        'configured' if ctx.environ.get('SECRET_KEY') else 'development fallback in use',
     )
     add_check(
         'admin_pass_configured',
         bool(ctx.environ.get('ADMIN_PASS')),
-        'ADMIN_PASS is set' if ctx.environ.get('ADMIN_PASS') else 'ADMIN_PASS is missing',
+        'configured' if ctx.environ.get('ADMIN_PASS') else 'missing',
     )
     add_check('storage_available', True, 'postgres' if ctx.use_db() else 'local_json')
     yes_rows = ctx.engine.matrix.get('yes', [])

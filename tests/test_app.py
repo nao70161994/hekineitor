@@ -1258,6 +1258,101 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('/api/admin/funnel_metrics', data['available_endpoints'])
         self.assertIn('analysis_log_status', data)
 
+    def test_admin_read_token_security_contract_for_read_endpoints(self):
+        import app as app_module
+        old_counts = dict(app_module._ERROR_COUNTS)
+        read_paths = (
+            '/api/admin/preflight',
+            '/api/admin/read_overview',
+            '/api/admin/fetishes_snapshot',
+            '/api/admin/learning_stats',
+            '/api/admin/question_stats',
+            '/api/admin/quality_report',
+            '/api/admin/works_health',
+            '/api/admin/audit_log',
+            '/api/admin/audit_log?format=csv',
+            '/api/admin/maintenance_checklist',
+            '/api/admin/matrix_health',
+            '/api/admin/funnel_metrics',
+            '/api/admin/player_fetishes',
+            '/api/admin/promoted_fetish_history',
+            '/api/admin/question_events?limit=50',
+            '/api/admin/question_events/questions.csv?limit=50',
+            '/api/admin/question_events/category.csv?limit=50',
+            '/api/admin/share_events?limit=50',
+            '/api/admin/share_events/ranking.csv?limit=50',
+            '/api/admin/share_events/daily.csv?limit=50',
+            '/api/admin/share_events/comparison.csv?limit=50',
+            '/api/admin/share_notes',
+            '/api/admin/fetish_log_rows?page=1&per_page=10',
+            '/api/admin/recent_fetish_ranking',
+            '/api/admin/export_stats_history',
+            '/api/admin/matrix_backups',
+            '/api/admin/works_link_queue',
+            '/api/admin/works_review',
+            '/api/admin/fetish_lookup/0',
+            '/api/admin/fetish_history/0',
+            '/api/admin/performance',
+        )
+        env = {
+            'ADMIN_READ_TOKEN': 'read-secret-token',
+            'ADMIN_PASS': 'admin-secret-pass',
+            'SECRET_KEY': 'secret-key-sentinel',
+            'DATABASE_URL': 'postgres://secret-db-url',
+        }
+        forbidden_values = tuple(env.values()) + ('remote_addr', 'user_agent', 'session_id', 'ADMIN_PASS', 'DATABASE_URL', 'SECRET_KEY')
+        try:
+            with patch.dict(os.environ, env):
+                headers = {'Authorization': 'Bearer read-secret-token'}
+                for path in read_paths:
+                    with self.subTest(path=path):
+                        unauth = self.client.get(path)
+                        self.assertIn(unauth.status_code, (401, 403), path)
+                        res = self.client.get(path, headers=headers)
+                        self.assertEqual(res.status_code, 200, path)
+                        body = res.data.decode('utf-8', errors='replace')
+                        for forbidden in forbidden_values:
+                            self.assertNotIn(forbidden, body, path)
+                        self.assertLess(len(res.data), 1_500_000, path)
+        finally:
+            app_module._ERROR_COUNTS.clear()
+            app_module._ERROR_COUNTS.update(old_counts)
+
+    def test_admin_read_token_rejects_mutation_endpoints(self):
+        import app as app_module
+        old_counts = dict(app_module._ERROR_COUNTS)
+        mutation_paths = (
+            ('/admin/test_play/start', {}),
+            ('/admin/test_play/stop', {}),
+            ('/api/admin/params', {'guess_threshold': 0.8}),
+            ('/api/admin/cleanup_sessions', {}),
+            ('/api/admin/add_fetish', {'name': 'x', 'desc': 'x'}),
+            ('/api/admin/capture_priors', {}),
+            ('/api/admin/promote_fetish/10000', {}),
+            ('/api/admin/edit_question/0', {'text': 'x'}),
+            ('/api/admin/edit_fetish/0', {'name': 'x'}),
+            ('/api/admin/merge_fetishes', {'id_keep': 0, 'id_remove': 1}),
+            ('/api/admin/import_matrix/dry_run', {'matrix_rows': []}),
+            ('/api/admin/share_notes', {'result_name': 'NTR', 'note': 'x'}),
+        )
+        try:
+            with patch.dict(os.environ, {'ADMIN_READ_TOKEN': 'read-token', 'ADMIN_PASS': 'testpass'}):
+                headers = self._admin_read_headers()
+                for path, payload in mutation_paths:
+                    with self.subTest(path=path):
+                        res = self.client.post(path, headers=headers, json=payload)
+                        self.assertIn(res.status_code, (401, 403), path)
+        finally:
+            app_module._ERROR_COUNTS.clear()
+            app_module._ERROR_COUNTS.update(old_counts)
+
+    def test_basic_admin_auth_still_allows_management_read(self):
+        with patch.dict(os.environ, {'ADMIN_READ_TOKEN': 'read-token', 'ADMIN_PASS': 'testpass'}):
+            res = self.client.get('/api/admin/preflight', headers=self._admin_headers())
+            self.assertEqual(res.status_code, 200)
+            page = self.client.get('/admin', headers=self._admin_headers())
+            self.assertEqual(page.status_code, 200)
+
     def test_admin_read_token_requires_env(self):
         old_token = os.environ.pop('ADMIN_READ_TOKEN', None)
         try:
