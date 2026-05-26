@@ -890,13 +890,21 @@ class Engine:
             idx = self.index_of(old_id)
             if idx is None or self.fetishes[idx]['id'] < PLAYER_FETISH_BASE_ID:
                 return None
-            new_id = engine_mutations.first_free_seed_id(self.fetishes, PLAYER_FETISH_BASE_ID)
-            if new_id is None:
-                return None
-            self.fetishes[idx]['id'] = new_id
             if _use_db():
-                engine_db.promote_fetish_id(old_id, new_id, get_conn=_get_conn, put_conn=_put_conn)
+                new_id = engine_db.promote_player_fetish_to_seed(
+                    old_id,
+                    player_base_id=PLAYER_FETISH_BASE_ID,
+                    get_conn=_get_conn,
+                    put_conn=_put_conn,
+                )
+                if new_id is None:
+                    return None
+                self.fetishes[idx]['id'] = new_id
             else:
+                new_id = engine_mutations.first_free_seed_id(self.fetishes, PLAYER_FETISH_BASE_ID)
+                if new_id is None:
+                    return None
+                self.fetishes[idx]['id'] = new_id
                 self._save_fetishes_file()
         return new_id
 

@@ -37,7 +37,8 @@ def learning_stats(engine, *, domain_priors, pseudo):
         baseline = n_prior * float(pseudo) + (nq - n_prior) * 4.0
         data_weight = sum(engine.matrix['total'][fetish_idx]) - baseline
         stats.append({
-            'id': fetish_idx,
+            'id': fetish['id'],
+            'index': fetish_idx,
             'name': fetish['name'],
             'data_weight': round(data_weight, 1),
         })

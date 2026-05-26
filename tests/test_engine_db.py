@@ -369,6 +369,49 @@ class TestEngineDbMutationAdapters(unittest.TestCase):
             self.assertEqual(delete_sql, 'DELETE FROM stats_history WHERE key = %s')
             self.assertEqual(delete_params, (f'{prefix}10000',))
 
+    def test_promote_player_fetish_to_seed_chooses_id_inside_db_lock(self):
+        cursor = FakeCursor(fetchone_values=[(10000,), (3,)])
+        conn = FakeConn(cursor)
+        returned = []
+
+        new_id = engine_db.promote_player_fetish_to_seed(
+            10000,
+            player_base_id=100000,
+            get_conn=lambda: conn,
+            put_conn=returned.append,
+        )
+
+        self.assertEqual(new_id, 3)
+        self.assertEqual(returned, [conn])
+        executed_sql = [call[0] for call in cursor.executed]
+        self.assertEqual(executed_sql[0], 'SELECT pg_advisory_xact_lock(%s)')
+        self.assertEqual(cursor.executed[0][1], (100000,))
+        self.assertEqual(executed_sql[1], 'SELECT id FROM fetishes WHERE id = %s AND id >= %s')
+        self.assertIn('generate_series', executed_sql[2])
+        self.assertEqual(
+            executed_sql[3:6],
+            [
+                'UPDATE fetishes  SET id = %s WHERE id = %s',
+                'UPDATE matrix    SET fetish_id = %s WHERE fetish_id = %s',
+                'UPDATE fetish_log SET fetish_id = %s WHERE fetish_id = %s',
+            ],
+        )
+        self.assertEqual([call[1] for call in cursor.executed[3:6]], [(3, 10000), (3, 10000), (3, 10000)])
+
+    def test_promote_player_fetish_to_seed_returns_none_when_old_id_missing(self):
+        cursor = FakeCursor(fetchone_values=[None])
+        conn = FakeConn(cursor)
+
+        new_id = engine_db.promote_player_fetish_to_seed(
+            10000,
+            player_base_id=100000,
+            get_conn=lambda: conn,
+            put_conn=lambda _conn: None,
+        )
+
+        self.assertIsNone(new_id)
+        self.assertEqual(len(cursor.executed), 2)
+
 
 class TestEngineDbStatsAdapters(unittest.TestCase):
     def test_increment_and_daily_stats_use_existing_upsert_sql(self):

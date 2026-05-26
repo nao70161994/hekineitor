@@ -587,11 +587,11 @@ window.ADMIN_CONFIG = {
 <script src="/static/admin.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
 
 <table>
-  <tr><th>#</th><th>性癖</th><th>データ量</th><th></th></tr>
+  <tr><th>ID</th><th>性癖</th><th>データ量</th><th></th></tr>
   {% set max_w = [stats[-1].data_weight, 1] | max if stats else 1 %}
   {% for s in stats %}
   <tr>
-    <td>{{ loop.index }}</td>
+    <td style="color:#666;font-size:0.8rem">{{ s.id }}</td>
     <td>{{ s.name }}{% if s.data_weight < 10 %}<span class="tag-low">要学習</span>{% endif %}</td>
     <td>
       <div class="bar-wrap">

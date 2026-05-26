@@ -34,6 +34,13 @@ class TestEngineAdminReports(unittest.TestCase):
             with open(MATRIX_PATH, 'wb') as f:
                 f.write(self._matrix_backup)
 
+    def test_learning_stats_uses_public_fetish_id_not_array_index(self):
+        self.engine.fetishes[0]['id'] = 9999
+        rows = engine_admin_reports.learning_stats(self.engine, domain_priors=DOMAIN_PRIORS, pseudo=PSEUDO)
+        row = next(item for item in rows if item['name'] == self.engine.fetishes[0]['name'])
+        self.assertEqual(row['id'], 9999)
+        self.assertEqual(row['index'], 0)
+
     def test_admin_report_helpers_match_engine_facade(self):
         self.assertEqual(
             self.engine.get_matrix_heatmap(n_fetishes=3, n_questions=4),

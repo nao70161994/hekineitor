@@ -435,6 +435,19 @@ def merge_fetish_rows_db(id_keep, id_remove, *, new_name=None, new_desc=None, ke
         put_conn(conn)
 
 
+def _move_promoted_stats_history(cur, old_id, new_id):
+    for prefix in ('f_guessed_', 'f_correct_', 'f_wrong_'):
+        old_key = f'{prefix}{old_id}'
+        new_key = f'{prefix}{new_id}'
+        cur.execute('''
+            INSERT INTO stats_history (date, key, value)
+            SELECT date, %s, value FROM stats_history WHERE key = %s
+            ON CONFLICT (date, key) DO UPDATE
+            SET value = stats_history.value + EXCLUDED.value
+        ''', (new_key, old_key))
+        cur.execute('DELETE FROM stats_history WHERE key = %s', (old_key,))
+
+
 def promote_fetish_id(old_id, new_id, *, get_conn, put_conn):
     conn = get_conn()
     try:
@@ -443,16 +456,36 @@ def promote_fetish_id(old_id, new_id, *, get_conn, put_conn):
             cur.execute('UPDATE fetishes  SET id = %s WHERE id = %s', (new_id, old_id))
             cur.execute('UPDATE matrix    SET fetish_id = %s WHERE fetish_id = %s', (new_id, old_id))
             cur.execute('UPDATE fetish_log SET fetish_id = %s WHERE fetish_id = %s', (new_id, old_id))
-            for prefix in ('f_guessed_', 'f_correct_', 'f_wrong_'):
-                old_key = f'{prefix}{old_id}'
-                new_key = f'{prefix}{new_id}'
-                cur.execute('''
-                    INSERT INTO stats_history (date, key, value)
-                    SELECT date, %s, value FROM stats_history WHERE key = %s
-                    ON CONFLICT (date, key) DO UPDATE
-                    SET value = stats_history.value + EXCLUDED.value
-                ''', (new_key, old_key))
-                cur.execute('DELETE FROM stats_history WHERE key = %s', (old_key,))
+            _move_promoted_stats_history(cur, old_id, new_id)
+    finally:
+        put_conn(conn)
+
+
+def promote_player_fetish_to_seed(old_id, *, player_base_id, get_conn, put_conn):
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute('SELECT pg_advisory_xact_lock(%s)', (player_base_id,))
+            cur.execute('SELECT id FROM fetishes WHERE id = %s AND id >= %s', (old_id, player_base_id))
+            if cur.fetchone() is None:
+                return None
+            cur.execute('''
+                SELECT candidate
+                FROM generate_series(0, %s - 1) AS candidate
+                WHERE NOT EXISTS (SELECT 1 FROM fetishes WHERE id = candidate)
+                ORDER BY candidate
+                LIMIT 1
+            ''', (player_base_id,))
+            row = cur.fetchone()
+            if row is None:
+                return None
+            new_id = int(row[0])
+            cur.execute('UPDATE fetishes  SET id = %s WHERE id = %s', (new_id, old_id))
+            cur.execute('UPDATE matrix    SET fetish_id = %s WHERE fetish_id = %s', (new_id, old_id))
+            cur.execute('UPDATE fetish_log SET fetish_id = %s WHERE fetish_id = %s', (new_id, old_id))
+            _move_promoted_stats_history(cur, old_id, new_id)
+            return new_id
     finally:
         put_conn(conn)
 

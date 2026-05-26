@@ -118,3 +118,27 @@ class TestEngineMutations(unittest.TestCase):
         self.assertEqual(new_id, old_seed_id)
         self.assertIsNotNone(self.engine.index_of(new_id))
         self.assertIsNone(self.engine.index_of(player_id))
+
+    def test_promote_fetish_db_uses_authoritative_db_id_selection(self):
+        with patch.object(engine_module, '_use_db', return_value=False):
+            idx, player_id = self.engine.add_fetish('DB昇格テスト', 'desc', {})
+        with patch.object(engine_module, '_use_db', return_value=True), \
+                patch.object(engine_module.engine_db, 'promote_player_fetish_to_seed', return_value=7) as helper:
+            new_id = self.engine.promote_fetish(player_id)
+
+        self.assertEqual(new_id, 7)
+        self.assertIsNotNone(self.engine.index_of(7))
+        self.assertIsNone(self.engine.index_of(player_id))
+        helper.assert_called_once()
+        self.assertEqual(helper.call_args.args[0], player_id)
+        self.assertEqual(helper.call_args.kwargs['player_base_id'], PLAYER_FETISH_BASE_ID)
+
+    def test_promote_fetish_db_keeps_memory_id_when_db_rejects(self):
+        with patch.object(engine_module, '_use_db', return_value=False):
+            idx, player_id = self.engine.add_fetish('DB昇格失敗テスト', 'desc', {})
+        with patch.object(engine_module, '_use_db', return_value=True), \
+                patch.object(engine_module.engine_db, 'promote_player_fetish_to_seed', return_value=None):
+            new_id = self.engine.promote_fetish(player_id)
+
+        self.assertIsNone(new_id)
+        self.assertIsNotNone(self.engine.index_of(player_id))
