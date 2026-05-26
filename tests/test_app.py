@@ -1448,6 +1448,8 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         admin_page = self.client.get('/admin', headers=headers)
         self.assertEqual(admin_page.status_code, 200)
         self.assertIn(b'apply-works-seed-backfill', admin_page.data)
+        self.assertIn(b'repair-promoted-stats-dry-run', admin_page.data)
+        self.assertIn(b'repair-promoted-stats-apply', admin_page.data)
         self.assertIn('checklist', data)
         self.assertIn('weak_fetishes', data)
         self.assertIn('duplicate_questions', data)

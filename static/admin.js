@@ -149,6 +149,83 @@ async function saveShareNote(resultName, targetId, btn) {
   }
 }
 
+function renderPromotedStatsRepairResult(data) {
+  const result = document.getElementById('repair-promoted-stats-result');
+  if (!result) return;
+  const rows = data.rows || [];
+  if (!rows.length) {
+    result.innerHTML = '<div style="color:#888;">移動対象のランキング履歴はありません。</div>';
+    return;
+  }
+  const totalRows = rows.reduce((sum, row) => sum + Number.parseInt(row.row_count || 0, 10), 0);
+  const totalValue = Number.parseInt(data.total_value || 0, 10);
+  const tableRows = rows.map(row => `
+    <tr>
+      <td style="color:#666;">${Number.parseInt(row.old_id, 10)} → ${Number.parseInt(row.new_id, 10)}</td>
+      <td><code>${escapeHtml(row.old_key)}</code></td>
+      <td><code>${escapeHtml(row.new_key)}</code></td>
+      <td style="text-align:right;color:#aaa;">${Number.parseInt(row.row_count || 0, 10)}</td>
+      <td style="text-align:right;color:#aaa;">${Number.parseInt(row.value_sum || 0, 10)}</td>
+    </tr>`).join('');
+  result.innerHTML = `
+    <div style="margin-bottom:6px;color:#ccc;">対象キー ${rows.length} 件 / 行 ${totalRows} 件 / 合計値 ${totalValue}</div>
+    <div style="overflow-x:auto;">
+      <table style="max-width:100%;min-width:520px;">
+        <thead><tr><th>ID</th><th>旧キー</th><th>新キー</th><th style="text-align:right;">行</th><th style="text-align:right;">値</th></tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>`;
+}
+
+async function repairPromotedStatsHistory(apply) {
+  const oldId = Number.parseInt(document.getElementById('repair-old-id')?.value || '', 10);
+  const newId = Number.parseInt(document.getElementById('repair-new-id')?.value || '', 10);
+  const confirmText = document.getElementById('repair-confirm-text')?.value || '';
+  const msg = document.getElementById('repair-promoted-stats-msg');
+  if (msg) {
+    msg.style.color = '#aaa';
+    msg.textContent = '確認中...';
+  }
+  if (!Number.isInteger(oldId) || !Number.isInteger(newId)) {
+    if (msg) {
+      msg.style.color = '#e74c3c';
+      msg.textContent = '昇格前IDと昇格後IDを入力してください';
+    }
+    return;
+  }
+  if (apply && confirmText !== 'REPAIR_PROMOTED_STATS') {
+    if (msg) {
+      msg.style.color = '#e74c3c';
+      msg.textContent = '適用には確認文字列 REPAIR_PROMOTED_STATS が必要です';
+    }
+    return;
+  }
+  const payload = {
+    mappings: [{old_id: oldId, new_id: newId}],
+  };
+  if (apply) payload.confirm_text = confirmText;
+  else payload.dry_run = true;
+  const res = await adminFetch('/api/admin/repair_promoted_stats_history', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  if (!res) return;
+  let data = {};
+  try { data = await res.json(); } catch { data = {}; }
+  if (!res.ok) {
+    if (msg) {
+      msg.style.color = '#e74c3c';
+      msg.textContent = data.message || '修復確認に失敗しました';
+    }
+    return;
+  }
+  renderPromotedStatsRepairResult(data);
+  if (msg) {
+    msg.style.color = apply ? '#27ae60' : '#f5a623';
+    msg.textContent = apply ? '適用しました' : 'dry-run完了。問題なければ確認文字列を入力して適用してください';
+  }
+}
+
 async function cleanupSessions() {
   const res  = await adminFetch('/api/admin/cleanup_sessions', {method: 'POST'});
   if (!res) return;
@@ -588,6 +665,8 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (action === 'capture-priors') capturepriors();
     else if (action === 'admin-add-fetish') adminAddFetish();
     else if (action === 'cleanup-sessions') cleanupSessions();
+    else if (action === 'repair-promoted-stats-dry-run') repairPromotedStatsHistory(false);
+    else if (action === 'repair-promoted-stats-apply') repairPromotedStatsHistory(true);
     else if (action === 'save-share-note') saveShareNote(el.dataset.result || '', el.dataset.target || '', el);
     else if (action === 'dry-run-matrix-import') runMatrixImport(true);
     else if (action === 'import-matrix') runMatrixImport(false);

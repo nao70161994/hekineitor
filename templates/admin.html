@@ -79,6 +79,29 @@
 </details>
 
 <details style="margin-bottom:24px;">
+<summary style="color:#f5a623;font-size:0.9rem;cursor:pointer;margin-bottom:8px;">昇格済み性癖のランキング履歴修復</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 12px;line-height:1.6;">プレイヤー追加性癖を格上げする前のランキング履歴を、格上げ後の正式IDへ移します。まずdry-runで件数を確認してください。</p>
+<div class="param-row">
+  <label>昇格前ID</label>
+  <input type="number" id="repair-old-id" min="10000" step="1" placeholder="例: 10000" style="width:120px;">
+</div>
+<div class="param-row">
+  <label>昇格後ID</label>
+  <input type="number" id="repair-new-id" min="0" step="1" placeholder="例: 128" style="width:120px;">
+</div>
+<div class="param-row">
+  <label>確認文字列</label>
+  <input type="text" id="repair-confirm-text" placeholder="適用時のみ REPAIR_PROMOTED_STATS" style="width:260px;">
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+  <button class="btn-action" data-action="repair-promoted-stats-dry-run">dry-run</button>
+  <button class="btn-save" data-action="repair-promoted-stats-apply" style="margin-top:0;">確認して適用</button>
+  <span id="repair-promoted-stats-msg" style="font-size:0.8rem;color:#aaa;"></span>
+</div>
+<div id="repair-promoted-stats-result" style="margin-top:10px;font-size:0.78rem;color:#aaa;line-height:1.6;"></div>
+</details>
+
+<details style="margin-bottom:24px;">
 <summary style="color:#888;font-size:0.9rem;cursor:pointer;">セッション管理</summary>
 <p style="color:#555;font-size:0.78rem;margin:8px 0;">期限切れセッションはリクエスト時に自動削除（1%確率）されますが、手動で全掃除もできます。</p>
 <button class="btn-action" data-action="cleanup-sessions">期限切れセッションを削除</button>

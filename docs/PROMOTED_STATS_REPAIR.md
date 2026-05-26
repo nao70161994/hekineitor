@@ -4,6 +4,10 @@ Player-added fetishes can be promoted into the seeded fetish range. New promotio
 
 Use `/api/admin/repair_promoted_stats_history` only with an explicit `old_id -> new_id` mapping. The tool does not infer mappings because an incorrect merge would corrupt ranking history.
 
+## Admin UI
+
+The admin page includes `昇格済み性癖のランキング履歴修復`. Enter the old player-fetish ID and the promoted seed ID, run dry-run first, then apply with the confirmation text. This uses the same API described below.
+
 ## Dry Run
 
 ```sh
