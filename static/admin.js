@@ -149,8 +149,8 @@ async function saveShareNote(resultName, targetId, btn) {
   }
 }
 
-function renderPromotedStatsRepairResult(data) {
-  const result = document.getElementById('repair-promoted-stats-result');
+function renderPromotedStatsRepairResult(data, targetId = 'repair-promoted-stats-result') {
+  const result = document.getElementById(targetId);
   if (!result) return;
   const rows = data.rows || [];
   if (!rows.length) {
@@ -223,6 +223,63 @@ async function repairPromotedStatsHistory(apply) {
   if (msg) {
     msg.style.color = apply ? '#27ae60' : '#f5a623';
     msg.textContent = apply ? '適用しました' : 'dry-run完了。問題なければ確認文字列を入力して適用してください';
+  }
+}
+
+function parseStatsHistoryMappings(text) {
+  return String(text || '').split(/\n+/).map(line => {
+    const parts = line.trim().split(/[\s,>\-]+/).filter(Boolean);
+    if (parts.length < 2) return null;
+    const oldId = Number.parseInt(parts[0], 10);
+    const newId = Number.parseInt(parts[1], 10);
+    if (!Number.isInteger(oldId) || !Number.isInteger(newId) || oldId === newId) return null;
+    return {old_id: oldId, new_id: newId};
+  }).filter(Boolean);
+}
+
+async function moveStatsHistory(apply) {
+  const mappings = parseStatsHistoryMappings(document.getElementById('move-stats-history-mappings')?.value || '');
+  const confirmText = document.getElementById('move-stats-history-confirm')?.value || '';
+  const msg = document.getElementById('move-stats-history-msg');
+  if (msg) {
+    msg.style.color = '#aaa';
+    msg.textContent = '確認中...';
+  }
+  if (!mappings.length) {
+    if (msg) {
+      msg.style.color = '#e74c3c';
+      msg.textContent = '移動ペアを入力してください';
+    }
+    return;
+  }
+  if (apply && confirmText !== 'MOVE_STATS_HISTORY') {
+    if (msg) {
+      msg.style.color = '#e74c3c';
+      msg.textContent = '適用には確認文字列 MOVE_STATS_HISTORY が必要です';
+    }
+    return;
+  }
+  const payload = {mappings};
+  if (apply) payload.confirm_text = confirmText;
+  else payload.dry_run = true;
+  const res = await adminFetch('/api/admin/move_stats_history', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  if (!res) return;
+  let data = {};
+  try { data = await res.json(); } catch { data = {}; }
+  if (!res.ok) {
+    if (msg) {
+      msg.style.color = '#e74c3c';
+      msg.textContent = data.message || 'ID移動に失敗しました';
+    }
+    return;
+  }
+  renderPromotedStatsRepairResult(data, 'move-stats-history-result');
+  if (msg) {
+    msg.style.color = apply ? '#27ae60' : '#f5a623';
+    msg.textContent = apply ? 'ID移動を適用しました' : 'dry-run完了。件数を確認してから適用してください';
   }
 }
 
@@ -667,6 +724,8 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (action === 'cleanup-sessions') cleanupSessions();
     else if (action === 'repair-promoted-stats-dry-run') repairPromotedStatsHistory(false);
     else if (action === 'repair-promoted-stats-apply') repairPromotedStatsHistory(true);
+    else if (action === 'move-stats-history-dry-run') moveStatsHistory(false);
+    else if (action === 'move-stats-history-apply') moveStatsHistory(true);
     else if (action === 'save-share-note') saveShareNote(el.dataset.result || '', el.dataset.target || '', el);
     else if (action === 'dry-run-matrix-import') runMatrixImport(true);
     else if (action === 'import-matrix') runMatrixImport(false);

@@ -522,6 +522,53 @@ def _repair_mappings_from_request(ctx):
     return mappings
 
 
+def _manual_stats_history_mappings_from_request(ctx):
+    data = ctx.request.get_json(silent=True) or {}
+    raw = data.get('mappings') or []
+    mappings = []
+    seen_old = set()
+    if isinstance(raw, dict):
+        raw = [{'old_id': key, 'new_id': value} for key, value in raw.items()]
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        try:
+            old_id = int(item.get('old_id'))
+            new_id = int(item.get('new_id'))
+        except (TypeError, ValueError):
+            continue
+        if old_id == new_id or old_id in seen_old:
+            continue
+        if 0 <= old_id < ctx.player_fetish_base_id and 0 <= new_id < ctx.player_fetish_base_id:
+            mappings.append((old_id, new_id))
+            seen_old.add(old_id)
+    return mappings
+
+
+def move_stats_history(ctx):
+    data = ctx.request.get_json(silent=True) or {}
+    mappings = _manual_stats_history_mappings_from_request(ctx)
+    if not mappings:
+        return ctx.jsonify({
+            'status': 'error',
+            'message': 'mappings に正式ID同士の old_id/new_id を指定してください',
+            'required_confirm_text': 'MOVE_STATS_HISTORY',
+        }), 400
+    if data.get('dry_run') is True:
+        report = ctx.engine.promoted_stats_history_repair_report(mappings)
+        return ctx.jsonify({'status': 'ok', 'mode': 'dry_run', 'required_confirm_text': 'MOVE_STATS_HISTORY', **report})
+    confirm_error = ctx.require_confirm('MOVE_STATS_HISTORY')
+    if confirm_error:
+        return confirm_error
+    report = ctx.engine.repair_promoted_stats_history(mappings)
+    ctx.write_audit('move_stats_history', 'ok', {
+        'mapping_count': report.get('mapping_count', 0),
+        'total_value': report.get('total_value', 0),
+        'mappings': [{'old_id': old_id, 'new_id': new_id} for old_id, new_id in mappings],
+    }, ctx.request)
+    return ctx.jsonify({'status': 'ok', 'mode': 'applied', 'required_confirm_text': 'MOVE_STATS_HISTORY', **report})
+
+
 def repair_promoted_stats_history(ctx):
     data = ctx.request.get_json(silent=True) or {}
     mappings = _repair_mappings_from_request(ctx)
@@ -928,6 +975,11 @@ def create_blueprint(ctx_factory, require_admin):
     @require_admin
     def repair_promoted_stats_history_route():
         return repair_promoted_stats_history(ctx_factory())
+
+    @bp.route('/api/admin/move_stats_history', methods=['POST'])
+    @require_admin
+    def move_stats_history_route():
+        return move_stats_history(ctx_factory())
 
     @bp.route('/api/admin/edit_question/<int:q_idx>', methods=['POST'])
     @require_admin

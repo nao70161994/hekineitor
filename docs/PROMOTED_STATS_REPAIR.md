@@ -8,6 +8,21 @@ Use `/api/admin/repair_promoted_stats_history` only with an explicit `old_id -> 
 
 The admin page includes `昇格済み性癖のランキング履歴修復`. Enter the old player-fetish ID and the promoted seed ID, run dry-run first, then apply with the confirmation text. This uses the same API described below.
 
+## Seed ID Correction
+
+If a promoted stats repair was applied to the wrong seed IDs, use the admin page's advanced `ID移動` section. Enter one mapping per line, run dry-run, then apply with `MOVE_STATS_HISTORY`.
+
+For a one-position shift from 129-132 down to 128-131:
+
+```text
+129,128
+130,129
+131,130
+132,131
+```
+
+This moves only ranking history keys (`f_guessed_*`, `f_correct_*`, `f_wrong_*`). It does not change fetishes, matrix rows, inference behavior, or player-added fetish records. Overlapping mappings are internally staged through temporary keys so chain moves do not overwrite each other.
+
 ## Dry Run
 
 ```sh

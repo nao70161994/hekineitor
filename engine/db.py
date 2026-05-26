@@ -1,4 +1,5 @@
 import json
+import time
 
 
 SAVE_MATRIX_SQL = """
@@ -491,17 +492,29 @@ def repair_promoted_stats_history(mappings, *, get_conn, put_conn):
     try:
         with conn:
             cur = conn.cursor()
+            token = str(int(time.time() * 1000000))
+            temp_entries = []
             for old_id, new_id in pairs:
                 for prefix in ('f_guessed_', 'f_correct_', 'f_wrong_'):
                     old_key = f'{prefix}{old_id}'
+                    temp_key = f'__repair_{token}_{old_key}'
                     new_key = f'{prefix}{new_id}'
+                    temp_entries.append((temp_key, new_key))
                     cur.execute('''
                         INSERT INTO stats_history (date, key, value)
                         SELECT date, %s, value FROM stats_history WHERE key = %s
                         ON CONFLICT (date, key) DO UPDATE
                         SET value = stats_history.value + EXCLUDED.value
-                    ''', (new_key, old_key))
+                    ''', (temp_key, old_key))
                     cur.execute('DELETE FROM stats_history WHERE key = %s', (old_key,))
+            for temp_key, new_key in temp_entries:
+                cur.execute('''
+                    INSERT INTO stats_history (date, key, value)
+                    SELECT date, %s, value FROM stats_history WHERE key = %s
+                    ON CONFLICT (date, key) DO UPDATE
+                    SET value = stats_history.value + EXCLUDED.value
+                ''', (new_key, temp_key))
+                cur.execute('DELETE FROM stats_history WHERE key = %s', (temp_key,))
     finally:
         put_conn(conn)
     return {**report, 'applied': True}

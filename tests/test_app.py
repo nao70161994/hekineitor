@@ -1450,6 +1450,8 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn(b'apply-works-seed-backfill', admin_page.data)
         self.assertIn(b'repair-promoted-stats-dry-run', admin_page.data)
         self.assertIn(b'repair-promoted-stats-apply', admin_page.data)
+        self.assertIn(b'move-stats-history-dry-run', admin_page.data)
+        self.assertIn(b'move-stats-history-apply', admin_page.data)
         self.assertIn('checklist', data)
         self.assertIn('weak_fetishes', data)
         self.assertIn('duplicate_questions', data)
@@ -1584,6 +1586,36 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             self.assertEqual(applied.status_code, 200)
             self.assertEqual(applied.get_json()['mode'], 'applied')
             self.assertEqual(applied.get_json()['total_value'], 3)
+
+    def test_move_stats_history_allows_seed_id_correction_with_confirm(self):
+        headers = self._admin_headers()
+        with patch('engine.facade._use_db', return_value=True), \
+             patch('engine.db.promoted_stats_history_repair_report', return_value={'mapping_count': 4, 'rows': [], 'total_value': 12, 'storage': 'postgres'}), \
+             patch('engine.db.repair_promoted_stats_history', return_value={'mapping_count': 4, 'rows': [], 'total_value': 12, 'applied': True, 'storage': 'postgres'}):
+            dry = self.client.post('/api/admin/move_stats_history', headers=headers, json={
+                'dry_run': True,
+                'mappings': [
+                    {'old_id': 129, 'new_id': 128},
+                    {'old_id': 130, 'new_id': 129},
+                    {'old_id': 131, 'new_id': 130},
+                    {'old_id': 132, 'new_id': 131},
+                ],
+            })
+            self.assertEqual(dry.status_code, 200)
+            self.assertEqual(dry.get_json()['mode'], 'dry_run')
+
+            rejected = self.client.post('/api/admin/move_stats_history', headers=headers, json={
+                'mappings': [{'old_id': 129, 'new_id': 128}],
+            })
+            self.assertEqual(rejected.status_code, 400)
+            self.assertEqual(rejected.get_json()['required_confirm_text'], 'MOVE_STATS_HISTORY')
+
+            applied = self.client.post('/api/admin/move_stats_history', headers=headers, json={
+                'confirm_text': 'MOVE_STATS_HISTORY',
+                'mappings': [{'old_id': 129, 'new_id': 128}],
+            })
+            self.assertEqual(applied.status_code, 200)
+            self.assertEqual(applied.get_json()['mode'], 'applied')
 
     def test_edit_question_empty_text_rejected(self):
         headers = self._admin_headers()

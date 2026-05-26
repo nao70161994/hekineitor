@@ -334,9 +334,14 @@ class TestEngineDbMutationAdapters(unittest.TestCase):
         executed_sql = [call[0] for call in cursor.executed]
         self.assertIn('SELECT key, COUNT(*), COALESCE(SUM(value), 0) FROM stats_history WHERE key = ANY(%s) GROUP BY key', executed_sql[0])
         self.assertIn('INSERT INTO stats_history', executed_sql[2])
-        self.assertEqual(cursor.executed[2][1], ('f_guessed_3', 'f_guessed_10000'))
+        temp_key = cursor.executed[2][1][0]
+        self.assertTrue(temp_key.startswith('__repair_'))
+        self.assertTrue(temp_key.endswith('_f_guessed_10000'))
+        self.assertEqual(cursor.executed[2][1][1], 'f_guessed_10000')
         self.assertEqual(cursor.executed[3][0], 'DELETE FROM stats_history WHERE key = %s')
         self.assertEqual(cursor.executed[3][1], ('f_guessed_10000',))
+        self.assertIn('INSERT INTO stats_history', executed_sql[8])
+        self.assertEqual(cursor.executed[8][1], ('f_guessed_3', temp_key))
 
     def test_promote_fetish_id_updates_all_id_references(self):
         cursor = FakeCursor()

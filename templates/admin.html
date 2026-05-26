@@ -99,6 +99,26 @@
   <span id="repair-promoted-stats-msg" style="font-size:0.8rem;color:#aaa;"></span>
 </div>
 <div id="repair-promoted-stats-result" style="margin-top:10px;font-size:0.78rem;color:#aaa;line-height:1.6;"></div>
+<hr style="border:0;border-top:1px solid #263244;margin:16px 0;">
+<p style="color:#e74c3c;font-size:0.78rem;margin:6px 0 10px;line-height:1.6;">上級: 正式ID同士でランキング履歴だけを移動します。IDを間違えた時の補正用です。性癖マスタや推論データは変更しません。</p>
+<div class="param-row" style="align-items:flex-start;">
+  <label>移動ペア</label>
+  <textarea id="move-stats-history-mappings" rows="4" placeholder="例:
+129,128
+130,129
+131,130
+132,131" style="width:min(360px,100%);background:#0f3460;border:1px solid #333;color:#eee;border-radius:4px;padding:6px 8px;font-size:0.82rem;"></textarea>
+</div>
+<div class="param-row">
+  <label>確認文字列</label>
+  <input type="text" id="move-stats-history-confirm" placeholder="適用時のみ MOVE_STATS_HISTORY" style="width:260px;">
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+  <button class="btn-action" data-action="move-stats-history-dry-run">ID移動dry-run</button>
+  <button class="btn-save" data-action="move-stats-history-apply" style="margin-top:0;">ID移動を適用</button>
+  <span id="move-stats-history-msg" style="font-size:0.8rem;color:#aaa;"></span>
+</div>
+<div id="move-stats-history-result" style="margin-top:10px;font-size:0.78rem;color:#aaa;line-height:1.6;"></div>
 </details>
 
 <details style="margin-bottom:24px;">
