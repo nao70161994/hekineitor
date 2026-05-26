@@ -58,6 +58,31 @@ def share_event_query_string(filters):
 
 
 
+
+def analysis_log_status(ctx, *, stats_history=None, share_events=None, question_events=None):
+    stats_history = stats_history if stats_history is not None else ctx.engine.get_stats_history(days=30)
+    share_events = share_events if share_events is not None else ctx.share_event_report(limit=1000)
+    question_events = question_events if question_events is not None else ctx.question_event_report(limit=1000)
+    share_count = ctx.share_event_count()
+    question_count = ctx.question_event_count()
+    stats_history_count = len([row for row in stats_history if any(row.get(key, 0) for key in ('start', 'play', 'completion', 'learn', 'correct', 'wrong', 'dropoff'))])
+    return {
+        'stats_history_count': stats_history_count,
+        'share_event_count': share_count,
+        'question_event_count': question_count,
+        'share_event_loaded': share_events.get('total', 0),
+        'question_event_loaded': question_events.get('total', 0),
+        'question_ready': question_count >= 50,
+        'share_ready': share_count >= 20,
+        'stats_ready': stats_history_count > 0,
+        'sources': {
+            'result_distribution': 'Engine stats_history / fetish_log',
+            'feedback': 'Engine fetish_log / stats_history',
+            'share_analytics': 'JSONL share_events',
+            'question_analytics': 'JSONL question_events',
+        },
+    }
+
 def test_play_audit_rows(rows, *, limit=8):
     items = []
     for row in rows:
@@ -92,6 +117,7 @@ def admin_page(ctx):
     share_event_filters = share_event_query(ctx, default_limit=1000)
     share_events = ctx.share_event_report(**share_event_filters)
     question_events = ctx.question_event_report(limit=1000)
+    analysis_logs = analysis_log_status(ctx, stats_history=stats_history, share_events=share_events, question_events=question_events)
     share_notes = ctx.load_share_notes()
     audit_rows = ctx.recent_audit(50)
     return ctx.render_template(
@@ -117,6 +143,7 @@ def admin_page(ctx):
         maintenance_checklist=maintenance,
         share_events=share_events,
         question_events=question_events,
+        analysis_logs=analysis_logs,
         share_notes=share_notes,
         share_event_filters=share_event_filters,
         share_event_query=share_event_query_string(share_event_filters),
@@ -416,6 +443,10 @@ def preflight(ctx):
     ogp_font = ogp_service.cjk_font_status()
     add_check('ogp_cjk_font_available', ogp_font['available'], ogp_font['detail'])
     add_check('csrf_enabled', ctx.should_enforce_runtime_guard('csrf'), 'enabled for non-test runtime')
+    logs = analysis_log_status(ctx, stats_history=ctx.engine.get_stats_history(days=90))
+    add_check('analysis_stats_history_rows', True, f"{logs['stats_history_count']} active stats_history days")
+    add_check('analysis_share_events_rows', True, f"{logs['share_event_count']} share_events rows / {'ready' if logs['share_ready'] else 'insufficient for analysis'}")
+    add_check('analysis_question_events_rows', True, f"{logs['question_event_count']} question_events rows / {'ready' if logs['question_ready'] else 'insufficient for analysis'}")
     add_check('rate_limit_enabled', ctx.should_enforce_runtime_guard('rate_limit'), 'enabled for non-test runtime')
     ok = all(check['ok'] for check in checks)
     return ctx.jsonify({'status': 'ok' if ok else 'warning', 'checks': checks})

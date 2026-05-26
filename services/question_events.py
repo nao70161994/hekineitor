@@ -128,6 +128,19 @@ def safe_record_event(event_name, *, path=None, environ=None, now_fn=None, **kwa
         return None
 
 
+def event_count(*, path=None, environ=None):
+    target = path or event_log_path(environ)
+    count = 0
+    try:
+        with open(target, encoding='utf-8') as file_obj:
+            for line in file_obj:
+                if line.strip():
+                    count += 1
+    except OSError:
+        return 0
+    return count
+
+
 def read_events(*, path=None, environ=None, limit=5000):
     limit = max(1, min(int(limit or 5000), 50000))
     path = path or event_log_path(environ)

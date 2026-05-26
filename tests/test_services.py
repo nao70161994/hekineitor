@@ -531,6 +531,8 @@ class TestServices(unittest.TestCase):
             ),
             share_event_report=lambda **kwargs: {'total': 0},
             question_event_report=lambda **kwargs: {'total': 0},
+            share_event_count=lambda: 0,
+            question_event_count=lambda: 0,
             load_share_notes=lambda: {},
             save_share_note=lambda result_name, note: {'note': note, 'updated_at': 'now'},
             enable_test_play=lambda: None,

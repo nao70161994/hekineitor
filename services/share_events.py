@@ -98,6 +98,19 @@ def safe_record_event(*args, **kwargs):
         return None
 
 
+def event_count(*, path=None, environ=None):
+    target = path or event_log_path(environ)
+    count = 0
+    try:
+        with open(target, encoding='utf-8') as file_obj:
+            for line in file_obj:
+                if line.strip():
+                    count += 1
+    except OSError:
+        return 0
+    return count
+
+
 def read_events(path=None, environ=None, limit=500):
     target = path or event_log_path(environ)
     try:

@@ -195,6 +195,27 @@
 </details>
 {% endif %}
 
+{% if analysis_logs %}
+<details open style="margin-bottom:24px;background:#101622;border:1px solid #263244;border-radius:8px;padding:12px 14px;">
+<summary style="color:#f5a623;font-size:0.9rem;cursor:pointer;">分析ログ蓄積状況</summary>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:12px;">
+  <div><div style="font-size:1.25rem;color:#aaa;font-weight:bold;">{{ analysis_logs.stats_history_count }}</div><div style="font-size:0.72rem;color:#888;">stats_history有効日数</div><div style="font-size:0.68rem;color:#666;">取得元: {{ analysis_logs.sources.result_distribution }}</div></div>
+  <div><div style="font-size:1.25rem;color:{% if analysis_logs.share_ready %}#7af0a0{% else %}#f5a623{% endif %};font-weight:bold;">{{ analysis_logs.share_event_count }}</div><div style="font-size:0.72rem;color:#888;">share_events行数</div><div style="font-size:0.68rem;color:#666;">取得元: {{ analysis_logs.sources.share_analytics }}</div></div>
+  <div><div style="font-size:1.25rem;color:{% if analysis_logs.question_ready %}#7af0a0{% else %}#f5a623{% endif %};font-weight:bold;">{{ analysis_logs.question_event_count }}</div><div style="font-size:0.72rem;color:#888;">question_events行数</div><div style="font-size:0.68rem;color:#666;">取得元: {{ analysis_logs.sources.question_analytics }}</div></div>
+  <div><div style="font-size:1.25rem;color:#aaa;font-weight:bold;">{{ analysis_logs.question_event_loaded }} / {{ analysis_logs.share_event_loaded }}</div><div style="font-size:0.72rem;color:#888;">管理画面読込 Q/S</div><div style="font-size:0.68rem;color:#666;">取得元: {{ analysis_logs.sources.feedback }}</div></div>
+</div>
+{% if not analysis_logs.question_ready or not analysis_logs.share_ready %}
+<div style="margin-top:10px;border:1px solid #5a3320;background:#21150f;border-radius:8px;padding:8px 10px;line-height:1.6;">
+  {% if not analysis_logs.question_ready %}<div style="font-size:0.76rem;color:#f5a623;">question_events が少ないため、質問別離脱率・YES/NO偏り・結果寄与ランキングはまだ分析不可です。目安: 50行以上。</div>{% endif %}
+  {% if not analysis_logs.share_ready %}<div style="font-size:0.76rem;color:#f5a623;">share_events が少ないため、結果別シェア率・チャネル別評価はまだ分析不可です。目安: 20行以上。</div>{% endif %}
+</div>
+{% endif %}
+<div style="margin-top:8px;font-size:0.72rem;color:#777;line-height:1.6;">
+  result distribution / feedback は Engine の stats_history・fetish_log、share analytics は JSONL share_events、question analytics は JSONL question_events を参照します。
+</div>
+</details>
+{% endif %}
+
 {% if question_events %}
 <details open style="margin-bottom:24px;background:#101622;border:1px solid #263244;border-radius:8px;padding:12px 14px;">
 <summary style="color:#b38cff;font-size:0.9rem;cursor:pointer;">質問分析ダッシュボード</summary>

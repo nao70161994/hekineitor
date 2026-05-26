@@ -122,3 +122,4 @@
 - Prefer moving code behind adapters before deleting compatibility wrappers.
 - Run `git diff --check`, full `node --check` for static JS, and `pytest` after each refactor unit.
 - 質問分析ダッシュボードを追加し、質問表示/回答/離脱/結果寄与を JSONL で観測できるようにした。
+- preflight と管理画面に分析ログ蓄積状況を追加し、本番分析の取得元と分析可否を見える化した。

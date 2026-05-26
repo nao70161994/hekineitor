@@ -1209,10 +1209,19 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
 
     def test_preflight_includes_ogp_font_check(self):
         headers = self._admin_headers()
-        res = self.client.get('/api/admin/preflight', headers=headers)
+        with tempfile.TemporaryDirectory() as tmp:
+            q_path = os.path.join(tmp, 'question_events.jsonl')
+            s_path = os.path.join(tmp, 'share_events.jsonl')
+            question_events_service.record_event('question_shown', question_id=1, path=q_path)
+            share_events_service.record_event('result_page_view', result_name='NTR', channel='result_page', success=True, path=s_path)
+            with patch.dict(os.environ, {'QUESTION_EVENT_LOG_PATH': q_path, 'SHARE_EVENT_LOG_PATH': s_path}):
+                res = self.client.get('/api/admin/preflight', headers=headers)
         self.assertEqual(res.status_code, 200)
-        names = {row['name'] for row in res.get_json()['checks']}
-        self.assertIn('ogp_cjk_font_available', names)
+        checks = {row['name']: row for row in res.get_json()['checks']}
+        self.assertIn('ogp_cjk_font_available', checks)
+        self.assertIn('analysis_stats_history_rows', checks)
+        self.assertIn('1 question_events rows', checks['analysis_question_events_rows']['detail'])
+        self.assertIn('1 share_events rows', checks['analysis_share_events_rows']['detail'])
 
     def test_audit_log_export_and_preflight(self):
         headers = self._admin_headers()
@@ -1820,6 +1829,23 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('question_answered', names)
         self.assertIn('question_dropoff', names)
         self.assertTrue(all('ip' not in event and 'user_agent' not in event and 'session' not in event for event in events))
+
+
+    def test_admin_page_shows_analysis_log_status(self):
+        headers = self._admin_headers()
+        with tempfile.TemporaryDirectory() as tmp:
+            q_path = os.path.join(tmp, 'question_events.jsonl')
+            s_path = os.path.join(tmp, 'share_events.jsonl')
+            question_events_service.record_event('question_shown', question_id=1, path=q_path)
+            share_events_service.record_event('result_page_view', result_name='NTR', channel='result_page', success=True, path=s_path)
+            with patch.dict(os.environ, {'QUESTION_EVENT_LOG_PATH': q_path, 'SHARE_EVENT_LOG_PATH': s_path}):
+                res = self.client.get('/admin', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        self.assertIn('分析ログ蓄積状況', body)
+        self.assertIn('question_events が少ないため', body)
+        self.assertIn('share_events が少ないため', body)
+        self.assertIn('取得元: JSONL question_events', body)
 
     def test_admin_share_events_report(self):
         headers = self._admin_headers()
