@@ -17,12 +17,27 @@ ADMIN_READ_TOKEN=<十分長いランダム文字列>
 Bearer token で以下の読み取りAPIだけを呼び出せます。
 
 ```sh
+curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/read_overview
 curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/preflight
+curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/fetishes_snapshot
+curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/learning_stats
+curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/question_stats
+curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/quality_report
+curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/works_health
+curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/audit_log
+curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/maintenance_checklist
+curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/matrix_health
+curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/funnel_metrics
+curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/player_fetishes
+curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/promoted_fetish_history
 curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/question_events
 curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/share_events
+curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/share_notes
 curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/fetish_log_rows
 curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/recent_fetish_ranking
 curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/export_stats_history
+curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/matrix_backups
+curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" https://hekineitor.onrender.com/api/admin/works_link_queue
 ```
 
 CSV系の読み取りも同じトークンで取得できます。

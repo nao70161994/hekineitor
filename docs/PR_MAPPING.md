@@ -167,3 +167,4 @@
 - Production analytics readiness: preflight/adminで stats_history/share_events/question_events の蓄積状況と取得元を確認可能。
 - Admin read token PR: `ADMIN_READ_TOKEN` でpreflight/question/share/fetish stats系の読み取りAPIのみ参照可能。変更系APIはBasic認証のまま。
 - Bias mitigation PR: reduce over-concentration in 共依存/激重感情/共生関係/執着 through question wording, early penalties, and category diversification only.
+- Admin read API expansion PR: added read-only operational endpoints so Codex can analyze production health without mutation permissions.

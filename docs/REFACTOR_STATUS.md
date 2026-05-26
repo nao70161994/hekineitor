@@ -125,3 +125,4 @@
 - preflight と管理画面に分析ログ蓄積状況を追加し、本番分析の取得元と分析可否を見える化した。
 - 管理分析用の読み取り専用 `ADMIN_READ_TOKEN` を追加し、分析GET APIだけをBearer認証で参照可能にした。
 - Production bias mitigation: Q2/Q60 direct wording and early exposure were softened; early heavy-relation candidates now trigger category diversification without changing posterior/matrix/prior.
+- Admin read token coverage now includes safe read-only operation snapshots for fetishes, learning stats, question stats, works health, matrix health, funnel metrics, player-added fetishes, promoted history, maintenance, backups, and share notes.

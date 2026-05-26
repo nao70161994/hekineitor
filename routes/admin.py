@@ -378,6 +378,172 @@ def maintenance_checklist(ctx):
     return ctx.jsonify(ctx.build_admin_maintenance_checklist())
 
 
+def fetishes_snapshot(ctx):
+    rows = []
+    for fetish in ctx.engine.fetishes:
+        works = fetish.get('works') or []
+        rows.append({
+            'id': fetish.get('id'),
+            'name': fetish.get('name', ''),
+            'desc': fetish.get('desc', ''),
+            'works_count': len(works),
+            'works_titles': [ctx.work_title(work) for work in works[:5]],
+            'is_player_fetish': fetish.get('id', 0) >= ctx.player_fetish_base_id,
+            'detail_url': f"/fetish/{fetish.get('id')}",
+        })
+    return ctx.jsonify({
+        'status': 'ok',
+        'total': len(rows),
+        'seed_count': len([row for row in rows if not row['is_player_fetish']]),
+        'player_count': len([row for row in rows if row['is_player_fetish']]),
+        'fetishes': rows,
+    })
+
+
+def learning_stats(ctx):
+    rows = ctx.engine.get_learning_stats()
+    return ctx.jsonify({'status': 'ok', 'total': len(rows), 'rows': rows})
+
+
+def question_stats(ctx):
+    rows = ctx.engine.get_question_stats()
+    categories = {}
+    for row in rows:
+        category = row.get('category') or 'unknown'
+        bucket = categories.setdefault(category, {'count': 0, 'disabled': 0, 'avg_disc': 0.0, 'ask_count': 0})
+        bucket['count'] += 1
+        bucket['disabled'] += 1 if row.get('disabled') else 0
+        bucket['avg_disc'] += float(row.get('disc') or 0)
+        bucket['ask_count'] += int(row.get('ask_count') or 0)
+    for bucket in categories.values():
+        if bucket['count']:
+            bucket['avg_disc'] = round(bucket['avg_disc'] / bucket['count'], 4)
+    return ctx.jsonify({'status': 'ok', 'total': len(rows), 'categories': categories, 'rows': rows})
+
+
+def works_health(ctx):
+    maintenance = ctx.build_admin_maintenance_checklist().get('works', {})
+    queue = works_link_queue_payload(ctx.engine, sample_limit=50)
+    seed_backfill = seed_works_backfill_payload(ctx, sample_limit=50, apply=False).get_json()
+    return ctx.jsonify({
+        'status': 'ok',
+        'maintenance': maintenance,
+        'link_queue': queue,
+        'seed_backfill': seed_backfill,
+    })
+
+
+def matrix_health(ctx):
+    yes_rows = ctx.engine.matrix.get('yes', [])
+    total_rows = ctx.engine.matrix.get('total', [])
+    expected_rows = len(ctx.engine.fetishes)
+    expected_cols = len(ctx.engine.questions)
+    row_lengths = [len(row) for row in yes_rows] + [len(row) for row in total_rows]
+    ok = (
+        len(yes_rows) == expected_rows
+        and len(total_rows) == expected_rows
+        and all(len(row) == expected_cols for row in yes_rows)
+        and all(len(row) == expected_cols for row in total_rows)
+    )
+    return ctx.jsonify({
+        'status': 'ok' if ok else 'warning',
+        'storage': 'postgres' if ctx.use_db() else 'local_json',
+        'fetish_count': expected_rows,
+        'question_count': expected_cols,
+        'yes_rows': len(yes_rows),
+        'total_rows': len(total_rows),
+        'min_cols': min(row_lengths) if row_lengths else 0,
+        'max_cols': max(row_lengths) if row_lengths else 0,
+        'matrix_shape_ok': ok,
+        'backups': ctx.list_matrix_import_backups(),
+    })
+
+
+def funnel_metrics(ctx):
+    app_stats = ctx.engine.get_stats()
+    stats_history = ctx.engine.get_stats_history(days=30)
+    dropoff_summary = ctx.engine.get_dropoff_summary(days=30)
+    completion = ctx.build_completion_metrics(app_stats, stats_history, dropoff_summary)
+    share_report = ctx.share_event_report(limit=5000)
+    question_report = ctx.question_event_report(limit=5000)
+    return ctx.jsonify({
+        'status': 'ok',
+        'completion': completion,
+        'dropoff_summary': dropoff_summary,
+        'stats_history': stats_history,
+        'share_metrics': share_report.get('metrics', {}),
+        'question_summary': question_report.get('summary', {}),
+    })
+
+
+def player_fetishes(ctx):
+    rows = [
+        {
+            'id': fetish.get('id'),
+            'name': fetish.get('name', ''),
+            'desc': fetish.get('desc', ''),
+            'works_count': len(fetish.get('works') or []),
+        }
+        for fetish in ctx.engine.fetishes
+        if fetish.get('id', 0) >= ctx.player_fetish_base_id
+    ]
+    return ctx.jsonify({'status': 'ok', 'total': len(rows), 'player_fetishes': rows})
+
+
+def promoted_fetish_history(ctx):
+    rows = ctx.recent_audit(ctx.bounded_int(ctx.request.args.get('limit'), 100, 1, 500))
+    promotions = []
+    repairs = []
+    for row in rows:
+        action = row.get('action')
+        detail = row.get('detail') if isinstance(row.get('detail'), dict) else {}
+        if action == 'promote_fetish':
+            promotions.append({
+                'timestamp': row.get('ts', ''),
+                'old_id': detail.get('old_id'),
+                'new_id': detail.get('new_id'),
+                'status': row.get('status', ''),
+            })
+        elif action in ('repair_promoted_stats_history', 'move_stats_history'):
+            repairs.append({
+                'timestamp': row.get('ts', ''),
+                'action': action,
+                'status': row.get('status', ''),
+                'detail': detail,
+            })
+    return ctx.jsonify({'status': 'ok', 'promotions': promotions, 'repairs': repairs})
+
+
+def admin_read_overview(ctx):
+    logs = analysis_log_status(ctx, stats_history=ctx.engine.get_stats_history(days=90))
+    return ctx.jsonify({
+        'status': 'ok',
+        'available_endpoints': [
+            '/api/admin/preflight',
+            '/api/admin/fetishes_snapshot',
+            '/api/admin/learning_stats',
+            '/api/admin/question_stats',
+            '/api/admin/quality_report',
+            '/api/admin/works_health',
+            '/api/admin/audit_log',
+            '/api/admin/maintenance_checklist',
+            '/api/admin/matrix_health',
+            '/api/admin/funnel_metrics',
+            '/api/admin/player_fetishes',
+            '/api/admin/promoted_fetish_history',
+            '/api/admin/fetish_log_rows',
+            '/api/admin/recent_fetish_ranking',
+            '/api/admin/question_events',
+            '/api/admin/share_events',
+            '/api/admin/share_notes',
+            '/api/admin/export_stats_history',
+            '/api/admin/matrix_backups',
+            '/api/admin/works_link_queue',
+        ],
+        'analysis_log_status': logs,
+    })
+
+
 def audit_log(ctx):
     rows = ctx.recent_audit(ctx.bounded_int(ctx.request.args.get('limit'), 500, 1, 500))
     if ctx.request.args.get('format') == 'csv':
@@ -1035,7 +1201,7 @@ def create_blueprint(ctx_factory, require_admin, require_admin_or_read=None):
         return capture_priors(ctx_factory())
 
     @bp.route('/api/admin/fetish_lookup/<int:fetish_id>', methods=['GET'])
-    @require_admin
+    @require_admin_or_read
     def fetish_lookup_route(fetish_id):
         return lookup_fetish(ctx_factory(), fetish_id)
 
@@ -1085,12 +1251,12 @@ def create_blueprint(ctx_factory, require_admin, require_admin_or_read=None):
         return merge_fetishes(ctx_factory())
 
     @bp.route('/api/admin/works_review', methods=['GET'])
-    @require_admin
+    @require_admin_or_read
     def works_review_route():
         return works_review(ctx_factory())
 
     @bp.route('/api/admin/works_link_queue', methods=['GET'])
-    @require_admin
+    @require_admin_or_read
     def works_link_queue_route():
         ctx = ctx_factory()
         try:
@@ -1129,7 +1295,7 @@ def create_blueprint(ctx_factory, require_admin, require_admin_or_read=None):
         return import_matrix_dry_run(ctx_factory())
 
     @bp.route('/api/admin/matrix_backups', methods=['GET'])
-    @require_admin
+    @require_admin_or_read
     def matrix_backups_route():
         return matrix_backups(ctx_factory())
 
@@ -1208,13 +1374,63 @@ def create_blueprint(ctx_factory, require_admin, require_admin_or_read=None):
     def share_events_csv_route(kind):
         return share_events_csv(ctx_factory(), kind)
 
-    @bp.route('/api/admin/share_notes', methods=['GET', 'POST'])
-    @require_admin
-    def share_notes_route():
+    @bp.route('/api/admin/share_notes', methods=['GET'])
+    @require_admin_or_read
+    def get_share_notes_route():
         return share_notes(ctx_factory())
 
-    @bp.route('/api/admin/maintenance_checklist', methods=['GET'])
+    @bp.route('/api/admin/share_notes', methods=['POST'])
     @require_admin
+    def update_share_notes_route():
+        return share_notes(ctx_factory())
+
+    @bp.route('/api/admin/read_overview', methods=['GET'])
+    @require_admin_or_read
+    def admin_read_overview_route():
+        return admin_read_overview(ctx_factory())
+
+    @bp.route('/api/admin/fetishes_snapshot', methods=['GET'])
+    @require_admin_or_read
+    def fetishes_snapshot_route():
+        return fetishes_snapshot(ctx_factory())
+
+    @bp.route('/api/admin/learning_stats', methods=['GET'])
+    @require_admin_or_read
+    def learning_stats_route():
+        return learning_stats(ctx_factory())
+
+    @bp.route('/api/admin/question_stats', methods=['GET'])
+    @require_admin_or_read
+    def question_stats_route():
+        return question_stats(ctx_factory())
+
+    @bp.route('/api/admin/works_health', methods=['GET'])
+    @require_admin_or_read
+    def works_health_route():
+        return works_health(ctx_factory())
+
+    @bp.route('/api/admin/matrix_health', methods=['GET'])
+    @require_admin_or_read
+    def matrix_health_route():
+        return matrix_health(ctx_factory())
+
+    @bp.route('/api/admin/funnel_metrics', methods=['GET'])
+    @require_admin_or_read
+    def funnel_metrics_route():
+        return funnel_metrics(ctx_factory())
+
+    @bp.route('/api/admin/player_fetishes', methods=['GET'])
+    @require_admin_or_read
+    def player_fetishes_route():
+        return player_fetishes(ctx_factory())
+
+    @bp.route('/api/admin/promoted_fetish_history', methods=['GET'])
+    @require_admin_or_read
+    def promoted_fetish_history_route():
+        return promoted_fetish_history(ctx_factory())
+
+    @bp.route('/api/admin/maintenance_checklist', methods=['GET'])
+    @require_admin_or_read
     def maintenance_checklist_route():
         return maintenance_checklist(ctx_factory())
 

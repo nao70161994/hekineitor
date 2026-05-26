@@ -1217,11 +1217,27 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             headers = self._admin_read_headers()
             for path in (
                 '/api/admin/preflight',
+                '/api/admin/read_overview',
+                '/api/admin/fetishes_snapshot',
+                '/api/admin/learning_stats',
+                '/api/admin/question_stats',
+                '/api/admin/quality_report',
+                '/api/admin/works_health',
+                '/api/admin/audit_log',
+                '/api/admin/maintenance_checklist',
+                '/api/admin/matrix_health',
+                '/api/admin/funnel_metrics',
+                '/api/admin/player_fetishes',
+                '/api/admin/promoted_fetish_history',
                 '/api/admin/question_events',
                 '/api/admin/share_events',
                 '/api/admin/fetish_log_rows',
                 '/api/admin/recent_fetish_ranking',
                 '/api/admin/export_stats_history',
+                '/api/admin/matrix_backups',
+                '/api/admin/works_link_queue',
+                '/api/admin/share_notes',
+                '/api/admin/fetish_lookup/0',
             ):
                 res = self.client.get(path, headers=headers)
                 self.assertEqual(res.status_code, 200, path)
@@ -1229,7 +1245,18 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
     def test_admin_read_token_cannot_mutate(self):
         with patch.dict(os.environ, {'ADMIN_READ_TOKEN': 'read-token', 'ADMIN_PASS': 'testpass'}):
             res = self.client.post('/api/admin/params', headers=self._admin_read_headers(), json={'guess_threshold': 0.8})
+            share_note = self.client.post('/api/admin/share_notes', headers=self._admin_read_headers(), json={'result_name': 'NTR', 'note': 'x'})
         self.assertEqual(res.status_code, 401)
+        self.assertEqual(share_note.status_code, 401)
+
+    def test_admin_read_overview_lists_safe_snapshot_endpoints(self):
+        with patch.dict(os.environ, {'ADMIN_READ_TOKEN': 'read-token', 'ADMIN_PASS': 'testpass'}):
+            res = self.client.get('/api/admin/read_overview', headers=self._admin_read_headers())
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertIn('/api/admin/fetishes_snapshot', data['available_endpoints'])
+        self.assertIn('/api/admin/funnel_metrics', data['available_endpoints'])
+        self.assertIn('analysis_log_status', data)
 
     def test_admin_read_token_requires_env(self):
         old_token = os.environ.pop('ADMIN_READ_TOKEN', None)
