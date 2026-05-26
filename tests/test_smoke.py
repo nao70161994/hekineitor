@@ -220,6 +220,16 @@ class TestSmoke(unittest.TestCase):
         self.assertIn('この組み合わせが刺さる人へ'.encode('utf-8'), open(os.path.join(root, 'static', 'renderers.js'), 'rb').read())
         self.assertIn('保存せず確認しました'.encode('utf-8'), teach)
 
+    def test_admin_promote_player_fetish_updates_row_to_terminal_state(self):
+        root = os.path.dirname(os.path.dirname(__file__))
+        with open(os.path.join(root, 'static', 'admin.js'), encoding='utf-8') as f:
+            admin_js = f.read()
+        self.assertIn('promoted-pfrow-', admin_js)
+        self.assertIn('promoted-pfname-', admin_js)
+        self.assertIn('シード性癖に格上げ済み', admin_js)
+        self.assertIn('row.cells[4].innerHTML', admin_js)
+        self.assertIn('href="/fetish/${data.new_id}"', admin_js)
+
     def test_share_ogp_and_pwa_static_contracts(self):
         root = os.path.dirname(os.path.dirname(__file__))
         with open(os.path.join(root, 'static', 'share.js'), 'rb') as f:

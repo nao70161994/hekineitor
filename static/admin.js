@@ -256,9 +256,17 @@ async function promotePlayerFetish(fid, btn) {
   if (res.ok) {
     const row = document.getElementById(`pfrow-${fid}`);
     if (row) {
+      row.id = `promoted-pfrow-${data.new_id}`;
+      row.style.opacity = '0.72';
       row.cells[0].textContent = data.new_id;
-      row.id = `pfrow-${data.new_id}`;
-      row.cells[3].innerHTML = `<span style="color:#27ae60;font-size:0.78rem">シード済 (ID:${data.new_id})</span>`;
+      const nameEl = document.getElementById(`pfname-${fid}`);
+      const descEl = document.getElementById(`pfdesc-${fid}`);
+      const worksEl = document.getElementById(`pfworks-${fid}`);
+      if (nameEl) nameEl.id = `promoted-pfname-${data.new_id}`;
+      if (descEl) descEl.id = `promoted-pfdesc-${data.new_id}`;
+      if (worksEl) worksEl.id = `promoted-pfworks-${data.new_id}`;
+      row.cells[3].innerHTML = `<span style="color:#27ae60;font-size:0.78rem">シード性癖に格上げ済み</span>`;
+      row.cells[4].innerHTML = `<a class="btn-toggle" href="/fetish/${data.new_id}" target="_blank" rel="noopener" style="text-decoration:none;">詳細</a>`;
     }
   } else {
     alert(data.message || '格上げに失敗しました');
