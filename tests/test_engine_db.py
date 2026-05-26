@@ -318,15 +318,25 @@ class TestEngineDbMutationAdapters(unittest.TestCase):
 
         engine_db.promote_fetish_id(10000, 3, get_conn=lambda: conn, put_conn=lambda _conn: None)
 
+        executed_sql = [call[0] for call in cursor.executed]
         self.assertEqual(
-            [call[0] for call in cursor.executed],
+            executed_sql[:3],
             [
                 'UPDATE fetishes  SET id = %s WHERE id = %s',
                 'UPDATE matrix    SET fetish_id = %s WHERE fetish_id = %s',
                 'UPDATE fetish_log SET fetish_id = %s WHERE fetish_id = %s',
             ],
         )
-        self.assertEqual([call[1] for call in cursor.executed], [(3, 10000), (3, 10000), (3, 10000)])
+        self.assertEqual([call[1] for call in cursor.executed[:3]], [(3, 10000), (3, 10000), (3, 10000)])
+        self.assertEqual(len(cursor.executed), 9)
+        for idx, prefix in enumerate(('f_guessed_', 'f_correct_', 'f_wrong_')):
+            insert_sql, insert_params = cursor.executed[3 + idx * 2]
+            delete_sql, delete_params = cursor.executed[4 + idx * 2]
+            self.assertIn('INSERT INTO stats_history', insert_sql)
+            self.assertIn('ON CONFLICT (date, key) DO UPDATE', insert_sql)
+            self.assertEqual(insert_params, (f'{prefix}3', f'{prefix}10000'))
+            self.assertEqual(delete_sql, 'DELETE FROM stats_history WHERE key = %s')
+            self.assertEqual(delete_params, (f'{prefix}10000',))
 
 
 class TestEngineDbStatsAdapters(unittest.TestCase):

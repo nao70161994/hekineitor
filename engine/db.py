@@ -432,6 +432,16 @@ def promote_fetish_id(old_id, new_id, *, get_conn, put_conn):
             cur.execute('UPDATE fetishes  SET id = %s WHERE id = %s', (new_id, old_id))
             cur.execute('UPDATE matrix    SET fetish_id = %s WHERE fetish_id = %s', (new_id, old_id))
             cur.execute('UPDATE fetish_log SET fetish_id = %s WHERE fetish_id = %s', (new_id, old_id))
+            for prefix in ('f_guessed_', 'f_correct_', 'f_wrong_'):
+                old_key = f'{prefix}{old_id}'
+                new_key = f'{prefix}{new_id}'
+                cur.execute('''
+                    INSERT INTO stats_history (date, key, value)
+                    SELECT date, %s, value FROM stats_history WHERE key = %s
+                    ON CONFLICT (date, key) DO UPDATE
+                    SET value = stats_history.value + EXCLUDED.value
+                ''', (new_key, old_key))
+                cur.execute('DELETE FROM stats_history WHERE key = %s', (old_key,))
     finally:
         put_conn(conn)
 
