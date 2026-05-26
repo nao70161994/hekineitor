@@ -82,6 +82,17 @@ class TestSmoke(unittest.TestCase):
             positions.append(body.index(script))
         self.assertEqual(positions, sorted(positions))
 
+    def test_index_contains_adsense_review_script_once(self):
+        res = self.client.get('/')
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8683516545883768'
+        self.assertEqual(body.count(src), 1)
+        self.assertIn(f'<script async src="{src}"', body)
+        self.assertIn('crossorigin="anonymous"></script>', body)
+        head = body.split('</head>', 1)[0]
+        self.assertIn(src, head)
+
     def test_index_uses_png_og_image(self):
         res = self.client.get('/')
         self.assertEqual(res.status_code, 200)
