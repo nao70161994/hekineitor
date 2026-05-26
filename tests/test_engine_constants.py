@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import unittest
@@ -55,7 +56,7 @@ class TestEngineLargeDataCompatibility(unittest.TestCase):
         self.assertGreater(len(engine_data.FETISH_RELATIONS), 100)
         self.assertGreater(len(engine_data.FETISH_PRIOR_WEIGHTS), 50)
         self.assertEqual(engine_data.QUESTION_AXES[0], ('content', range(0, 55)))
-        self.assertEqual(engine_data.QUESTION_AXES[-1], ('abstract', range(105, 135)))
+        self.assertEqual(engine_data.QUESTION_AXES[-1], ('abstract', range(105, 143)))
         self.assertIn((0, 8, 0.95), engine_data.DOMAIN_PRIORS)
         self.assertEqual(engine_data.FETISH_RELATIONS[0], [20])
         self.assertEqual(engine_data.FETISH_PRIOR_WEIGHTS[0], 3.0)
@@ -63,3 +64,21 @@ class TestEngineLargeDataCompatibility(unittest.TestCase):
         self.assertEqual(engine_data.FETISH_PRIOR_WEIGHTS[23], 3.0)
         self.assertEqual(engine_data.FETISH_PRIOR_WEIGHTS[126], 1.0)
         self.assertEqual(engine_data.FETISH_PRIOR_WEIGHTS[127], 1.0)
+
+
+class TestQuestionCategoryMetadata(unittest.TestCase):
+    def test_all_questions_have_supported_categories(self):
+        path = os.path.join(os.path.dirname(__file__), '..', 'data', 'questions.json')
+        with open(path, encoding='utf-8') as file_obj:
+            questions = json.load(file_obj)
+        supported = {'relation', 'attachment', 'attribute', 'world', 'tone', 'value', 'role', 'aesthetic'}
+        self.assertEqual(len(questions), 143)
+        self.assertTrue(all(question.get('category') in supported for question in questions))
+        counts = {category: 0 for category in supported}
+        for question in questions:
+            counts[question['category']] += 1
+        for category in supported:
+            self.assertGreater(counts[category], 0, category)
+        self.assertGreaterEqual(counts['attribute'], 1)
+        self.assertGreaterEqual(counts['world'], 10)
+        self.assertGreaterEqual(counts['aesthetic'], 10)

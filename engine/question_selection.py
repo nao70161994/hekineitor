@@ -9,6 +9,23 @@ def question_axis(question_id, question_axes):
     return None
 
 
+def question_category(engine, question_id):
+    try:
+        category = engine.questions[question_id].get('category')
+    except (IndexError, AttributeError):
+        category = None
+    if category:
+        return category
+    axis = engine._question_axis(question_id)
+    if axis == 'content':
+        return 'role'
+    if axis == 'personality':
+        return 'value'
+    if axis == 'abstract':
+        return 'relation'
+    return 'value'
+
+
 def best_question(engine, answers, asked, idk_streak=0, *, question_axes, focus_threshold_default,
                   ucb_explore_c, focus_top_n, early_random_depth, early_random_top_k,
                   axis_indirect_bonus):
@@ -31,6 +48,9 @@ def best_question(engine, answers, asked, idk_streak=0, *, question_axes, focus_
     h0 = engine._entropy(weighted_probs)
     asked_axes = {engine._question_axis(q) for q in asked_list}
     asked_axes.discard(None)
+    asked_categories = [engine._question_category(q) for q in asked_list]
+    asked_category_set = {category for category in asked_categories if category}
+    recent_categories = [category for category in asked_categories[-3:] if category]
     all_axis_names = {name for name, _ in question_axes}
 
     early_game = len(asked_list) < early_random_depth
@@ -99,7 +119,16 @@ def best_question(engine, answers, asked, idk_streak=0, *, question_axes, focus_
         ask_count = sum(engine.matrix['total'][f][q] for f in range(nf))
         score += ucb_c / math.sqrt(ask_count / max(nf, 1) + 1)
         axis_name = engine._question_axis(q)
+        category = engine._question_category(q)
         weighted = score * axis_indirect_bonus.get(axis_name, 1.0)
+        if category in recent_categories:
+            weighted *= 0.72
+        if len(asked_list) < 5 and category in {'relation', 'attachment'} and category in asked_category_set:
+            weighted *= 0.62
+        if early_game and category in {'attribute', 'world', 'tone', 'value', 'aesthetic'} and category not in asked_category_set:
+            weighted *= 1.08
+        if len(asked_list) >= 2 and recent_categories.count(category) >= 2:
+            weighted *= 0.55
         if axis_filter is None or axis_name in axis_filter:
             if weighted > best_filtered_score:
                 best_filtered_score = weighted

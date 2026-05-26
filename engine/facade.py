@@ -559,6 +559,9 @@ class Engine:
     def _question_axis(self, q):
         return engine_question_selection.question_axis(q, QUESTION_AXES)
 
+    def _question_category(self, q):
+        return engine_question_selection.question_category(self, q)
+
     def best_question(self, answers, asked, idk_streak=0):
         return engine_question_selection.best_question(
             self,

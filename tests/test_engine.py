@@ -62,6 +62,18 @@ class TestEngine(unittest.TestCase):
         self.assertAlmostEqual(sum(p_zero), 1.0, places=6)
         self.assertNotEqual(p_empty, p_zero)
 
+    def test_attribute_world_answers_raise_attribute_candidates(self):
+        answers = {'136': 1, '138': 1, '141': 1, '142': 1}
+        top = self.e.top_guess(answers, n=8)
+        top_ids = {self.e.fetishes[idx]['id'] for idx, _prob in top}
+        self.assertTrue({123, 124} & top_ids)
+
+    def test_yes_streak_does_not_only_return_attachment_candidates(self):
+        answers = {str(q): 1 for q in [87, 135, 136, 141]}
+        top = self.e.top_guess(answers, n=8)
+        top_ids = [self.e.fetishes[idx]['id'] for idx, _prob in top]
+        self.assertFalse({126, 127}.issuperset(top_ids[:3]))
+
     def test_matrix_shape_validation_rejects_ragged_total(self):
         nf = len(self.e.fetishes)
         nq = len(self.e.questions)

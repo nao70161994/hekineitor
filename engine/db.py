@@ -279,11 +279,21 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                 cur.execute('SELECT id FROM fetishes')
                 all_fids = [row[0] for row in cur.fetchall()]
                 alpha = 2.0
-                new_question_rows = [
-                    (fetish_id, question_idx, alpha, alpha * 2.0)
-                    for fetish_id in all_fids
-                    for question_idx in range(max_qid + 1, nq)
-                ]
+                full_yes, full_total = build_initial_matrix(len(seed), nq)
+                seed_id_to_idx = {fetish['id']: idx for idx, fetish in enumerate(seed)}
+                new_question_rows = []
+                for fetish_id in all_fids:
+                    seed_idx = seed_id_to_idx.get(fetish_id)
+                    for question_idx in range(max_qid + 1, nq):
+                        if seed_idx is None:
+                            new_question_rows.append((fetish_id, question_idx, alpha, alpha * 2.0))
+                        else:
+                            new_question_rows.append((
+                                fetish_id,
+                                question_idx,
+                                full_yes[seed_idx][question_idx],
+                                full_total[seed_idx][question_idx],
+                            ))
                 if new_question_rows:
                     execute_values(
                         cur,

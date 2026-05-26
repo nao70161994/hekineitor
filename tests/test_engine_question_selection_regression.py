@@ -40,7 +40,7 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
         cases = [
             ({}, set(), 0, 91),
             ({'0': 0, '1': 0}, {0, 1}, 2, 91),
-            ({'8': 1, '6': 1, '0': 1, '40': 1}, {0, 6, 8, 40}, 0, 37),
+            ({'8': 1, '6': 1, '0': 1, '40': 1}, {0, 6, 8, 40}, 0, 18),
         ]
         for answers, asked, idk_streak, expected_question in cases:
             with self.subTest(expected_question=expected_question):
@@ -55,6 +55,21 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
             with self.subTest(asked=asked):
                 question_id = self.engine.best_question({}, asked)
                 self.assertEqual(self.engine._question_axis(question_id), 'abstract')
+
+    def test_early_questions_spread_relation_and_attachment_categories(self):
+        asked = set()
+        categories = []
+        for _ in range(4):
+            question_id = self.engine.best_question({}, asked)
+            categories.append(self.engine._question_category(question_id))
+            asked.add(question_id)
+        self.assertLessEqual(sum(category in {'relation', 'attachment'} for category in categories[:3]), 2)
+        self.assertGreaterEqual(len(set(categories[:4])), 3)
+
+    def test_recent_category_is_not_repeated_when_alternatives_exist(self):
+        asked = {55, 91}
+        question_id = self.engine.best_question({}, asked)
+        self.assertNotEqual(self.engine._question_category(question_id), 'attachment')
 
     def test_best_disambiguating_question_snapshots(self):
         cases = [
