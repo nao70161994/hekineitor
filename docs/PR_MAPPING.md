@@ -166,3 +166,4 @@
 - Question analytics dashboard: 質問表示回数、YES/NO率、離脱率、カテゴリ偏重、結果寄与を管理画面とCSVで確認可能。
 - Production analytics readiness: preflight/adminで stats_history/share_events/question_events の蓄積状況と取得元を確認可能。
 - Admin read token PR: `ADMIN_READ_TOKEN` でpreflight/question/share/fetish stats系の読み取りAPIのみ参照可能。変更系APIはBasic認証のまま。
+- Bias mitigation PR: reduce over-concentration in 共依存/激重感情/共生関係/執着 through question wording, early penalties, and category diversification only.

@@ -2,6 +2,11 @@ import math
 import random
 
 
+HEAVY_RELATION_RESULT_NAMES = {'共依存', '激重感情', '共生関係', '執着'}
+DIVERSIFYING_EARLY_CATEGORIES = {'attribute', 'world', 'aesthetic', 'value'}
+HEAVY_RELATION_CATEGORIES = {'relation', 'attachment'}
+
+
 def question_axis(question_id, question_axes):
     for name, question_range in question_axes:
         if question_id in question_range:
@@ -36,6 +41,9 @@ def best_question(engine, answers, asked, idk_streak=0, *, question_axes, focus_
     focus_threshold = engine.config.get('focus_threshold', focus_threshold_default)
     ucb_c = engine.config.get('ucb_explore_c', ucb_explore_c)
     top_p = max(probs)
+    ranked_by_prob = sorted(range(nf), key=lambda i: probs[i], reverse=True)
+    top_fetish = engine.fetishes[ranked_by_prob[0]] if ranked_by_prob else {}
+    heavy_relation_top = top_fetish.get('name') in HEAVY_RELATION_RESULT_NAMES
     if top_p >= focus_threshold:
         ranked = sorted(range(nf), key=lambda i: probs[i], reverse=True)
         focus = set(ranked[:focus_top_n])
@@ -121,12 +129,19 @@ def best_question(engine, answers, asked, idk_streak=0, *, question_axes, focus_
         axis_name = engine._question_axis(q)
         category = engine._question_category(q)
         weighted = score * axis_indirect_bonus.get(axis_name, 1.0)
+        if engine.questions[q].get('early_penalty') and len(asked_list) < 5:
+            weighted *= 0.35
         if category in recent_categories:
             weighted *= 0.72
         if len(asked_list) < 5 and category in {'relation', 'attachment'} and category in asked_category_set:
             weighted *= 0.62
         if early_game and category in {'attribute', 'world', 'tone', 'value', 'aesthetic'} and category not in asked_category_set:
             weighted *= 1.08
+        if early_game and heavy_relation_top:
+            if category in DIVERSIFYING_EARLY_CATEGORIES and category not in asked_category_set:
+                weighted *= 1.22
+            elif category in HEAVY_RELATION_CATEGORIES:
+                weighted *= 0.58
         if len(asked_list) >= 2 and recent_categories.count(category) >= 2:
             weighted *= 0.55
         if axis_filter is None or axis_name in axis_filter:

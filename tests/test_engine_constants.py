@@ -56,7 +56,7 @@ class TestEngineLargeDataCompatibility(unittest.TestCase):
         self.assertGreater(len(engine_data.FETISH_RELATIONS), 100)
         self.assertGreater(len(engine_data.FETISH_PRIOR_WEIGHTS), 50)
         self.assertEqual(engine_data.QUESTION_AXES[0], ('content', range(0, 55)))
-        self.assertEqual(engine_data.QUESTION_AXES[-1], ('abstract', range(105, 143)))
+        self.assertEqual(engine_data.QUESTION_AXES[-1], ('abstract', range(105, 153)))
         self.assertIn((0, 8, 0.95), engine_data.DOMAIN_PRIORS)
         self.assertEqual(engine_data.FETISH_RELATIONS[0], [20])
         self.assertEqual(engine_data.FETISH_PRIOR_WEIGHTS[0], 3.0)
@@ -72,7 +72,7 @@ class TestQuestionCategoryMetadata(unittest.TestCase):
         with open(path, encoding='utf-8') as file_obj:
             questions = json.load(file_obj)
         supported = {'relation', 'attachment', 'attribute', 'world', 'tone', 'value', 'role', 'aesthetic'}
-        self.assertEqual(len(questions), 143)
+        self.assertEqual(len(questions), 153)
         self.assertTrue(all(question.get('category') in supported for question in questions))
         counts = {category: 0 for category in supported}
         for question in questions:

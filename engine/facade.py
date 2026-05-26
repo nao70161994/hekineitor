@@ -493,10 +493,15 @@ class Engine:
         now = time.monotonic()
         if self._disc_cache and now - self._disc_cache_time < self._DISC_CACHE_TTL:
             return self._disc_cache
+        mean_question_indexes = [
+            index for index, question in enumerate(self.questions)
+            if not question.get('learning_scale_neutral')
+        ]
         scales = engine_runtime.disc_scales(
             len(self.fetishes),
             len(self.questions),
             probability=self._prob,
+            mean_question_indexes=mean_question_indexes,
         )
         self._disc_cache      = scales
         self._disc_cache_time = now

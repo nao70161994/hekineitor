@@ -124,3 +124,4 @@
 - 質問分析ダッシュボードを追加し、質問表示/回答/離脱/結果寄与を JSONL で観測できるようにした。
 - preflight と管理画面に分析ログ蓄積状況を追加し、本番分析の取得元と分析可否を見える化した。
 - 管理分析用の読み取り専用 `ADMIN_READ_TOKEN` を追加し、分析GET APIだけをBearer認証で参照可能にした。
+- Production bias mitigation: Q2/Q60 direct wording and early exposure were softened; early heavy-relation candidates now trigger category diversification without changing posterior/matrix/prior.

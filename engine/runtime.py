@@ -1,13 +1,17 @@
 import math
 
 
-def disc_scales(fetish_count, question_count, *, probability):
+def disc_scales(fetish_count, question_count, *, probability, mean_question_indexes=None):
     discs = [
         sum(abs(probability(fetish_idx, question_idx) - 0.5) for fetish_idx in range(fetish_count))
         / max(fetish_count, 1)
         for question_idx in range(question_count)
     ]
-    mean_disc = sum(discs) / max(len(discs), 1) or 1e-9
+    if mean_question_indexes is None:
+        mean_discs = discs
+    else:
+        mean_discs = [discs[index] for index in mean_question_indexes if 0 <= index < len(discs)]
+    mean_disc = sum(mean_discs) / max(len(mean_discs), 1) or 1e-9
     return [max(0.5, min(2.0, disc / mean_disc)) for disc in discs]
 
 

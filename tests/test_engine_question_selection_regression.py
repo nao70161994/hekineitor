@@ -71,6 +71,41 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
         question_id = self.engine.best_question({}, asked)
         self.assertNotEqual(self.engine._question_category(question_id), 'attachment')
 
+
+    def test_direct_heavy_questions_are_not_asked_in_first_five(self):
+        asked = set()
+        first_questions = []
+        for _ in range(5):
+            question_id = self.engine.best_question({}, asked)
+            first_questions.append(question_id)
+            asked.add(question_id)
+        self.assertNotIn(2, first_questions)
+        self.assertNotIn(60, first_questions)
+
+    def test_yes_streak_does_not_overconcentrate_heavy_relation_results(self):
+        asked = set()
+        answers = {}
+        for _ in range(8):
+            question_id = self.engine.best_question(answers, asked)
+            asked.add(question_id)
+            answers[str(question_id)] = 1
+        probs = self.engine.posteriors(answers)
+        ranked_names = [
+            self.engine.fetishes[index]['name']
+            for index in sorted(range(len(probs)), key=lambda i: probs[i], reverse=True)[:4]
+        ]
+        heavy_names = {'共依存', '激重感情', '共生関係', '執着'}
+        self.assertLessEqual(sum(name in heavy_names for name in ranked_names), 1)
+
+    def test_attribute_world_aesthetic_pattern_surfaces_non_heavy_candidates(self):
+        answers = {'136': 1, '141': 1, '123': 1, '70': -1, '60': -1, '2': -1}
+        probs = self.engine.posteriors(answers)
+        ranked_names = [
+            self.engine.fetishes[index]['name']
+            for index in sorted(range(len(probs)), key=lambda i: probs[i], reverse=True)[:5]
+        ]
+        self.assertTrue({'眼鏡', '白衣', '敬語'} & set(ranked_names))
+
     def test_best_disambiguating_question_snapshots(self):
         cases = [
             ({}, set(), 0, 2),

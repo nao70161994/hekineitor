@@ -20,6 +20,26 @@ class TestEngineRuntimeHelpers(unittest.TestCase):
         scales = engine_runtime.disc_scales(2, 3, probability=lambda f, q: probabilities[(f, q)])
         self.assertEqual(scales, [2.0, 0.5, 0.5])
 
+
+    def test_disc_scales_can_exclude_neutral_extension_questions_from_mean(self):
+        probabilities = {
+            (0, 0): 0.9,
+            (1, 0): 0.1,
+            (0, 1): 0.55,
+            (1, 1): 0.45,
+            (0, 2): 0.5,
+            (1, 2): 0.5,
+        }
+        base = engine_runtime.disc_scales(2, 2, probability=lambda f, q: probabilities[(f, q)])
+        extended = engine_runtime.disc_scales(
+            2,
+            3,
+            probability=lambda f, q: probabilities[(f, q)],
+            mean_question_indexes=[0, 1],
+        )
+        self.assertEqual(extended[:2], base)
+        self.assertEqual(extended[2], 0.5)
+
     def test_disc_scales_handles_empty_inputs(self):
         self.assertEqual(engine_runtime.disc_scales(0, 0, probability=lambda f, q: 0.5), [])
         self.assertEqual(engine_runtime.disc_scales(0, 2, probability=lambda f, q: 0.5), [0.5, 0.5])

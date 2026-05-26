@@ -10,7 +10,7 @@ QUESTION_AXES = [
     ('content',     range(93, 98)),   # 93-97: 追加コンテンツ軸（5問）
     ('content',     range(98, 102)),  # 98-101: 追加コンテンツ軸（4問）
     ('content',     range(102, 105)), # 102-104: 追加コンテンツ軸（3問）
-    ('abstract',    range(105, 143)), # 105-142: 追加抽象推論軸（38問）
+    ('abstract',    range(105, 153)), # 105-152: 追加抽象推論軸（48問）
 ]
 
 # (fetish_idx, question_idx, probability)
