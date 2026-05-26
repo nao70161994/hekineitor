@@ -312,6 +312,32 @@ class TestEngineDbMutationAdapters(unittest.TestCase):
         self.assertEqual(executed_sql[5], 'UPDATE fetishes SET name=%s, "desc"=%s WHERE id=%s')
         self.assertEqual(cursor.executed[5][1], ('Merged', 'Desc', 1))
 
+    def test_promoted_stats_history_repair_reports_and_applies_old_keys(self):
+        cursor = FakeCursor(fetchall_values=[
+            [('f_guessed_10000', 2, 5), ('f_correct_10000', 1, 2)],
+            [('f_guessed_10000', 2, 5), ('f_correct_10000', 1, 2)],
+        ])
+        conn = FakeConn(cursor)
+
+        report = engine_db.promoted_stats_history_repair_report(
+            [(10000, 3)], get_conn=lambda: conn, put_conn=lambda _conn: None,
+        )
+        self.assertEqual(report['mapping_count'], 1)
+        self.assertEqual(report['total_value'], 7)
+        self.assertEqual(report['rows'][0]['old_key'], 'f_guessed_10000')
+        self.assertEqual(report['rows'][0]['new_key'], 'f_guessed_3')
+
+        applied = engine_db.repair_promoted_stats_history(
+            [(10000, 3)], get_conn=lambda: conn, put_conn=lambda _conn: None,
+        )
+        self.assertTrue(applied['applied'])
+        executed_sql = [call[0] for call in cursor.executed]
+        self.assertIn('SELECT key, COUNT(*), COALESCE(SUM(value), 0) FROM stats_history WHERE key = ANY(%s) GROUP BY key', executed_sql[0])
+        self.assertIn('INSERT INTO stats_history', executed_sql[2])
+        self.assertEqual(cursor.executed[2][1], ('f_guessed_3', 'f_guessed_10000'))
+        self.assertEqual(cursor.executed[3][0], 'DELETE FROM stats_history WHERE key = %s')
+        self.assertEqual(cursor.executed[3][1], ('f_guessed_10000',))
+
     def test_promote_fetish_id_updates_all_id_references(self):
         cursor = FakeCursor()
         conn = FakeConn(cursor)

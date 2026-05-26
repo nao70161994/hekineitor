@@ -1548,6 +1548,41 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         finally:
             app_engine.edit_question(0, orig)
 
+    def test_repair_promoted_stats_history_requires_mapping_and_confirm(self):
+        headers = self._admin_headers()
+        res = self.client.get('/api/admin/repair_promoted_stats_history', headers=headers)
+        self.assertEqual(res.status_code, 400)
+        data = res.get_json()
+        self.assertEqual(data['required_confirm_text'], 'REPAIR_PROMOTED_STATS')
+
+        with patch('engine.facade._use_db', return_value=True), \
+             patch('engine.db.promoted_stats_history_repair_report', return_value={'mapping_count': 1, 'rows': [], 'total_value': 0, 'storage': 'postgres'}), \
+             patch('engine.db.repair_promoted_stats_history', return_value={'mapping_count': 1, 'rows': [], 'total_value': 3, 'applied': True, 'storage': 'postgres'}):
+            dry = self.client.get('/api/admin/repair_promoted_stats_history',
+                headers=headers, json={'mappings': [{'old_id': 10000, 'new_id': 3}]})
+            self.assertEqual(dry.status_code, 200)
+            self.assertEqual(dry.get_json()['mode'], 'dry_run')
+
+            post_dry = self.client.post('/api/admin/repair_promoted_stats_history', headers=headers, json={
+                'dry_run': True,
+                'mappings': [{'old_id': 10000, 'new_id': 3}],
+            })
+            self.assertEqual(post_dry.status_code, 200)
+            self.assertEqual(post_dry.get_json()['mode'], 'dry_run')
+
+            missing_confirm = self.client.post('/api/admin/repair_promoted_stats_history',
+                headers=headers, json={'mappings': [{'old_id': 10000, 'new_id': 3}]})
+            self.assertEqual(missing_confirm.status_code, 400)
+            self.assertEqual(missing_confirm.get_json()['required_confirm_text'], 'REPAIR_PROMOTED_STATS')
+
+            applied = self.client.post('/api/admin/repair_promoted_stats_history', headers=headers, json={
+                'mappings': [{'old_id': 10000, 'new_id': 3}],
+                'confirm_text': 'REPAIR_PROMOTED_STATS',
+            })
+            self.assertEqual(applied.status_code, 200)
+            self.assertEqual(applied.get_json()['mode'], 'applied')
+            self.assertEqual(applied.get_json()['total_value'], 3)
+
     def test_edit_question_empty_text_rejected(self):
         headers = self._admin_headers()
         res = self.client.post('/api/admin/edit_question/0',

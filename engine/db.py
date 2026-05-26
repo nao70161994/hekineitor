@@ -446,6 +446,67 @@ def promote_fetish_id(old_id, new_id, *, get_conn, put_conn):
         put_conn(conn)
 
 
+def promoted_stats_history_repair_report(mappings, *, get_conn, put_conn):
+    pairs = [(int(old_id), int(new_id)) for old_id, new_id in mappings if int(old_id) != int(new_id)]
+    if not pairs:
+        return {'mapping_count': 0, 'rows': [], 'total_value': 0}
+    old_keys = [f'{prefix}{old_id}' for old_id, _new_id in pairs for prefix in ('f_guessed_', 'f_correct_', 'f_wrong_')]
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            'SELECT key, COUNT(*), COALESCE(SUM(value), 0) FROM stats_history WHERE key = ANY(%s) GROUP BY key',
+            (old_keys,),
+        )
+        stats = {key: {'row_count': int(count or 0), 'value_sum': int(total or 0)} for key, count, total in cur.fetchall()}
+        rows = []
+        for old_id, new_id in pairs:
+            for prefix in ('f_guessed_', 'f_correct_', 'f_wrong_'):
+                old_key = f'{prefix}{old_id}'
+                new_key = f'{prefix}{new_id}'
+                entry = stats.get(old_key, {'row_count': 0, 'value_sum': 0})
+                rows.append({
+                    'old_id': old_id,
+                    'new_id': new_id,
+                    'old_key': old_key,
+                    'new_key': new_key,
+                    'row_count': entry['row_count'],
+                    'value_sum': entry['value_sum'],
+                })
+        return {
+            'mapping_count': len(pairs),
+            'rows': rows,
+            'total_value': sum(row['value_sum'] for row in rows),
+        }
+    finally:
+        put_conn(conn)
+
+
+def repair_promoted_stats_history(mappings, *, get_conn, put_conn):
+    pairs = [(int(old_id), int(new_id)) for old_id, new_id in mappings if int(old_id) != int(new_id)]
+    report = promoted_stats_history_repair_report(pairs, get_conn=get_conn, put_conn=put_conn)
+    if not pairs:
+        return {**report, 'applied': False}
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            for old_id, new_id in pairs:
+                for prefix in ('f_guessed_', 'f_correct_', 'f_wrong_'):
+                    old_key = f'{prefix}{old_id}'
+                    new_key = f'{prefix}{new_id}'
+                    cur.execute('''
+                        INSERT INTO stats_history (date, key, value)
+                        SELECT date, %s, value FROM stats_history WHERE key = %s
+                        ON CONFLICT (date, key) DO UPDATE
+                        SET value = stats_history.value + EXCLUDED.value
+                    ''', (new_key, old_key))
+                    cur.execute('DELETE FROM stats_history WHERE key = %s', (old_key,))
+    finally:
+        put_conn(conn)
+    return {**report, 'applied': True}
+
+
 def increment_stat(key, *, get_conn, put_conn):
     conn = get_conn()
     try:

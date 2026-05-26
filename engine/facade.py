@@ -892,6 +892,26 @@ class Engine:
                 self._save_fetishes_file()
         return new_id
 
+    def promoted_stats_history_repair_report(self, mappings):
+        if not _use_db():
+            return {'mapping_count': 0, 'rows': [], 'total_value': 0, 'storage': 'local_json'}
+        return {
+            **engine_db.promoted_stats_history_repair_report(
+                mappings, get_conn=_get_conn, put_conn=_put_conn,
+            ),
+            'storage': 'postgres',
+        }
+
+    def repair_promoted_stats_history(self, mappings):
+        if not _use_db():
+            return {'mapping_count': 0, 'rows': [], 'total_value': 0, 'applied': False, 'storage': 'local_json'}
+        return {
+            **engine_db.repair_promoted_stats_history(
+                mappings, get_conn=_get_conn, put_conn=_put_conn,
+            ),
+            'storage': 'postgres',
+        }
+
     def capture_learned_priors(self):
         """現在の P(yes) を learned_priors.json として保存する。
         matrix.json を削除して再初期化する際に DOMAIN_PRIORS の代替として使用される。"""

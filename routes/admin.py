@@ -499,7 +499,51 @@ def promote_fetish(ctx, fetish_id):
     new_id = ctx.engine.promote_fetish(fetish_id)
     if new_id is None:
         return ctx.jsonify({'status': 'error', 'message': '見つかりません'}), 404
+    ctx.write_audit('promote_fetish', 'ok', {'old_id': fetish_id, 'new_id': new_id}, ctx.request)
     return ctx.jsonify({'status': 'promoted', 'old_id': fetish_id, 'new_id': new_id})
+
+
+def _repair_mappings_from_request(ctx):
+    data = ctx.request.get_json(silent=True) or {}
+    raw = data.get('mappings') or []
+    mappings = []
+    if isinstance(raw, dict):
+        raw = [{'old_id': key, 'new_id': value} for key, value in raw.items()]
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        try:
+            old_id = int(item.get('old_id'))
+            new_id = int(item.get('new_id'))
+        except (TypeError, ValueError):
+            continue
+        if old_id >= ctx.player_fetish_base_id and 0 <= new_id < ctx.player_fetish_base_id:
+            mappings.append((old_id, new_id))
+    return mappings
+
+
+def repair_promoted_stats_history(ctx):
+    data = ctx.request.get_json(silent=True) or {}
+    mappings = _repair_mappings_from_request(ctx)
+    if not mappings:
+        return ctx.jsonify({
+            'status': 'error',
+            'message': 'mappings に old_id/new_id を指定してください',
+            'required_confirm_text': 'REPAIR_PROMOTED_STATS',
+        }), 400
+    if ctx.request.method == 'GET' or data.get('dry_run') is True:
+        report = ctx.engine.promoted_stats_history_repair_report(mappings)
+        return ctx.jsonify({'status': 'ok', 'mode': 'dry_run', 'required_confirm_text': 'REPAIR_PROMOTED_STATS', **report})
+    confirm_error = ctx.require_confirm('REPAIR_PROMOTED_STATS')
+    if confirm_error:
+        return confirm_error
+    report = ctx.engine.repair_promoted_stats_history(mappings)
+    ctx.write_audit('repair_promoted_stats_history', 'ok', {
+        'mapping_count': report.get('mapping_count', 0),
+        'total_value': report.get('total_value', 0),
+        'mappings': [{'old_id': old_id, 'new_id': new_id} for old_id, new_id in mappings],
+    }, ctx.request)
+    return ctx.jsonify({'status': 'ok', 'mode': 'applied', 'required_confirm_text': 'REPAIR_PROMOTED_STATS', **report})
 
 
 def edit_question(ctx, q_idx):
@@ -879,6 +923,11 @@ def create_blueprint(ctx_factory, require_admin):
     @require_admin
     def promote_fetish_route(fetish_id):
         return promote_fetish(ctx_factory(), fetish_id)
+
+    @bp.route('/api/admin/repair_promoted_stats_history', methods=['GET', 'POST'])
+    @require_admin
+    def repair_promoted_stats_history_route():
+        return repair_promoted_stats_history(ctx_factory())
 
     @bp.route('/api/admin/edit_question/<int:q_idx>', methods=['POST'])
     @require_admin
