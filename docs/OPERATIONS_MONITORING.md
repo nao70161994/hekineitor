@@ -108,53 +108,106 @@ top_results:
 - 眼鏡 18 (12.7%)
 ```
 
-## GitHub Actions例
+## GitHub Actions推奨構成
+
+追加課金を避けるため、定期監視は Render Cron ではなく GitHub Actions の schedule で実行します。workflow は2本に分けています。
+
+- `.github/workflows/hekineitor-ops-check.yml`: 3時間ごとのhealth / warning check
+- `.github/workflows/hekineitor-daily-report.yml`: 毎朝9時JSTの日次分析レポート
+
+GitHub repository の `Settings` -> `Secrets and variables` -> `Actions` に以下を登録します。
+
+```text
+HEKI_BASE_URL=https://hekineitor.onrender.com
+ADMIN_READ_TOKEN=<read-only token>
+NTFY_TOPIC=<ntfy topic>
+NTFY_SERVER=https://ntfy.sh
+```
+
+`NTFY_SERVER` は ntfy.sh を使うなら `https://ntfy.sh` で構いません。未設定でもスクリプト側は `https://ntfy.sh` にfallbackしますが、Actions secretsには明示しておくと運用確認が楽です。
+
+### 3時間ごとの監視
 
 ```yaml
-name: Operations monitoring
+name: Hekineitor Ops Check
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
-    - cron: "5 15 * * *" # JST 00:05 daily report
+    - cron: "0 */3 * * *"
   workflow_dispatch:
 
 jobs:
-  monitor:
+  operations-check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - name: Health and warning check
+      - name: Run read-only operations check
         run: python scripts/operations_check.py
         env:
-          HEKI_BASE_URL: https://hekineitor.onrender.com
+          PYTHONPATH: .
+          HEKI_BASE_URL: ${{ secrets.HEKI_BASE_URL }}
           ADMIN_READ_TOKEN: ${{ secrets.ADMIN_READ_TOKEN }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-          NTFY_SERVER: https://ntfy.sh
-      - name: Daily analytics report
-        if: github.event.schedule == '5 15 * * *'
-        run: python scripts/daily_analytics_report.py
-        env:
-          HEKI_BASE_URL: https://hekineitor.onrender.com
-          ADMIN_READ_TOKEN: ${{ secrets.ADMIN_READ_TOKEN }}
-          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-          NTFY_SERVER: https://ntfy.sh
+          NTFY_SERVER: ${{ secrets.NTFY_SERVER }}
 ```
 
-## Render Cron例
+### 毎朝9時JSTの日次レポート
 
-Render Cron の Environment に `HEKI_BASE_URL` / `ADMIN_READ_TOKEN` / `NTFY_TOPIC` / `NTFY_SERVER` を登録し、Command にはsecret値を書かないでください。
+GitHub Actions のcronはUTCなので、JST 09:00 は `0 0 * * *` です。
 
-30分ごとのhealth check:
+```yaml
+name: Hekineitor Daily Report
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  daily-report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Send read-only daily analytics report
+        run: python scripts/daily_analytics_report.py
+        env:
+          PYTHONPATH: .
+          HEKI_BASE_URL: ${{ secrets.HEKI_BASE_URL }}
+          ADMIN_READ_TOKEN: ${{ secrets.ADMIN_READ_TOKEN }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_SERVER: ${{ secrets.NTFY_SERVER }}
+```
+
+### 手動実行
+
+GitHub の `Actions` タブで以下を選び、`Run workflow` を押します。
+
+- `Hekineitor Ops Check`
+- `Hekineitor Daily Report`
+
+Secretsはworkflowの `env` に渡すだけで、コマンド内で `echo` しません。
+
+## Render Cron補足
+
+Render Cronでも同じスクリプトを実行できますが、追加課金回避のため通常はGitHub Actionsを推奨します。使う場合も Render Cron の Environment に `HEKI_BASE_URL` / `ADMIN_READ_TOKEN` / `NTFY_TOPIC` / `NTFY_SERVER` を登録し、Command にはsecret値を書かないでください。
+
+Health check:
 
 ```sh
 python scripts/operations_check.py
 ```
 
-JST深夜の日次レポート:
+Daily report:
 
 ```sh
 python scripts/daily_analytics_report.py

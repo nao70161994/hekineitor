@@ -1,0 +1,27 @@
+name: Hekineitor Daily Report
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  daily-report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Send read-only daily analytics report
+        run: python scripts/daily_analytics_report.py
+        env:
+          PYTHONPATH: .
+          HEKI_BASE_URL: ${{ secrets.HEKI_BASE_URL }}
+          ADMIN_READ_TOKEN: ${{ secrets.ADMIN_READ_TOKEN }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_SERVER: ${{ secrets.NTFY_SERVER }}
