@@ -194,6 +194,10 @@ def _register_blueprints(application):
     application.register_blueprint(admin_routes.create_blueprint(
         _admin_context,
         runtime_service.require_admin_decorator(lambda: _flask_runtime().admin_guard_response()),
+        runtime_service.require_admin_or_read_decorator(
+            lambda: _flask_runtime().admin_guard_response(),
+            lambda: _flask_runtime().admin_read_guard_response(),
+        ),
     ))
     application.register_blueprint(system_routes.create_public_blueprint(_system_context))
     application.register_blueprint(system_routes.create_health_blueprint(_system_context))

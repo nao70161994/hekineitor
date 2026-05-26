@@ -70,6 +70,25 @@ class TestServices(unittest.TestCase):
         self.assertEqual(by_id[2]['unfeedback'], 6)
         self.assertEqual(by_id[2]['guess_confirm_rate'], 30)
 
+    def test_admin_read_token_guard_allows_bearer(self):
+        req = DummyRequest(headers={'Authorization': 'Bearer token'})
+        req.remote_addr = '127.0.0.1'
+        runtime = dummy_runtime(request=req, environ={'ADMIN_READ_TOKEN': 'token'})
+        self.assertIsNone(runtime.admin_read_guard_response())
+
+    def test_admin_read_token_guard_rejects_missing_token(self):
+        req = DummyRequest(headers={'Authorization': 'Bearer token'})
+        req.remote_addr = '127.0.0.1'
+        class Response:
+            def __init__(self, body, status=200, headers=None):
+                self.body = body
+                self.status_code = status
+                self.headers = headers or {}
+
+        runtime = dummy_runtime(request=req, response_cls=Response, environ={})
+        response = runtime.admin_read_guard_response()
+        self.assertEqual(response.status_code, 503)
+
     def test_audit_redacts_remote_addr_and_sensitive_detail(self):
         self.assertEqual(audit._redact_remote_addr('203.0.113.42'), '203.0.113.0/24')
         self.assertEqual(audit._sanitize_detail({'token': 'secret', 'nested': {'password': 'x'}}), {

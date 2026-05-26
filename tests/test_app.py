@@ -886,6 +886,10 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             else:
                 os.environ['HEALTH_5XX_DEGRADED_THRESHOLD'] = old_threshold
 
+
+    def _admin_read_headers(self):
+        return {'Authorization': 'Bearer read-token'}
+
     def _admin_headers(self):
         import base64
         os.environ['ADMIN_PASS'] = 'testpass'
@@ -1206,6 +1210,35 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(data['updated'], {})
         self.assertGreaterEqual(len(data['errors']), 2)
         self.assertEqual(app_engine.config.get('guess_threshold'), before)
+
+
+    def test_admin_read_token_allows_read_only_analytics(self):
+        with patch.dict(os.environ, {'ADMIN_READ_TOKEN': 'read-token', 'ADMIN_PASS': 'testpass'}):
+            headers = self._admin_read_headers()
+            for path in (
+                '/api/admin/preflight',
+                '/api/admin/question_events',
+                '/api/admin/share_events',
+                '/api/admin/fetish_log_rows',
+                '/api/admin/recent_fetish_ranking',
+                '/api/admin/export_stats_history',
+            ):
+                res = self.client.get(path, headers=headers)
+                self.assertEqual(res.status_code, 200, path)
+
+    def test_admin_read_token_cannot_mutate(self):
+        with patch.dict(os.environ, {'ADMIN_READ_TOKEN': 'read-token', 'ADMIN_PASS': 'testpass'}):
+            res = self.client.post('/api/admin/params', headers=self._admin_read_headers(), json={'guess_threshold': 0.8})
+        self.assertEqual(res.status_code, 401)
+
+    def test_admin_read_token_requires_env(self):
+        old_token = os.environ.pop('ADMIN_READ_TOKEN', None)
+        try:
+            res = self.client.get('/api/admin/preflight', headers={'Authorization': 'Bearer read-token'})
+            self.assertIn(res.status_code, (401, 503))
+        finally:
+            if old_token is not None:
+                os.environ['ADMIN_READ_TOKEN'] = old_token
 
     def test_preflight_includes_ogp_font_check(self):
         headers = self._admin_headers()
@@ -2518,6 +2551,10 @@ class TestCompoundWorks(FileSnapshotMixin, unittest.TestCase):
         em._compound_works_loaded = False
         em._COMPOUND_WORKS = {}
         self._save_patch.stop()
+
+
+    def _admin_read_headers(self):
+        return {'Authorization': 'Bearer read-token'}
 
     def _admin_headers(self):
         import base64

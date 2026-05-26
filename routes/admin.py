@@ -990,8 +990,9 @@ def fetish_similarity(ctx):
 
 
 
-def create_blueprint(ctx_factory, require_admin):
+def create_blueprint(ctx_factory, require_admin, require_admin_or_read=None):
     bp = Blueprint('admin_routes', __name__)
+    require_admin_or_read = require_admin_or_read or require_admin
 
     @bp.route('/admin')
     @require_admin
@@ -1138,42 +1139,42 @@ def create_blueprint(ctx_factory, require_admin):
         return restore_matrix_backup(ctx_factory(), name)
 
     @bp.route('/api/admin/export_log', methods=['GET'])
-    @require_admin
+    @require_admin_or_read
     def export_log_route():
         return export_log(ctx_factory())
 
     @bp.route('/api/admin/audit_log', methods=['GET'])
-    @require_admin
+    @require_admin_or_read
     def audit_log_route():
         return audit_log(ctx_factory())
 
     @bp.route('/api/admin/preflight', methods=['GET'])
-    @require_admin
+    @require_admin_or_read
     def preflight_route():
         return preflight(ctx_factory())
 
     @bp.route('/api/admin/fetish_history/<int:fetish_id>', methods=['GET'])
-    @require_admin
+    @require_admin_or_read
     def fetish_history_route(fetish_id):
         return fetish_history(ctx_factory(), fetish_id)
 
     @bp.route('/api/admin/fetish_log_rows', methods=['GET'])
-    @require_admin
+    @require_admin_or_read
     def fetish_log_rows_route():
         return fetish_log_rows(ctx_factory())
 
     @bp.route('/api/admin/performance', methods=['GET'])
-    @require_admin
+    @require_admin_or_read
     def performance_route():
         return performance(ctx_factory())
 
     @bp.route('/api/admin/recent_fetish_ranking', methods=['GET'])
-    @require_admin
+    @require_admin_or_read
     def recent_fetish_ranking_route():
         return recent_fetish_ranking(ctx_factory())
 
     @bp.route('/api/admin/export_stats_history', methods=['GET'])
-    @require_admin
+    @require_admin_or_read
     def export_stats_history_route():
         return export_stats_history(ctx_factory())
 
@@ -1183,27 +1184,27 @@ def create_blueprint(ctx_factory, require_admin):
         return fetish_similarity(ctx_factory())
 
     @bp.route('/api/admin/quality_report', methods=['GET'])
-    @require_admin
+    @require_admin_or_read
     def quality_report_route():
         return quality_report(ctx_factory())
 
     @bp.route('/api/admin/share_events', methods=['GET'])
-    @require_admin
+    @require_admin_or_read
     def share_events_report_route():
         return share_events_report(ctx_factory())
 
     @bp.route('/api/admin/question_events', methods=['GET'])
-    @require_admin
+    @require_admin_or_read
     def question_events_report_route():
         return question_events_report(ctx_factory())
 
     @bp.route('/api/admin/question_events/<kind>.csv', methods=['GET'])
-    @require_admin
+    @require_admin_or_read
     def question_events_csv_route(kind):
         return question_events_csv(ctx_factory(), kind)
 
     @bp.route('/api/admin/share_events/<kind>.csv', methods=['GET'])
-    @require_admin
+    @require_admin_or_read
     def share_events_csv_route(kind):
         return share_events_csv(ctx_factory(), kind)
 

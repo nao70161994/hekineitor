@@ -46,6 +46,14 @@ class FlaskRuntime:
     def csrf_token(self):
         return admin_security.csrf_token(self.session, self.environ, now_fn=self.time_fn)
 
+    def admin_read_guard_response(self):
+        return admin_security.read_token_guard_response(
+            self.request,
+            self.environ,
+            self.response_cls,
+            self.rate_limit,
+        )
+
     def admin_guard_response(self):
         return admin_security.admin_guard_response(
             self.request,
@@ -63,3 +71,4 @@ def flask_runtime(**kwargs):
 
 
 require_admin_decorator = admin_security.require_admin_decorator
+require_admin_or_read_decorator = admin_security.require_admin_or_read_decorator

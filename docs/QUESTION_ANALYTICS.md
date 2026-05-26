@@ -55,3 +55,4 @@
    - `/api/admin/export_stats_history`
 
 `share_events` と `question_events` はDB schemaを増やさず軽量JSONLで保存します。Renderの永続ディスク設定やログパス環境変数を変更する場合は、preflightの行数が継続して増えることを確認してください。
+- 長期的に外部レビューで本番分析する場合は `ADMIN_READ_TOKEN` を設定し、読み取り専用APIだけをBearer認証で使います。詳細は `docs/ADMIN_READ_ACCESS.md` を参照。
