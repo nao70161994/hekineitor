@@ -76,6 +76,19 @@ class TestServices(unittest.TestCase):
         runtime = dummy_runtime(request=req, environ={'ADMIN_READ_TOKEN': 'token'})
         self.assertIsNone(runtime.admin_read_guard_response())
 
+    def test_admin_read_token_guard_rejects_mutation_methods(self):
+        req = DummyRequest(headers={'Authorization': 'Bearer token'}, method='POST')
+
+        class Response:
+            def __init__(self, body, status=200, headers=None):
+                self.body = body
+                self.status_code = status
+                self.headers = headers or {}
+
+        runtime = dummy_runtime(request=req, response_cls=Response, environ={'ADMIN_READ_TOKEN': 'token'})
+        response = runtime.admin_read_guard_response()
+        self.assertEqual(response.status_code, 403)
+
     def test_admin_read_token_guard_rejects_missing_token(self):
         req = DummyRequest(headers={'Authorization': 'Bearer token'})
         req.remote_addr = '127.0.0.1'

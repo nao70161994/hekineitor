@@ -57,6 +57,8 @@ def read_token_guard_response(request, environ, response_cls, rate_limit):
     limited = rate_limit('admin_read_api', 240)
     if limited:
         return limited
+    if request.method not in {'GET', 'HEAD'}:
+        return response_cls('読み取りトークンはGET/HEADのみ利用できます', 403)
     token = environ.get('ADMIN_READ_TOKEN', '')
     if not token:
         return response_cls('ADMIN_READ_TOKEN が未設定です', 503)
