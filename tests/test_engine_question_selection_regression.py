@@ -114,6 +114,22 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
         ]
         self.assertTrue({'眼鏡', '白衣', '敬語'} & set(ranked_names))
 
+
+    def test_low_exposure_axis_probe_triggers_for_heavy_cluster(self):
+        from services import question_selection
+        answers = {'60': 1, '2': 1, '91': 1}
+        asked = {60, 2, 91}
+        probs = self.engine.posteriors(answers)
+        ranked = sorted(range(len(probs)), key=lambda index: probs[index], reverse=True)
+        top_p = probs[ranked[0]]
+        second_p = probs[ranked[1]]
+        self.assertTrue(question_selection.should_probe_low_exposure_axis(
+            self.engine, answers, asked, count=4, top_p=top_p, second_p=second_p, hard_max_questions=30,
+        ))
+        question_id = question_selection.best_low_exposure_axis_question(self.engine, answers, asked)
+        self.assertIsNotNone(question_id)
+        self.assertIn(self.engine._question_category(question_id), {'attribute', 'world', 'aesthetic', 'value', 'role'})
+
     def test_best_disambiguating_question_snapshots(self):
         cases = [
             ({}, set(), 0, 2),

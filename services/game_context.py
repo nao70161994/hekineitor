@@ -85,6 +85,7 @@ def build(
             soft_max_questions, hard_max_questions,
         ),
         select_next_question=question_selection.make_next_question_selector(engine),
+        select_low_exposure_axis_question=question_selection.make_low_exposure_axis_probe(engine, hard_max_questions),
         progress_message=question_selection.progress_message,
     )
     game_learning = context.game_learning(
@@ -93,6 +94,8 @@ def build(
         learn_cooccurrence=learning.learn_cooccurrence,
         learn_near_miss=learning.learn_near_miss,
         learn_negative=learning.learn_negative,
+        positive_feedback_factor=learning.positive_feedback_factor,
+        near_miss_feedback_factor=learning.near_miss_feedback_factor,
         posteriors=inference.posteriors,
         parse_id_list=ids.parse_id_list,
         record_guess_quality_feedback=quality_stats.make_guess_quality_feedback_recorder(engine, session),

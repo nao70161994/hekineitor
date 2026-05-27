@@ -353,7 +353,34 @@ def answer(ctx):
             or (count >= ctx.soft_max_questions and not extend_low_confidence)
         )
         if should_guess:
-            return ctx.make_guess(answers)
+            diversify_count = int(ctx.session.get('low_exposure_axis_probe_count', 0) or 0)
+            next_q = None
+            if idk_streak < 4 and diversify_count < 2:
+                next_q = ctx.select_low_exposure_axis_question(
+                    answers,
+                    asked,
+                    count=count,
+                    top_p=top_p,
+                    second_p=second_p,
+                )
+            if next_q is None:
+                return ctx.make_guess(answers)
+            asked.append(next_q)
+            ctx.session['asked'] = asked
+            ctx.session['low_exposure_axis_probe_count'] = diversify_count + 1
+            _, question_text = _question_text(ctx, next_q)
+            _record_question_shown(ctx, next_q, question_text)
+            contradictions = ctx.engine.detect_contradictions(answers)
+            return ctx.jsonify(question_payload(
+                ctx.engine,
+                next_q,
+                question_text,
+                count,
+                ctx.question_total_for_count(count),
+                hint='候補の質感をもう少し確認します',
+                progress_message='AIが別の軸も観測しています',
+                contradictions=contradictions,
+            ))
 
         next_q = ctx.select_next_question(
             answers,
@@ -425,7 +452,8 @@ def teach(ctx):
             'fetish_name': ctx.engine.fetishes[fetish_idx]['name'],
             'learning_disabled': True,
         })
-    ctx.learn_positive(ctx.engine, answers, fetish_idx, strength_factor=ctx.learn_factor(answers, total_n))
+    factor = ctx.learn_factor(answers, total_n) * ctx.positive_feedback_factor(ctx.engine, fetish_idx)
+    ctx.learn_positive(ctx.engine, answers, fetish_idx, strength_factor=factor)
     ctx.engine.log_correct(ctx.engine.fetishes[fetish_idx]['id'])
     _finish_feedback(ctx)
     return ctx.jsonify({'status': 'learned', 'fetish_name': ctx.engine.fetishes[fetish_idx]['name']})
@@ -467,13 +495,17 @@ def confirm(ctx):
         if learning_disabled:
             _finish_feedback(ctx)
             return ctx.jsonify({'status': 'learned', 'learning_disabled': True})
-        factor = ctx.learn_factor(answers, total_n=len(learn_idxs))
+        base_factor = ctx.learn_factor(answers, total_n=len(learn_idxs))
+        learned_factors = {}
         for idx in learn_idxs:
+            factor = base_factor * ctx.positive_feedback_factor(ctx.engine, idx)
+            learned_factors[idx] = factor
             ctx.learn_positive(ctx.engine, answers, idx, strength_factor=factor)
             ctx.engine.log_correct(ctx.engine.fetishes[idx]['id'])
         for i in range(len(learn_idxs)):
             for j in range(i + 1, len(learn_idxs)):
-                ctx.learn_cooccurrence(ctx.engine, answers, learn_idxs[i], learn_idxs[j], factor * 0.3)
+                pair_factor = (learned_factors.get(learn_idxs[i], base_factor) + learned_factors.get(learn_idxs[j], base_factor)) / 2
+                ctx.learn_cooccurrence(ctx.engine, answers, learn_idxs[i], learn_idxs[j], pair_factor * 0.3)
         ctx.record_guess_quality_feedback(True)
         _finish_feedback(ctx)
         return ctx.jsonify({'status': 'learned'})
@@ -494,7 +526,8 @@ def confirm(ctx):
         for maybe_id in maybe_db_ids:
             maybe_idx = ctx.engine.index_of(maybe_id)
             if maybe_idx is not None:
-                ctx.learn_near_miss(ctx.engine, answers, maybe_idx, strength_factor=factor)
+                near_factor = factor * ctx.near_miss_feedback_factor(ctx.engine, maybe_idx)
+                ctx.learn_near_miss(ctx.engine, answers, maybe_idx, strength_factor=near_factor)
 
     if not data.get('add_only', False) and not learning_disabled and not defer_learning:
         for wrong_id in wrong_db_ids:
@@ -622,13 +655,18 @@ def finalize_added(ctx):
         if is_new:
             ctx.engine.boost_learn_new(idx, answers)
         else:
-            ctx.learn_positive(ctx.engine, answers, idx, strength_factor=factor)
+            scaled_factor = factor * ctx.positive_feedback_factor(ctx.engine, idx)
+            ctx.learn_positive(ctx.engine, answers, idx, strength_factor=scaled_factor)
 
     correct_idxs = [ctx.engine.index_of(db_id) for db_id in correct_db_ids
                     if ctx.engine.index_of(db_id) is not None]
     for i in range(len(correct_idxs)):
         for j in range(i + 1, len(correct_idxs)):
-            ctx.learn_cooccurrence(ctx.engine, answers, correct_idxs[i], correct_idxs[j], factor * 0.3)
+            pair_factor = (
+                ctx.positive_feedback_factor(ctx.engine, correct_idxs[i])
+                + ctx.positive_feedback_factor(ctx.engine, correct_idxs[j])
+            ) / 2
+            ctx.learn_cooccurrence(ctx.engine, answers, correct_idxs[i], correct_idxs[j], factor * pair_factor * 0.3)
 
     wrong_db_ids = ctx.session.pop('wrong_db_ids', [])
     for wrong_id in wrong_db_ids:

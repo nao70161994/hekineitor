@@ -36,3 +36,24 @@ def make_learn_factor(engine, posteriors_fn, default_guess_threshold):
         threshold = engine.config.get('guess_threshold', default_guess_threshold)
         return learn_factor(engine, posteriors_fn, answers, threshold, total_n)
     return _learn_factor
+
+
+BROAD_RESULT_NAMES = {'共依存', '激重感情', '共生関係', '執着'}
+BROAD_RESULT_POSITIVE_SCALE = 0.55
+NEAR_MISS_SCALE = 1.6
+BROAD_NEAR_MISS_SCALE = 1.15
+
+
+def _fetish_name(engine, fetish_idx):
+    try:
+        return engine.fetishes[fetish_idx].get('name', '')
+    except (IndexError, AttributeError, TypeError):
+        return ''
+
+
+def positive_feedback_factor(engine, fetish_idx):
+    return BROAD_RESULT_POSITIVE_SCALE if _fetish_name(engine, fetish_idx) in BROAD_RESULT_NAMES else 1.0
+
+
+def near_miss_feedback_factor(engine, fetish_idx):
+    return BROAD_NEAR_MISS_SCALE if _fetish_name(engine, fetish_idx) in BROAD_RESULT_NAMES else NEAR_MISS_SCALE

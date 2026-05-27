@@ -19,6 +19,8 @@ from services import question_events as question_events_service
 from services import share_links as share_links_service
 from services import share_notes as share_notes_service
 from services import test_play as test_play_service
+from services import inference as inference_service
+from services import learning as learning_service
 import engine as eng_module
 from engine import PLAYER_FETISH_BASE_ID, _use_db
 
@@ -88,6 +90,13 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             sess['started'] = True
             sess['last_guess_fetish_id'] = fetish_id
             sess['last_guess_compound_ids'] = list(compound_ids or [])
+
+    def _fetish_id_by_name(self, name):
+        from app import engine as app_engine
+        for fetish in app_engine.fetishes:
+            if fetish.get('name') == name:
+                return fetish['id']
+        self.fail(f'fetish not found: {name}')
 
     def _force_guess(self):
         """上限まで yes と答えて強制診断を得る"""
@@ -493,6 +502,94 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             self.assertEqual(sess.get('candidate_negative_factor'), 0.15)
         app_engine.matrix['yes'][idx][q] = before_yes
         app_engine.matrix['total'][idx][q] = before_total
+
+    def test_feedback_factor_reduces_broad_correct_and_boosts_near_miss(self):
+        from app import engine as app_engine
+        broad_idx = app_engine.index_of(self._fetish_id_by_name('共依存'))
+        concrete_idx = app_engine.index_of(0)
+
+        self.assertEqual(learning_service.positive_feedback_factor(app_engine, broad_idx), 0.55)
+        self.assertEqual(learning_service.positive_feedback_factor(app_engine, concrete_idx), 1.0)
+        self.assertEqual(learning_service.near_miss_feedback_factor(app_engine, broad_idx), 1.15)
+        self.assertEqual(learning_service.near_miss_feedback_factor(app_engine, concrete_idx), 1.6)
+
+    def test_confirm_broad_result_uses_reduced_positive_factor(self):
+        from app import BOOTSTRAP
+        from app import engine as app_engine
+        q = 8
+        answers = {str(q): 1.0}
+        broad_id = self._fetish_id_by_name('共依存')
+        broad_idx = app_engine.index_of(broad_id)
+        expected_base = learning_service.learn_factor(
+            app_engine,
+            inference_service.posteriors,
+            answers,
+            app_engine.config.get('guess_threshold', BOOTSTRAP.guess_threshold),
+            total_n=1,
+        )
+
+        with self.client.session_transaction() as sess:
+            sess['started'] = True
+            sess['answers'] = answers
+            sess['last_guess_fetish_id'] = broad_id
+            sess['last_guess_compound_ids'] = []
+            sess.pop('feedback_status', None)
+
+        with patch('services.learning.learn_positive') as learn_positive:
+            res = self.client.post('/api/confirm', json={
+                'correct': True,
+                'fetish_id': broad_id,
+            })
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()['status'], 'learned')
+        learn_positive.assert_called_once()
+        self.assertEqual(learn_positive.call_args.args[2], broad_idx)
+        self.assertAlmostEqual(
+            learn_positive.call_args.kwargs['strength_factor'],
+            expected_base * learning_service.BROAD_RESULT_POSITIVE_SCALE,
+        )
+
+    def test_confirm_maybe_uses_near_miss_factor(self):
+        from app import BOOTSTRAP
+        from app import engine as app_engine
+        q = 8
+        answers = {str(q): 1.0}
+        guessed_id = 0
+        maybe_id = self._fetish_id_by_name('白衣')
+        maybe_idx = app_engine.index_of(maybe_id)
+        expected_base = learning_service.learn_factor(
+            app_engine,
+            inference_service.posteriors,
+            answers,
+            app_engine.config.get('guess_threshold', BOOTSTRAP.guess_threshold),
+            total_n=1,
+        )
+
+        with self.client.session_transaction() as sess:
+            sess['started'] = True
+            sess['answers'] = answers
+            sess['last_guess_fetish_id'] = guessed_id
+            sess['last_guess_compound_ids'] = [maybe_id]
+            sess.pop('feedback_status', None)
+
+        with patch('services.learning.learn_near_miss') as learn_near_miss:
+            res = self.client.post('/api/confirm', json={
+                'correct': False,
+                'fetish_id': guessed_id,
+                'compound_ids': [maybe_id],
+                'maybe_ids': [maybe_id],
+                'wrong_ids': [],
+            })
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()['status'], 'wrong')
+        learn_near_miss.assert_called_once()
+        self.assertEqual(learn_near_miss.call_args.args[2], maybe_idx)
+        self.assertAlmostEqual(
+            learn_near_miss.call_args.kwargs['strength_factor'],
+            expected_base * learning_service.NEAR_MISS_SCALE,
+        )
 
     def test_confirm_defer_learning_returns_candidates_without_matrix_or_pending_penalty(self):
         from app import engine as app_engine
