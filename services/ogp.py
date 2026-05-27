@@ -208,39 +208,52 @@ def generate_png(name, prob):
         prob_val = max(0, min(float(prob), 100)) if prob else 0
     except ValueError:
         prob_val = 0
-    bar_color = (185, 202, 224)
+    accent = (233, 76, 96)
+    accent_soft = (245, 166, 35)
 
-    img = Image.new('RGB', (OGP_WIDTH, OGP_HEIGHT), (9, 16, 27))
+    img = Image.new('RGB', (OGP_WIDTH, OGP_HEIGHT), (6, 10, 18))
     draw = ImageDraw.Draw(img)
     for y in range(OGP_HEIGHT):
         mix = y / OGP_HEIGHT
         color = (
-            int(9 + (15 - 9) * mix),
-            int(16 + (24 - 16) * mix),
-            int(27 + (42 - 27) * mix),
+            int(6 + (18 - 6) * mix),
+            int(10 + (24 - 10) * mix),
+            int(18 + (42 - 18) * mix),
         )
         draw.line((0, y, OGP_WIDTH, y), fill=color)
 
-    label_font = _load_ogp_font(38)
-    name_font_size = 86 if len(name) <= 8 else 70
+    for radius, alpha in ((360, 0.16), (270, 0.22), (185, 0.28)):
+        box = (600 - radius, 315 - radius // 2, 600 + radius, 315 + radius // 2)
+        color = tuple(int(base * alpha + bg * (1 - alpha)) for base, bg in zip(accent, (10, 14, 24)))
+        draw.ellipse(box, outline=color, width=4)
+    draw.rounded_rectangle((120, 72, 1080, 558), radius=30, outline=(95, 37, 54), width=3)
+    draw.rounded_rectangle((142, 94, 1058, 536), radius=24, outline=(33, 45, 66), width=1)
+    draw.line((210, 470, 990, 470), fill=(95, 37, 54), width=2)
+
+    label_font = _load_ogp_font(42)
+    name_font_size = 98 if len(name) <= 8 else 78
     name_font = _load_ogp_font(name_font_size, bold=True)
     prob_font = _load_ogp_font(42)
-    side_font = _load_ogp_font(28)
+    side_font = _load_ogp_font(30)
     small_font = _load_ogp_font(18)
 
     cjk_supported = _font_supports_text(name_font, '眼鏡') and _font_supports_text(label_font, 'へきネイター')
     texts = _ogp_texts(name, prob, cjk_supported=cjk_supported)
 
-    _center_text(draw, 600, 105, texts['label'], label_font, (164, 176, 194))
+    _center_text(draw, 600, 105, texts['label'], label_font, (214, 224, 239))
     lines = _split_ogp_name(texts['name'])
-    y1 = 245 if len(lines) > 1 else 278
+    y1 = 232 if len(lines) > 1 else 268
     for i, line in enumerate(lines):
-        _center_text(draw, 600, y1 + i * (name_font_size + 12), line, name_font, (238, 242, 247))
+        y = y1 + i * (name_font_size + 8)
+        _center_text(draw, 603, y + 3, line, name_font, (42, 12, 22))
+        _center_text(draw, 600, y, line, name_font, (255, 248, 242))
     if prob:
-        prob_y = y1 + len(lines) * (name_font_size + 12) + 26
-        _center_text(draw, 600, prob_y, texts['prob'], prob_font, bar_color)
-    _center_text(draw, 600, 520, texts['side'], side_font, (96, 108, 128))
-    _center_text(draw, 600, 565, 'hekineitor.onrender.com', small_font, (58, 69, 86))
+        prob_y = y1 + len(lines) * (name_font_size + 8) + 28
+        badge_w = 310 if cjk_supported else 390
+        draw.rounded_rectangle((600 - badge_w // 2, prob_y - 36, 600 + badge_w // 2, prob_y + 20), radius=18, fill=(36, 20, 28), outline=accent, width=2)
+        _center_text(draw, 600, prob_y - 25, texts['prob'], prob_font, accent_soft)
+    _center_text(draw, 600, 512, texts['side'], side_font, (190, 202, 220))
+    _center_text(draw, 600, 565, 'hekineitor.onrender.com', small_font, (92, 106, 128))
 
     buf = io.BytesIO()
     img.save(buf, format='PNG', optimize=True)
@@ -280,11 +293,17 @@ def render_svg(name, prob):
     </linearGradient>
   </defs>
   <rect width="1200" height="630" fill="url(#bg)"/>
-  <text x="600" y="120" text-anchor="middle" font-family="sans-serif" font-size="38" fill="#a4b0c2">あなたの『癖』は……</text>
-  <text x="600" y="{y1}" text-anchor="middle" font-family="sans-serif" font-size="{fs_name}" font-weight="bold" fill="#eef2f7">{line1}</text>
-  {'<text x="600" y="' + str(y2) + '" text-anchor="middle" font-family="sans-serif" font-size="' + str(fs_name) + '" font-weight="bold" fill="#eef2f7">' + line2 + '</text>' if line2 else ''}
-  {'<text x="600" y="' + str((y2 if line2 else y1)+80) + '" text-anchor="middle" font-family="sans-serif" font-size="42" fill="#b9cae0">AI精度 ' + prob_text + '%</text>' if prob else ''}
-  <text x="600" y="525" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#607086">次はあなたの番です……</text>
-  <text x="600" y="570" text-anchor="middle" font-family="sans-serif" font-size="18" fill="#3a4657">hekineitor.onrender.com</text>
+  <ellipse cx="600" cy="315" rx="360" ry="180" fill="none" stroke="#7b2338" stroke-width="4" opacity="0.55"/>
+  <ellipse cx="600" cy="315" rx="250" ry="125" fill="none" stroke="#e94c60" stroke-width="3" opacity="0.4"/>
+  <rect x="120" y="72" width="960" height="486" rx="30" fill="none" stroke="#5f2536" stroke-width="3"/>
+  <rect x="142" y="94" width="916" height="442" rx="24" fill="none" stroke="#21314a" stroke-width="1"/>
+  <line x1="210" y1="470" x2="990" y2="470" stroke="#5f2536" stroke-width="2"/>
+  <text x="600" y="120" text-anchor="middle" font-family="sans-serif" font-size="42" fill="#d6e0ef">あなたの『癖』は……</text>
+  <text x="603" y="{y1 + 3}" text-anchor="middle" font-family="sans-serif" font-size="{fs_name}" font-weight="bold" fill="#2a0c16">{line1}</text>
+  <text x="600" y="{y1}" text-anchor="middle" font-family="sans-serif" font-size="{fs_name}" font-weight="bold" fill="#fff8f2">{line1}</text>
+  {'<text x="603" y="' + str(y2 + 3) + '" text-anchor="middle" font-family="sans-serif" font-size="' + str(fs_name) + '" font-weight="bold" fill="#2a0c16">' + line2 + '</text><text x="600" y="' + str(y2) + '" text-anchor="middle" font-family="sans-serif" font-size="' + str(fs_name) + '" font-weight="bold" fill="#fff8f2">' + line2 + '</text>' if line2 else ''}
+  {'<rect x="445" y="' + str((y2 if line2 else y1)+44) + '" width="310" height="56" rx="18" fill="#24141c" stroke="#e94c60" stroke-width="2"/><text x="600" y="' + str((y2 if line2 else y1)+84) + '" text-anchor="middle" font-family="sans-serif" font-size="42" fill="#f5a623">AI精度 ' + prob_text + '%</text>' if prob else ''}
+  <text x="600" y="525" text-anchor="middle" font-family="sans-serif" font-size="30" fill="#becadc">次はあなたの番です……</text>
+  <text x="600" y="570" text-anchor="middle" font-family="sans-serif" font-size="18" fill="#5c6a80">hekineitor.onrender.com</text>
 </svg>'''
     return svg

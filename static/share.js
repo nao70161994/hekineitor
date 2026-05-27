@@ -36,7 +36,7 @@ window.HekiShare = (() => {
     const lines = [
       'あなたの『癖』は……',
       '',
-      name || '???',
+      `『${name || '???'}』`,
     ];
     if (probability !== '') lines.push('', `AI精度${probability}%`);
     lines.push('', '次はあなたの番です……');

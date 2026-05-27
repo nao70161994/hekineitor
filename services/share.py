@@ -25,7 +25,7 @@ def result_share_text(name, prob):
     lines = [
         "あなたの『癖』は……",
         '',
-        str(name or '???'),
+        f"『{name or '???'}』",
     ]
     if prob:
         lines.extend(['', f'AI精度{prob}%'])
