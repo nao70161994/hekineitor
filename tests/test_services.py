@@ -1137,6 +1137,7 @@ class TestShareLinks(unittest.TestCase):
             self.assertEqual(payload['name'], '感覚遮断落とし穴')
             resolved = share_links.resolve_link('7f3k', path=path)
             self.assertEqual(resolved['probability'], '93')
+            self.assertEqual(share_links.count_links(path=path), 1)
             self.assertNotIn('ip', resolved)
             self.assertNotIn('user_agent', resolved)
 

@@ -1420,6 +1420,8 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('/api/admin/funnel_metrics', data['available_endpoints'])
         self.assertIn('/api/admin/low_exposure_fetishes', data['available_endpoints'])
         self.assertIn('analysis_log_status', data)
+        self.assertIn('share_links_count', data)
+        self.assertIsInstance(data['share_links_count'], int)
 
     def test_admin_read_token_security_contract_for_read_endpoints(self):
         import app as app_module

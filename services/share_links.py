@@ -38,6 +38,10 @@ def load_links(path=None, environ=None):
     return result
 
 
+def count_links(path=None, environ=None):
+    return len(load_links(path=path, environ=environ))
+
+
 def valid_share_id(value):
     return bool(SHARE_ID_RE.match(str(value or '')))
 

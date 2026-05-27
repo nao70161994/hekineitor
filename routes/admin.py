@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from flask import Blueprint
 from services.works_links import collect_work_link_queue
 from services import share_events as share_events_service
+from services import share_links as share_links_service
 from services import question_events as question_events_service
 from services import ogp as ogp_service
 from matrix_service import matrix_validation_report
@@ -571,6 +572,7 @@ def admin_read_overview(ctx):
     logs = analysis_log_status(ctx, stats_history=ctx.engine.get_stats_history(days=90))
     return ctx.jsonify({
         'status': 'ok',
+        'share_links_count': share_links_service.count_links(environ=ctx.environ),
         'available_endpoints': [
             '/api/admin/preflight',
             '/api/admin/fetishes_snapshot',
