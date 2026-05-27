@@ -1296,7 +1296,10 @@
         "title": "シンデレラ（Disney）",
         "url": "https://www.amazon.co.jp/dp/B0GKZCJF71?tag=hekinator-22"
       },
-      "灰かぶり姫の幸運",
+      {
+        "title": "灰かぶり姫の幸運",
+        "url": "https://www.amazon.co.jp/s?k=%E7%81%B0%E3%81%8B%E3%81%B6%E3%82%8A%E5%A7%AB%E3%81%AE%E5%B9%B8%E9%81%8B&tag=hekinator-22"
+      },
       {
         "title": "出来損ないと呼ばれた元英雄",
         "url": "https://www.amazon.co.jp/dp/B07SNP8FQQ?tag=hekinator-22"
@@ -1836,7 +1839,10 @@
     "name": "政略結婚・仮面夫婦",
     "desc": "愛のない婚姻から始まり同居を経て本物の愛が育つ・距離が縮まる逆転のロマンス",
     "works": [
-      "私の夫は冷酷帝",
+      {
+        "title": "私の夫は冷酷帝",
+        "url": "https://www.amazon.co.jp/s?k=%E7%A7%81%E3%81%AE%E5%A4%AB%E3%81%AF%E5%86%B7%E9%85%B7%E5%B8%9D&tag=hekinator-22"
+      },
       {
         "title": "アンジェリーク（コーエーテクモ）",
         "url": "https://www.amazon.co.jp/dp/B011KZQVH4?tag=hekinator-22"
@@ -1871,7 +1877,10 @@
     "name": "マフィア・ヤクザ",
     "desc": "裏社会に生きる危険なキャラとの禁断の恋。支配的で粗暴だが自分にだけ見せる優しさのギャップ",
     "works": [
-      "極道くんの甘い溺愛（漫画）",
+      {
+        "title": "極道くんの甘い溺愛（漫画）",
+        "url": "https://www.amazon.co.jp/s?k=%E6%A5%B5%E9%81%93%E3%81%8F%E3%82%93%E3%81%AE%E7%94%98%E3%81%84%E6%BA%BA%E6%84%9B%EF%BC%88%E6%BC%AB%E7%94%BB%EF%BC%89&tag=hekinator-22"
+      },
       {
         "title": "ヤクザと花嫁（漫画）",
         "url": "https://www.amazon.co.jp/s?k=%E3%83%A4%E3%82%AF%E3%82%B6%E3%81%A8%E8%8A%B1%E5%AB%81&tag=hekinator-22"
@@ -1889,7 +1898,7 @@
     "works": [
       {
         "title": "薬屋のひとりごと（小説）",
-        "url": "https://www.amazon.co.jp/s?k=%E8%96%AC%E5%B1%8B%E3%81%AE%E3%81%B2%E3%81%A8%E3%82%8A%E3%81%94%E3%81%A8&tag=hekinator-22"
+        "url": "https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22"
       },
       {
         "title": "後宮の烏（小説）",
@@ -2088,12 +2097,18 @@
     "name": "無自覚溺愛",
     "desc": "自分の気持ちに気づかないまま相手を特別扱いし、無意識のうちに溺愛してしまうキャラクターの愛おしさ",
     "works": [
-      "着せ恋（彼女、お借りします）",
+      {
+        "title": "着せ恋（彼女、お借りします）",
+        "url": "https://www.amazon.co.jp/s?k=%E7%9D%80%E3%81%9B%E6%81%8B%EF%BC%88%E5%BD%BC%E5%A5%B3%E3%80%81%E3%81%8A%E5%80%9F%E3%82%8A%E3%81%97%E3%81%BE%E3%81%99%EF%BC%89&tag=hekinator-22"
+      },
       {
         "title": "幼なじみが絶対に負けないラブコメ",
         "url": "https://www.amazon.co.jp/dp/B0DV52Q98W?tag=hekinator-22"
       },
-      "からかい上手の高木さん"
+      {
+        "title": "からかい上手の高木さん",
+        "url": "https://www.amazon.co.jp/s?k=%E3%81%8B%E3%82%89%E3%81%8B%E3%81%84%E4%B8%8A%E6%89%8B%E3%81%AE%E9%AB%98%E6%9C%A8%E3%81%95%E3%82%93&tag=hekinator-22"
+      }
     ]
   },
   {
@@ -2120,9 +2135,18 @@
     "name": "復縁・やり直し",
     "desc": "かつて別れた相手と再び結ばれる恋愛。傷を乗り越えて「もう一度」を選ぶ勇気と切なさ",
     "works": [
-      "花束みたいな恋をした",
-      "最後から二番目の恋",
-      "半分、青い。"
+      {
+        "title": "花束みたいな恋をした",
+        "url": "https://www.amazon.co.jp/s?k=%E8%8A%B1%E6%9D%9F%E3%81%BF%E3%81%9F%E3%81%84%E3%81%AA%E6%81%8B%E3%82%92%E3%81%97%E3%81%9F&tag=hekinator-22"
+      },
+      {
+        "title": "最後から二番目の恋",
+        "url": "https://www.amazon.co.jp/s?k=%E6%9C%80%E5%BE%8C%E3%81%8B%E3%82%89%E4%BA%8C%E7%95%AA%E7%9B%AE%E3%81%AE%E6%81%8B&tag=hekinator-22"
+      },
+      {
+        "title": "半分、青い。",
+        "url": "https://www.amazon.co.jp/s?k=%E5%8D%8A%E5%88%86%E3%80%81%E9%9D%92%E3%81%84%E3%80%82&tag=hekinator-22"
+      }
     ]
   },
   {
@@ -2134,8 +2158,14 @@
         "title": "氷菓",
         "url": "https://www.amazon.co.jp/dp/B0GS3NTD6R?tag=hekinator-22"
       },
-      "CLANNAD",
-      "響け！ユーフォニアム"
+      {
+        "title": "CLANNAD",
+        "url": "https://www.amazon.co.jp/s?k=CLANNAD&tag=hekinator-22"
+      },
+      {
+        "title": "響け！ユーフォニアム",
+        "url": "https://www.amazon.co.jp/s?k=%E9%9F%BF%E3%81%91%EF%BC%81%E3%83%A6%E3%83%BC%E3%83%95%E3%82%A9%E3%83%8B%E3%82%A2%E3%83%A0&tag=hekinator-22"
+      }
     ]
   },
   {
@@ -2147,7 +2177,10 @@
         "title": "君の膵臓をたべたい",
         "url": "https://www.amazon.co.jp/dp/B071RFTDZG?tag=hekinator-22"
       },
-      "四月は君の嘘",
+      {
+        "title": "四月は君の嘘",
+        "url": "https://www.amazon.co.jp/s?k=%E5%9B%9B%E6%9C%88%E3%81%AF%E5%90%9B%E3%81%AE%E5%98%98&tag=hekinator-22"
+      },
       {
         "title": "orange",
         "url": "https://www.amazon.co.jp/dp/B00JD349L6?tag=hekinator-22"
@@ -2159,9 +2192,18 @@
     "name": "逃避行・駆け落ち",
     "desc": "周囲の反対・社会・運命に背いて二人で全てを捨てて逃げ出すスリルと純粋な愛の激しさ",
     "works": [
-      "天気の子",
-      "NANA",
-      "ロミオとジュリエット（宝塚版）"
+      {
+        "title": "天気の子",
+        "url": "https://www.amazon.co.jp/s?k=%E5%A4%A9%E6%B0%97%E3%81%AE%E5%AD%90&tag=hekinator-22"
+      },
+      {
+        "title": "NANA",
+        "url": "https://www.amazon.co.jp/s?k=NANA&tag=hekinator-22"
+      },
+      {
+        "title": "ロミオとジュリエット（宝塚版）",
+        "url": "https://www.amazon.co.jp/s?k=%E3%83%AD%E3%83%9F%E3%82%AA%E3%81%A8%E3%82%B8%E3%83%A5%E3%83%AA%E3%82%A8%E3%83%83%E3%83%88%EF%BC%88%E5%AE%9D%E5%A1%9A%E7%89%88%EF%BC%89&tag=hekinator-22"
+      }
     ]
   },
   {
@@ -2169,9 +2211,18 @@
     "name": "医者×患者",
     "desc": "治療という名の禁断の近距離。守るべき立場と恋心の間で揺れる医療従事者と患者の恋愛",
     "works": [
-      "リエゾン",
-      "コウノドリ",
-      "恋はDeepに"
+      {
+        "title": "リエゾン",
+        "url": "https://www.amazon.co.jp/s?k=%E3%83%AA%E3%82%A8%E3%82%BE%E3%83%B3&tag=hekinator-22"
+      },
+      {
+        "title": "コウノドリ",
+        "url": "https://www.amazon.co.jp/s?k=%E3%82%B3%E3%82%A6%E3%83%8E%E3%83%89%E3%83%AA&tag=hekinator-22"
+      },
+      {
+        "title": "恋はDeepに",
+        "url": "https://www.amazon.co.jp/s?k=%E6%81%8B%E3%81%AFDeep%E3%81%AB&tag=hekinator-22"
+      }
     ]
   },
   {
@@ -2179,9 +2230,18 @@
     "name": "怪盗・義賊",
     "desc": "華麗な盗みと謎めいた正体、追う者との駆け引き。仮面の裏に隠された素顔を誰かだけが知っている",
     "works": [
-      "まじっく快斗（怪盗キッド）",
-      "怪盗セイント・テール",
-      "ルパン三世"
+      {
+        "title": "まじっく快斗（怪盗キッド）",
+        "url": "https://www.amazon.co.jp/s?k=%E3%81%BE%E3%81%98%E3%81%A3%E3%81%8F%E5%BF%AB%E6%96%97%EF%BC%88%E6%80%AA%E7%9B%97%E3%82%AD%E3%83%83%E3%83%89%EF%BC%89&tag=hekinator-22"
+      },
+      {
+        "title": "怪盗セイント・テール",
+        "url": "https://www.amazon.co.jp/s?k=%E6%80%AA%E7%9B%97%E3%82%BB%E3%82%A4%E3%83%B3%E3%83%88%E3%83%BB%E3%83%86%E3%83%BC%E3%83%AB&tag=hekinator-22"
+      },
+      {
+        "title": "ルパン三世",
+        "url": "https://www.amazon.co.jp/s?k=%E3%83%AB%E3%83%91%E3%83%B3%E4%B8%89%E4%B8%96&tag=hekinator-22"
+      }
     ]
   },
   {
@@ -2189,9 +2249,18 @@
     "name": "美少年・中性的",
     "desc": "性別の境界が曖昧な中性的な美しさを持つキャラクターへの魅力。性別を超えた存在感と愛おしさ",
     "works": [
-      "桜蘭高校ホスト部",
-      "美少年探偵団（西尾維新）",
-      "薔薇のないフローリスト"
+      {
+        "title": "桜蘭高校ホスト部",
+        "url": "https://www.amazon.co.jp/s?k=%E6%A1%9C%E8%98%AD%E9%AB%98%E6%A0%A1%E3%83%9B%E3%82%B9%E3%83%88%E9%83%A8&tag=hekinator-22"
+      },
+      {
+        "title": "美少年探偵団（西尾維新）",
+        "url": "https://www.amazon.co.jp/s?k=%E7%BE%8E%E5%B0%91%E5%B9%B4%E6%8E%A2%E5%81%B5%E5%9B%A3%EF%BC%88%E8%A5%BF%E5%B0%BE%E7%B6%AD%E6%96%B0%EF%BC%89&tag=hekinator-22"
+      },
+      {
+        "title": "薔薇のないフローリスト",
+        "url": "https://www.amazon.co.jp/s?k=%E8%96%94%E8%96%87%E3%81%AE%E3%81%AA%E3%81%84%E3%83%95%E3%83%AD%E3%83%BC%E3%83%AA%E3%82%B9%E3%83%88&tag=hekinator-22"
+      }
     ]
   },
   {
@@ -2218,12 +2287,18 @@
     "name": "ニート・社会不適合者",
     "desc": "社会に馴染めない・引きこもりなど社会不適合者が誰かとの出会いで少しずつ変わっていく恋愛",
     "works": [
-      "NHKへようこそ！",
+      {
+        "title": "NHKへようこそ！",
+        "url": "https://www.amazon.co.jp/s?k=NHK%E3%81%B8%E3%82%88%E3%81%86%E3%81%93%E3%81%9D%EF%BC%81&tag=hekinator-22"
+      },
       {
         "title": "やはり俺の青春ラブコメはまちがっている。",
         "url": "https://www.amazon.co.jp/dp/B00A20SDQQ?tag=hekinator-22"
       },
-      "ぼっち・ざ・ろっく！"
+      {
+        "title": "ぼっち・ざ・ろっく！",
+        "url": "https://www.amazon.co.jp/s?k=%E3%81%BC%E3%81%A3%E3%81%A1%E3%83%BB%E3%81%96%E3%83%BB%E3%82%8D%E3%81%A3%E3%81%8F%EF%BC%81&tag=hekinator-22"
+      }
     ]
   },
   {
@@ -2231,8 +2306,14 @@
     "name": "人形・操り人形",
     "desc": "意思を持つ人形・人形師と人形の歪な関係・誰かに操られることへの甘美な恐怖と依存",
     "works": [
-      "Rozen Maiden",
-      "機動天使エンジェリックレイヤー",
+      {
+        "title": "Rozen Maiden",
+        "url": "https://www.amazon.co.jp/s?k=Rozen%20Maiden&tag=hekinator-22"
+      },
+      {
+        "title": "機動天使エンジェリックレイヤー",
+        "url": "https://www.amazon.co.jp/s?k=%E6%A9%9F%E5%8B%95%E5%A4%A9%E4%BD%BF%E3%82%A8%E3%83%B3%E3%82%B8%E3%82%A7%E3%83%AA%E3%83%83%E3%82%AF%E3%83%AC%E3%82%A4%E3%83%A4%E3%83%BC&tag=hekinator-22"
+      },
       {
         "title": "黒執事（一部）",
         "url": "https://www.amazon.co.jp/dp/B0FSTK3QF8?tag=hekinator-22"
@@ -2244,9 +2325,18 @@
     "name": "眼鏡",
     "desc": "眼鏡越しの知性、真面目さ、素顔とのギャップに惹かれる。外した瞬間の破壊力まで含めて刺さる属性",
     "works": [
-      "冴えない彼女の育てかた",
-      "氷菓",
-      "境界の彼方"
+      {
+        "title": "冴えない彼女の育てかた",
+        "url": "https://www.amazon.co.jp/dp/B009HPDI30?tag=hekinator-22"
+      },
+      {
+        "title": "氷菓",
+        "url": "https://www.amazon.co.jp/dp/B0GS3NTD6R?tag=hekinator-22"
+      },
+      {
+        "title": "境界の彼方",
+        "url": "https://www.amazon.co.jp/s?k=%E5%A2%83%E7%95%8C%E3%81%AE%E5%BD%BC%E6%96%B9&tag=hekinator-22"
+      }
     ]
   },
   {
@@ -2254,9 +2344,18 @@
     "name": "白衣",
     "desc": "研究者・医療者・実験者の知的で危うい雰囲気。清潔感と支配的な観察者感が同居する属性",
     "works": [
-      "STEINS;GATE",
-      "薬屋のひとりごと",
-      "Dr.STONE"
+      {
+        "title": "STEINS;GATE",
+        "url": "https://www.amazon.co.jp/dp/B00CLO6QEM?tag=hekinator-22"
+      },
+      {
+        "title": "薬屋のひとりごと",
+        "url": "https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22"
+      },
+      {
+        "title": "Dr.STONE",
+        "url": "https://www.amazon.co.jp/s?k=Dr.STONE&tag=hekinator-22"
+      }
     ]
   },
   {
@@ -2264,9 +2363,18 @@
     "name": "敬語",
     "desc": "丁寧な言葉遣い、距離感、礼儀正しさの奥にある感情の揺れに惹かれる。崩れた瞬間の落差も魅力",
     "works": [
-      "黒執事",
-      "SPY×FAMILY",
-      "薬屋のひとりごと"
+      {
+        "title": "黒執事",
+        "url": "https://www.amazon.co.jp/dp/B0FSTK3QF8?tag=hekinator-22"
+      },
+      {
+        "title": "SPY×FAMILY",
+        "url": "https://www.amazon.co.jp/s?k=SPY%C3%97FAMILY&tag=hekinator-22"
+      },
+      {
+        "title": "薬屋のひとりごと",
+        "url": "https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22"
+      }
     ]
   },
   {
@@ -2274,9 +2382,18 @@
     "name": "共依存",
     "desc": "互いを必要としすぎて離れられない関係。救いにも破滅にも見える、重く深い結びつきへの嗜好",
     "works": [
-      "ハッピーシュガーライフ",
-      "君に愛されて痛かった",
-      "未来日記"
+      {
+        "title": "ハッピーシュガーライフ",
+        "url": "https://www.amazon.co.jp/s?k=%E3%83%8F%E3%83%83%E3%83%94%E3%83%BC%E3%82%B7%E3%83%A5%E3%82%AC%E3%83%BC%E3%83%A9%E3%82%A4%E3%83%95&tag=hekinator-22"
+      },
+      {
+        "title": "君に愛されて痛かった",
+        "url": "https://www.amazon.co.jp/s?k=%E5%90%9B%E3%81%AB%E6%84%9B%E3%81%95%E3%82%8C%E3%81%A6%E7%97%9B%E3%81%8B%E3%81%A3%E3%81%9F&tag=hekinator-22"
+      },
+      {
+        "title": "未来日記",
+        "url": "https://www.amazon.co.jp/s?k=%E6%9C%AA%E6%9D%A5%E6%97%A5%E8%A8%98&tag=hekinator-22"
+      }
     ]
   },
   {
@@ -2284,9 +2401,18 @@
     "name": "執着",
     "desc": "相手を強く求め、独占したい感情が極端に高まる関係。愛情と危うさの境界が曖昧な重い感情に惹かれる",
     "works": [
-      "未来日記",
-      "School Days",
-      "犬夜叉"
+      {
+        "title": "未来日記",
+        "url": "https://www.amazon.co.jp/s?k=%E6%9C%AA%E6%9D%A5%E6%97%A5%E8%A8%98&tag=hekinator-22"
+      },
+      {
+        "title": "School Days",
+        "url": "https://www.amazon.co.jp/dp/B07YKHDK28?tag=hekinator-22"
+      },
+      {
+        "title": "犬夜叉",
+        "url": "https://www.amazon.co.jp/dp/B06XKSDMC9?tag=hekinator-22"
+      }
     ]
   }
 ]
