@@ -268,6 +268,54 @@ def fetish_log_rows(ctx):
     })
 
 
+def low_exposure_fetishes(ctx):
+    limit = ctx.bounded_int(ctx.request.args.get('limit'), 30, 1, 200)
+    threshold = ctx.bounded_int(ctx.request.args.get('threshold'), 3, 0, 1000000)
+    rows = ctx.build_fetish_log_rows()
+    fetish_by_id = {fetish.get('id'): fetish for fetish in ctx.engine.fetishes}
+    enriched = []
+    for row in rows:
+        fetish = fetish_by_id.get(row['id'], {})
+        works = fetish.get('works') or []
+        item = {
+            'id': row['id'],
+            'name': row['name'],
+            'guessed': row['guessed'],
+            'correct': row['correct'],
+            'wrong': row['wrong'],
+            'feedback_total': row['feedback_total'],
+            'acc': row['acc'],
+            'unfeedback': row['unfeedback'],
+            'works_count': len(works),
+            'has_works': bool(works),
+            'is_player_fetish': row['id'] >= ctx.player_fetish_base_id,
+            'detail_url': f"/fetish/{row['id']}",
+        }
+        enriched.append(item)
+    low_rows = sorted(
+        [row for row in enriched if row['guessed'] <= threshold],
+        key=lambda row: (row['guessed'], row['works_count'], row['id']),
+    )
+    zero_rows = [row for row in enriched if row['guessed'] == 0]
+    no_work_low_rows = [row for row in low_rows if not row['has_works']]
+    return ctx.jsonify({
+        'status': 'ok',
+        'threshold': threshold,
+        'total_fetishes': len(enriched),
+        'zero_count': len(zero_rows),
+        'low_count': len(low_rows),
+        'no_work_low_count': len(no_work_low_rows),
+        'summary': {
+            'zero_share': round(len(zero_rows) / len(enriched) * 100, 1) if enriched else 0,
+            'low_share': round(len(low_rows) / len(enriched) * 100, 1) if enriched else 0,
+            'no_work_low_share': round(len(no_work_low_rows) / len(low_rows) * 100, 1) if low_rows else 0,
+        },
+        'rows': low_rows[:limit],
+        'zero_rows': zero_rows[:limit],
+        'no_work_low_rows': no_work_low_rows[:limit],
+    })
+
+
 def performance(ctx):
     measurements = []
 
@@ -537,6 +585,7 @@ def admin_read_overview(ctx):
             '/api/admin/player_fetishes',
             '/api/admin/promoted_fetish_history',
             '/api/admin/fetish_log_rows',
+            '/api/admin/low_exposure_fetishes',
             '/api/admin/recent_fetish_ranking',
             '/api/admin/question_events',
             '/api/admin/share_events',
@@ -1358,6 +1407,11 @@ def create_blueprint(ctx_factory, require_admin, require_admin_or_read=None):
     @require_admin_or_read
     def fetish_log_rows_route():
         return fetish_log_rows(ctx_factory())
+
+    @bp.route('/api/admin/low_exposure_fetishes', methods=['GET'])
+    @require_admin_or_read
+    def low_exposure_fetishes_route():
+        return low_exposure_fetishes(ctx_factory())
 
     @bp.route('/api/admin/performance', methods=['GET'])
     @require_admin_or_read

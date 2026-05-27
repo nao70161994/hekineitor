@@ -762,6 +762,28 @@ window.ADMIN_CONFIG = {
 </div>
 {% endif %}
 
+{% set low_exposure = all_rows | sort(attribute='guessed') %}
+{% set low_sample = low_exposure[:10] %}
+{% if low_sample %}
+<div style="margin-bottom:16px;">
+  <p style="color:#888;font-size:0.78rem;margin-bottom:6px;">診断結果として提示が少ない性癖 TOP{{ low_sample|length }}</p>
+  {% for r in low_sample %}
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+    <div style="width:120px;font-size:0.72rem;color:#aaa;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="ID {{ r.id }}: {{ r.name }}">{{ r.name }}</div>
+    <div style="flex:1;max-width:200px;background:#111;border-radius:3px;height:10px;overflow:hidden;">
+      <div style="height:100%;border-radius:3px;width:{{ [[r.guessed * 10, 2]|max, 100]|min }}%;background:{% if r.guessed == 0 %}#555{% else %}#5b8dd9{% endif %};"></div>
+    </div>
+    <div style="font-size:0.72rem;color:#666;min-width:34px;">{{ r.guessed }}</div>
+    <div style="font-size:0.68rem;color:#555;min-width:58px;">ID {{ r.id }}</div>
+  </div>
+  {% endfor %}
+  <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="/api/admin/low_exposure_fetishes?threshold=3&limit=50" class="btn-action" style="font-size:0.72rem;padding:3px 10px;text-decoration:none;">低提示JSON</a>
+    <a href="/api/admin/fetish_log_rows?sort=guessed&order=asc&per_page=50" class="btn-action" style="font-size:0.72rem;padding:3px 10px;text-decoration:none;">一覧JSON</a>
+  </div>
+</div>
+{% endif %}
+
 {% set top10 = fetish_log_rows[:10] %}
 {% if top10 and top10[0].guessed > 0 %}
 <div style="margin-bottom:16px;">

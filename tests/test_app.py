@@ -1256,6 +1256,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         data = res.get_json()
         self.assertIn('/api/admin/fetishes_snapshot', data['available_endpoints'])
         self.assertIn('/api/admin/funnel_metrics', data['available_endpoints'])
+        self.assertIn('/api/admin/low_exposure_fetishes', data['available_endpoints'])
         self.assertIn('analysis_log_status', data)
 
     def test_admin_read_token_security_contract_for_read_endpoints(self):
@@ -1285,6 +1286,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             '/api/admin/share_events/comparison.csv?limit=50',
             '/api/admin/share_notes',
             '/api/admin/fetish_log_rows?page=1&per_page=10',
+            '/api/admin/low_exposure_fetishes?threshold=3&limit=20',
             '/api/admin/recent_fetish_ranking',
             '/api/admin/export_stats_history',
             '/api/admin/matrix_backups',
@@ -1412,6 +1414,27 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('total', data)
         self.assertIn('pages', data)
 
+
+    def test_admin_low_exposure_fetishes_returns_analysis_summary(self):
+        from app import engine as app_engine
+        headers = self._admin_headers()
+        with patch.object(app_engine, 'get_fetish_log', return_value={
+            0: {'guessed': 0, 'correct': 0, 'wrong': 0},
+            1: {'guessed': 2, 'correct': 1, 'wrong': 0},
+            2: {'guessed': 10, 'correct': 3, 'wrong': 1},
+        }):
+            res = self.client.get('/api/admin/low_exposure_fetishes?threshold=3&limit=20', headers=headers)
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(data['threshold'], 3)
+        self.assertGreaterEqual(data['zero_count'], 1)
+        self.assertGreaterEqual(data['low_count'], 2)
+        self.assertIn('low_share', data['summary'])
+        guessed_values = [row['guessed'] for row in data['rows']]
+        self.assertEqual(guessed_values, sorted(guessed_values))
+        self.assertIn('works_count', data['rows'][0])
+        self.assertIn('detail_url', data['rows'][0])
 
     def test_admin_works_link_queue_endpoint(self):
         headers = self._admin_headers()
