@@ -24,8 +24,8 @@ class TestSmoke(unittest.TestCase):
     def test_index_loads_static_app_js(self):
         res = self.client.get('/')
         self.assertEqual(res.status_code, 200)
-        self.assertIn(b'/static/app.css', res.data)
-        self.assertIn(b'/static/app.js', res.data)
+        self.assertIn(b'/static/app.css?v=', res.data)
+        self.assertIn(b'/static/app.js?v=', res.data)
         self.assertIn(b'window.APP_CONFIG', res.data)
         self.assertNotIn(b'onclick=', res.data)
         self.assertNotIn(b'oninput=', res.data)

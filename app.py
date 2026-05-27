@@ -103,6 +103,7 @@ def _seo_context():
         work_title=work_title,
         player_fetish_base_id=PLAYER_FETISH_BASE_ID,
         display_version=BOOTSTRAP.display_version,
+        app_version=BOOTSTRAP.app_version,
         safe_work_url=safe_work_url,
         amazon_associate_id=BOOTSTRAP.amazon_associate_id,
         fetish_relations=FETISH_RELATIONS,

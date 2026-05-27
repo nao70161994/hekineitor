@@ -11,6 +11,7 @@ def index(ctx):
     return ctx.render_template(
         'index.html',
         display_version=ctx.display_version,
+        app_version=ctx.app_version,
         amazon_associate_id=ctx.amazon_associate_id,
         base_url=base_url,
         public_fetish_count=public_fetish_count,

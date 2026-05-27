@@ -368,6 +368,19 @@ class TestServices(unittest.TestCase):
         self.assertIn('static/icon-512.png', app_meta.APP_VERSION_PATHS)
         self.assertIn('templates/sw.js', app_meta.APP_VERSION_PATHS)
 
+    def test_app_version_default_includes_main_client_assets(self):
+        expected = (
+            'static/app.css',
+            'static/app.js',
+            'static/game_flow.js',
+            'static/share.js',
+            'static/feedback.js',
+            'static/teach.js',
+            'static/events.js',
+        )
+        for path in expected:
+            self.assertIn(path, app_meta.APP_VERSION_PATHS)
+
     def test_app_bootstrap_groups_static_config(self):
         config = bootstrap.app_bootstrap(
             base_dir='/app',
