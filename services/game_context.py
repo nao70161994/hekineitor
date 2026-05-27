@@ -95,6 +95,7 @@ def build(
         learn_near_miss=learning.learn_near_miss,
         learn_negative=learning.learn_negative,
         positive_feedback_factor=learning.positive_feedback_factor,
+        negative_feedback_factor=learning.negative_feedback_factor,
         near_miss_feedback_factor=learning.near_miss_feedback_factor,
         posteriors=inference.posteriors,
         parse_id_list=ids.parse_id_list,

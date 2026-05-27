@@ -530,8 +530,20 @@ def confirm(ctx):
                 ctx.learn_near_miss(ctx.engine, answers, maybe_idx, strength_factor=near_factor)
 
     if not data.get('add_only', False) and not learning_disabled and not defer_learning:
+        negative_learned_db_ids = []
         for wrong_id in wrong_db_ids:
             ctx.engine.log_wrong(wrong_id)
+            wrong_idx = ctx.engine.index_of(wrong_id)
+            if wrong_idx is not None:
+                ctx.learn_negative(
+                    ctx.engine,
+                    answers,
+                    wrong_idx,
+                    strength_factor=ctx.negative_feedback_factor(ctx.engine, wrong_idx),
+                )
+                negative_learned_db_ids.append(wrong_id)
+        if negative_learned_db_ids:
+            ctx.session['negative_learned_db_ids'] = sorted(negative_learned_db_ids)
         ctx.record_guess_quality_feedback(False)
 
     probs = ctx.posteriors(ctx.engine, answers)
@@ -669,11 +681,17 @@ def finalize_added(ctx):
             ctx.learn_cooccurrence(ctx.engine, answers, correct_idxs[i], correct_idxs[j], factor * pair_factor * 0.3)
 
     wrong_db_ids = ctx.session.pop('wrong_db_ids', [])
+    negative_learned_db_ids = set(ctx.session.pop('negative_learned_db_ids', []))
     for wrong_id in wrong_db_ids:
-        if wrong_id not in correct_db_ids:
+        if wrong_id not in correct_db_ids and wrong_id not in negative_learned_db_ids:
             wrong_idx = ctx.engine.index_of(wrong_id)
             if wrong_idx is not None:
-                ctx.learn_negative(ctx.engine, answers, wrong_idx)
+                ctx.learn_negative(
+                    ctx.engine,
+                    answers,
+                    wrong_idx,
+                    strength_factor=ctx.negative_feedback_factor(ctx.engine, wrong_idx),
+                )
 
     candidate_db_ids = ctx.session.pop('candidate_db_ids', [])
     near_miss_db_ids = set(ctx.session.pop('near_miss_db_ids', []))
@@ -688,7 +706,12 @@ def finalize_added(ctx):
                 ctx.engine,
                 answers,
                 candidate_idx,
-                strength_factor=factor * candidate_negative_factor / (n_unsel ** 0.5),
+                strength_factor=(
+                    factor
+                    * candidate_negative_factor
+                    * ctx.negative_feedback_factor(ctx.engine, candidate_idx)
+                    / (n_unsel ** 0.5)
+                ),
             )
     _finish_feedback(ctx)
     return ctx.jsonify({'status': 'done'})

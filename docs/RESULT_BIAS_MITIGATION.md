@@ -48,14 +48,19 @@ Correct feedback on broad heavy-emotion results is now learned more softly:
 - `共生関係`
 - `執着`
 
-These results can be a plausible match for many players, so a plain correct click is not treated as equally specific evidence as a narrower result. Their positive feedback factor is `0.55`.
+These results can be a plausible match for many players, so a plain correct click is not treated as equally specific evidence as a narrower result. Feedback volume is also imbalanced in production: correct feedback has been roughly three times as common as wrong feedback. To keep total learning pressure closer to balanced, positive feedback is softened and negative feedback is strengthened:
 
-Near-miss feedback is now stronger than before so the selected "close" result can compete with the initially guessed result:
+- regular positive factor: `0.7`
+- broad heavy-emotion positive factor: `0.45`
+- regular negative factor: `1.3`
+- broad heavy-emotion negative factor: `1.7`
+
+Near-miss feedback is stronger than regular positive feedback so the selected "close" result can compete with the initially guessed result:
 
 - regular near miss factor: `1.6`
 - broad heavy-emotion near miss factor: `1.15`
 
-The broad near-miss factor is still above normal positive learning, but lower than narrow-result near misses to avoid moving the same broad cluster too aggressively.
+The broad near-miss factor is still above regular positive learning, but lower than narrow-result near misses to avoid moving the same broad cluster too aggressively.
 
 ## Expected Effect
 

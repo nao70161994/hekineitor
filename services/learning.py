@@ -39,7 +39,10 @@ def make_learn_factor(engine, posteriors_fn, default_guess_threshold):
 
 
 BROAD_RESULT_NAMES = {'共依存', '激重感情', '共生関係', '執着'}
-BROAD_RESULT_POSITIVE_SCALE = 0.55
+POSITIVE_SCALE = 0.7
+BROAD_RESULT_POSITIVE_SCALE = 0.45
+NEGATIVE_SCALE = 1.3
+BROAD_RESULT_NEGATIVE_SCALE = 1.7
 NEAR_MISS_SCALE = 1.6
 BROAD_NEAR_MISS_SCALE = 1.15
 
@@ -52,7 +55,11 @@ def _fetish_name(engine, fetish_idx):
 
 
 def positive_feedback_factor(engine, fetish_idx):
-    return BROAD_RESULT_POSITIVE_SCALE if _fetish_name(engine, fetish_idx) in BROAD_RESULT_NAMES else 1.0
+    return BROAD_RESULT_POSITIVE_SCALE if _fetish_name(engine, fetish_idx) in BROAD_RESULT_NAMES else POSITIVE_SCALE
+
+
+def negative_feedback_factor(engine, fetish_idx):
+    return BROAD_RESULT_NEGATIVE_SCALE if _fetish_name(engine, fetish_idx) in BROAD_RESULT_NAMES else NEGATIVE_SCALE
 
 
 def near_miss_feedback_factor(engine, fetish_idx):

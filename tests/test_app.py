@@ -508,8 +508,10 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         broad_idx = app_engine.index_of(self._fetish_id_by_name('共依存'))
         concrete_idx = app_engine.index_of(0)
 
-        self.assertEqual(learning_service.positive_feedback_factor(app_engine, broad_idx), 0.55)
-        self.assertEqual(learning_service.positive_feedback_factor(app_engine, concrete_idx), 1.0)
+        self.assertEqual(learning_service.positive_feedback_factor(app_engine, broad_idx), 0.45)
+        self.assertEqual(learning_service.positive_feedback_factor(app_engine, concrete_idx), 0.7)
+        self.assertEqual(learning_service.negative_feedback_factor(app_engine, broad_idx), 1.7)
+        self.assertEqual(learning_service.negative_feedback_factor(app_engine, concrete_idx), 1.3)
         self.assertEqual(learning_service.near_miss_feedback_factor(app_engine, broad_idx), 1.15)
         self.assertEqual(learning_service.near_miss_feedback_factor(app_engine, concrete_idx), 1.6)
 
@@ -548,6 +550,69 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertAlmostEqual(
             learn_positive.call_args.kwargs['strength_factor'],
             expected_base * learning_service.BROAD_RESULT_POSITIVE_SCALE,
+        )
+
+    def test_confirm_wrong_result_uses_negative_factor_once(self):
+        from app import engine as app_engine
+        q = 8
+        answers = {str(q): 1.0}
+        broad_id = self._fetish_id_by_name('共依存')
+        broad_idx = app_engine.index_of(broad_id)
+
+        with self.client.session_transaction() as sess:
+            sess['started'] = True
+            sess['answers'] = answers
+            sess['last_guess_fetish_id'] = broad_id
+            sess['last_guess_compound_ids'] = []
+            sess.pop('feedback_status', None)
+
+        with patch('services.learning.learn_negative') as learn_negative:
+            res = self.client.post('/api/confirm', json={
+                'correct': False,
+                'fetish_id': broad_id,
+                'wrong_ids': [broad_id],
+            })
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()['status'], 'wrong')
+        learn_negative.assert_called_once()
+        self.assertEqual(learn_negative.call_args.args[2], broad_idx)
+        self.assertAlmostEqual(
+            learn_negative.call_args.kwargs['strength_factor'],
+            learning_service.BROAD_RESULT_NEGATIVE_SCALE,
+        )
+        with self.client.session_transaction() as sess:
+            self.assertEqual(sess.get('negative_learned_db_ids'), [broad_id])
+
+    def test_finalize_added_wrong_result_uses_negative_factor(self):
+        from app import engine as app_engine
+        q = 8
+        answers = {str(q): 1.0}
+        broad_id = self._fetish_id_by_name('共依存')
+        broad_idx = app_engine.index_of(broad_id)
+        correct_id = self._fetish_id_by_name('白衣')
+
+        with self.client.session_transaction() as sess:
+            sess['started'] = True
+            sess['answers'] = answers
+            sess['last_guess_fetish_id'] = broad_id
+            sess['last_guess_compound_ids'] = [correct_id]
+            sess['wrong_db_ids'] = [broad_id]
+            sess['candidate_db_ids'] = [correct_id]
+            sess['feedback_status'] = 'pending_correction'
+
+        with patch('services.learning.learn_positive'), patch('services.learning.learn_negative') as learn_negative:
+            res = self.client.post('/api/finalize_added', json={
+                'items': [{'id': correct_id, 'is_new': False}],
+            })
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()['status'], 'done')
+        learn_negative.assert_called_once()
+        self.assertEqual(learn_negative.call_args.args[2], broad_idx)
+        self.assertAlmostEqual(
+            learn_negative.call_args.kwargs['strength_factor'],
+            learning_service.BROAD_RESULT_NEGATIVE_SCALE,
         )
 
     def test_confirm_maybe_uses_near_miss_factor(self):
