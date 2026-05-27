@@ -712,6 +712,7 @@ class TestServices(unittest.TestCase):
             work_title=lambda work: str(work),
             player_fetish_base_id=1000,
             display_version='v-test',
+            app_version='asset-version',
             safe_work_url=lambda url: url,
             amazon_associate_id='assoc',
             fetish_relations={1: [2]},
