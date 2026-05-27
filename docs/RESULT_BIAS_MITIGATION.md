@@ -62,6 +62,28 @@ Near-miss feedback is stronger than regular positive feedback so the selected "c
 
 The broad near-miss factor is still above regular positive learning, but lower than narrow-result near misses to avoid moving the same broad cluster too aggressively.
 
+
+## Recent Exposure Balancing
+
+Result display now applies a presentation-only exposure correction before the final result is returned. This does not change posterior math, priors, matrix values, question selection, or learning. It only re-ranks the final top candidate pool.
+
+The service records primary result exposures to `data/result_exposures.jsonl` by default, or `RESULT_EXPOSURE_LOG_PATH` when set. It stores only result id/name, probability, rank, and timestamp. It does not store IP, User-Agent, session id, or user identifiers.
+
+Initial windows:
+
+- main window: latest `300` primary result exposures
+- short over-concentration guard: latest `100` primary result exposures
+- minimum samples before correction: `50`
+- candidate pool: posterior top `12` only
+
+The main correction compares recent exposure count to the expected count and clamps the factor to `0.7` - `1.25`. The short-window guard applies extra downweighting for over-concentrated results:
+
+- `15%` or higher in the latest 100: `x0.75`
+- `25%` or higher: `x0.60`
+- `40%` or higher: `x0.45`
+
+Broad heavy-emotion results (`共依存`, `激重感情`, `共生関係`, `執着`) have a factor cap of `0.75`. If the original posterior top result is dominant (`top / second >= 1.8`), its factor floor is `0.85` so a clearly matched result is not hidden just because it has been common recently.
+
 ## Expected Effect
 
 This should reduce early overcommitment to heavy-emotion results and give visual, worldbuilding, role, and value axes more chances to separate candidates before the result is finalized.

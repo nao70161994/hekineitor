@@ -6,7 +6,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import audit
-from services import admin_context, admin_helpers, admin_security, bootstrap, context, csv_safety, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, ogp, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, question_events, share_links, share_notes, system_context, test_play
+from services import admin_context, admin_helpers, admin_security, bootstrap, context, csv_safety, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, ogp, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, question_events, result_exposure, share_links, share_notes, system_context, test_play
 
 
 class DummyRequest:
@@ -960,6 +960,52 @@ class TestServices(unittest.TestCase):
         recorder(True)
         self.assertIn('q_low_conf_correct', calls)
         self.assertNotIn('last_guess_quality', session)
+
+
+    def test_result_exposure_balancing_downweights_overexposed_result(self):
+        class Engine:
+            fetishes = [
+                {'id': 1, 'name': '激重感情'},
+                {'id': 2, 'name': '白衣'},
+                {'id': 3, 'name': '眼鏡'},
+            ]
+
+        events = [result_exposure.build_event(1, '激重感情', 90, now_fn=lambda: __import__('datetime').datetime.now(__import__('datetime').timezone.utc)) for _ in range(80)]
+        events.extend(result_exposure.build_event(2, '白衣', 80, now_fn=lambda: __import__('datetime').datetime.now(__import__('datetime').timezone.utc)) for _ in range(5))
+        factors = result_exposure.exposure_factors(Engine.fetishes, events=events)
+
+        self.assertLess(factors[1], 0.75)
+        self.assertGreater(factors[2], 1.0)
+
+
+    def test_result_exposure_adjustment_can_promote_close_low_exposure_candidate(self):
+        class Engine:
+            fetishes = [
+                {'id': 1, 'name': '激重感情'},
+                {'id': 2, 'name': '白衣'},
+                {'id': 3, 'name': '眼鏡'},
+            ]
+
+        events = [result_exposure.build_event(1, '激重感情', 90) for _ in range(80)]
+        events.extend(result_exposure.build_event(2, '白衣', 80) for _ in range(5))
+        ranked = result_exposure.adjust_ranked(Engine(), [0.62, 0.58, 0.1], [0, 1, 2], events=events)
+
+        self.assertEqual(ranked[0], 1)
+
+
+    def test_result_exposure_keeps_dominant_top_result(self):
+        class Engine:
+            fetishes = [
+                {'id': 1, 'name': '激重感情'},
+                {'id': 2, 'name': '白衣'},
+                {'id': 3, 'name': '眼鏡'},
+            ]
+
+        events = [result_exposure.build_event(1, '激重感情', 90) for _ in range(80)]
+        events.extend(result_exposure.build_event(2, '白衣', 80) for _ in range(5))
+        ranked = result_exposure.adjust_ranked(Engine(), [0.90, 0.40, 0.1], [0, 1, 2], events=events)
+
+        self.assertEqual(ranked[0], 0)
 
 
     def test_question_selection_low_confidence_extension_bounds(self):

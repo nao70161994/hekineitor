@@ -1,4 +1,4 @@
-from services import context, ids, inference, learning, name_matching, quality_stats, question_selection
+from services import context, ids, inference, learning, name_matching, quality_stats, question_selection, result_exposure
 
 
 PROFILE_MIN_RATIO = 0.25
@@ -39,6 +39,7 @@ def build(
             profile_min_prob=PROFILE_MIN_PROB,
             compound_ratio=COMPOUND_RATIO,
             triple_ratio=TRIPLE_RATIO,
+            adjust_result_ranking=result_exposure.make_rank_adjuster(engine),
         )
 
     def make_guess(answers):
@@ -53,6 +54,7 @@ def build(
                 if learning_disabled() else quality_stats.mark_guess_quality
             ),
             record_question_event=record_question_event,
+            record_result_exposure=result_exposure.safe_record_result,
         )
         return inference.make_guess(guess_context, answers)
 

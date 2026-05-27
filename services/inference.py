@@ -16,6 +16,9 @@ def compute_guess(ctx, answers):
     probs = posteriors(engine, answers)
     exclude_ids = set(ctx.session.get('exclude_ids', []))
     ranked = sorted(range(len(probs)), key=lambda i: probs[i], reverse=True)
+    adjust_result_ranking = getattr(ctx, 'adjust_result_ranking', None)
+    if callable(adjust_result_ranking) and not exclude_ids:
+        ranked = adjust_result_ranking(probs, ranked)
     if exclude_ids:
         ranked = [i for i in ranked if engine.fetishes[i]['id'] not in exclude_ids] + [
             i for i in ranked if engine.fetishes[i]['id'] in exclude_ids
@@ -142,6 +145,14 @@ def make_guess(ctx, answers):
     ctx.session['completed'] = True
     ctx.mark_guess_quality(ctx.engine, ctx.session, answers, ctx.soft_max_questions)
     _record_result_contributions(ctx, result)
+    record_result_exposure = getattr(ctx, 'record_result_exposure', None)
+    if callable(record_result_exposure):
+        record_result_exposure(
+            result['fetish_id'],
+            result.get('fetish_name', ''),
+            result.get('probability'),
+            rank=1,
+        )
     guessed_ids = {result['fetish_id']} | {item['fetish_id'] for item in result.get('compound', [])}
     for fetish_id in guessed_ids:
         ctx.engine.log_guessed(fetish_id)
