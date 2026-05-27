@@ -9,20 +9,14 @@ import engine as eng_module
 from engine import Engine, FETISH_PRIOR_WEIGHTS
 from matrix_service import collect_matrix_updates
 
-MATRIX_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'matrix.json')
 
 class TestEngine(unittest.TestCase):
     def setUp(self):
-        self._matrix_backup = None
-        if os.path.exists(MATRIX_PATH):
-            with open(MATRIX_PATH, 'rb') as f:
-                self._matrix_backup = f.read()
-            os.remove(MATRIX_PATH)
-
         self._patches = [
             patch.object(Engine, '_save_matrix_file',  return_value=None),
             patch.object(Engine, '_save_fetishes_file', return_value=None),
             patch.object(Engine, '_save_to_db',        return_value=None),
+            patch.object(Engine, '_load_matrix_file', new=lambda self: self._init_matrix_file()),
         ]
         for p in self._patches:
             p.start()
@@ -31,9 +25,6 @@ class TestEngine(unittest.TestCase):
     def tearDown(self):
         for p in self._patches:
             p.stop()
-        if self._matrix_backup is not None:
-            with open(MATRIX_PATH, 'wb') as f:
-                f.write(self._matrix_backup)
 
     # ── posteriors ────────────────────────────────────────
     def test_posteriors_sums_to_one_no_answers(self):

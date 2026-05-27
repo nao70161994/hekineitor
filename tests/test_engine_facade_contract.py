@@ -22,21 +22,15 @@ from engine import (
     UCB_EXPLORE_C,
 )
 
-MATRIX_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'matrix.json')
 
 
 class TestEngineFacadeContract(unittest.TestCase):
     def setUp(self):
-        self._matrix_backup = None
-        if os.path.exists(MATRIX_PATH):
-            with open(MATRIX_PATH, 'rb') as f:
-                self._matrix_backup = f.read()
-            os.remove(MATRIX_PATH)
-
         self._patches = [
             patch.object(Engine, '_save_matrix_file', return_value=None),
             patch.object(Engine, '_save_fetishes_file', return_value=None),
             patch.object(Engine, '_save_to_db', return_value=None),
+            patch.object(Engine, '_load_matrix_file', new=lambda self: self._init_matrix_file()),
         ]
         for patcher in self._patches:
             patcher.start()
@@ -45,9 +39,6 @@ class TestEngineFacadeContract(unittest.TestCase):
     def tearDown(self):
         for patcher in self._patches:
             patcher.stop()
-        if self._matrix_backup is not None:
-            with open(MATRIX_PATH, 'wb') as f:
-                f.write(self._matrix_backup)
 
     def test_inference_facade_matches_helper_module(self):
         answers = {'0': 1, '3': -1, '8': 1, '11': 0}
@@ -235,15 +226,11 @@ class TestEngineFacadeContract(unittest.TestCase):
 
 class TestEngineRuntimeCacheContract(unittest.TestCase):
     def setUp(self):
-        self._matrix_backup = None
-        if os.path.exists(MATRIX_PATH):
-            with open(MATRIX_PATH, 'rb') as f:
-                self._matrix_backup = f.read()
-            os.remove(MATRIX_PATH)
         self._patches = [
             patch.object(Engine, '_save_matrix_file', return_value=None),
             patch.object(Engine, '_save_fetishes_file', return_value=None),
             patch.object(Engine, '_save_to_db', return_value=None),
+            patch.object(Engine, '_load_matrix_file', new=lambda self: self._init_matrix_file()),
         ]
         for patcher in self._patches:
             patcher.start()
@@ -252,9 +239,6 @@ class TestEngineRuntimeCacheContract(unittest.TestCase):
     def tearDown(self):
         for patcher in self._patches:
             patcher.stop()
-        if self._matrix_backup is not None:
-            with open(MATRIX_PATH, 'wb') as f:
-                f.write(self._matrix_backup)
 
     def test_disc_scale_facade_owns_cache_and_reuses_within_ttl(self):
         calls = []
@@ -298,15 +282,11 @@ class TestEngineRuntimeCacheContract(unittest.TestCase):
 
 class TestEnginePersistenceFacadeContract(unittest.TestCase):
     def setUp(self):
-        self._matrix_backup = None
-        if os.path.exists(MATRIX_PATH):
-            with open(MATRIX_PATH, 'rb') as f:
-                self._matrix_backup = f.read()
-            os.remove(MATRIX_PATH)
         self._patches = [
             patch.object(Engine, '_save_matrix_file', return_value=None),
             patch.object(Engine, '_save_fetishes_file', return_value=None),
             patch.object(Engine, '_save_to_db', return_value=None),
+            patch.object(Engine, '_load_matrix_file', new=lambda self: self._init_matrix_file()),
         ]
         for patcher in self._patches:
             patcher.start()
@@ -315,9 +295,6 @@ class TestEnginePersistenceFacadeContract(unittest.TestCase):
     def tearDown(self):
         for patcher in self._patches:
             patcher.stop()
-        if self._matrix_backup is not None:
-            with open(MATRIX_PATH, 'wb') as f:
-                f.write(self._matrix_backup)
 
     def test_save_async_uses_local_save_without_thread_when_db_disabled(self):
         with patch('engine._use_db', return_value=False), \

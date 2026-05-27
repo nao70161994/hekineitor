@@ -8,20 +8,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import engine as engine_module
 from engine import Engine, PLAYER_FETISH_BASE_ID
 
-MATRIX_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'matrix.json')
 
 
 class TestEngineMutations(unittest.TestCase):
     def setUp(self):
-        self._matrix_backup = None
-        if os.path.exists(MATRIX_PATH):
-            with open(MATRIX_PATH, 'rb') as f:
-                self._matrix_backup = f.read()
-            os.remove(MATRIX_PATH)
         self._patches = [
             patch.object(Engine, '_save_matrix_file', return_value=None),
             patch.object(Engine, '_save_fetishes_file', return_value=None),
             patch.object(Engine, '_save_to_db', return_value=None),
+            patch.object(Engine, '_load_matrix_file', new=lambda self: self._init_matrix_file()),
         ]
         for patcher in self._patches:
             patcher.start()
@@ -30,9 +25,6 @@ class TestEngineMutations(unittest.TestCase):
     def tearDown(self):
         for patcher in self._patches:
             patcher.stop()
-        if self._matrix_backup is not None:
-            with open(MATRIX_PATH, 'wb') as f:
-                f.write(self._matrix_backup)
 
     def test_learn_silent_cold_start_updates_target_and_other_rows_without_learn_count(self):
         target_before_yes = self.engine.matrix['yes'][0][8]
