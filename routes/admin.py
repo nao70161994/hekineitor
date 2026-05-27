@@ -85,8 +85,8 @@ def analysis_log_status(ctx, *, stats_history=None, share_events=None, question_
         'sources': {
             'result_distribution': 'Engine stats_history / fetish_log',
             'feedback': 'Engine fetish_log / stats_history',
-            'share_analytics': 'JSONL share_events',
-            'question_analytics': 'JSONL question_events',
+            'share_analytics': 'Postgres analytics_events' if share_storage.get('storage') == 'postgres' else 'JSONL share_events',
+            'question_analytics': 'Postgres analytics_events' if question_storage.get('storage') == 'postgres' else 'JSONL question_events',
         },
     }
 

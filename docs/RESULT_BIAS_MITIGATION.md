@@ -67,7 +67,7 @@ The broad near-miss factor is still above regular positive learning, but lower t
 
 Result display now applies a presentation-only exposure correction before the final result is returned. This does not change posterior math, priors, matrix values, question selection, or learning. It only re-ranks the final top candidate pool.
 
-The service records primary result exposures to `data/result_exposures.jsonl` by default, or `RESULT_EXPOSURE_LOG_PATH` when set. It stores only result id/name, probability, rank, and timestamp. It does not store IP, User-Agent, session id, or user identifiers.
+In production with `DATABASE_URL`, the service records primary result exposures to the `analytics_events` table so deploys do not reset the exposure window. When `RESULT_EXPOSURE_LOG_PATH` is set, or when DB storage is unavailable locally, it falls back to JSONL (`data/result_exposures.jsonl`). It stores only result id/name, probability, rank, and timestamp. It does not store IP, User-Agent, session id, or user identifiers.
 
 Initial windows:
 

@@ -33,7 +33,7 @@
 
 ## 保存先
 
-既存の local/testing/production のログ分離に合わせ、`SHARE_EVENT_LOG_PATH` があればその JSONL に保存します。未指定時は `data/share_events.jsonl` です。
+本番で `DATABASE_URL` が有効な場合は、デプロイで消えないよう `analytics_events` テーブルへ保存します。`SHARE_EVENT_LOG_PATH` が指定された場合やDB未使用のローカルでは、その JSONL に保存します。未指定時のローカルfallbackは `data/share_events.jsonl` です。
 
 ## API
 

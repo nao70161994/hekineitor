@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from services.csv_safety import csv_text
 from storage import data_path
+from services import event_store
 
 
 _ALLOWED_EVENTS = {
@@ -117,6 +118,11 @@ def _append_event(event, path):
 
 def record_event(event_name, *, path=None, environ=None, now_fn=None, **kwargs):
     event = build_event(event_name, now_fn=now_fn, **kwargs)
+    if path is None and event_store.enabled(environ):
+        try:
+            return event_store.record_event('question', event)
+        except Exception:
+            pass
     _append_event(event, path or event_log_path(environ),)
     return event
 
@@ -129,6 +135,8 @@ def safe_record_event(event_name, *, path=None, environ=None, now_fn=None, **kwa
 
 
 def storage_status(*, path=None, environ=None):
+    if path is None and event_store.enabled(environ):
+        return event_store.storage_status('question')
     target = os.path.abspath(path or event_log_path(environ))
     parent = os.path.dirname(target)
     exists = os.path.exists(target)
@@ -147,6 +155,11 @@ def storage_status(*, path=None, environ=None):
 
 
 def event_count(*, path=None, environ=None):
+    if path is None and event_store.enabled(environ):
+        try:
+            return event_store.event_count('question')
+        except Exception:
+            return 0
     target = path or event_log_path(environ)
     count = 0
     try:
@@ -161,6 +174,11 @@ def event_count(*, path=None, environ=None):
 
 def read_events(*, path=None, environ=None, limit=5000):
     limit = max(1, min(int(limit or 5000), 50000))
+    if path is None and event_store.enabled(environ):
+        try:
+            return [event for event in event_store.read_events('question', limit=limit) if event.get('event_name') in _ALLOWED_EVENTS]
+        except Exception:
+            return []
     path = path or event_log_path(environ)
     rows = deque(maxlen=limit)
     try:

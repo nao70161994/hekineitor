@@ -2,11 +2,12 @@ import sys
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import audit
-from services import admin_context, admin_helpers, admin_security, bootstrap, context, csv_safety, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, ogp, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, question_events, result_exposure, improvement_candidates, share_links, share_notes, system_context, test_play
+from services import admin_context, admin_helpers, admin_security, bootstrap, context, csv_safety, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, ogp, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, question_events, result_exposure, improvement_candidates, event_store, share_links, share_notes, system_context, test_play
 
 
 class DummyRequest:
@@ -1110,6 +1111,46 @@ class TestServices(unittest.TestCase):
         self.assertEqual(result['fetish_id'], 7)
         self.assertEqual(calls, ['increment', 'quality', ('guessed', 7)])
 
+
+
+    def test_analytics_events_use_postgres_store_when_enabled(self):
+        stored = []
+        with patch.object(share_events.event_store, 'enabled', return_value=True), \
+                patch.object(share_events.event_store, 'record_event', side_effect=lambda event_type, event: stored.append((event_type, event)) or event), \
+                patch.object(question_events.event_store, 'enabled', return_value=True), \
+                patch.object(question_events.event_store, 'record_event', side_effect=lambda event_type, event: stored.append((event_type, event)) or event), \
+                patch.object(result_exposure.event_store, 'enabled', return_value=True), \
+                patch.object(result_exposure.event_store, 'record_event', side_effect=lambda event_type, event: stored.append((event_type, event)) or event):
+            share_events.record_event('result_page_view', result_name='眼鏡', channel='result_page', success=True)
+            question_events.record_event('question_shown', question_id=1, question_text='少人数の方が楽？')
+            result_exposure.record_result(7, '白衣', 88, rank=1)
+
+        self.assertEqual([row[0] for row in stored], ['share', 'question', 'result_exposure'])
+        self.assertEqual(stored[0][1]['result_name'], '眼鏡')
+        self.assertEqual(stored[1][1]['question_id'], 1)
+        self.assertEqual(stored[2][1]['fetish_name'], '白衣')
+
+    def test_analytics_events_read_from_postgres_store_when_enabled(self):
+        def fake_read(event_type, **kwargs):
+            return {
+                'share': [{'event_name': 'result_page_view', 'result_name': '眼鏡'}],
+                'question': [{'event_name': 'question_shown', 'question_id': 3}],
+                'result_exposure': [{'event_name': 'result_exposed', 'fetish_id': 7}],
+            }[event_type]
+
+        with patch.object(event_store, 'enabled', return_value=True), \
+                patch.object(event_store, 'read_events', side_effect=fake_read):
+            self.assertEqual(share_events.read_events(limit=10)[0]['result_name'], '眼鏡')
+            self.assertEqual(question_events.read_events(limit=10)[0]['question_id'], 3)
+            self.assertEqual(result_exposure.read_events(limit=10)[0]['fetish_id'], 7)
+
+    def test_analytics_storage_status_reports_postgres_without_secrets(self):
+        with patch.object(share_events.event_store, 'enabled', return_value=True), \
+                patch.object(share_events.event_store, 'storage_status', return_value={'path': 'postgres:analytics_events:share', 'storage': 'postgres', 'count': 2, 'parent_writable': True, 'file_writable': True}):
+            status = share_events.storage_status()
+        self.assertEqual(status['storage'], 'postgres')
+        self.assertEqual(status['count'], 2)
+        self.assertNotIn('DATABASE_URL', status['path'])
 
     def test_inference_exposure_adjusted_result_drives_side_effects(self):
         calls = []

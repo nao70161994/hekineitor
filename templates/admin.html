@@ -211,7 +211,7 @@
 </div>
 {% endif %}
 <div style="margin-top:8px;font-size:0.72rem;color:#777;line-height:1.6;">
-  result distribution / feedback は Engine の stats_history・fetish_log、share analytics は JSONL share_events、question analytics は JSONL question_events を参照します。
+  result distribution / feedback は Engine の stats_history・fetish_log、share analytics / question analytics は本番Postgresの analytics_events、またはローカルJSONLを参照します。
 </div>
 </details>
 {% endif %}

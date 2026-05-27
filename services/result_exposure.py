@@ -6,6 +6,7 @@ from collections import Counter, deque
 from datetime import datetime, timezone
 
 from storage import data_path
+from services import event_store
 
 
 _LOCK = threading.Lock()
@@ -88,6 +89,11 @@ def build_event(fetish_id, fetish_name='', probability=None, *, rank=1, now_fn=N
 
 def record_result(fetish_id, fetish_name='', probability=None, *, rank=1, path=None, environ=None, now_fn=None):
     event = build_event(fetish_id, fetish_name, probability, rank=rank, now_fn=now_fn)
+    if path is None and event_store.enabled(environ):
+        try:
+            return event_store.record_event('result_exposure', event)
+        except Exception:
+            pass
     target = path or event_log_path(environ)
     os.makedirs(os.path.dirname(os.path.abspath(target)), exist_ok=True)
     line = json.dumps(event, ensure_ascii=False, separators=(',', ':')) + '\n'
@@ -106,6 +112,11 @@ def safe_record_result(*args, **kwargs):
 
 
 def read_events(*, path=None, environ=None, limit=MAIN_WINDOW):
+    if path is None and event_store.enabled(environ):
+        try:
+            return [event for event in event_store.read_events('result_exposure', limit=limit) if event.get('event_name') == 'result_exposed']
+        except Exception:
+            return []
     target = path or event_log_path(environ)
     try:
         max_lines = min(max(1, int(limit or MAIN_WINDOW)), 5000)
@@ -128,6 +139,8 @@ def read_events(*, path=None, environ=None, limit=MAIN_WINDOW):
 
 
 def storage_status(*, path=None, environ=None):
+    if path is None and event_store.enabled(environ):
+        return event_store.storage_status('result_exposure')
     target = os.path.abspath(path or event_log_path(environ))
     parent = os.path.dirname(target)
     exists = os.path.exists(target)

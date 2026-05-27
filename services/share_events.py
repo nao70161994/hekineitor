@@ -6,6 +6,7 @@ from collections import deque
 from datetime import datetime, timezone
 
 from storage import data_path
+from services import event_store
 from services.csv_safety import csv_text
 
 _ALLOWED_EVENTS = {
@@ -81,6 +82,11 @@ def _rotate_if_needed(target, max_bytes=_MAX_LOG_BYTES):
 
 def record_event(event_name, *, result_name='', channel='', success=None, path=None, environ=None, now_fn=None):
     event = build_event(event_name, result_name=result_name, channel=channel, success=success, now_fn=now_fn)
+    if path is None and event_store.enabled(environ):
+        try:
+            return event_store.record_event('share', event)
+        except Exception:
+            pass
     target = path or event_log_path(environ)
     os.makedirs(os.path.dirname(os.path.abspath(target)), exist_ok=True)
     line = json.dumps(event, ensure_ascii=False, separators=(',', ':')) + '\n'
@@ -99,6 +105,8 @@ def safe_record_event(*args, **kwargs):
 
 
 def storage_status(*, path=None, environ=None):
+    if path is None and event_store.enabled(environ):
+        return event_store.storage_status('share')
     target = os.path.abspath(path or event_log_path(environ))
     parent = os.path.dirname(target)
     exists = os.path.exists(target)
@@ -117,6 +125,11 @@ def storage_status(*, path=None, environ=None):
 
 
 def event_count(*, path=None, environ=None):
+    if path is None and event_store.enabled(environ):
+        try:
+            return event_store.event_count('share')
+        except Exception:
+            return 0
     target = path or event_log_path(environ)
     count = 0
     try:
@@ -130,6 +143,11 @@ def event_count(*, path=None, environ=None):
 
 
 def read_events(path=None, environ=None, limit=500):
+    if path is None and event_store.enabled(environ):
+        try:
+            return event_store.read_events('share', limit=limit)
+        except Exception:
+            return []
     target = path or event_log_path(environ)
     try:
         max_lines = min(max(1, int(limit or 500)), 5000)

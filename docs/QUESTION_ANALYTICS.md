@@ -9,7 +9,7 @@
 - `question_dropoff`: 診断途中で離脱が記録された
 - `question_result_contribution`: 結果表示時に理由として採用された質問
 
-保存先は `QUESTION_EVENT_LOG_PATH` があればそのパス、未指定なら `data/question_events.jsonl` です。保存するのは質問ID、質問文、カテゴリ、回答値、結果名、timestamp 程度に限定し、IP、User-Agent、ユーザーID、session ID は保存しません。
+本番で `DATABASE_URL` が有効な場合は、デプロイで消えないよう `analytics_events` テーブルへ保存します。`QUESTION_EVENT_LOG_PATH` が指定された場合やDB未使用のローカルでは、その JSONL に保存します。保存するのは質問ID、質問文、カテゴリ、回答値、結果名、timestamp 程度に限定し、IP、User-Agent、ユーザーID、session ID は保存しません。
 
 ## 管理画面で見えるもの
 
