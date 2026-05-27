@@ -208,6 +208,8 @@ def resume(ctx):
     ctx.session['exclude_ids'] = _parse_exclude_ids(data.get('exclude_ids', []))
     ctx.session['client_resumed'] = bool(pairs)
     ctx.session['resume_learning_verified'] = not bool(pairs)
+    if pairs:
+        ctx.engine.increment_start_count()
     for item in pairs:
         try:
             question_id = int(item['q_id'])

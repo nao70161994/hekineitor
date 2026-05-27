@@ -66,7 +66,10 @@ def _previous_day_stats(funnel: dict[str, Any], target_date: str, *, min_starts:
     plays = _metric(selected, 'start', 'play', 'guessed', 'plays', 'total')
     completions = _metric(selected, 'completion', 'completed', 'confirmed')
     feedback = _metric(selected, 'feedback_total') or (_metric(selected, 'correct') + _metric(selected, 'wrong'))
-    rate = _bounded_percent(_ratio(completions, plays)) if plays else None
+    if plays and completions <= plays:
+        rate = _bounded_percent(_ratio(completions, plays))
+    else:
+        rate = None
     reliable = plays >= min_starts and rate is not None and not (rate >= 99.5 and completions >= plays and plays > 0)
     return {
         'date': str(selected.get('date') or selected.get('day') or target_date)[:10],

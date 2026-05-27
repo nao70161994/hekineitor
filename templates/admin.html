@@ -519,7 +519,7 @@
   </div>
   <div style="text-align:center;min-width:72px;">
     <div style="font-size:1.35rem;font-weight:bold;color:#5b8dd9;">{{ completion_metrics.completion_rate if completion_metrics.completion_rate is not none else '—' }}{% if completion_metrics.completion_rate is not none %}%{% endif %}</div>
-    <div style="font-size:0.7rem;color:#777;">完走率（新計測）</div>
+    <div style="font-size:0.7rem;color:#777;">完走率（新計測）{% if not completion_metrics.completion_rate_reliable %}・参考不可{% endif %}</div>
   </div>
   <div style="text-align:center;min-width:72px;">
     <div style="font-size:1.35rem;font-weight:bold;color:#e74c3c;">{{ completion_metrics.estimated_dropoff_count }}</div>
@@ -530,6 +530,9 @@
     <div style="font-size:0.7rem;color:#777;">7日FB率</div>
   </div>
 </div>
+{% if completion_metrics.completion_rate_note %}
+<p style="color:#f5a623;font-size:0.78rem;margin:-8px 0 12px;">{{ completion_metrics.completion_rate_note }}</p>
+{% endif %}
 {% if completion_metrics.dropoff_summary and completion_metrics.dropoff_summary.by_answered %}
 <div style="background:#101820;border:1px solid #263244;border-radius:8px;padding:10px 12px;margin-bottom:16px;">
   <div style="color:#aaa;font-size:0.78rem;margin-bottom:6px;">途中離脱位置（直近{{ completion_metrics.dropoff_summary.days }}日 / pagehide推定）</div>

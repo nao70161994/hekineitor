@@ -1652,11 +1652,34 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn(data.get('action'), ('question', 'guess'))
 
     def test_resume_empty_pairs_returns_first_question(self):
+        from app import engine as app_engine
+        before = app_engine.get_stats().get('start_count', 0)
         res = self.client.post('/api/resume', json={'pairs': []})
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertEqual(data.get('action'), 'question')
         self.assertIn('question_id', data)
+        self.assertEqual(app_engine.get_stats().get('start_count', 0), before)
+
+    def test_resume_with_answers_counts_as_start_source(self):
+        from app import engine as app_engine
+        before = app_engine.get_stats().get('start_count', 0)
+        res = self.client.post('/api/resume', json={'pairs': [{'q_id': 0, 'answer': 1.0}]})
+        self.assertEqual(res.status_code, 200)
+        self.assertGreater(app_engine.get_stats().get('start_count', 0), before)
+
+    def test_funnel_metrics_marks_impossible_completion_rate_unavailable(self):
+        from services.admin_helpers import build_completion_metrics
+        metrics = build_completion_metrics(
+            {'start_count': 10, 'completion_count': 12},
+            [{'start': 5, 'completion': 7}],
+            {},
+        )
+        self.assertIsNone(metrics['completion_rate'])
+        self.assertFalse(metrics['completion_rate_reliable'])
+        self.assertIn('参考不可', metrics['completion_rate_note'])
+        self.assertIsNone(metrics['recent_7_days']['completion_rate'])
+        self.assertFalse(metrics['recent_7_days']['completion_rate_reliable'])
 
     def test_unverified_resumed_guess_skips_learning(self):
         from app import engine as app_engine

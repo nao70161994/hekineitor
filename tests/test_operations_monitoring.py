@@ -271,6 +271,20 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertFalse(unstable['reliable'])
         self.assertIn('参考値', operations_check._completion_label(unstable))
 
+    def test_operations_completion_rate_unavailable_when_completions_exceed_starts(self):
+        metric = operations_check._completion_metric({
+            'completion': {'recent_7_days': {'starts': 10, 'completions': 12, 'completion_rate': 120}},
+        })
+        self.assertIsNone(metric['rate'])
+        self.assertFalse(metric['reliable'])
+        self.assertIn('unavailable', operations_check._completion_label(metric))
+
+        stats = daily_analytics_report._previous_day_stats({
+            'stats_history': [{'date': '2026-05-26', 'start': 10, 'completion': 12}],
+        }, '2026-05-26')
+        self.assertIsNone(stats['completion_rate'])
+        self.assertIn('unavailable', daily_analytics_report._completion_line(stats))
+
     def test_operations_single_5xx_is_warn_not_critical(self):
         def fake_json(path):
             if path == '/health':

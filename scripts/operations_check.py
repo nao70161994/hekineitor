@@ -120,6 +120,8 @@ def _completion_metric(funnel: dict[str, Any], *, min_starts: int = 20) -> dict[
         completions = int(bucket.get('completions') or 0)
         value = bucket.get('completion_rate')
         if isinstance(value, (int, float)):
+            if starts and completions > starts:
+                return {'rate': None, 'starts': starts, 'completions': completions, 'reliable': False, 'source': bucket_name}
             rate = _bounded_percent(value)
             reliable = starts >= min_starts and not (rate >= 99.5 and completions >= starts and starts > 0)
             return {'rate': rate, 'starts': starts, 'completions': completions, 'reliable': reliable, 'source': bucket_name}
@@ -130,6 +132,8 @@ def _completion_metric(funnel: dict[str, Any], *, min_starts: int = 20) -> dict[
         starts = int(row.get('start') or row.get('play') or 0)
         completions = int(row.get('completion') or 0)
         if starts:
+            if completions > starts:
+                return {'rate': None, 'starts': starts, 'completions': completions, 'reliable': False, 'source': 'stats_history'}
             rate = _bounded_percent(_ratio(completions, starts))
             reliable = starts >= min_starts and not (rate >= 99.5 and completions >= starts and starts > 0)
             return {'rate': rate, 'starts': starts, 'completions': completions, 'reliable': reliable, 'source': 'stats_history'}

@@ -18,6 +18,16 @@ def _pct(part, total):
     return round(part / total * 100, 1) if total else None
 
 
+def _completion_rate(completions, starts):
+    if not starts or completions > starts:
+        return None
+    return _pct(completions, starts)
+
+
+def _completion_reliable(completions, starts):
+    return bool(starts and completions <= starts)
+
+
 def build_completion_metrics(app_stats, stats_history, dropoff_summary):
     start_count = _as_int(app_stats.get('start_count'))
     completion_count = _as_int(app_stats.get('completion_count'))
@@ -36,7 +46,8 @@ def build_completion_metrics(app_stats, stats_history, dropoff_summary):
             'completions': completions,
             'dropoffs': dropoffs,
             'feedback_total': feedback,
-            'completion_rate': _pct(completions, starts),
+            'completion_rate': _completion_rate(completions, starts),
+            'completion_rate_reliable': _completion_reliable(completions, starts),
             'feedback_rate': _pct(feedback, completions),
         }
 
@@ -45,7 +56,9 @@ def build_completion_metrics(app_stats, stats_history, dropoff_summary):
         'completion_count': completion_count,
         'legacy_play_count': play_count,
         'learn_count': learn_count,
-        'completion_rate': _pct(completion_count, start_count),
+        'completion_rate': _completion_rate(completion_count, start_count),
+        'completion_rate_reliable': _completion_reliable(completion_count, start_count),
+        'completion_rate_note': '結果到達が開始数を上回っているため参考不可' if completion_count > start_count else '',
         'estimated_dropoff_count': max(start_count - completion_count, 0),
         'dropoff_summary': dropoff_summary,
         'recent_7_days': window(7),
