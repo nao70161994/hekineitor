@@ -30,7 +30,19 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertFalse(result['sent'])
         self.assertTrue(result['skipped'])
 
-    def test_ntfy_builds_topic_url_and_headers(self):
+    def test_ntfy_blocks_local_topic_by_default(self):
+        result = ntfy_notifier.notify(
+            'title',
+            'message',
+            environ={'NTFY_TOPIC': 'shared-ops-topic'},
+            opener=lambda request, timeout=10: self.fail('local opener should not be called'),
+        )
+
+        self.assertFalse(result['sent'])
+        self.assertTrue(result['skipped'])
+        self.assertIn('local ntfy send blocked', result['reason'])
+
+    def test_ntfy_builds_topic_url_and_headers_when_actions_enabled(self):
         calls = []
 
         def fake_open(request, timeout=10):
@@ -42,7 +54,7 @@ class OperationsMonitoringTests(unittest.TestCase):
             'hello',
             priority='high',
             tags='warning',
-            environ={'NTFY_TOPIC': 'heki ops', 'NTFY_SERVER': 'https://ntfy.example.test/'},
+            environ={'NTFY_TOPIC': 'heki ops', 'NTFY_SERVER': 'https://ntfy.example.test/', 'GITHUB_ACTIONS': 'true'},
             opener=fake_open,
         )
 
@@ -118,13 +130,13 @@ class OperationsMonitoringTests(unittest.TestCase):
     def test_operations_check_warn_exit_is_zero_even_when_ntfy_fails(self):
         with patch.object(operations_check, 'build_report', return_value={'severity': 'WARN', 'message': '[WARN] test'}), \
                 patch.object(operations_check, 'notify', side_effect=RuntimeError('ntfy down')), \
-                patch.dict(operations_check.os.environ, {'NTFY_TOPIC': 'topic'}, clear=True):
+                patch.dict(operations_check.os.environ, {'NTFY_TOPIC': 'topic', 'GITHUB_ACTIONS': 'true'}, clear=True):
             self.assertEqual(operations_check.main([]), 0)
 
     def test_operations_check_critical_exit_is_nonzero_when_ntfy_fails(self):
         with patch.object(operations_check, 'build_report', return_value={'severity': 'CRITICAL', 'message': '[CRITICAL] test'}), \
                 patch.object(operations_check, 'notify', side_effect=RuntimeError('ntfy down')), \
-                patch.dict(operations_check.os.environ, {'NTFY_TOPIC': 'topic'}, clear=True):
+                patch.dict(operations_check.os.environ, {'NTFY_TOPIC': 'topic', 'GITHUB_ACTIONS': 'true'}, clear=True):
             self.assertEqual(operations_check.main([]), 1)
 
     def test_operations_report_falls_back_when_share_days_query_fails(self):

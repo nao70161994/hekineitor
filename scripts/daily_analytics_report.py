@@ -195,7 +195,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             result = notify('Hekineitor DAILY failed', message, priority='high', tags='warning')
             if result.get('skipped'):
-                print('ntfy skipped: NTFY_TOPIC is not set')
+                print('ntfy skipped: ' + str(result.get('reason', 'notification disabled')))
         except Exception as notify_exc:
             print(f'ntfy failed: {notify_exc.__class__.__name__}', file=sys.stderr)
         return 1
@@ -203,7 +203,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         result = notify('Hekineitor DAILY', report['message'], priority='default', tags='bar_chart')
         if result.get('skipped'):
-            print('ntfy skipped: NTFY_TOPIC is not set')
+            print('ntfy skipped: ' + str(result.get('reason', 'notification disabled')))
     except Exception as exc:
         print(f'ntfy failed: {exc.__class__.__name__}', file=sys.stderr)
         return 0

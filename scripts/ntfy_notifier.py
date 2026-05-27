@@ -2,8 +2,9 @@
 """Small ntfy helper for operational notifications.
 
 The helper intentionally reads only NTFY_* environment variables and never
-prints secrets. Missing NTFY_TOPIC is treated as a successful no-op so the same
-scripts can run in local, CI, and production cron jobs.
+prints secrets. Missing NTFY_TOPIC is treated as a successful no-op. Local
+execution is also a no-op by default so stale workstation topics cannot send
+notifications to shared operational topics. GitHub Actions can send normally.
 """
 
 from __future__ import annotations
@@ -17,6 +18,17 @@ from urllib.request import Request, urlopen
 
 
 DEFAULT_SERVER = 'https://ntfy.sh'
+
+
+def _truthy(value: str | None) -> bool:
+    return str(value or '').strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def send_allowed(environ: Mapping[str, str] | None = None) -> bool:
+    environ = os.environ if environ is None else environ
+    if _truthy(environ.get('GITHUB_ACTIONS')):
+        return True
+    return _truthy(environ.get('NTFY_ALLOW_LOCAL_SEND'))
 
 
 def _clean_header(value: str, limit: int = 200) -> str:
@@ -44,9 +56,12 @@ def notify(
     opener=urlopen,
     timeout: int = 10,
 ) -> dict:
+    environ = os.environ if environ is None else environ
     url = build_ntfy_url(environ)
     if not url:
         return {'sent': False, 'skipped': True, 'reason': 'NTFY_TOPIC is not set'}
+    if not send_allowed(environ):
+        return {'sent': False, 'skipped': True, 'reason': 'local ntfy send blocked; set NTFY_ALLOW_LOCAL_SEND=1 to override'}
     body = str(message or '').encode('utf-8')
     headers: MutableMapping[str, str] = {
         'Title': _clean_header(title, 120),
@@ -73,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f'ntfy failed: {exc.__class__.__name__}', file=sys.stderr)
         return 1
     if result.get('skipped'):
-        print('ntfy skipped: NTFY_TOPIC is not set')
+        print('ntfy skipped: ' + str(result.get('reason', 'notification disabled')))
     else:
         print('ntfy sent')
     return 0

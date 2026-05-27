@@ -325,7 +325,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             result = notify(f'Hekineitor {report["severity"]}', report['message'], priority=priority, tags=tags)
             if result.get('skipped'):
-                print('ntfy skipped: NTFY_TOPIC is not set')
+                print('ntfy skipped: ' + str(result.get('reason', 'notification disabled')))
         except Exception as exc:
             print(f'ntfy failed: {exc.__class__.__name__}', file=sys.stderr)
             return 1 if report['severity'] == 'CRITICAL' else 0
