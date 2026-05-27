@@ -1,5 +1,8 @@
 window.HekiShare = (() => {
   let diagnosedName = '';
+  let cachedPayload = null;
+  let cachedPayloadKey = '';
+  let pendingPayloadKey = '';
 
   function setDiagnosedName(value) {
     diagnosedName = value || '';
@@ -67,22 +70,52 @@ window.HekiShare = (() => {
     }
   }
 
-  async function sharePayload(name = diagnosedName) {
+  function shareInputs(name = diagnosedName) {
     const guessData = window._guessData || {};
     const probability = guessData.probability || '';
     const desc = (guessData.fetish_desc || '').slice(0, 80);
-    const opening = buildShareText(name, probability, guessData);
-    const shortUrl = await createShortShareUrl(name, probability, desc);
+    return {guessData, probability, desc, name: name || diagnosedName || ''};
+  }
+
+  function payloadKey(inputs) {
+    return [inputs.name, inputs.probability, inputs.desc].join('\u001f');
+  }
+
+  function buildPayload(inputs, url) {
+    const opening = buildShareText(inputs.name, inputs.probability, inputs.guessData);
     return {
-      guessData,
-      probability,
-      url: shortUrl || legacyShareUrl(name, probability, desc),
+      guessData: inputs.guessData,
+      probability: inputs.probability,
+      url,
       text: `${opening}\n#へきネイター`,
     };
   }
 
-  async function openXShare(name = diagnosedName, trackButton = true) {
-    const payload = await sharePayload(name);
+  function prepareSharePayload(name = diagnosedName) {
+    const inputs = shareInputs(name);
+    const key = payloadKey(inputs);
+    if (!cachedPayload || cachedPayloadKey !== key) {
+      cachedPayload = buildPayload(inputs, legacyShareUrl(inputs.name, inputs.probability, inputs.desc));
+      cachedPayloadKey = key;
+    }
+    if (pendingPayloadKey !== key) {
+      pendingPayloadKey = key;
+      createShortShareUrl(inputs.name, inputs.probability, inputs.desc).then(shortUrl => {
+        if (!shortUrl || cachedPayloadKey !== key) return;
+        cachedPayload = buildPayload(inputs, shortUrl);
+      }).catch(() => {});
+    }
+    return cachedPayload;
+  }
+
+  function sharePayloadImmediate(name = diagnosedName) {
+    const inputs = shareInputs(name);
+    if (cachedPayload && cachedPayloadKey === payloadKey(inputs)) return cachedPayload;
+    return prepareSharePayload(name);
+  }
+
+  function openXShare(name = diagnosedName, trackButton = true) {
+    const payload = sharePayloadImmediate(name);
     if (trackButton) trackShareEvent('share_button_click', {resultName: name, channel: 'x', success: true});
     trackShareEvent('x_share_click', {resultName: name, channel: 'x', success: true});
     window.open(
@@ -92,8 +125,8 @@ window.HekiShare = (() => {
     );
   }
 
-  async function shareResult(name = diagnosedName) {
-    const payload = await sharePayload(name);
+  function shareResult(name = diagnosedName) {
+    const payload = sharePayloadImmediate(name);
     trackShareEvent('share_button_click', {resultName: name, channel: 'button', success: true});
     if (navigator.share) {
       navigator.share({title: `あなたの『癖』は…… ${name}`, text: payload.text, url: payload.url})
@@ -112,13 +145,25 @@ window.HekiShare = (() => {
     openXShare(name, false);
   }
 
-  return {buildShareText, resultTitle, resultRarity, setDiagnosedName, shareResult, openXShare, trackShareEvent, legacyShareUrl};
+  return {
+    buildShareText,
+    resultTitle,
+    resultRarity,
+    setDiagnosedName,
+    prepareSharePayload,
+    sharePayloadImmediate,
+    shareResult,
+    openXShare,
+    trackShareEvent,
+    legacyShareUrl,
+  };
 })();
 
 window.setDiagnosedName = value => window.HekiShare.setDiagnosedName(value);
 window._buildShareText = (name, prob, guessData) => window.HekiShare.buildShareText(name, prob, guessData);
 window.shareResult = () => window.HekiShare.shareResult();
 window.shareResultX = () => window.HekiShare.openXShare();
+window.prepareSharePayload = () => window.HekiShare.prepareSharePayload();
 window._trackShareEvent = (eventName, options) => window.HekiShare.trackShareEvent(eventName, options);
 
 window._resultTitle = prob => window.HekiShare.resultTitle(prob);

@@ -182,7 +182,7 @@ class TestSmoke(unittest.TestCase):
             'static/teach.js': [b'window.submitTeach', b'window.addFetishStep1'],
             'static/history.js': [b'window.toggleHistory', b'window.retryExcluding'],
             'static/draft.js': [b'window.resumeGame', b'window._checkDraft', b'window._popDraft'],
-            'static/share.js': [b'window.shareResult', b'window.shareResultX', b'window.setDiagnosedName'],
+            'static/share.js': [b'window.shareResult', b'window.shareResultX', b'window.setDiagnosedName', b'prepareSharePayload', b'sharePayloadImmediate'],
             'static/pwa.js': [b'window.dismissInstall'],
         }
         for relpath, markers in expectations.items():
@@ -199,6 +199,19 @@ class TestSmoke(unittest.TestCase):
         with open(os.path.join(root, 'static', 'game_state.js'), 'rb') as f:
             state = f.read()
         self.assertIn(b'window.setLastFetishName', state)
+
+
+    def test_share_click_handlers_do_not_await_short_link_fetch(self):
+        root = os.path.dirname(os.path.dirname(__file__))
+        with open(os.path.join(root, 'static', 'share.js'), 'rb') as f:
+            share = f.read()
+        self.assertIn(b'function prepareSharePayload', share)
+        self.assertIn(b'function sharePayloadImmediate', share)
+        self.assertIn(b'function shareResult', share)
+        self.assertIn(b'function openXShare', share)
+        self.assertNotIn(b'async function shareResult', share)
+        self.assertNotIn(b'async function openXShare', share)
+        self.assertNotIn(b'await sharePayload', share)
 
     def test_resume_feedback_draft_static_contracts(self):
         root = os.path.dirname(os.path.dirname(__file__))

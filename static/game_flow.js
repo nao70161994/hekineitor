@@ -156,6 +156,7 @@ function showGuess(data) {
     window.setDiagnosedName(data.fetish_name);
   }
 
+  if (window.HekiShare?.prepareSharePayload) window.HekiShare.prepareSharePayload();
   saveHistory(data.fetish_name, data.probability, data.fetish_id);
   show('result-screen');
 }

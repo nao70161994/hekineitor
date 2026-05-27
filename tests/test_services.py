@@ -6,7 +6,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import audit
-from services import admin_context, admin_helpers, admin_security, bootstrap, context, csv_safety, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, ogp, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, question_events, result_exposure, share_links, share_notes, system_context, test_play
+from services import admin_context, admin_helpers, admin_security, bootstrap, context, csv_safety, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, ogp, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, question_events, result_exposure, improvement_candidates, share_links, share_notes, system_context, test_play
 
 
 class DummyRequest:
@@ -1097,8 +1097,8 @@ class TestServices(unittest.TestCase):
         ctx.inference_context = lambda: type('InferenceCtx', (), {
             'engine': ctx.engine,
             'session': ctx.session,
-            'work_title': lambda work: str(work),
-            'get_compound_works': lambda a, b: [],
+            'work_title': staticmethod(lambda work: str(work)),
+            'get_compound_works': staticmethod(lambda a, b: []),
             'profile_min_ratio': 0.25,
             'profile_min_prob': 0.08,
             'compound_ratio': 0.55,
@@ -1109,6 +1109,102 @@ class TestServices(unittest.TestCase):
         result = inference.make_guess(ctx, {})
         self.assertEqual(result['fetish_id'], 7)
         self.assertEqual(calls, ['increment', 'quality', ('guessed', 7)])
+
+
+    def test_inference_exposure_adjusted_result_drives_side_effects(self):
+        calls = []
+
+        class Engine:
+            fetishes = [
+                {'id': 1, 'name': '激重感情', 'desc': 'heavy', 'works': []},
+                {'id': 2, 'name': '白衣', 'desc': 'lab', 'works': []},
+            ]
+            questions = []
+            config = {'compound_ratio': 0.95, 'triple_ratio': 0.9}
+
+            def increment_play_count(self):
+                calls.append('increment')
+
+            def posteriors(self, answers):
+                return [0.62, 0.58]
+
+            def get_related(self, source_db_id):
+                return []
+
+            def get_answer_contributions(self, answers, fetish_idx):
+                return [{'q_id': 3, 'answer': 1, 'question': 'q'}]
+
+            def log_guessed(self, fetish_id):
+                calls.append(('guessed', fetish_id))
+
+            def index_of(self, fetish_id):
+                for index, fetish in enumerate(self.fetishes):
+                    if fetish['id'] == fetish_id:
+                        return index
+                return None
+
+        ctx = type('Ctx', (), {})()
+        ctx.engine = Engine()
+        ctx.session = {}
+        ctx.soft_max_questions = 20
+        ctx.mark_guess_quality = lambda engine, session, answers, soft: calls.append('quality')
+        ctx.record_question_event = lambda event_name, **kwargs: calls.append((event_name, kwargs.get('result_name')))
+        ctx.record_result_exposure = lambda fetish_id, name, probability, **kwargs: calls.append(('exposure', fetish_id, name, probability, kwargs.get('rank')))
+        ctx.inference_context = lambda: type('InferenceCtx', (), {
+            'engine': ctx.engine,
+            'session': ctx.session,
+            'work_title': staticmethod(lambda work: str(work)),
+            'get_compound_works': staticmethod(lambda a, b: []),
+            'profile_min_ratio': 0.25,
+            'profile_min_prob': 0.08,
+            'compound_ratio': 0.95,
+            'triple_ratio': 0.9,
+            'adjust_result_ranking': staticmethod(lambda probs, ranked: [1, 0]),
+        })()
+        ctx.jsonify = lambda payload: payload
+
+        result = inference.make_guess(ctx, {})
+        self.assertEqual(result['fetish_id'], 2)
+        self.assertEqual(result['fetish_name'], '白衣')
+        self.assertEqual(ctx.session['last_guess_fetish_id'], 2)
+        self.assertIn(('exposure', 2, '白衣', 58.0, 1), calls)
+        self.assertIn(('guessed', 2), calls)
+        self.assertIn(('question_result_contribution', '白衣'), calls)
+
+    def test_admin_read_token_guard_method_matrix(self):
+        for method in ('POST', 'PUT', 'PATCH', 'DELETE'):
+            req = DummyRequest(headers={'Authorization': 'Bearer token'}, method=method)
+            response = admin_security.read_token_guard_response(
+                req,
+                {'ADMIN_READ_TOKEN': 'token'},
+                lambda body, status=200, headers=None: (body, status, headers),
+                lambda scope, limit: None,
+            )
+            self.assertEqual(response[1], 403)
+        head_req = DummyRequest(headers={'Authorization': 'Bearer token'}, method='HEAD')
+        self.assertIsNone(admin_security.read_token_guard_response(
+            head_req,
+            {'ADMIN_READ_TOKEN': 'token'},
+            lambda body, status=200, headers=None: (body, status, headers),
+            lambda scope, limit: None,
+        ))
+
+    def test_improvement_candidates_summarize_actionable_signals(self):
+        report = {
+            'questions': [
+                {'question_id': 1, 'question_text': '広い質問', 'category': 'value', 'shown': 20, 'answered': 20, 'yes_rate': 95.0, 'no_rate': 5.0, 'dropoff_rate': 0, 'dropoff': 0, 'contribution': 2, 'top_results': []},
+                {'question_id': 2, 'question_text': '狭い質問', 'category': 'world', 'shown': 20, 'answered': 20, 'yes_rate': 5.0, 'no_rate': 95.0, 'dropoff_rate': 0, 'dropoff': 0, 'contribution': 2, 'top_results': []},
+                {'question_id': 3, 'question_text': '離脱質問', 'category': 'relation', 'shown': 20, 'answered': 10, 'yes_rate': 50.0, 'no_rate': 50.0, 'dropoff_rate': 45.0, 'dropoff': 9, 'contribution': 8, 'top_results': [{'result_name': '激重感情', 'count': 7}]},
+            ]
+        }
+        events = [result_exposure.build_event(1, '激重感情') for _ in range(25)]
+        events.extend(result_exposure.build_event(2, '白衣') for _ in range(10))
+        candidates = improvement_candidates.build_candidates(report, exposure_events=events, limit=3)
+        self.assertEqual(candidates['yes_rate_high'][0]['question_id'], 1)
+        self.assertEqual(candidates['yes_rate_low'][0]['question_id'], 2)
+        self.assertEqual(candidates['dropoff_top'][0]['question_id'], 3)
+        self.assertEqual(candidates['heavy_result_contributors'][0]['question_id'], 3)
+        self.assertEqual(candidates['result_diversity']['status'], 'needs_review')
 
 
 

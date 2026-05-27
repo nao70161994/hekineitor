@@ -1422,6 +1422,8 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('analysis_log_status', data)
         self.assertIn('share_links_count', data)
         self.assertIsInstance(data['share_links_count'], int)
+        self.assertIn('improvement_candidates', data)
+        self.assertIn('result_diversity', data['improvement_candidates'])
 
     def test_admin_read_token_security_contract_for_read_endpoints(self):
         import app as app_module
@@ -2080,6 +2082,21 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertTrue(res.data.startswith(b'\x89PNG\r\n\x1a\n'))
         width, height = struct.unpack('>II', res.data[16:24])
         self.assertEqual((width, height), (1200, 630))
+
+    def test_ogp_png_rate_limit_can_be_enforced(self):
+        import app as app_module
+        app.config['ENFORCE_RATE_LIMIT'] = True
+        app.config['RATE_LIMIT_OVERRIDES'] = {'ogp_png': (1, 60)}
+        app_module._RATE_LIMIT_BUCKETS.clear()
+        try:
+            self.assertEqual(self.client.get('/ogp.png?f=NTR&p=82').status_code, 200)
+            limited = self.client.get('/ogp.png?f=NTR&p=82')
+            self.assertEqual(limited.status_code, 429)
+            self.assertIn('Retry-After', limited.headers)
+        finally:
+            app.config.pop('ENFORCE_RATE_LIMIT', None)
+            app.config.pop('RATE_LIMIT_OVERRIDES', None)
+            app_module._RATE_LIMIT_BUCKETS.clear()
 
     def test_ogp_font_path_env_is_preferred(self):
         with patch.dict(os.environ, {'OGP_FONT_PATH': '/tmp/custom-ogp-font.ttf'}):

@@ -18,6 +18,7 @@ def build(
     error_page,
     record_share_event,
     learning_disabled,
+    rate_limit=None,
 ):
     return context.seo_context(
         engine=engine,
@@ -34,7 +35,7 @@ def build(
         result_tagline=share.result_tagline,
         result_title=share.result_title,
         result_rarity=share.result_rarity,
-        generate_ogp_png=ogp.generate_png,
+        generate_ogp_png=ogp.generate_png_safe,
         render_ogp_svg=ogp.render_svg,
         safe_work_url=safe_work_url,
         amazon_associate_id=amazon_associate_id,
@@ -42,4 +43,5 @@ def build(
         error_page=error_page,
         record_share_event=record_share_event,
         learning_disabled=learning_disabled,
+        rate_limit=rate_limit or (lambda *_args, **_kwargs: None),
     )

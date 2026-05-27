@@ -3,7 +3,7 @@ import random
 
 
 HEAVY_RELATION_RESULT_NAMES = {'共依存', '激重感情', '共生関係', '執着'}
-DIVERSIFYING_EARLY_CATEGORIES = {'attribute', 'world', 'aesthetic', 'value'}
+DIVERSIFYING_EARLY_CATEGORIES = {'attribute', 'world', 'aesthetic', 'value', 'role'}
 HEAVY_RELATION_CATEGORIES = {'relation', 'attachment'}
 HEAVY_EMOTION_CATEGORIES = {'relation', 'attachment', 'tone'}
 
@@ -137,16 +137,16 @@ def best_question(engine, answers, asked, idk_streak=0, *, question_axes, focus_
         if category in recent_categories:
             weighted *= 0.72
         if len(asked_list) < 5 and category in {'relation', 'attachment'} and category in asked_category_set:
-            weighted *= 0.62
-        if early_game and category in {'attribute', 'world', 'tone', 'value', 'aesthetic'} and category not in asked_category_set:
+            weighted *= 0.50
+        if early_game and category in {'attribute', 'world', 'tone', 'value', 'aesthetic', 'role'} and category not in asked_category_set:
             weighted *= 1.08
         if (early_game and heavy_relation_top) or (len(asked_list) < 6 and heavy_relation_cluster):
             if category in DIVERSIFYING_EARLY_CATEGORIES and category not in asked_category_set:
-                weighted *= 1.35
+                weighted *= 1.50
             elif category in HEAVY_EMOTION_CATEGORIES:
-                weighted *= 0.50
+                weighted *= 0.42
         if len(asked_list) >= 2 and recent_categories.count(category) >= 2:
-            weighted *= 0.55
+            weighted *= 0.48
         if axis_filter is None or axis_name in axis_filter:
             if weighted > best_filtered_score:
                 best_filtered_score = weighted

@@ -240,6 +240,9 @@ def result_share_by_id(ctx, share_id):
 
 
 def ogp_png_image(ctx):
+    limited = ctx.rate_limit('ogp_png', 120)
+    if limited:
+        return limited
     name = ctx.request.args.get('f', '???')[:30]
     probability = ctx.clean_probability(ctx.request.args.get('p', ''))
     ctx.record_share_event('ogp_png_view', result_name=name, channel='ogp', success=True)

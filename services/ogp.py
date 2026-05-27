@@ -260,6 +260,13 @@ def generate_png(name, prob):
     return buf.getvalue()
 
 
+def generate_png_safe(name, prob):
+    try:
+        return generate_png(name, prob)
+    except Exception:
+        return _minimal_png()
+
+
 def render_svg(name, prob):
     """診断結果のOGP画像をSVGで動的生成する（1200×630 Twitter推奨サイズ）。"""
     name = (name or '???')[:30]

@@ -110,6 +110,7 @@ def _seo_context():
         error_page=system_routes.ERROR_PAGE,
         record_share_event=lambda *args, **kwargs: share_events_service.safe_record_event(*args, environ=os.environ, **kwargs),
         learning_disabled=lambda: test_play_service.is_learning_disabled(session),
+        rate_limit=_flask_runtime().rate_limit,
     )
 
 
