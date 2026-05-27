@@ -38,8 +38,8 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
 
     def test_best_question_snapshots_with_deterministic_randomness(self):
         cases = [
-            ({}, set(), 0, 91),
-            ({'0': 0, '1': 0}, {0, 1}, 2, 91),
+            ({}, set(), 0, 88),
+            ({'0': 0, '1': 0}, {0, 1}, 2, 136),
             ({'8': 1, '6': 1, '0': 1, '40': 1}, {0, 6, 8, 40}, 0, 18),
         ]
         for answers, asked, idk_streak, expected_question in cases:
@@ -79,8 +79,8 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
             question_id = self.engine.best_question({}, asked)
             first_questions.append(question_id)
             asked.add(question_id)
-        self.assertNotIn(2, first_questions)
-        self.assertNotIn(60, first_questions)
+        for question_id in (2, 55, 60, 87, 91, 105, 120, 126, 132):
+            self.assertNotIn(question_id, first_questions)
 
     def test_yes_streak_does_not_overconcentrate_heavy_relation_results(self):
         asked = set()
@@ -96,6 +96,14 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
         ]
         heavy_names = {'共依存', '激重感情', '共生関係', '執着'}
         self.assertLessEqual(sum(name in heavy_names for name in ranked_names), 1)
+
+
+    def test_heavy_emotion_cluster_prefers_diversifying_categories(self):
+        answers = {'60': 1, '2': 1, '91': 1}
+        asked = {60, 2, 91}
+        question_id = self.engine.best_question(answers, asked)
+        self.assertIn(self.engine._question_category(question_id), {'attribute', 'world', 'aesthetic', 'value', 'role'})
+        self.assertNotIn(question_id, {55, 87, 105, 120, 126, 132})
 
     def test_attribute_world_aesthetic_pattern_surfaces_non_heavy_candidates(self):
         answers = {'136': 1, '141': 1, '123': 1, '70': -1, '60': -1, '2': -1}

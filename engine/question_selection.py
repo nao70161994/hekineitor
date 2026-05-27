@@ -5,6 +5,7 @@ import random
 HEAVY_RELATION_RESULT_NAMES = {'共依存', '激重感情', '共生関係', '執着'}
 DIVERSIFYING_EARLY_CATEGORIES = {'attribute', 'world', 'aesthetic', 'value'}
 HEAVY_RELATION_CATEGORIES = {'relation', 'attachment'}
+HEAVY_EMOTION_CATEGORIES = {'relation', 'attachment', 'tone'}
 
 
 def question_axis(question_id, question_axes):
@@ -43,7 +44,9 @@ def best_question(engine, answers, asked, idk_streak=0, *, question_axes, focus_
     top_p = max(probs)
     ranked_by_prob = sorted(range(nf), key=lambda i: probs[i], reverse=True)
     top_fetish = engine.fetishes[ranked_by_prob[0]] if ranked_by_prob else {}
+    top_names = [engine.fetishes[index].get('name') for index in ranked_by_prob[:4]]
     heavy_relation_top = top_fetish.get('name') in HEAVY_RELATION_RESULT_NAMES
+    heavy_relation_cluster = sum(name in HEAVY_RELATION_RESULT_NAMES for name in top_names) >= 2
     if top_p >= focus_threshold:
         ranked = sorted(range(nf), key=lambda i: probs[i], reverse=True)
         focus = set(ranked[:focus_top_n])
@@ -137,11 +140,11 @@ def best_question(engine, answers, asked, idk_streak=0, *, question_axes, focus_
             weighted *= 0.62
         if early_game and category in {'attribute', 'world', 'tone', 'value', 'aesthetic'} and category not in asked_category_set:
             weighted *= 1.08
-        if early_game and heavy_relation_top:
+        if (early_game and heavy_relation_top) or (len(asked_list) < 6 and heavy_relation_cluster):
             if category in DIVERSIFYING_EARLY_CATEGORIES and category not in asked_category_set:
-                weighted *= 1.22
-            elif category in HEAVY_RELATION_CATEGORIES:
-                weighted *= 0.58
+                weighted *= 1.35
+            elif category in HEAVY_EMOTION_CATEGORIES:
+                weighted *= 0.50
         if len(asked_list) >= 2 and recent_categories.count(category) >= 2:
             weighted *= 0.55
         if axis_filter is None or axis_name in axis_filter:
