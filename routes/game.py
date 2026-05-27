@@ -33,6 +33,15 @@ def _parse_exclude_ids(raw_ids):
     return ids
 
 
+def _parse_question_id(value):
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _question_text(ctx, question_id):
     q_data = ctx.engine.questions[question_id]
     variants = q_data.get('variants', [])
@@ -795,6 +804,10 @@ def dropoff(ctx):
     if question_id is None:
         asked = ctx.session.get('asked', [])
         question_id = asked[-1] if asked else None
+    else:
+        question_id = _parse_question_id(question_id)
+        if question_id is None or question_id < 0 or question_id >= len(ctx.engine.questions):
+            return ctx.jsonify({'status': 'error', 'message': '不正な question_id です'}), 400
     _record_question_event(ctx, 'question_dropoff', question_id, answered_count=answered_count)
     ctx.engine.log_dropoff(answered_count)
     ctx.session['dropoff_recorded'] = True

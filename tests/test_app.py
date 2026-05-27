@@ -2673,6 +2673,19 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             self.assertEqual(res2.get_json()['status'], 'ignored')
             recorder.assert_called_once()
 
+    def test_dropoff_rejects_invalid_question_id(self):
+        from app import engine as app_engine
+        with self.client.session_transaction() as sess:
+            sess['started'] = True
+            sess['completed'] = False
+            sess['answers'] = {'1': 1.0}
+            sess['dropoff_recorded'] = False
+        with patch.object(app_engine, 'log_dropoff') as recorder:
+            res = self.client.post('/api/dropoff', json={'question_id': 'not-a-number'})
+            self.assertEqual(res.status_code, 400)
+            self.assertEqual(res.get_json()['status'], 'error')
+            recorder.assert_not_called()
+
     def test_dropoff_ignored_after_completion(self):
         from app import engine as app_engine
         with self.client.session_transaction() as sess:
