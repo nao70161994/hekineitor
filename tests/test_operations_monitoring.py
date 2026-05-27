@@ -63,7 +63,7 @@ class OperationsMonitoringTests(unittest.TestCase):
                     'status': 'ok',
                     'storage': 'local_json',
                     'matrix': {'ok': False},
-                    'runtime': {'error_counts': {'5xx': 2}},
+                    'runtime': {'error_counts': {'5xx': 3}},
                 }
             if path == '/api/admin/preflight':
                 return {'checks': [{'name': 'matrix_shape', 'ok': False, 'detail': 'bad'}]}
@@ -79,7 +79,7 @@ class OperationsMonitoringTests(unittest.TestCase):
                     'dropoff_ranking': [{'question_id': 2, 'shown': 10, 'dropoff_rate': 40}],
                 }
             if path == '/api/admin/funnel_metrics':
-                return {'completion': {'recent_7_days': {'completion_rate': 3}, 'completion_rate': 103}}
+                return {'completion': {'recent_7_days': {'starts': 30, 'completions': 1, 'completion_rate': 3}, 'completion_rate': 103}}
             if path.startswith('/api/admin/share_events'):
                 return {'total': 5, 'metrics': {'result_page_views': 30, 'share_actions': 0}}
             raise AssertionError(path)
@@ -143,7 +143,7 @@ class OperationsMonitoringTests(unittest.TestCase):
             if path.startswith('/api/admin/question_events'):
                 return {'total': 0, 'metrics': {}, 'questions': [], 'dropoff_ranking': []}
             if path == '/api/admin/funnel_metrics':
-                return {'completion': {'recent_7_days': {'completion_rate': 50}}}
+                return {'completion': {'recent_7_days': {'starts': 30, 'completions': 15, 'completion_rate': 50}}}
             if path == '/api/admin/share_events?days=7&limit=5000':
                 raise HTTPError(path, 500, 'server error', hdrs=None, fp=None)
             if path == '/api/admin/share_events?limit=5000':
@@ -175,7 +175,7 @@ class OperationsMonitoringTests(unittest.TestCase):
             if path.startswith('/api/admin/question_events'):
                 return {'total': 1, 'metrics': {}, 'questions': [], 'dropoff_ranking': []}
             if path == '/api/admin/funnel_metrics':
-                return {'completion': {'recent_7_days': {'completion_rate': 50}}}
+                return {'completion': {'recent_7_days': {'starts': 30, 'completions': 15, 'completion_rate': 50}}}
             if path.startswith('/api/admin/share_events'):
                 raise HTTPError(path, 403, 'forbidden', hdrs=None, fp=None)
             raise AssertionError(path)
@@ -212,7 +212,7 @@ class OperationsMonitoringTests(unittest.TestCase):
 
         self.assertEqual(report['status'], 'ok')
         self.assertIn('plays: 100', report['message'])
-        self.assertIn('completion_rate: 20.0%', report['message'])
+        self.assertIn('completion_rate: 20.0% (20/100)', report['message'])
         self.assertIn('共依存 40', report['message'])
         self.assertNotIn('unknown 40', report['message'])
         self.assertIn('heavy_result_ratio: 40.0%', report['message'])
@@ -252,16 +252,51 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertEqual(stats['date'], '2026-05-26')
         self.assertEqual(stats['plays'], 50)
         self.assertEqual(stats['completion_rate'], 50.0)
+        self.assertTrue(stats['completion_reliable'])
 
-    def test_operations_completion_rate_prefers_recent_bucket_and_clamps(self):
-        self.assertEqual(
-            operations_check._latest_completion_rate({'completion': {'recent_7_days': {'completion_rate': 42}, 'completion_rate': 101.8}}),
-            42.0,
+    def test_daily_report_marks_completion_rate_as_reference_when_unstable(self):
+        stats = daily_analytics_report._previous_day_stats({
+            'stats_history': [{'date': '2026-05-26', 'start': 8, 'completion': 8}],
+        }, '2026-05-26')
+
+        self.assertIn('completion_rate: 100.0% (参考値) (8/8)', daily_analytics_report._completion_line(stats))
+
+    def test_operations_completion_rate_prefers_recent_bucket_and_marks_reference(self):
+        metric = operations_check._completion_metric({'completion': {'recent_7_days': {'starts': 30, 'completions': 12, 'completion_rate': 42}, 'completion_rate': 101.8}})
+        self.assertEqual(metric['rate'], 42.0)
+        self.assertTrue(metric['reliable'])
+
+        unstable = operations_check._completion_metric({'completion': {'recent_7_days': {'starts': 8, 'completions': 8, 'completion_rate': 100}}})
+        self.assertEqual(unstable['rate'], 100.0)
+        self.assertFalse(unstable['reliable'])
+        self.assertIn('参考値', operations_check._completion_label(unstable))
+
+    def test_operations_single_5xx_is_warn_not_critical(self):
+        def fake_json(path):
+            if path == '/health':
+                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 1}}}
+            if path == '/api/admin/preflight':
+                return {'checks': []}
+            if path == '/api/admin/works_health':
+                return {'maintenance': {'works_count': 100}}
+            if path.startswith('/api/admin/recent_fetish_ranking'):
+                return {'ranking': []}
+            if path.startswith('/api/admin/question_events'):
+                return {'total': 1, 'metrics': {}, 'questions': [], 'dropoff_ranking': []}
+            if path == '/api/admin/funnel_metrics':
+                return {'completion': {'recent_7_days': {'starts': 30, 'completions': 15, 'completion_rate': 50}}}
+            if path.startswith('/api/admin/share_events'):
+                return {'total': 1, 'metrics': {'result_page_views': 1, 'share_actions': 0}}
+            raise AssertionError(path)
+
+        report = operations_check.build_report(
+            environ={'ADMIN_READ_TOKEN': 'token'},
+            json_getter=fake_json,
+            bytes_getter=lambda path: operations_check.PNG_SIGNATURE + b'abc',
         )
-        self.assertEqual(
-            operations_check._latest_completion_rate({'completion': {'completion_rate': 101.8}}),
-            100.0,
-        )
+
+        self.assertEqual(report['severity'], 'WARN')
+        self.assertIn('5xx errors=1 (単発は様子見)', report['message'])
 
 
 if __name__ == '__main__':

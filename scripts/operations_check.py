@@ -112,17 +112,17 @@ def _works_count(works_health: dict[str, Any]) -> int | None:
     return None
 
 
-def _latest_completion_rate(funnel: dict[str, Any]) -> float | None:
+def _completion_metric(funnel: dict[str, Any], *, min_starts: int = 20) -> dict[str, Any]:
     completion = funnel.get('completion') or {}
     for bucket_name in ('recent_7_days', 'recent_30_days'):
         bucket = completion.get(bucket_name) or {}
+        starts = int(bucket.get('starts') or 0)
+        completions = int(bucket.get('completions') or 0)
         value = bucket.get('completion_rate')
         if isinstance(value, (int, float)):
-            return _bounded_percent(value)
-    for key in ('completion_rate', 'recent_completion_rate', 'complete_rate'):
-        value = completion.get(key)
-        if isinstance(value, (int, float)):
-            return _bounded_percent(value)
+            rate = _bounded_percent(value)
+            reliable = starts >= min_starts and not (rate >= 99.5 and completions >= starts and starts > 0)
+            return {'rate': rate, 'starts': starts, 'completions': completions, 'reliable': reliable, 'source': bucket_name}
     history = funnel.get('stats_history') or []
     active_rows = [row for row in history if int(row.get('start') or row.get('play') or row.get('completion') or 0) > 0]
     if active_rows:
@@ -130,8 +130,29 @@ def _latest_completion_rate(funnel: dict[str, Any]) -> float | None:
         starts = int(row.get('start') or row.get('play') or 0)
         completions = int(row.get('completion') or 0)
         if starts:
-            return _bounded_percent(_ratio(completions, starts))
-    return None
+            rate = _bounded_percent(_ratio(completions, starts))
+            reliable = starts >= min_starts and not (rate >= 99.5 and completions >= starts and starts > 0)
+            return {'rate': rate, 'starts': starts, 'completions': completions, 'reliable': reliable, 'source': 'stats_history'}
+    for key in ('completion_rate', 'recent_completion_rate', 'complete_rate'):
+        value = completion.get(key)
+        if isinstance(value, (int, float)):
+            return {'rate': _bounded_percent(value), 'starts': 0, 'completions': 0, 'reliable': False, 'source': key}
+    return {'rate': None, 'starts': 0, 'completions': 0, 'reliable': False, 'source': 'unavailable'}
+
+
+def _latest_completion_rate(funnel: dict[str, Any]) -> float | None:
+    return _completion_metric(funnel).get('rate')
+
+
+def _completion_label(metric: dict[str, Any]) -> str:
+    rate = metric.get('rate')
+    if rate is None:
+        return 'completion_rate=unavailable'
+    suffix = '' if metric.get('reliable') else ' (参考値)'
+    starts = int(metric.get('starts') or 0)
+    completions = int(metric.get('completions') or 0)
+    sample = f' ({completions}/{starts})' if starts else ''
+    return f'completion_rate={_pct(rate)}{suffix}{sample}'
 
 
 def build_report(
@@ -159,8 +180,11 @@ def build_report(
             critical.append('matrix shape mismatch')
         errors = ((health.get('runtime') or {}).get('error_counts') or {})
         five_xx = int(errors.get('5xx') or 0)
-        if five_xx >= _env_int(environ, 'NTFY_5XX_CRITICAL_COUNT', 1):
+        critical_5xx = _env_int(environ, 'NTFY_5XX_CRITICAL_COUNT', 3)
+        if five_xx >= critical_5xx:
             critical.append(f'5xx errors={five_xx}')
+        elif five_xx > 0:
+            warn.append(f'5xx errors={five_xx} (単発は様子見)')
     except Exception as exc:
         critical.append(f'/health failed: {exc.__class__.__name__}')
         health = {}
@@ -231,11 +255,18 @@ def build_report(
 
         try:
             funnel = json_getter('/api/admin/funnel_metrics')
-            completion_rate = _latest_completion_rate(funnel)
-            if completion_rate is not None:
-                daily.append(f'completion_rate={_pct(completion_rate)}')
+            completion_metric = _completion_metric(
+                funnel,
+                min_starts=_env_int(environ, 'NTFY_COMPLETION_MIN_STARTS', 20),
+            )
+            completion_rate = completion_metric.get('rate')
+            daily.append(_completion_label(completion_metric))
+            if completion_rate is None:
+                warn.append('completion_rate unavailable; start/completion母数が不足しています')
+            elif not completion_metric.get('reliable'):
+                warn.append(_completion_label(completion_metric))
             min_feedback = _env_float(environ, 'NTFY_FEEDBACK_WARN_RATE', 5.0)
-            if completion_rate is not None and completion_rate < min_feedback:
+            if completion_metric.get('reliable') and completion_rate is not None and completion_rate < min_feedback:
                 warn.append(f'feedback/completion rate low={_pct(completion_rate)}')
         except Exception as exc:
             warn.append(f'funnel unavailable: {_error_label(exc)}')

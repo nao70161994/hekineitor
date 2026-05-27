@@ -52,7 +52,7 @@ def _result_count(row: dict[str, Any]) -> int:
     return int(row.get('total') or row.get('count') or row.get('guessed') or 0)
 
 
-def _previous_day_stats(funnel: dict[str, Any], target_date: str) -> dict[str, Any]:
+def _previous_day_stats(funnel: dict[str, Any], target_date: str, *, min_starts: int = 20) -> dict[str, Any]:
     rows = funnel.get('stats_history') or []
     selected = None
     for row in rows:
@@ -66,12 +66,24 @@ def _previous_day_stats(funnel: dict[str, Any], target_date: str) -> dict[str, A
     plays = _metric(selected, 'start', 'play', 'guessed', 'plays', 'total')
     completions = _metric(selected, 'completion', 'completed', 'confirmed')
     feedback = _metric(selected, 'feedback_total') or (_metric(selected, 'correct') + _metric(selected, 'wrong'))
+    rate = _bounded_percent(_ratio(completions, plays)) if plays else None
+    reliable = plays >= min_starts and rate is not None and not (rate >= 99.5 and completions >= plays and plays > 0)
     return {
         'date': str(selected.get('date') or selected.get('day') or target_date)[:10],
         'plays': plays,
+        'completions': completions,
         'feedback': feedback,
-        'completion_rate': _bounded_percent(_ratio(completions, plays)),
+        'completion_rate': rate,
+        'completion_reliable': reliable,
     }
+
+
+def _completion_line(stats: dict[str, Any]) -> str:
+    rate = stats.get('completion_rate')
+    if rate is None:
+        return 'completion_rate: unavailable'
+    suffix = '' if stats.get('completion_reliable') else ' (参考値)'
+    return f"completion_rate: {_pct(rate)}{suffix} ({stats.get('completions', 0)}/{stats.get('plays', 0)})"
 
 
 def _top_results(ranking: list[dict[str, Any]], limit: int = 5) -> list[str]:
@@ -149,7 +161,7 @@ def build_daily_report(
         '[DAILY] Hekineitor analytics',
         f"date: {stats['date']}",
         f"plays: {stats['plays']}",
-        f"completion_rate: {_pct(stats['completion_rate'])}",
+        _completion_line(stats),
         f"heavy_result_ratio: {_pct(_heavy_ratio(ranking))}",
         f"share_rate: {_pct(share_rate)} ({share_actions}/{result_views})",
         f"question_events: {questions.get('total', 0)}",

@@ -1972,6 +1972,20 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('question_id,category,axis,shown', questions_csv.data.decode('utf-8').splitlines()[0])
         self.assertIn('category,shown,shown_share', category_csv.data.decode('utf-8').splitlines()[0])
 
+    def test_high_yes_rate_questions_are_reworded_to_tradeoffs(self):
+        from app import engine as app_engine
+        self.assertEqual(
+            app_engine.questions[35]['text'],
+            '感情をはっきり言葉にする人より、沈黙や間で伝わる人の方が気になる？',
+        )
+        self.assertEqual(app_engine.questions[35].get('category'), 'tone')
+        self.assertEqual(
+            app_engine.questions[141]['text'],
+            '生活感のある賑やかさより、余白が多く整った静けさの方が落ち着く？',
+        )
+        self.assertEqual(app_engine.questions[141].get('category'), 'aesthetic')
+
+
     def test_question_events_are_recorded_without_personal_fields(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'question_events.jsonl')
