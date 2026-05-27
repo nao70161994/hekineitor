@@ -651,14 +651,20 @@ def load_dropoff_totals(since, *, get_conn, put_conn):
     finally:
         put_conn(conn)
 
-def load_feedback_totals(since, *, get_conn, put_conn):
+def load_feedback_totals(since, until=None, *, get_conn, put_conn):
     conn = get_conn()
     try:
         cur = conn.cursor()
-        cur.execute(
-            "SELECT key, SUM(value) FROM stats_history WHERE date >= %s AND (key LIKE 'f_guessed_%%' OR key LIKE 'f_correct_%%' OR key LIKE 'f_wrong_%%') GROUP BY key",
-            (since,),
-        )
+        if until:
+            cur.execute(
+                "SELECT key, SUM(value) FROM stats_history WHERE date >= %s AND date <= %s AND (key LIKE 'f_guessed_%%' OR key LIKE 'f_correct_%%' OR key LIKE 'f_wrong_%%') GROUP BY key",
+                (since, until),
+            )
+        else:
+            cur.execute(
+                "SELECT key, SUM(value) FROM stats_history WHERE date >= %s AND (key LIKE 'f_guessed_%%' OR key LIKE 'f_correct_%%' OR key LIKE 'f_wrong_%%') GROUP BY key",
+                (since,),
+            )
         totals = {}
         for key, value in cur.fetchall():
             if key.startswith('f_guessed_'):

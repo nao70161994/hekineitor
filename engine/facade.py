@@ -295,14 +295,18 @@ class Engine:
             totals = engine_reporting.dropoff_totals_from_history(raw, date_range)
         return engine_reporting.format_dropoff_summary(totals, days, top_n=top_n)
 
-    def get_recent_fetish_ranking(self, days=7, top_n=10):
+    def get_recent_fetish_ranking(self, days=7, top_n=10, end_date=None):
         """過去N日間に診断結果へ出た性癖TOP n件とFB指標を返す。"""
         from datetime import date as _date, timedelta
-        today = _date.today()
+        try:
+            today = _date.fromisoformat(str(end_date)[:10]) if end_date else _date.today()
+        except (TypeError, ValueError):
+            today = _date.today()
         since = (today - timedelta(days=days - 1)).isoformat()
+        until = today.isoformat()
         totals = {}  # fetish_id -> {'guessed': int, 'correct': int, 'wrong': int}
         if _use_db():
-            totals = engine_db.load_feedback_totals(since, get_conn=_get_conn, put_conn=_put_conn)
+            totals = engine_db.load_feedback_totals(since, until=until if end_date else None, get_conn=_get_conn, put_conn=_put_conn)
         else:
             path = os.path.join(DATA_DIR, 'stats_history.json')
             raw = engine_stats.read_json_path(path, {})

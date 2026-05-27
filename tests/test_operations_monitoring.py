@@ -194,6 +194,7 @@ class OperationsMonitoringTests(unittest.TestCase):
             if path == '/api/admin/funnel_metrics':
                 return {'stats_history': [{'date': '2026-05-26', 'start': 100, 'completion': 20, 'correct': 7, 'wrong': 3}]}
             if path.startswith('/api/admin/recent_fetish_ranking'):
+                self.assertIn('date=2026-05-26', path)
                 return {'ranking': [{'fetish_name': '共依存', 'guessed': 40, 'total': 40}, {'fetish_name': '眼鏡', 'guessed': 60, 'total': 60}]}
             if path.startswith('/api/admin/share_events'):
                 return {'total': 12, 'metrics': {'result_page_views': 50, 'share_actions': 5}}

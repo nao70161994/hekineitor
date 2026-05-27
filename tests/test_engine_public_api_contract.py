@@ -39,7 +39,7 @@ EXPECTED_PUBLIC_METHOD_SIGNATURES = {
     'get_stats': '(self)',
     'get_stats_history': '(self, days=30)',
     'get_dropoff_summary': '(self, days=7, top_n=8)',
-    'get_recent_fetish_ranking': '(self, days=7, top_n=10)',
+    'get_recent_fetish_ranking': '(self, days=7, top_n=10, end_date=None)',
     'get_fetish_history': '(self, fetish_db_id, days=30)',
     'promoted_stats_history_repair_report': '(self, mappings)',
     'repair_promoted_stats_history': '(self, mappings)',

@@ -147,7 +147,7 @@ def build_daily_report(
     target_date = str(environ.get('HEKI_REPORT_DATE') or _yesterday())[:10]
 
     funnel = json_getter('/api/admin/funnel_metrics')
-    ranking = json_getter(f'/api/admin/recent_fetish_ranking?days=1&top_n=10').get('ranking', [])
+    ranking = json_getter(f'/api/admin/recent_fetish_ranking?days=1&date={target_date}&top_n=10').get('ranking', [])
     share = json_getter('/api/admin/share_events?days=1&limit=5000')
     questions = json_getter('/api/admin/question_events?limit=5000')
 
