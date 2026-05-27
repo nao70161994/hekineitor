@@ -2029,11 +2029,20 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertNotIn('称号', body)
         self.assertNotIn('レア度', body)
         self.assertIn('og:url', body)
-        self.assertRegex(body, r'https?://[^" ]+/r/[0-9A-Za-z]{4,6}')
+        self.assertIn('/r?f=NTR&amp;p=82&amp;d=', body)
+        self.assertNotRegex(body, r'https?://[^" ]+/r/[0-9A-Za-z]{4,6}')
         self.assertIn("あなたの『癖』は…… NTR", body)
         self.assertIn('/ogp.png?f=NTR&amp;p=82', body)
         self.assertEqual(res.headers.get('X-Robots-Tag'), 'noindex, follow')
         self.assertIn('name="robots" content="noindex,follow"', body)
+
+    def test_legacy_result_share_does_not_create_short_link(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'share_links.json')
+            with patch.dict(os.environ, {'SHARE_LINKS_PATH': path}):
+                res = self.client.get('/r?f=NTR&p=82&d=テスト')
+                self.assertEqual(res.status_code, 200)
+                self.assertFalse(os.path.exists(path))
 
     def test_short_result_share_link_round_trip(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -2104,7 +2113,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         body = res.data.decode('utf-8')
         self.assertIn('AI精度100%', body)
         self.assertIn('/ogp.png?f=NTR&amp;p=100', body)
-        self.assertRegex(body, r'/r/[0-9A-Za-z]{4,6}')
+        self.assertIn('/r?f=NTR&amp;p=100&amp;d=', body)
 
     def test_share_event_api_records_minimal_event(self):
         with tempfile.TemporaryDirectory() as tmp:

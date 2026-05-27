@@ -200,20 +200,14 @@ def _render_result_share(ctx, *, name, probability, desc, share_url):
     return ctx.Response(body, headers={'X-Robots-Tag': 'noindex, follow'})
 
 
-def _short_result_share_url(ctx, *, name, probability, desc):
+def _legacy_result_share_url(ctx, *, name, probability, desc):
     base_url = ctx.public_base_url()
-    fallback = f"{base_url}/r?f={urllib.parse.quote(name)}&p={urllib.parse.quote(probability)}&d={urllib.parse.quote(desc)}"
-    try:
-        share_id, _payload = share_links.create_link({
-            'name': name,
-            'probability': probability,
-            'desc': desc,
-            'title': ctx.result_title(probability),
-            'rank': ctx.result_rarity(probability),
-        })
-    except (OSError, RuntimeError, ValueError):
-        return fallback
-    return f'{base_url}/r/{share_id}'
+    query = urllib.parse.urlencode({
+        'f': name,
+        'p': probability,
+        'd': desc,
+    })
+    return f'{base_url}/r?{query}'
 
 
 def result_share(ctx):
@@ -221,7 +215,7 @@ def result_share(ctx):
     probability = ctx.clean_probability(ctx.request.args.get('p', ''))
     desc = ctx.request.args.get('d', '')[:120]
     ctx.record_share_event('result_page_view', result_name=name, channel='result_page', success=True)
-    share_url = _short_result_share_url(ctx, name=name, probability=probability, desc=desc)
+    share_url = _legacy_result_share_url(ctx, name=name, probability=probability, desc=desc)
     return _render_result_share(ctx, name=name, probability=probability, desc=desc, share_url=share_url)
 
 
