@@ -114,6 +114,24 @@ def _top_heavy_ratio(ranking: list[dict[str, Any]]) -> tuple[float, list[str]]:
     return _ratio(heavy_total, total), top
 
 
+def _validate_health_response(health, critical, warn, environ):
+    if health.get('status') != 'ok':
+        critical.append(f"/health status={health.get('status', 'unknown')}")
+    storage = health.get('storage')
+    if storage != 'postgres':
+        critical.append(f'storage={storage or "unknown"}')
+    matrix = health.get('matrix') or {}
+    if matrix.get('ok') is not True:
+        critical.append('matrix shape mismatch')
+    errors = ((health.get('runtime') or {}).get('error_counts') or {})
+    five_xx = int(errors.get('5xx') or 0)
+    critical_5xx = _env_int(environ, 'NTFY_5XX_CRITICAL_COUNT', 3)
+    if five_xx >= critical_5xx:
+        critical.append(f'5xx errors={five_xx}')
+    elif five_xx > 0:
+        warn.append(f'5xx errors={five_xx} (単発は様子見)')
+
+
 def _works_count(works_health: dict[str, Any]) -> int | None:
     maintenance = works_health.get('maintenance') or {}
     if isinstance(maintenance.get('works_count'), int):
@@ -171,6 +189,20 @@ def _completion_label(metric: dict[str, Any]) -> str:
     return f'completion_rate={_pct(rate)}{suffix}{sample}'
 
 
+def _demote_public_timeout_criticals(critical, warn, *, admin_signal_available=False, daily=None):
+    daily = daily or []
+    if not (admin_signal_available or daily):
+        return critical
+    remaining = []
+    for item in critical:
+        text = str(item)
+        if text.startswith('/health failed:') or text.startswith('OGP PNG failure:'):
+            warn.append(text + ' (admin metrics reachable; downgraded from CRITICAL)')
+        else:
+            remaining.append(item)
+    return remaining
+
+
 def build_report(
     *,
     environ: Mapping[str, str] | None = None,
@@ -178,8 +210,16 @@ def build_report(
     bytes_getter: Callable[[str], bytes] | None = None,
 ) -> dict[str, Any]:
     environ = os.environ if environ is None else environ
-    json_getter = json_getter or (lambda path: fetch_json(path, environ=environ))
-    bytes_getter = bytes_getter or (lambda path: fetch_bytes(path, environ=environ))
+    public_timeout = _env_int(environ, 'NTFY_PUBLIC_TIMEOUT_SECONDS', 25)
+    admin_timeout = _env_int(environ, 'NTFY_ADMIN_TIMEOUT_SECONDS', 15)
+    json_getter = json_getter or (
+        lambda path: fetch_json(
+            path,
+            environ=environ,
+            timeout=admin_timeout if path.startswith('/api/admin/') else public_timeout,
+        )
+    )
+    bytes_getter = bytes_getter or (lambda path: fetch_bytes(path, environ=environ, timeout=public_timeout))
     critical: list[str] = []
     warn: list[str] = []
     daily: list[str] = []
@@ -190,21 +230,7 @@ def build_report(
 
     try:
         health = _with_retries(lambda: json_getter('/health'), attempts=_env_int(environ, 'NTFY_HEALTH_RETRIES', 2))
-        if health.get('status') != 'ok':
-            critical.append(f"/health status={health.get('status', 'unknown')}")
-        storage = health.get('storage')
-        if storage != 'postgres':
-            critical.append(f'storage={storage or "unknown"}')
-        matrix = health.get('matrix') or {}
-        if matrix.get('ok') is not True:
-            critical.append('matrix shape mismatch')
-        errors = ((health.get('runtime') or {}).get('error_counts') or {})
-        five_xx = int(errors.get('5xx') or 0)
-        critical_5xx = _env_int(environ, 'NTFY_5XX_CRITICAL_COUNT', 3)
-        if five_xx >= critical_5xx:
-            critical.append(f'5xx errors={five_xx}')
-        elif five_xx > 0:
-            warn.append(f'5xx errors={five_xx} (単発は様子見)')
+        _validate_health_response(health, critical, warn, environ)
     except Exception as exc:
         health_failed = exc
         health = {}
@@ -326,6 +352,24 @@ def build_report(
     else:
         warn.append('ADMIN_READ_TOKEN is not set; admin analytics checks skipped')
 
+    if admin_signal_available and health_failed:
+        try:
+            health = _with_retries(lambda: json_getter('/health'), attempts=1)
+            _validate_health_response(health, critical, warn, environ)
+            health_failed = None
+        except Exception as exc:
+            health_failed = exc
+    if admin_signal_available and png_failed:
+        try:
+            png = _with_retries(lambda: bytes_getter('/ogp.png?f=health&p=88'), attempts=1)
+            if png.startswith(PNG_SIGNATURE):
+                png_failed = None
+            else:
+                critical.append('OGP PNG signature failure')
+                png_failed = None
+        except Exception as exc:
+            png_failed = exc
+
     if health_failed:
         message = f'/health failed: {health_failed.__class__.__name__}'
         if admin_signal_available:
@@ -339,6 +383,12 @@ def build_report(
         else:
             critical.append(message)
 
+    critical = _demote_public_timeout_criticals(
+        critical,
+        warn,
+        admin_signal_available=admin_signal_available,
+        daily=daily,
+    )
     severity = 'CRITICAL' if critical else 'WARN' if warn else 'OK'
     lines = [f'[{severity}] Hekineitor operations check']
     if critical:
