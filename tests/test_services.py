@@ -242,6 +242,7 @@ class TestServices(unittest.TestCase):
             {'timestamp': '2026-05-24T01:00:00+00:00', 'event_name': 'x_share_click'},
             {'timestamp': '2026-05-24T02:00:00+00:00', 'event_name': 'web_share_success'},
             {'timestamp': '2026-05-24T03:00:00+00:00', 'event_name': 'copy_success'},
+            {'timestamp': '2026-05-24T04:00:00+00:00', 'event_name': 'work_click'},
         ]
         rows = share_events.daily_summary(events, days=7)
         self.assertEqual([row['date'] for row in rows], ['2026-05-23', '2026-05-24'])
@@ -250,6 +251,7 @@ class TestServices(unittest.TestCase):
         self.assertEqual(rows[1]['x_clicks'], 1)
         self.assertEqual(rows[1]['web_share_successes'], 1)
         self.assertEqual(rows[1]['copy_successes'], 1)
+        self.assertEqual(rows[1]['work_clicks'], 1)
 
     def test_share_events_filter_and_csv_helpers(self):
         events = [
@@ -329,6 +331,20 @@ class TestServices(unittest.TestCase):
             self.assertEqual(loaded['NTR']['note'], '<script>alert(1)</script>')
             share_notes.save_note('NTR', '', path=path, now_fn=lambda: now)
             self.assertEqual(share_notes.load_notes(path=path), {})
+
+    def test_share_events_work_clicks_are_ranked_by_work_and_date(self):
+        events = [
+            {'timestamp': '2026-05-24T00:00:00+00:00', 'event_name': 'work_click', 'result_name': '白衣', 'channel': 'work', 'work_title': '作品A'},
+            {'timestamp': '2026-05-24T01:00:00+00:00', 'event_name': 'work_click', 'result_name': '白衣', 'channel': 'work', 'work_title': '作品A'},
+            {'timestamp': '2026-05-25T00:00:00+00:00', 'event_name': 'work_click', 'result_name': '眼鏡', 'channel': 'fetish_page', 'work_title': '作品B'},
+        ]
+
+        direct = {'metrics': share_events._summary_metrics({'work_click': 3}), 'daily': share_events.daily_summary(events), 'work_ranking': share_events.work_ranking(events)}
+
+        self.assertEqual(direct['metrics']['work_clicks'], 3)
+        self.assertEqual(direct['daily'][0]['work_clicks'], 2)
+        self.assertEqual(direct['work_ranking'][0]['work_title'], '作品A')
+        self.assertEqual(direct['work_ranking'][0]['clicks'], 2)
 
     def test_share_events_result_ranking_groups_by_result_name(self):
         events = [

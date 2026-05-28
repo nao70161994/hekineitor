@@ -63,7 +63,7 @@ h1 { color:#e94560; font-size:1.55rem; line-height:1.35; margin-bottom:8px; }
         {% for w in f.works %}
           {% if loop.index > 1 %} / {% endif %}
           {% if w.url %}
-          <a class="work-link" href="{{ w.url }}" target="_blank" rel="noopener sponsored">{{ w.title }}</a>
+          <a class="work-link" href="{{ w.url }}" target="_blank" rel="noopener sponsored" data-work-title="{{ w.title }}" data-result-name="{{ f.name }}" data-work-channel="fetishes_list" data-work-page="fetishes_list">{{ w.title }}</a>
           {% else %}
           <span class="work-text">{{ w.title }}</span>
           {% endif %}
@@ -89,5 +89,6 @@ document.addEventListener('keydown', event => {
   window.location.href = item.dataset.href;
 });
 </script>
+<script src="/static/share.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
 </body>
 </html>

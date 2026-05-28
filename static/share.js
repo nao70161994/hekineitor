@@ -14,6 +14,8 @@ window.HekiShare = (() => {
       result_name: options.resultName || diagnosedName || '',
       channel: options.channel || '',
       success: Object.prototype.hasOwnProperty.call(options, 'success') ? options.success : null,
+      work_title: options.workTitle || '',
+      page: options.page || '',
     };
     try {
       fetch('/api/share_event', {
@@ -144,6 +146,20 @@ window.HekiShare = (() => {
     }
     openXShare(name, false);
   }
+
+
+
+document.addEventListener('click', event => {
+  const link = event.target.closest('a[data-work-title]');
+  if (!link) return;
+  window.HekiShare.trackShareEvent('work_click', {
+    resultName: link.dataset.resultName || diagnosedName || '',
+    channel: link.dataset.workChannel || 'work',
+    success: true,
+    workTitle: link.dataset.workTitle || link.textContent || '',
+    page: link.dataset.workPage || '',
+  });
+}, {capture: true});
 
   return {
     buildShareText,

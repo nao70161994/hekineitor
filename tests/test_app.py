@@ -2209,6 +2209,29 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertNotIn('user_agent', event)
         self.assertNotIn('session', event)
 
+    def test_share_event_api_records_work_click_without_personal_data(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'share_events.jsonl')
+            with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path}):
+                res = self.client.post('/api/share_event', json={
+                    'event_name': 'work_click',
+                    'result_name': '白衣',
+                    'channel': 'work',
+                    'success': True,
+                    'work_title': 'おすすめ作品',
+                    'page': 'result_works',
+                    'url': 'https://example.com/secret',
+                })
+            self.assertEqual(res.status_code, 200)
+            self.assertTrue(res.get_json()['recorded'])
+            event = share_events_service.read_events(path=path, limit=10)[0]
+        self.assertEqual(event['event_name'], 'work_click')
+        self.assertEqual(event['work_title'], 'おすすめ作品')
+        self.assertEqual(event['page'], 'result_works')
+        self.assertNotIn('url', event)
+        self.assertNotIn('ip', event)
+        self.assertNotIn('user_agent', event)
+
     def test_share_event_api_ignores_unknown_event(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'share_events.jsonl')
@@ -2318,25 +2341,29 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             share_events_service.record_event('copy_failure', result_name='NTR', channel='clipboard', success=False, path=path, now_fn=lambda: new_now)
             share_events_service.record_event('share_button_click', result_name='NTR', channel='button', success=True, path=path, now_fn=lambda: new_now)
             share_events_service.record_event('result_page_view', result_name='NTR', channel='result_page', success=True, path=path, now_fn=lambda: new_now)
+            share_events_service.record_event('work_click', result_name='NTR', channel='work', success=True, work_title='作品A', page='result_works', path=path, now_fn=lambda: new_now)
             with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path}):
                 res = self.client.get('/api/admin/share_events?since=2026-05-24&until=2026-05-24', headers=headers)
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertEqual(data['status'], 'ok')
-        self.assertEqual(data['total'], 4)
+        self.assertEqual(data['total'], 5)
         self.assertEqual(data['by_event']['copy_success'], 1)
         self.assertEqual(data['by_channel']['clipboard'], 2)
-        self.assertEqual(data['success']['true'], 3)
+        self.assertEqual(data['success']['true'], 4)
         self.assertEqual(data['success']['false'], 1)
         self.assertEqual(data['metrics']['copy_successes'], 1)
         self.assertEqual(data['metrics']['copy_failures'], 1)
         self.assertEqual(data['daily'][0]['copy_successes'], 1)
+        self.assertEqual(data['daily'][0]['work_clicks'], 1)
         self.assertEqual(data['ranking'][0]['result_name'], 'NTR')
         self.assertEqual(data['ranking'][0]['copy_successes'], 1)
         self.assertEqual(data['ranking'][0]['share_actions'], 1)
         self.assertEqual(data['ranking'][0]['share_success_rate'], 100.0)
+        self.assertEqual(data['ranking'][0]['work_clicks'], 1)
+        self.assertEqual(data['work_ranking'][0]['work_title'], '作品A')
         self.assertTrue(data['comparison']['enabled'])
-        self.assertEqual(data['comparison']['metrics']['total']['current'], 4)
+        self.assertEqual(data['comparison']['metrics']['total']['current'], 5)
         self.assertEqual(data['comparison']['metrics']['total']['previous'], 1)
         self.assertEqual(data['filters']['since'], '2026-05-24')
         self.assertEqual(data['filters']['compare_since'], '2026-05-23')

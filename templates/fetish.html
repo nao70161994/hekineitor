@@ -95,7 +95,7 @@ body {
   <div class="works-list">
     {% for w in works %}
     {% if w.url %}
-    <a class="work-tag" href="{{ w.url }}" target="_blank" rel="noopener sponsored">{{ w.title }}</a>
+    <a class="work-tag" href="{{ w.url }}" target="_blank" rel="noopener sponsored" data-work-title="{{ w.title }}" data-result-name="{{ fetish.name }}" data-work-channel="fetish_page" data-work-page="fetish_detail">{{ w.title }}</a>
     {% else %}
     <span class="work-tag">{{ w.title }}</span>
     {% endif %}
@@ -105,7 +105,7 @@ body {
   <h2 class="section-title">関連作品を探す</h2>
   <div class="works-list">
     {% if fallback_work.url %}
-    <a class="work-tag" href="{{ fallback_work.url }}" target="_blank" rel="noopener sponsored">{{ fallback_work.title }}</a>
+    <a class="work-tag" href="{{ fallback_work.url }}" target="_blank" rel="noopener sponsored" data-work-title="{{ fallback_work.title }}" data-result-name="{{ fetish.name }}" data-work-channel="fetish_page" data-work-page="fetish_detail_fallback">{{ fallback_work.title }}</a>
     {% else %}
     <span class="work-tag">{{ fallback_work.title }}</span>
     {% endif %}
@@ -161,5 +161,6 @@ body {
   <a class="btn-share" href="https://twitter.com/intent/tweet?{{ {'text': share_text, 'url': share_url} | urlencode }}" target="_blank" rel="noopener">Xでシェア</a>
 </div>
 <div class="footer">へきネイター {{ display_version }}</div>
+<script src="/static/share.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
 </body>
 </html>

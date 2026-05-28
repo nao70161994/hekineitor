@@ -24,7 +24,9 @@ window.HekiRenderers = (() => {
     const className = ['works-tag', extraClass, url ? 'link' : ''].filter(Boolean).join(' ');
     const safeUrl = safeExternalUrl(url);
     if (safeUrl) {
-      return `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener sponsored" class="${escapeHtml(className)}">${escapeHtml(title)}</a>`;
+      const resultName = helpers.resultName || '';
+      const page = extraClass === 'cross' ? 'result_cross_works' : 'result_works';
+      return `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener sponsored" class="${escapeHtml(className)}" data-work-title="${escapeHtml(title)}" data-result-name="${escapeHtml(resultName)}" data-work-channel="work" data-work-page="${escapeHtml(page)}">${escapeHtml(title)}</a>`;
     }
     return `<span class="${escapeHtml(className)}">${escapeHtml(title)}</span>`;
   }
@@ -102,7 +104,7 @@ window.HekiRenderers = (() => {
     renderProfile(data.profile, escapeHtml);
     renderRelated(data.related, escapeHtml);
     renderReasons(data.reasons, escapeHtml);
-    renderWorks(data, {escapeHtml, safeExternalUrl, amazonAssociateId});
+    renderWorks(data, {escapeHtml, safeExternalUrl, amazonAssociateId, resultName: displayName});
 
     const retryBtn = document.getElementById('btn-quick-retry');
     const excluded = [...(window._excludedIds || []), data.fetish_id, ...(data.compound || []).map(item => item.fetish_id)];

@@ -332,6 +332,10 @@
     <div style="font-size:0.72rem;color:#888;">結果ページ表示</div>
   </div>
   <div>
+    <div style="font-size:1.35rem;color:#f59e0b;font-weight:bold;">{{ share_events.metrics.work_clicks }}</div>
+    <div style="font-size:0.72rem;color:#888;">作品クリック</div>
+  </div>
+  <div>
     <div style="font-size:1.35rem;color:#e74c3c;font-weight:bold;">{{ share_events.success['false'] }}</div>
     <div style="font-size:0.72rem;color:#888;">失敗/キャンセル</div>
   </div>
@@ -361,7 +365,7 @@
   <div>
     <div style="font-size:0.78rem;color:#aaa;margin-bottom:6px;">日次イベント</div>
     <table style="width:100%;border-collapse:collapse;font-size:0.74rem;">
-      <thead><tr style="color:#666;text-align:left;"><th>日付</th><th>合計</th><th>結果</th><th>OGP</th><th>X</th><th>Web</th><th>コピー</th></tr></thead>
+      <thead><tr style="color:#666;text-align:left;"><th>日付</th><th>合計</th><th>結果</th><th>OGP</th><th>X</th><th>Web</th><th>コピー</th><th>作品</th></tr></thead>
       <tbody>
       {% for row in share_events.daily[-7:] %}
       <tr style="border-top:1px solid #222;color:#aaa;">
@@ -372,6 +376,7 @@
         <td>{{ row.x_clicks }}</td>
         <td>{{ row.web_share_successes }}</td>
         <td>{{ row.copy_successes }}</td>
+        <td>{{ row.work_clicks }}</td>
       </tr>
       {% else %}
       <tr><td colspan="8" style="color:#555;padding-top:6px;">まだイベントがありません</td></tr>
@@ -397,13 +402,26 @@
     </div>
   </div>
 </div>
+{% if share_events.work_ranking %}
+<div style="margin-top:14px;">
+  <div style="font-size:0.78rem;color:#aaa;margin-bottom:6px;">作品クリックランキング</div>
+  <table style="width:100%;border-collapse:collapse;font-size:0.74rem;">
+    <thead><tr style="color:#666;text-align:left;"><th>作品</th><th>結果</th><th>ページ</th><th style="text-align:right;">クリック</th></tr></thead>
+    <tbody>
+    {% for row in share_events.work_ranking[:10] %}
+    <tr style="border-top:1px solid #222;color:#aaa;"><td style="color:#eee;">{{ row.work_title }}</td><td>{{ row.result_name or '—' }}</td><td>{{ row.channel }}</td><td style="text-align:right;color:#f59e0b;">{{ row.clicks }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
 {% if share_events.ranking %}
 <div style="margin-top:14px;">
   <div style="font-size:0.78rem;color:#aaa;margin-bottom:6px;">結果別シェアランキング</div>
   <div style="font-size:0.72rem;color:#666;margin-bottom:6px;">改善メモには個人情報を残さず、OGP文言・称号・CTA仮説だけを記録してください。</div>
   <div style="overflow-x:auto;">
     <table style="width:100%;border-collapse:collapse;font-size:0.74rem;min-width:980px;">
-      <thead><tr style="color:#666;text-align:left;"><th>結果名</th><th>合計</th><th>共有</th><th>伸び</th><th>結果</th><th>OGP</th><th>X</th><th>Web</th><th>コピー</th><th>結果→共有</th><th>共有成功</th><th>改善メモ</th></tr></thead>
+      <thead><tr style="color:#666;text-align:left;"><th>結果名</th><th>合計</th><th>共有</th><th>伸び</th><th>結果</th><th>OGP</th><th>X</th><th>Web</th><th>コピー</th><th>作品</th><th>結果→共有</th><th>共有成功</th><th>改善メモ</th></tr></thead>
       <tbody>
       {% for row in share_events.ranking[:10] %}
       <tr style="border-top:1px solid #222;color:#aaa;">
@@ -416,6 +434,7 @@
         <td>{{ row.x_clicks }}</td>
         <td>{{ row.web_share_successes }}</td>
         <td>{{ row.copy_successes }}</td>
+        <td>{{ row.work_clicks }}</td>
         <td>{% if row.result_to_share_rate is not none %}{{ row.result_to_share_rate }}%{% else %}—{% endif %}</td>
         <td>{% if row.share_success_rate is not none %}{{ row.share_success_rate }}%{% else %}—{% endif %}</td>
         {% set note = share_notes.get(row.result_name, {}) %}
