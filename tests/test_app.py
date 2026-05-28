@@ -1647,6 +1647,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         data = res.get_json()
         self.assertEqual(data['status'], 'ok')
         self.assertIn('missing_url', data['counts'])
+        self.assertIn('fallback_search_url', data['counts'])
         self.assertIn('search_url', data['counts'])
         self.assertIn('missing_asin', data['counts'])
         self.assertIn('samples', data)

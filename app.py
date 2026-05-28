@@ -147,6 +147,7 @@ def _admin_context():
         perf_counter=_time.perf_counter,
         work_title=work_title,
         safe_work_url=safe_work_url,
+        amazon_associate_id=BOOTSTRAP.amazon_associate_id,
         use_db=_use_db,
         matrix_ops=_matrix_operations(),
         cleanup_sessions=server_session_service.cleanup_sessions,

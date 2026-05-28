@@ -61,3 +61,4 @@ class TestEngineAdminReports(unittest.TestCase):
         row = next(item for item in engine_admin_reports.question_stats(self.engine) if item['id'] == 0)
         self.assertTrue(row['disabled'])
         self.assertEqual(row['variants_count'], 1)
+        self.assertEqual(row['category'], self.engine.questions[0].get('category'))

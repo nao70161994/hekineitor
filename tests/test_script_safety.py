@@ -182,9 +182,19 @@ class RuntimeConfigTests(unittest.TestCase):
             ],
         }])
         self.assertEqual(data['counts']['missing_url'], 1)
+        self.assertEqual(data['counts']['fallback_search_url'], 0)
         self.assertEqual(data['counts']['search_url'], 1)
         self.assertEqual(data['counts']['missing_asin'], 1)
         self.assertEqual(data['total'], 3)
+
+        with_fallback = collect_work_link_queue([{
+            'id': 1,
+            'name': 'テスト',
+            'works': ['URLなし作品'],
+        }], associate_id='hekinator-22')
+        self.assertEqual(with_fallback['counts']['missing_url'], 0)
+        self.assertEqual(with_fallback['counts']['fallback_search_url'], 1)
+        self.assertIn('tag=hekinator-22', with_fallback['samples']['fallback_search_url'][0]['fallback_url'])
 
 
 class WorksLinksScriptTests(unittest.TestCase):

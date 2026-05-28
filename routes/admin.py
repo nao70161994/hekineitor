@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+import urllib.parse
 
 from flask import Blueprint
 from services.works_links import collect_work_link_queue
@@ -177,8 +178,21 @@ def stop_test_play(ctx):
     return ctx.Response('', status=302, headers={'Location': '/admin'})
 
 
-def works_link_queue_payload(engine, *, sample_limit=20):
-    return collect_work_link_queue(engine.fetishes, sample_limit=sample_limit)
+def works_link_queue_payload(ctx, *, sample_limit=20):
+    return collect_work_link_queue(ctx.engine.fetishes, sample_limit=sample_limit, associate_id=ctx.amazon_associate_id)
+
+
+def _admin_work_url(ctx, work, title):
+    raw_url = work.get('url', '') if isinstance(work, dict) else ''
+    url = ctx.safe_work_url(raw_url)
+    if raw_url and not url:
+        return ''
+    if not url and getattr(ctx, 'amazon_associate_id', '') and title:
+        url = f"https://www.amazon.co.jp/s?k={urllib.parse.quote(str(title))}&tag={urllib.parse.quote(ctx.amazon_associate_id)}"
+    elif url and getattr(ctx, 'amazon_associate_id', '') and 'tag=' not in url:
+        separator = '&' if '?' in url else '?'
+        url = url + f"{separator}tag={urllib.parse.quote(ctx.amazon_associate_id)}"
+    return url
 
 
 def _seed_fetish_works(ctx):
@@ -526,7 +540,7 @@ def question_stats(ctx):
 
 def works_health(ctx):
     maintenance = ctx.build_admin_maintenance_checklist().get('works', {})
-    queue = works_link_queue_payload(ctx.engine, sample_limit=50)
+    queue = works_link_queue_payload(ctx, sample_limit=50)
     seed_backfill = seed_works_backfill_payload(ctx, sample_limit=50, apply=False).get_json()
     return ctx.jsonify({
         'status': 'ok',
@@ -1328,6 +1342,7 @@ def works_review(ctx):
             title = work['title'] if isinstance(work, dict) else work
             url = work.get('url', '') if isinstance(work, dict) else ''
             asin = ''
+            url = _admin_work_url(ctx, work, title)
             if url:
                 match = ctx.re_search(r'/dp/([A-Z0-9]{10})', url)
                 asin = match.group(1) if match else ''
@@ -1496,7 +1511,7 @@ def create_blueprint(ctx_factory, require_admin, require_admin_or_read=None):
             sample_limit = max(1, min(int(ctx.request.args.get('sample_limit', 20)), 100))
         except ValueError:
             sample_limit = 20
-        return ctx.jsonify(works_link_queue_payload(ctx.engine, sample_limit=sample_limit))
+        return ctx.jsonify(works_link_queue_payload(ctx, sample_limit=sample_limit))
 
     @bp.route('/api/admin/works_seed_backfill', methods=['GET', 'POST'])
     @require_admin

@@ -55,6 +55,8 @@ def question_stats(engine):
         result.append({
             'id': question_idx,
             'text': question['text'],
+            'category': question.get('category') or 'unknown',
+            'axis': question.get('axis') or '',
             'disc': round(disc, 3),
             'disabled': question_idx in engine.disabled_questions,
             'ask_count': round(ask_count, 1),

@@ -12,6 +12,7 @@ def build(
     work_title,
     safe_work_url,
     use_db,
+    amazon_associate_id='',
     matrix_ops,
     cleanup_sessions,
     player_fetish_base_id,
@@ -86,6 +87,8 @@ def build(
     maintenance = context.admin_maintenance(
         parse_works_list=parse_works_list,
         work_title=work_title,
+        safe_work_url=safe_work_url,
+        amazon_associate_id=amazon_associate_id,
         list_compound_works=list_compound_works,
         set_compound_works=set_compound_works,
         delete_compound_works=delete_compound_works,

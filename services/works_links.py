@@ -20,20 +20,31 @@ def work_url_status(work):
     return 'ok', url
 
 
-def collect_work_link_queue(fetishes, *, sample_limit=20):
-    buckets = {'missing_url': [], 'search_url': [], 'missing_asin': []}
+def _affiliate_search_url(title, associate_id):
+    title = str(title or '').strip()
+    associate_id = str(associate_id or '').strip()
+    if not title or not associate_id:
+        return ''
+    return f"https://www.amazon.co.jp/s?k={urllib.parse.quote(title)}&tag={urllib.parse.quote(associate_id)}"
+
+
+def collect_work_link_queue(fetishes, *, sample_limit=20, associate_id=''):
+    buckets = {'missing_url': [], 'fallback_search_url': [], 'search_url': [], 'missing_asin': []}
     for fetish in fetishes:
         for index, work in enumerate(fetish.get('works', [])):
             status, url = work_url_status(work)
             if status == 'ok':
                 continue
             title = work.get('title', '') if isinstance(work, dict) else str(work)
-            buckets[status].append({
+            fallback_url = _affiliate_search_url(title, associate_id) if status == 'missing_url' else ''
+            bucket = 'fallback_search_url' if fallback_url else status
+            buckets[bucket].append({
                 'fetish_id': fetish.get('id'),
                 'fetish_name': fetish.get('name', ''),
                 'work_index': index,
                 'title': title,
                 'url': url,
+                'fallback_url': fallback_url,
             })
     counts = {key: len(value) for key, value in buckets.items()}
     total = sum(counts.values())
