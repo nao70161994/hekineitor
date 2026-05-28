@@ -1,6 +1,7 @@
 import json
 import math
 import os
+import random
 import threading
 from collections import Counter, deque
 from datetime import datetime, timedelta, timezone
@@ -12,6 +13,8 @@ from services import event_store
 _LOCK = threading.Lock()
 _MAX_LOG_BYTES = 5 * 1024 * 1024
 HEAVY_RESULT_NAMES = {'共依存', '激重感情', '共生関係', '執着'}
+BACKFILL_SOURCE = 'stats_history_backfill'
+BACKFILL_CONFIRM_TEXT = 'BACKFILL_RESULT_EXPOSURES'
 MAIN_WINDOW = 300
 SHORT_WINDOW = 100
 MIN_SAMPLES = 50
@@ -69,12 +72,15 @@ def _rotate_if_needed(target, max_bytes=_MAX_LOG_BYTES):
         pass
 
 
-def build_event(fetish_id, fetish_name='', probability=None, *, rank=1, now_fn=None):
+def build_event(fetish_id, fetish_name='', probability=None, *, rank=1, source=None, now_fn=None):
     event = {
         'timestamp': _now_iso(now_fn),
         'event_name': 'result_exposed',
         'rank': max(1, _clean_int(rank) or 1),
     }
+    clean_source = _clean_text(source, 40)
+    if clean_source:
+        event['source'] = clean_source
     clean_id = _clean_int(fetish_id)
     if clean_id is not None:
         event['fetish_id'] = clean_id
@@ -87,8 +93,8 @@ def build_event(fetish_id, fetish_name='', probability=None, *, rank=1, now_fn=N
     return event
 
 
-def record_result(fetish_id, fetish_name='', probability=None, *, rank=1, path=None, environ=None, now_fn=None):
-    event = build_event(fetish_id, fetish_name, probability, rank=rank, now_fn=now_fn)
+def record_result(fetish_id, fetish_name='', probability=None, *, rank=1, source=None, path=None, environ=None, now_fn=None):
+    event = build_event(fetish_id, fetish_name, probability, rank=rank, source=source, now_fn=now_fn)
     if path is None and event_store.enabled(environ):
         try:
             return event_store.record_event('result_exposure', event)
@@ -167,7 +173,7 @@ def filter_events(events, *, days=None, date=None, until=None):
     return [event for event in events if start <= _event_date(event) <= end]
 
 
-def ranking_from_events(events, *, top_n=10):
+def ranking_from_events(events, *, top_n=10, include_backfill=False):
     try:
         limit = max(1, min(int(top_n or 10), 100))
     except (TypeError, ValueError):
@@ -176,6 +182,8 @@ def ranking_from_events(events, *, top_n=10):
     names = {}
     for event in events:
         if int(event.get('rank') or 1) != 1:
+            continue
+        if not include_backfill and event.get('source') == BACKFILL_SOURCE:
             continue
         fetish_id = _clean_int(event.get('fetish_id'))
         name = _clean_text(event.get('fetish_name') or 'unknown', 80) or 'unknown'
@@ -199,10 +207,10 @@ def ranking_from_events(events, *, top_n=10):
     return {'total': total, 'ranking': rows}
 
 
-def ranking_report(*, path=None, environ=None, limit=5000, days=None, date=None, until=None, top_n=10):
+def ranking_report(*, path=None, environ=None, limit=5000, days=None, date=None, until=None, top_n=10, include_backfill=False):
     events = read_events(path=path, environ=environ, limit=limit)
     filtered = filter_events(events, days=days, date=date, until=until)
-    report = ranking_from_events(filtered, top_n=top_n)
+    report = ranking_from_events(filtered, top_n=top_n, include_backfill=include_backfill)
     report.update({
         'status': 'ok',
         'source': 'result_exposures',
@@ -211,6 +219,92 @@ def ranking_report(*, path=None, environ=None, limit=5000, days=None, date=None,
     })
     return report
 
+
+
+
+def _backfill_rows(fetishes, fetish_log, *, max_events=1000):
+    try:
+        limit = max(1, min(int(max_events or 1000), 5000))
+    except (TypeError, ValueError):
+        limit = 1000
+    names = {fetish.get('id'): fetish.get('name', '') for fetish in fetishes if fetish.get('id') is not None}
+    raw_rows = []
+    for fetish_id, entry in (fetish_log or {}).items():
+        clean_id = _clean_int(fetish_id)
+        if clean_id is None or clean_id not in names:
+            continue
+        guessed = max(0, _clean_int((entry or {}).get('guessed')) or 0)
+        if guessed <= 0:
+            continue
+        raw_rows.append({'fetish_id': clean_id, 'fetish_name': names[clean_id], 'raw_count': guessed})
+    raw_total = sum(row['raw_count'] for row in raw_rows)
+    if raw_total <= 0:
+        return [], 0
+    if raw_total <= limit:
+        for row in raw_rows:
+            row['backfill_count'] = row['raw_count']
+        return sorted(raw_rows, key=lambda row: (-row['backfill_count'], row['fetish_id'])), raw_total
+
+    allocated = []
+    used = 0
+    for row in raw_rows:
+        quota = row['raw_count'] / raw_total * limit
+        count = int(quota)
+        used += count
+        allocated.append({**row, 'backfill_count': count, '_remainder': quota - count})
+    remaining = limit - used
+    allocated.sort(key=lambda row: (-row['_remainder'], -row['raw_count'], row['fetish_id']))
+    for row in allocated[:remaining]:
+        row['backfill_count'] += 1
+    for row in allocated:
+        row.pop('_remainder', None)
+    return sorted([row for row in allocated if row['backfill_count'] > 0], key=lambda row: (-row['backfill_count'], row['fetish_id'])), raw_total
+
+
+def backfill_from_fetish_log(
+    fetishes,
+    fetish_log,
+    *,
+    path=None,
+    environ=None,
+    max_events=1000,
+    apply=False,
+    force=False,
+    seed=20260528,
+):
+    existing = read_events(path=path, environ=environ, limit=50000)
+    existing_backfill = sum(1 for event in existing if event.get('source') == BACKFILL_SOURCE)
+    rows, raw_total = _backfill_rows(fetishes, fetish_log, max_events=max_events)
+    planned_total = sum(row['backfill_count'] for row in rows)
+    report = {
+        'status': 'ok',
+        'mode': 'applied' if apply else 'dry_run',
+        'source': BACKFILL_SOURCE,
+        'required_confirm_text': BACKFILL_CONFIRM_TEXT,
+        'raw_total': raw_total,
+        'planned_total': planned_total,
+        'existing_backfill_count': existing_backfill,
+        'inserted_count': 0,
+        'skipped': False,
+        'candidates': rows[:50],
+    }
+    if existing_backfill and not force:
+        report['skipped'] = True
+        report['skip_reason'] = 'already_backfilled'
+        return report
+    if not apply or not rows:
+        return report
+
+    events = []
+    for row in rows:
+        for _ in range(row['backfill_count']):
+            events.append((row['fetish_id'], row['fetish_name']))
+    random.Random(seed).shuffle(events)
+    for fetish_id, name in events:
+        record_result(fetish_id, name, None, rank=1, source=BACKFILL_SOURCE, path=path, environ=environ)
+    report['inserted_count'] = len(events)
+    report['skipped'] = False
+    return report
 
 def storage_status(*, path=None, environ=None):
     if path is None and event_store.enabled(environ):

@@ -1397,6 +1397,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
                 '/api/admin/fetish_log_rows',
                 '/api/admin/recent_fetish_ranking',
                 '/api/admin/result_exposures',
+                '/api/admin/result_exposures/backfill',
                 '/api/admin/export_stats_history',
                 '/api/admin/matrix_backups',
                 '/api/admin/works_link_queue',
@@ -1422,6 +1423,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('/api/admin/funnel_metrics', data['available_endpoints'])
         self.assertIn('/api/admin/low_exposure_fetishes', data['available_endpoints'])
         self.assertIn('/api/admin/result_exposures', data['available_endpoints'])
+        self.assertIn('/api/admin/result_exposures/backfill', data['available_endpoints'])
         self.assertIn('analysis_log_status', data)
         self.assertIn('share_links_count', data)
         self.assertIsInstance(data['share_links_count'], int)
@@ -1458,6 +1460,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             '/api/admin/low_exposure_fetishes?threshold=3&limit=20',
             '/api/admin/recent_fetish_ranking',
             '/api/admin/result_exposures?days=7&top_n=20',
+            '/api/admin/result_exposures/backfill?max_events=50',
             '/api/admin/export_stats_history',
             '/api/admin/matrix_backups',
             '/api/admin/works_link_queue',
@@ -1506,6 +1509,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             ('/api/admin/merge_fetishes', {'id_keep': 0, 'id_remove': 1}),
             ('/api/admin/import_matrix/dry_run', {'matrix_rows': []}),
             ('/api/admin/share_notes', {'result_name': 'NTR', 'note': 'x'}),
+            ('/api/admin/result_exposures/backfill', {'confirm_text': 'BACKFILL_RESULT_EXPOSURES'}),
         )
         try:
             with patch.dict(os.environ, {'ADMIN_READ_TOKEN': 'read-token', 'ADMIN_PASS': 'testpass'}):
@@ -1764,6 +1768,32 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         data = res.get_json()
         self.assertEqual(data['days'], 1)
         self.assertIn(data['source'], ('recent', 'all_time_fallback'))
+
+    def test_result_exposures_backfill_requires_confirm_and_inserts_synthetic_events(self):
+        headers = self._admin_headers()
+        from app import engine as app_engine
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'result_exposures.jsonl')
+            with patch.dict(os.environ, {'RESULT_EXPOSURE_LOG_PATH': path}, clear=False), \
+                    patch.object(app_engine, 'get_fetish_log', return_value={0: {'guessed': 8}, 1: {'guessed': 2}}):
+                dry = self.client.get('/api/admin/result_exposures/backfill?max_events=5', headers=headers)
+                self.assertEqual(dry.status_code, 200)
+                self.assertEqual(dry.get_json()['mode'], 'dry_run')
+                missing = self.client.post('/api/admin/result_exposures/backfill', headers=headers, json={'max_events': 5})
+                self.assertEqual(missing.status_code, 400)
+                self.assertEqual(missing.get_json()['required_confirm_text'], 'BACKFILL_RESULT_EXPOSURES')
+                applied = self.client.post('/api/admin/result_exposures/backfill', headers=headers, json={
+                    'max_events': 5,
+                    'confirm_text': 'BACKFILL_RESULT_EXPOSURES',
+                })
+                self.assertEqual(applied.status_code, 200)
+                payload = applied.get_json()
+                self.assertEqual(payload['mode'], 'applied')
+                self.assertEqual(payload['inserted_count'], 5)
+                ranked = self.client.get('/api/admin/result_exposures?include_backfill=1&top_n=5', headers=headers).get_json()
+
+        self.assertGreaterEqual(ranked['total'], 5)
+        self.assertTrue(ranked['include_backfill'])
 
     def test_result_exposures_endpoint_reports_displayed_result_ranking(self):
         headers = self._admin_headers()

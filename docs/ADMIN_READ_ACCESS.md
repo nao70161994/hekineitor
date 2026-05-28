@@ -67,3 +67,12 @@ curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" \
 ```
 
 It returns aggregate counts only. It does not include IP address, User-Agent, session id, tokens, or raw URLs.
+
+Backfill preview is read-only and available through the same token:
+
+```sh
+curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" \
+  "https://hekineitor.onrender.com/api/admin/result_exposures/backfill?max_events=1000"
+```
+
+Applying the backfill is a POST management action and still requires Basic admin authentication plus CSRF; the read token cannot apply it.

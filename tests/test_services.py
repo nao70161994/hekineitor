@@ -990,6 +990,32 @@ class TestServices(unittest.TestCase):
         self.assertNotIn('last_guess_quality', session)
 
 
+    def test_result_exposure_backfill_plans_from_fetish_log_without_applying(self):
+        fetishes = [{'id': 1, 'name': '激重感情'}, {'id': 2, 'name': '白衣'}]
+        log = {1: {'guessed': 80}, 2: {'guessed': 20}}
+
+        report = result_exposure.backfill_from_fetish_log(fetishes, log, max_events=10, apply=False)
+
+        self.assertEqual(report['mode'], 'dry_run')
+        self.assertEqual(report['raw_total'], 100)
+        self.assertEqual(report['planned_total'], 10)
+        by_id = {row['fetish_id']: row for row in report['candidates']}
+        self.assertEqual(by_id[1]['backfill_count'], 8)
+        self.assertEqual(by_id[2]['backfill_count'], 2)
+
+    def test_result_exposure_backfill_events_are_excluded_from_public_ranking_by_default(self):
+        events = [
+            result_exposure.build_event(1, '激重感情', source=result_exposure.BACKFILL_SOURCE),
+            result_exposure.build_event(2, '白衣'),
+        ]
+
+        default_report = result_exposure.ranking_from_events(events)
+        included_report = result_exposure.ranking_from_events(events, include_backfill=True)
+
+        self.assertEqual(default_report['total'], 1)
+        self.assertEqual(default_report['ranking'][0]['fetish_name'], '白衣')
+        self.assertEqual(included_report['total'], 2)
+
     def test_result_exposure_ranking_counts_displayed_rank_one_results(self):
         events = [
             result_exposure.build_event(1, '激重感情', 91, rank=1),

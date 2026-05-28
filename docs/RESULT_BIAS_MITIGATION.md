@@ -101,3 +101,26 @@ This should reduce early overcommitment to heavy-emotion results and give visual
 Operations notifications and daily reports should prefer `result_exposures` for result distribution. This event is recorded after the final displayed result is selected, so it reflects what users actually saw. `recent_fetish_ranking` remains available as a stats-history fallback, but it can include legacy guessed counters and should not be used alone to judge displayed-result bias when exposure data exists.
 
 The read-only endpoint `/api/admin/result_exposures` returns only aggregate counts (`fetish_id`, `fetish_name`, count/percent/source). It does not expose IP, User-Agent, session id, or tokens.
+
+## Backfilling exposure history
+
+When production has too few `result_exposure` rows for diversity balancing, an administrator can backfill synthetic exposure events from the historical `fetish_log.guessed` counters. This is intentionally opt-in because old guessed counters are not as precise as real displayed-result events.
+
+Preview:
+
+```sh
+curl -u admin:$ADMIN_PASS \
+  "https://hekineitor.onrender.com/api/admin/result_exposures/backfill?max_events=1000"
+```
+
+Apply:
+
+```sh
+curl -u admin:$ADMIN_PASS \
+  -H "Content-Type: application/json" \
+  -H "X-CSRF-Token: $ADMIN_CSRF_TOKEN" \
+  -d '{"confirm_text":"BACKFILL_RESULT_EXPOSURES","max_events":1000}' \
+  https://hekineitor.onrender.com/api/admin/result_exposures/backfill
+```
+
+Backfilled rows are tagged with `source=stats_history_backfill`. They are used by the diversity balancing window, but the public/read-only result exposure ranking excludes them by default so daily reports continue to represent real displayed results only. Use `include_backfill=1` only when auditing the backfill itself.
