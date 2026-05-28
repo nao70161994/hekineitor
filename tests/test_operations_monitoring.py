@@ -139,6 +139,81 @@ class OperationsMonitoringTests(unittest.TestCase):
                 patch.dict(operations_check.os.environ, {'NTFY_TOPIC': 'topic', 'GITHUB_ACTIONS': 'true'}, clear=True):
             self.assertEqual(operations_check.main([]), 1)
 
+
+    def test_operations_report_treats_public_timeout_as_warn_when_admin_is_reachable(self):
+        class TimeoutErrorForTest(TimeoutError):
+            pass
+
+        calls = []
+
+        def fake_json(path):
+            calls.append(path)
+            if path == '/health':
+                raise TimeoutErrorForTest()
+            if path == '/api/admin/preflight':
+                return {'checks': []}
+            if path == '/api/admin/works_health':
+                return {'maintenance': {'works_count': 100}}
+            if path.startswith('/api/admin/recent_fetish_ranking'):
+                return {'ranking': [{'fetish_name': '眼鏡', 'guessed': 10, 'total': 10}]}
+            if path.startswith('/api/admin/question_events'):
+                return {'total': 10, 'metrics': {}, 'questions': [], 'dropoff_ranking': []}
+            if path == '/api/admin/funnel_metrics':
+                return {'completion': {'recent_7_days': {'starts': 30, 'completions': 15, 'completion_rate': 50}}}
+            if path.startswith('/api/admin/share_events'):
+                return {'total': 2, 'metrics': {'result_page_views': 10, 'share_actions': 1}}
+            raise AssertionError(path)
+
+        report = operations_check.build_report(
+            environ={'ADMIN_READ_TOKEN': 'token'},
+            json_getter=fake_json,
+            bytes_getter=lambda path: (_ for _ in ()).throw(TimeoutErrorForTest()),
+        )
+
+        self.assertEqual(report['severity'], 'WARN')
+        self.assertIn('/health failed: TimeoutErrorForTest', report['message'])
+        self.assertIn('OGP PNG failure: TimeoutErrorForTest', report['message'])
+        self.assertIn('treated as transient', report['message'])
+
+    def test_operations_report_retries_public_checks(self):
+        attempts = {'health': 0, 'png': 0}
+
+        def fake_json(path):
+            if path == '/health':
+                attempts['health'] += 1
+                if attempts['health'] == 1:
+                    raise TimeoutError()
+                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+            if path == '/api/admin/preflight':
+                return {'checks': []}
+            if path == '/api/admin/works_health':
+                return {'maintenance': {'works_count': 100}}
+            if path.startswith('/api/admin/recent_fetish_ranking'):
+                return {'ranking': []}
+            if path.startswith('/api/admin/question_events'):
+                return {'total': 1, 'metrics': {}, 'questions': [], 'dropoff_ranking': []}
+            if path == '/api/admin/funnel_metrics':
+                return {'completion': {'recent_7_days': {'starts': 30, 'completions': 15, 'completion_rate': 50}}}
+            if path.startswith('/api/admin/share_events'):
+                return {'total': 1, 'metrics': {'result_page_views': 10, 'share_actions': 1}}
+            raise AssertionError(path)
+
+        def fake_bytes(path):
+            attempts['png'] += 1
+            if attempts['png'] == 1:
+                raise TimeoutError()
+            return operations_check.PNG_SIGNATURE + b'abc'
+
+        report = operations_check.build_report(
+            environ={'ADMIN_READ_TOKEN': 'token'},
+            json_getter=fake_json,
+            bytes_getter=fake_bytes,
+        )
+
+        self.assertNotIn('/health failed', report['message'])
+        self.assertNotIn('OGP PNG failure', report['message'])
+        self.assertEqual(attempts, {'health': 2, 'png': 2})
+
     def test_operations_report_falls_back_when_share_days_query_fails(self):
         calls = []
 

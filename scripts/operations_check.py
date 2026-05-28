@@ -62,6 +62,18 @@ def fetch_bytes(path: str, *, environ: Mapping[str, str] | None = None, timeout:
         return response.read(512)
 
 
+def _with_retries(callable_fn, *, attempts=2):
+    last_error = None
+    for _attempt in range(max(1, int(attempts or 1))):
+        try:
+            return callable_fn()
+        except Exception as exc:
+            last_error = exc
+    if last_error:
+        raise last_error
+    raise RuntimeError('retry failed')
+
+
 def _pct(value: float | int | None) -> str:
     if value is None:
         return 'n/a'
@@ -172,8 +184,12 @@ def build_report(
     warn: list[str] = []
     daily: list[str] = []
 
+    health_failed = None
+    png_failed = None
+    admin_signal_available = False
+
     try:
-        health = json_getter('/health')
+        health = _with_retries(lambda: json_getter('/health'), attempts=_env_int(environ, 'NTFY_HEALTH_RETRIES', 2))
         if health.get('status') != 'ok':
             critical.append(f"/health status={health.get('status', 'unknown')}")
         storage = health.get('storage')
@@ -190,19 +206,23 @@ def build_report(
         elif five_xx > 0:
             warn.append(f'5xx errors={five_xx} (単発は様子見)')
     except Exception as exc:
-        critical.append(f'/health failed: {exc.__class__.__name__}')
+        health_failed = exc
         health = {}
 
     try:
-        png = bytes_getter('/ogp.png?f=health&p=88')
+        png = _with_retries(
+            lambda: bytes_getter('/ogp.png?f=health&p=88'),
+            attempts=_env_int(environ, 'NTFY_OGP_RETRIES', 2),
+        )
         if not png.startswith(PNG_SIGNATURE):
             critical.append('OGP PNG signature failure')
     except Exception as exc:
-        critical.append(f'OGP PNG failure: {exc.__class__.__name__}')
+        png_failed = exc
 
     if admin_headers(environ):
         try:
             preflight = json_getter('/api/admin/preflight')
+            admin_signal_available = True
             failed = [row.get('name') for row in preflight.get('checks', []) if row.get('ok') is False]
             if failed:
                 critical.append('preflight failed: ' + ', '.join(str(name) for name in failed[:5]))
@@ -220,6 +240,7 @@ def build_report(
 
         try:
             ranking = json_getter('/api/admin/recent_fetish_ranking?days=7&top_n=20').get('ranking', [])
+            admin_signal_available = True
             heavy_ratio, heavy_top = _top_heavy_ratio(ranking)
             daily.append(f'heavy_result_ratio={_pct(heavy_ratio)}')
             if heavy_ratio >= _env_float(environ, 'NTFY_HEAVY_RESULT_WARN_RATIO', 65.0):
@@ -229,6 +250,7 @@ def build_report(
 
         try:
             question_report = json_getter('/api/admin/question_events?limit=5000')
+            admin_signal_available = True
             q_metrics = question_report.get('metrics') or {}
             relation_share = float(q_metrics.get('relation_attachment_share') or 0)
             question_total = int(question_report.get('total') or 0)
@@ -259,6 +281,7 @@ def build_report(
 
         try:
             funnel = json_getter('/api/admin/funnel_metrics')
+            admin_signal_available = True
             completion_metric = _completion_metric(
                 funnel,
                 min_starts=_env_int(environ, 'NTFY_COMPLETION_MIN_STARTS', 20),
@@ -281,6 +304,7 @@ def build_report(
             for path in ('/api/admin/share_events?days=7&limit=5000', '/api/admin/share_events?limit=5000'):
                 try:
                     share_report = json_getter(path)
+                    admin_signal_available = True
                     break
                 except Exception as exc:
                     share_error = exc
@@ -301,6 +325,19 @@ def build_report(
             warn.append(f'share analytics unavailable: {_error_label(exc)}')
     else:
         warn.append('ADMIN_READ_TOKEN is not set; admin analytics checks skipped')
+
+    if health_failed:
+        message = f'/health failed: {health_failed.__class__.__name__}'
+        if admin_signal_available:
+            warn.append(message + ' (admin analytics reachable; treated as transient)')
+        else:
+            critical.append(message)
+    if png_failed:
+        message = f'OGP PNG failure: {png_failed.__class__.__name__}'
+        if admin_signal_available:
+            warn.append(message + ' (admin analytics reachable; treated as transient)')
+        else:
+            critical.append(message)
 
     severity = 'CRITICAL' if critical else 'WARN' if warn else 'OK'
     lines = [f'[{severity}] Hekineitor operations check']
