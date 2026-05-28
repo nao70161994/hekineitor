@@ -762,6 +762,7 @@ class TestServices(unittest.TestCase):
         self.assertIn('https://ep1.adtrafficquality.google', csp)
         self.assertIn('https://ep2.adtrafficquality.google', csp)
         self.assertIn('https://googleads.g.doubleclick.net', csp)
+        self.assertIn('https://www.google.com', csp)
 
     def test_response_hooks_audit_admin_mutations_only(self):
         calls = []
