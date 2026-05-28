@@ -7,8 +7,8 @@ SECURITY_HEADERS = {
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
     'Content-Security-Policy': (
         "default-src 'self'; img-src 'self' data: https:; "
-        "script-src 'self' 'unsafe-inline' https://pagead2.googlesyndication.com; "
-        "style-src 'self' 'unsafe-inline'; connect-src 'self' https://pagead2.googlesyndication.com https://ep1.adtrafficquality.google; "
+        "script-src 'self' 'unsafe-inline' https://pagead2.googlesyndication.com https://ep2.adtrafficquality.google; "
+        "style-src 'self' 'unsafe-inline'; connect-src 'self' https://pagead2.googlesyndication.com https://ep1.adtrafficquality.google https://ep2.adtrafficquality.google; "
         "frame-src https://googleads.g.doubleclick.net https://tpc.googlesyndication.com; "
         "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
     ),
