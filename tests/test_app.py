@@ -1384,6 +1384,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
                 '/api/admin/fetishes_snapshot',
                 '/api/admin/learning_stats',
                 '/api/admin/question_stats',
+                '/api/admin/operations_snapshot',
                 '/api/admin/quality_report',
                 '/api/admin/works_health',
                 '/api/admin/audit_log',
@@ -1421,6 +1422,8 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         data = res.get_json()
         self.assertIn('/api/admin/fetishes_snapshot', data['available_endpoints'])
         self.assertIn('/api/admin/funnel_metrics', data['available_endpoints'])
+        self.assertIn('/api/admin/operations_snapshot', data['available_endpoints'])
+        self.assertIn('/api/admin/compound_works', data['available_endpoints'])
         self.assertIn('/api/admin/low_exposure_fetishes', data['available_endpoints'])
         self.assertIn('/api/admin/result_exposures', data['available_endpoints'])
         self.assertIn('/api/admin/result_exposures/backfill', data['available_endpoints'])
@@ -1429,6 +1432,31 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIsInstance(data['share_links_count'], int)
         self.assertIn('improvement_candidates', data)
         self.assertIn('result_diversity', data['improvement_candidates'])
+
+    def test_operations_snapshot_exposes_admin_analysis_without_secrets(self):
+        env = {
+            'ADMIN_READ_TOKEN': 'read-token',
+            'ADMIN_PASS': 'testpass',
+            'SECRET_KEY': 'secret-key-sentinel',
+            'DATABASE_URL': 'postgres://secret-db-url',
+        }
+        with patch.dict(os.environ, env):
+            res = self.client.get('/api/admin/operations_snapshot', headers=self._admin_read_headers())
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(data['scope'], 'read_only_operations_snapshot')
+        self.assertIn('engine_config', data)
+        self.assertIn('questions', data)
+        self.assertIn('correlation_stats', data)
+        self.assertIn('domain_suggestions', data)
+        self.assertIn('matrix_heatmap', data)
+        self.assertIn('axis_stats', data)
+        self.assertIn('compound_works', data)
+        self.assertIn('analysis_logs', data)
+        body = res.data.decode('utf-8', errors='replace')
+        for forbidden in ('secret-key-sentinel', 'postgres://secret-db-url', 'testpass', 'csrf_token', 'session_id', 'user_agent'):
+            self.assertNotIn(forbidden, body)
 
     def test_admin_read_token_security_contract_for_read_endpoints(self):
         import app as app_module
@@ -1439,6 +1467,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             '/api/admin/fetishes_snapshot',
             '/api/admin/learning_stats',
             '/api/admin/question_stats',
+            '/api/admin/operations_snapshot',
             '/api/admin/quality_report',
             '/api/admin/works_health',
             '/api/admin/audit_log',
@@ -1464,6 +1493,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             '/api/admin/export_stats_history',
             '/api/admin/matrix_backups',
             '/api/admin/works_link_queue',
+            '/api/admin/compound_works',
             '/api/admin/works_review',
             '/api/admin/fetish_lookup/0',
             '/api/admin/fetish_history/0',

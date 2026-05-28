@@ -617,6 +617,99 @@ def promoted_fetish_history(ctx):
     return ctx.jsonify({'status': 'ok', 'promotions': promotions, 'repairs': repairs})
 
 
+
+def _safe_engine_config(ctx):
+    defaults = getattr(ctx.engine, '_CONFIG_DEFAULTS', {}) or {}
+    config = getattr(ctx.engine, 'config', {}) or {}
+    keys = sorted(set(defaults) | set(config))
+    rows = []
+    for key in keys:
+        rows.append({
+            'key': str(key),
+            'value': config.get(key),
+            'default': defaults.get(key),
+            'overridden': config.get(key) != defaults.get(key),
+        })
+    return rows
+
+
+def _question_admin_rows(ctx):
+    stats_by_id = {row.get('id'): row for row in ctx.engine.get_question_stats()}
+    rows = []
+    for question_id, question in enumerate(ctx.engine.questions):
+        stats = stats_by_id.get(question_id, {})
+        rows.append({
+            'id': question_id,
+            'text': question.get('text', ''),
+            'category': question.get('category') or 'unknown',
+            'axis': question.get('axis') or '',
+            'disabled': bool(question.get('disabled')),
+            'disc': stats.get('disc'),
+            'ask_count': stats.get('ask_count', 0),
+            'variant_count': stats.get('variant_count', 0),
+        })
+    return rows
+
+
+def _compound_works_rows(ctx, *, limit=200):
+    items = ctx.list_compound_works()[:max(1, int(limit or 200))]
+    rows = []
+    for item in items:
+        idx_a = ctx.engine.index_of(item['id_a'])
+        idx_b = ctx.engine.index_of(item['id_b'])
+        rows.append({
+            **item,
+            'name_a': ctx.engine.fetishes[idx_a]['name'] if idx_a is not None else f"id={item['id_a']}",
+            'name_b': ctx.engine.fetishes[idx_b]['name'] if idx_b is not None else f"id={item['id_b']}",
+            'works_count': len(item.get('works') or []),
+            'works_titles': [ctx.work_title(work) for work in (item.get('works') or [])[:5]],
+        })
+    return rows
+
+
+def operations_snapshot(ctx):
+    """Read-only bundle for Codex/ops analysis; excludes CSRF, secrets, sessions, and mutation payloads."""
+    stats_history = ctx.engine.get_stats_history(days=30)
+    app_stats = ctx.engine.get_stats()
+    dropoff_summary = ctx.engine.get_dropoff_summary(days=30)
+    question_events = ctx.question_event_report(limit=1000)
+    share_events = ctx.share_event_report(**share_event_query(ctx, default_limit=1000))
+    audit_rows = ctx.recent_audit(ctx.bounded_int(ctx.request.args.get('audit_limit'), 50, 1, 200))
+    return ctx.jsonify({
+        'status': 'ok',
+        'scope': 'read_only_operations_snapshot',
+        'counts': {
+            'fetishes': len(ctx.engine.fetishes),
+            'questions': len(ctx.engine.questions),
+            'player_fetishes': len([f for f in ctx.engine.fetishes if f.get('id', 0) >= ctx.player_fetish_base_id]),
+            'compound_works': len(ctx.list_compound_works()),
+        },
+        'engine_config': _safe_engine_config(ctx),
+        'questions': _question_admin_rows(ctx),
+        'question_categories': question_stats(ctx).get_json().get('categories', {}),
+        'correlation_stats': ctx.engine.get_correlation_stats(top_n=30),
+        'domain_suggestions': ctx.engine.get_top_questions_per_fetish(top_n=5),
+        'matrix_heatmap': ctx.engine.get_matrix_heatmap(n_fetishes=20, n_questions=20),
+        'axis_stats': ctx.engine.get_axis_stats(),
+        'quality_report': ctx.engine.get_quality_report(),
+        'completion': ctx.build_completion_metrics(app_stats, stats_history, dropoff_summary),
+        'analysis_logs': analysis_log_status(ctx, stats_history=stats_history, share_events=share_events, question_events=question_events),
+        'share_events_summary': {
+            'total': share_events.get('total', 0),
+            'metrics': share_events.get('metrics', {}),
+            'work_ranking': share_events.get('work_ranking', [])[:20],
+        },
+        'question_events_summary': {
+            'total': question_events.get('total', 0),
+            'summary': question_events.get('summary', {}),
+            'warnings': question_events.get('warnings', []),
+        },
+        'compound_works': _compound_works_rows(ctx, limit=200),
+        'test_play_audit_rows': test_play_audit_rows(audit_rows, limit=20),
+        'audit_recent': [_safe_audit_row(ctx, row) for row in audit_rows[:50]],
+    })
+
+
 def admin_read_overview(ctx):
     logs = analysis_log_status(ctx, stats_history=ctx.engine.get_stats_history(days=90))
     question_report = ctx.question_event_report(limit=5000)
@@ -633,6 +726,7 @@ def admin_read_overview(ctx):
             '/api/admin/fetishes_snapshot',
             '/api/admin/learning_stats',
             '/api/admin/question_stats',
+            '/api/admin/operations_snapshot',
             '/api/admin/quality_report',
             '/api/admin/works_health',
             '/api/admin/audit_log',
@@ -652,6 +746,7 @@ def admin_read_overview(ctx):
             '/api/admin/export_stats_history',
             '/api/admin/matrix_backups',
             '/api/admin/works_link_queue',
+            '/api/admin/compound_works',
         ],
         'analysis_log_status': logs,
     })
@@ -1369,7 +1464,7 @@ def create_blueprint(ctx_factory, require_admin, require_admin_or_read=None):
         return edit_fetish(ctx_factory(), fetish_id)
 
     @bp.route('/api/admin/compound_works', methods=['GET'])
-    @require_admin
+    @require_admin_or_read
     def list_compound_works_route():
         return list_compound_works(ctx_factory())
 
@@ -1561,6 +1656,11 @@ def create_blueprint(ctx_factory, require_admin, require_admin_or_read=None):
     @require_admin_or_read
     def question_stats_route():
         return question_stats(ctx_factory())
+
+    @bp.route('/api/admin/operations_snapshot', methods=['GET'])
+    @require_admin_or_read
+    def operations_snapshot_route():
+        return operations_snapshot(ctx_factory())
 
     @bp.route('/api/admin/works_health', methods=['GET'])
     @require_admin_or_read
