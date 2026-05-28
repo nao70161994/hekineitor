@@ -15,17 +15,17 @@ _MAX_LOG_BYTES = 5 * 1024 * 1024
 HEAVY_RESULT_NAMES = {'共依存', '激重感情', '共生関係', '執着'}
 BACKFILL_SOURCE = 'stats_history_backfill'
 BACKFILL_CONFIRM_TEXT = 'BACKFILL_RESULT_EXPOSURES'
-MAIN_WINDOW = 300
-SHORT_WINDOW = 100
+MAIN_WINDOW = 1000
+SHORT_WINDOW = 300
 MIN_SAMPLES = 50
 CANDIDATE_POOL = 12
 LOW_EXPOSURE_POOL = 30
 SMOOTHING = 2.0
-MIN_FACTOR = 0.7
-MAX_FACTOR = 1.25
-HEAVY_FACTOR_CAP = 0.75
-DOMINANT_RATIO = 1.8
-DOMINANT_MIN_FACTOR = 0.85
+MIN_FACTOR = 0.5
+MAX_FACTOR = 1.6
+HEAVY_FACTOR_CAP = 0.55
+DOMINANT_RATIO = None
+DOMINANT_MIN_FACTOR = None
 
 
 def event_log_path(environ=None):
@@ -409,7 +409,12 @@ def adjust_ranked(engine, probs, ranked, *, events=None, path=None, environ=None
     for index in pool:
         fetish_id = engine.fetishes[index].get('id')
         factor = factors.get(fetish_id, 1.0)
-        if index == original_top and top_score / second_score >= DOMINANT_RATIO:
+        if (
+            DOMINANT_RATIO is not None
+            and DOMINANT_MIN_FACTOR is not None
+            and index == original_top
+            and top_score / second_score >= DOMINANT_RATIO
+        ):
             factor = max(factor, DOMINANT_MIN_FACTOR)
         adjusted.append((probs[index] * factor, index))
     adjusted.sort(key=lambda item: item[0], reverse=True)

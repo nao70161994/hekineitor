@@ -130,3 +130,16 @@ Backfilled rows are tagged with `source=stats_history_backfill`. They are used b
 Diversity balancing keeps the primary candidate pool at the top 12 results, but it also inspects ranks 13-30 for low-exposure candidates. A candidate is eligible for this rescue pool only when its exposure factor is above 1.0, meaning it has appeared less often than expected in the recent exposure window. The boosted candidate still competes by adjusted score, so this does not pull arbitrary distant results into the final answer.
 
 This gives under-shown results more learning opportunities while keeping the main result close to the user's posterior ranking.
+
+## Stronger diversity tuning
+
+After the initial backfill, diversity balancing uses a wider window and stronger score range:
+
+- `MAIN_WINDOW = 1000`
+- `SHORT_WINDOW = 300`
+- `MIN_FACTOR = 0.5`
+- `MAX_FACTOR = 1.6`
+- `HEAVY_FACTOR_CAP = 0.55`
+- dominant top-result protection is disabled
+
+This makes overexposed heavy-emotion results lose more close races while allowing underexposed candidates to gain more learning opportunities. The rescue pool remains capped at rank 30 to avoid pulling in distant results.

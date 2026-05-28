@@ -1054,7 +1054,7 @@ class TestServices(unittest.TestCase):
         events.extend(result_exposure.build_event(2, '白衣', 80, now_fn=lambda: __import__('datetime').datetime.now(__import__('datetime').timezone.utc)) for _ in range(5))
         factors = result_exposure.exposure_factors(Engine.fetishes, events=events)
 
-        self.assertLess(factors[1], 0.75)
+        self.assertLessEqual(factors[1], 0.55)
         self.assertGreater(factors[2], 1.0)
 
 
@@ -1091,7 +1091,7 @@ class TestServices(unittest.TestCase):
         self.assertIn(17, adjusted[:12])
         self.assertLess(adjusted.index(17), adjusted.index(1))
 
-    def test_result_exposure_keeps_dominant_top_result(self):
+    def test_result_exposure_no_longer_protects_dominant_overexposed_top_result(self):
         class Engine:
             fetishes = [
                 {'id': 1, 'name': '激重感情'},
@@ -1101,9 +1101,9 @@ class TestServices(unittest.TestCase):
 
         events = [result_exposure.build_event(1, '激重感情', 90) for _ in range(80)]
         events.extend(result_exposure.build_event(2, '白衣', 80) for _ in range(5))
-        ranked = result_exposure.adjust_ranked(Engine(), [0.90, 0.40, 0.1], [0, 1, 2], events=events)
+        ranked = result_exposure.adjust_ranked(Engine(), [0.90, 0.58, 0.1], [0, 1, 2], events=events)
 
-        self.assertEqual(ranked[0], 0)
+        self.assertEqual(ranked[0], 1)
 
 
     def test_question_selection_low_confidence_extension_bounds(self):
