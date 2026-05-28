@@ -161,6 +161,35 @@ def save_config_value(key, value, *, use_db, get_conn, put_conn, config_path, re
         atomic_write(config_path, stored)
 
 
+
+DEFAULT_RECOMMENDED_WORKS_BY_NAME = {
+    '激重感情': ['ハッピーシュガーライフ', '未来日記', '君に愛されて痛かった'],
+    'ツンデレ優男ヤンキー': ['ヤンキー君と白杖ガール', '山田くんとLv999の恋をする', 'ひるなかの流星'],
+    '人外/異形頭': ['魔法使いの嫁', 'とつくにの少女', '異形頭さんとニンゲンちゃん'],
+    '共生関係': ['魔法使いの嫁', '宝石の国', '蟲師'],
+    '離別': ['秒速5センチメートル', '四月は君の嘘', 'ラヴレター'],
+}
+
+
+def default_recommended_works_for_name(name):
+    return [
+        {'title': title, 'url': ''}
+        for title in DEFAULT_RECOMMENDED_WORKS_BY_NAME.get(str(name or '').strip(), [])
+    ]
+
+
+def backfill_empty_recommended_works(cur):
+    updated = 0
+    for name, titles in DEFAULT_RECOMMENDED_WORKS_BY_NAME.items():
+        works_json = json.dumps([{'title': title, 'url': ''} for title in titles], ensure_ascii=False)
+        cur.execute(
+            "UPDATE fetishes SET works=%s WHERE name=%s AND (works='' OR works='[]' OR works IS NULL)",
+            (works_json, name),
+        )
+        updated += int(getattr(cur, 'rowcount', 0) or 0)
+    return updated
+
+
 def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id, build_initial_matrix):
     conn = get_conn()
     try:
@@ -272,6 +301,7 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                     'UPDATE fetishes SET name=%s, "desc"=%s WHERE id=%s',
                     (fetish['name'], fetish['desc'], fetish['id']),
                 )
+            backfill_empty_recommended_works(cur)
             nq = len(engine.questions)
             cur.execute('SELECT MAX(question_id) FROM matrix')
             max_qid = cur.fetchone()[0]

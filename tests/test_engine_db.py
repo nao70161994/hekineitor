@@ -36,6 +36,22 @@ class TestEngineDbHelpers(unittest.TestCase):
         self.assertIn('SET yes_count   = EXCLUDED.yes_count', engine_db.IMPORT_MATRIX_SQL)
 
 
+    def test_default_recommended_works_cover_promoted_seed_gaps(self):
+        works = engine_db.default_recommended_works_for_name('激重感情')
+        self.assertEqual([work['title'] for work in works], ['ハッピーシュガーライフ', '未来日記', '君に愛されて痛かった'])
+        self.assertEqual(engine_db.default_recommended_works_for_name('unknown'), [])
+
+    def test_backfill_empty_recommended_works_updates_only_empty_rows(self):
+        cursor = FakeCursor()
+        cursor.rowcount = 1
+        updated = engine_db.backfill_empty_recommended_works(cursor)
+        self.assertGreaterEqual(updated, 1)
+        sql, params = cursor.executed[0]
+        self.assertIn('UPDATE fetishes SET works=%s', sql)
+        self.assertIn("works='[]'", sql)
+        self.assertEqual(params[1], '激重感情')
+        self.assertIn('ハッピーシュガーライフ', params[0])
+
 
 class FakeCursor:
     def __init__(self, *, fetchone_values=None, fetchall_values=None):
