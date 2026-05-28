@@ -331,6 +331,66 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('share analytics unavailable: HTTP 403', report['message'])
 
 
+    def test_operations_report_uses_result_exposure_ranking_before_stats_history(self):
+        calls = []
+
+        def fake_json(path):
+            calls.append(path)
+            if path == '/health':
+                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+            if path == '/api/admin/preflight':
+                return {'checks': []}
+            if path == '/api/admin/works_health':
+                return {'maintenance': {'works_count': 100}}
+            if path.startswith('/api/admin/result_exposures'):
+                return {'source': 'result_exposures', 'ranking': [{'fetish_name': '白衣', 'count': 9, 'total': 9}]}
+            if path.startswith('/api/admin/recent_fetish_ranking'):
+                raise AssertionError('stats ranking should not be used when exposures exist')
+            if path.startswith('/api/admin/question_events'):
+                return {'total': 1, 'metrics': {}, 'questions': [], 'dropoff_ranking': []}
+            if path == '/api/admin/funnel_metrics':
+                return {'completion': {'recent_7_days': {'starts': 30, 'completions': 15, 'completion_rate': 50}}}
+            if path.startswith('/api/admin/share_events'):
+                return {'total': 1, 'metrics': {'result_page_views': 1, 'share_actions': 0}}
+            raise AssertionError(path)
+
+        report = operations_check.build_report(
+            environ={'ADMIN_READ_TOKEN': 'token'},
+            json_getter=fake_json,
+            bytes_getter=lambda path: operations_check.PNG_SIGNATURE + b'abc',
+        )
+
+        self.assertIn('/api/admin/result_exposures?days=7&top_n=20', calls)
+        self.assertIn('result_source=result_exposures', report['message'])
+        self.assertIn('heavy_result_ratio=0.0%', report['message'])
+
+    def test_daily_report_uses_result_exposure_ranking_before_stats_history(self):
+        calls = []
+
+        def fake_json(path):
+            calls.append(path)
+            if path == '/api/admin/funnel_metrics':
+                return {'stats_history': [{'date': '2026-05-26', 'start': 100, 'completion': 80}]}
+            if path.startswith('/api/admin/result_exposures'):
+                self.assertIn('date=2026-05-26', path)
+                return {'source': 'result_exposures', 'ranking': [{'fetish_name': '白衣', 'count': 8, 'total': 8}]}
+            if path.startswith('/api/admin/recent_fetish_ranking'):
+                raise AssertionError('stats ranking should not be used when exposures exist')
+            if path.startswith('/api/admin/share_events'):
+                return {'total': 2, 'metrics': {'result_page_views': 10, 'share_actions': 1}}
+            if path.startswith('/api/admin/question_events'):
+                return {'total': 3, 'dropoff_ranking': [], 'questions': []}
+            raise AssertionError(path)
+
+        report = daily_analytics_report.build_daily_report(
+            environ={'ADMIN_READ_TOKEN': 'token', 'HEKI_REPORT_DATE': '2026-05-26'},
+            json_getter=fake_json,
+        )
+
+        self.assertIn('result_source: result_exposures', report['message'])
+        self.assertIn('白衣 8', report['message'])
+        self.assertIn('/api/admin/result_exposures?days=1&date=2026-05-26&top_n=10', calls)
+
     def test_daily_report_summarizes_safe_analytics(self):
         def fake_json(path):
             if path == '/api/admin/funnel_metrics':

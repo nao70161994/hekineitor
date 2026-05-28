@@ -114,6 +114,18 @@ def _top_heavy_ratio(ranking: list[dict[str, Any]]) -> tuple[float, list[str]]:
     return _ratio(heavy_total, total), top
 
 
+def _fetch_result_ranking(json_getter: Callable[[str], dict[str, Any]], *, days: int = 7, top_n: int = 20) -> tuple[list[dict[str, Any]], str]:
+    try:
+        exposure = json_getter(f'/api/admin/result_exposures?days={days}&top_n={top_n}')
+        ranking = exposure.get('ranking') or []
+        if ranking:
+            return ranking, str(exposure.get('source') or 'result_exposures')
+    except Exception:
+        pass
+    fallback = json_getter(f'/api/admin/recent_fetish_ranking?days={days}&top_n={top_n}')
+    return fallback.get('ranking') or [], 'stats_history_fallback'
+
+
 def _validate_health_response(health, critical, warn, environ):
     if health.get('status') != 'ok':
         critical.append(f"/health status={health.get('status', 'unknown')}")
@@ -265,10 +277,11 @@ def build_report(
             warn.append(f'works_health unavailable: {_error_label(exc)}')
 
         try:
-            ranking = json_getter('/api/admin/recent_fetish_ranking?days=7&top_n=20').get('ranking', [])
+            ranking, result_source = _fetch_result_ranking(json_getter, days=7, top_n=20)
             admin_signal_available = True
             heavy_ratio, heavy_top = _top_heavy_ratio(ranking)
             daily.append(f'heavy_result_ratio={_pct(heavy_ratio)}')
+            daily.append(f'result_source={result_source}')
             if heavy_ratio >= _env_float(environ, 'NTFY_HEAVY_RESULT_WARN_RATIO', 65.0):
                 warn.append(f'heavy_result_ratio={_pct(heavy_ratio)} TOP: {", ".join(heavy_top[:4])}')
         except Exception as exc:

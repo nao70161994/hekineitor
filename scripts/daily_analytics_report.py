@@ -108,6 +108,18 @@ def _heavy_ratio(ranking: list[dict[str, Any]]) -> float:
     return _ratio(heavy, total)
 
 
+def _fetch_result_ranking(json_getter: Callable[[str], dict[str, Any]], *, target_date: str, top_n: int = 10) -> tuple[list[dict[str, Any]], str]:
+    try:
+        exposure = json_getter(f'/api/admin/result_exposures?days=1&date={target_date}&top_n={top_n}')
+        ranking = exposure.get('ranking') or []
+        if ranking:
+            return ranking, str(exposure.get('source') or 'result_exposures')
+    except Exception:
+        pass
+    fallback = json_getter(f'/api/admin/recent_fetish_ranking?days=1&date={target_date}&top_n={top_n}')
+    return fallback.get('ranking') or [], 'stats_history_fallback'
+
+
 def _top_dropoff_questions(question_report: dict[str, Any], limit: int = 3) -> list[str]:
     rows = []
     for row in question_report.get('dropoff_ranking', []):
@@ -147,7 +159,7 @@ def build_daily_report(
     target_date = str(environ.get('HEKI_REPORT_DATE') or _yesterday())[:10]
 
     funnel = json_getter('/api/admin/funnel_metrics')
-    ranking = json_getter(f'/api/admin/recent_fetish_ranking?days=1&date={target_date}&top_n=10').get('ranking', [])
+    ranking, result_source = _fetch_result_ranking(json_getter, target_date=target_date, top_n=10)
     share = json_getter('/api/admin/share_events?days=1&limit=5000')
     questions = json_getter('/api/admin/question_events?limit=5000')
 
@@ -166,6 +178,7 @@ def build_daily_report(
         f"plays: {stats['plays']}",
         _completion_line(stats),
         f"heavy_result_ratio: {_pct(_heavy_ratio(ranking))}",
+        f"result_source: {result_source}",
         f"share_rate: {_pct(share_rate)} ({share_actions}/{result_views})",
         f"question_events: {questions.get('total', 0)}",
         f"share_events: {share.get('total', 0)}",

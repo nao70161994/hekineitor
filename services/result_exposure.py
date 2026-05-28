@@ -3,7 +3,7 @@ import math
 import os
 import threading
 from collections import Counter, deque
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from storage import data_path
 from services import event_store
@@ -136,6 +136,80 @@ def read_events(*, path=None, environ=None, limit=MAIN_WINDOW):
         if isinstance(event, dict) and event.get('event_name') == 'result_exposed':
             events.append(event)
     return events
+
+
+
+def _event_date(event):
+    timestamp = str(event.get('timestamp') or '')
+    return timestamp[:10] if len(timestamp) >= 10 else ''
+
+
+def _date_window(*, days=None, date=None, until=None):
+    end_date = str(date or until or '').strip()[:10]
+    try:
+        day_count = max(1, min(int(days or 0), 365))
+    except (TypeError, ValueError):
+        day_count = 0
+    if not end_date and day_count <= 0:
+        return None, None
+    try:
+        end = datetime.fromisoformat(end_date).date() if end_date else datetime.now(timezone.utc).date()
+    except ValueError:
+        return None, None
+    start = end if day_count <= 1 else end - timedelta(days=day_count - 1)
+    return start.isoformat(), end.isoformat()
+
+
+def filter_events(events, *, days=None, date=None, until=None):
+    start, end = _date_window(days=days, date=date, until=until)
+    if not start or not end:
+        return list(events)
+    return [event for event in events if start <= _event_date(event) <= end]
+
+
+def ranking_from_events(events, *, top_n=10):
+    try:
+        limit = max(1, min(int(top_n or 10), 100))
+    except (TypeError, ValueError):
+        limit = 10
+    counts = Counter()
+    names = {}
+    for event in events:
+        if int(event.get('rank') or 1) != 1:
+            continue
+        fetish_id = _clean_int(event.get('fetish_id'))
+        name = _clean_text(event.get('fetish_name') or 'unknown', 80) or 'unknown'
+        key = fetish_id if fetish_id is not None else name
+        counts[key] += 1
+        names[key] = name
+    total = sum(counts.values())
+    rows = []
+    for key, count in counts.most_common(limit):
+        row = {
+            'fetish_name': names.get(key, 'unknown'),
+            'count': count,
+            'total': count,
+            'guessed': count,
+            'percent': round(count / total * 100, 1) if total else 0.0,
+            'source': 'result_exposures',
+        }
+        if isinstance(key, int):
+            row['fetish_id'] = key
+        rows.append(row)
+    return {'total': total, 'ranking': rows}
+
+
+def ranking_report(*, path=None, environ=None, limit=5000, days=None, date=None, until=None, top_n=10):
+    events = read_events(path=path, environ=environ, limit=limit)
+    filtered = filter_events(events, days=days, date=date, until=until)
+    report = ranking_from_events(filtered, top_n=top_n)
+    report.update({
+        'status': 'ok',
+        'source': 'result_exposures',
+        'days': days,
+        'date': date or until,
+    })
+    return report
 
 
 def storage_status(*, path=None, environ=None):

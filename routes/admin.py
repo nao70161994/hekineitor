@@ -345,6 +345,20 @@ def recent_fetish_ranking(ctx):
     return ctx.jsonify({'ranking': ranking, 'days': days, 'date': end_date, 'source': source})
 
 
+def result_exposures_report(ctx):
+    days = ctx.bounded_int(ctx.request.args.get('days'), 7, 1, 90)
+    top_n = ctx.bounded_int(ctx.request.args.get('top_n'), 10, 1, 50)
+    end_date = (ctx.request.args.get('date') or ctx.request.args.get('until') or '').strip()[:10] or None
+    report = result_exposure_service.ranking_report(
+        environ=ctx.environ,
+        limit=5000,
+        days=days,
+        date=end_date,
+        top_n=top_n,
+    )
+    return ctx.jsonify(report)
+
+
 def export_stats_history(ctx):
     history = ctx.engine.get_stats_history(days=90)
     fieldnames = ['date', 'start', 'completion', 'play', 'learn', 'correct', 'wrong', 'dropoff']
@@ -597,6 +611,7 @@ def admin_read_overview(ctx):
             '/api/admin/fetish_log_rows',
             '/api/admin/low_exposure_fetishes',
             '/api/admin/recent_fetish_ranking',
+            '/api/admin/result_exposures',
             '/api/admin/question_events',
             '/api/admin/share_events',
             '/api/admin/share_notes',
@@ -1432,6 +1447,11 @@ def create_blueprint(ctx_factory, require_admin, require_admin_or_read=None):
     @require_admin_or_read
     def recent_fetish_ranking_route():
         return recent_fetish_ranking(ctx_factory())
+
+    @bp.route('/api/admin/result_exposures', methods=['GET'])
+    @require_admin_or_read
+    def result_exposures_route():
+        return result_exposures_report(ctx_factory())
 
     @bp.route('/api/admin/export_stats_history', methods=['GET'])
     @require_admin_or_read

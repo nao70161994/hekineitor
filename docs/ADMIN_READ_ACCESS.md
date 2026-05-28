@@ -56,3 +56,14 @@ CSV系の読み取りも同じトークンで取得できます。
 ## ローテーション
 
 トークンを渡した相手の作業が終わったら、Renderで `ADMIN_READ_TOKEN` を更新して再起動してください。漏洩時も同じ手順で無効化できます。
+
+## Displayed result exposure ranking
+
+Use this endpoint when checking what users actually saw as their final result:
+
+```sh
+curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" \
+  "https://hekineitor.onrender.com/api/admin/result_exposures?days=7&top_n=20"
+```
+
+It returns aggregate counts only. It does not include IP address, User-Agent, session id, tokens, or raw URLs.

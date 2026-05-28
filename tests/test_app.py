@@ -18,6 +18,7 @@ from services import share_events as share_events_service
 from services import question_events as question_events_service
 from services import share_links as share_links_service
 from services import share_notes as share_notes_service
+from services import result_exposure as result_exposure_service
 from services import test_play as test_play_service
 from services import inference as inference_service
 from services import learning as learning_service
@@ -1395,6 +1396,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
                 '/api/admin/share_events',
                 '/api/admin/fetish_log_rows',
                 '/api/admin/recent_fetish_ranking',
+                '/api/admin/result_exposures',
                 '/api/admin/export_stats_history',
                 '/api/admin/matrix_backups',
                 '/api/admin/works_link_queue',
@@ -1419,6 +1421,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('/api/admin/fetishes_snapshot', data['available_endpoints'])
         self.assertIn('/api/admin/funnel_metrics', data['available_endpoints'])
         self.assertIn('/api/admin/low_exposure_fetishes', data['available_endpoints'])
+        self.assertIn('/api/admin/result_exposures', data['available_endpoints'])
         self.assertIn('analysis_log_status', data)
         self.assertIn('share_links_count', data)
         self.assertIsInstance(data['share_links_count'], int)
@@ -1454,6 +1457,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             '/api/admin/fetish_log_rows?page=1&per_page=10',
             '/api/admin/low_exposure_fetishes?threshold=3&limit=20',
             '/api/admin/recent_fetish_ranking',
+            '/api/admin/result_exposures?days=7&top_n=20',
             '/api/admin/export_stats_history',
             '/api/admin/matrix_backups',
             '/api/admin/works_link_queue',
@@ -1760,6 +1764,23 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         data = res.get_json()
         self.assertEqual(data['days'], 1)
         self.assertIn(data['source'], ('recent', 'all_time_fallback'))
+
+    def test_result_exposures_endpoint_reports_displayed_result_ranking(self):
+        headers = self._admin_headers()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'result_exposures.jsonl')
+            with patch.dict(os.environ, {'RESULT_EXPOSURE_LOG_PATH': path}, clear=False):
+                result_exposure_service.record_result(1, '激重感情', 91, path=path)
+                result_exposure_service.record_result(1, '激重感情', 89, path=path)
+                result_exposure_service.record_result(2, '白衣', 75, path=path)
+                res = self.client.get('/api/admin/result_exposures?top_n=2', headers=headers)
+
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['source'], 'result_exposures')
+        self.assertEqual(data['total'], 3)
+        self.assertEqual(data['ranking'][0]['fetish_name'], '激重感情')
+        self.assertEqual(data['ranking'][0]['count'], 2)
 
     def test_quality_report_endpoint(self):
         headers = self._admin_headers()

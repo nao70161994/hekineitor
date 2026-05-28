@@ -95,3 +95,9 @@ This should reduce early overcommitment to heavy-emotion results and give visual
 - Prior weights
 - Existing stats or learning data
 - DB schema
+
+## Result analytics source
+
+Operations notifications and daily reports should prefer `result_exposures` for result distribution. This event is recorded after the final displayed result is selected, so it reflects what users actually saw. `recent_fetish_ranking` remains available as a stats-history fallback, but it can include legacy guessed counters and should not be used alone to judge displayed-result bias when exposure data exists.
+
+The read-only endpoint `/api/admin/result_exposures` returns only aggregate counts (`fetish_id`, `fetish_name`, count/percent/source). It does not expose IP, User-Agent, session id, or tokens.

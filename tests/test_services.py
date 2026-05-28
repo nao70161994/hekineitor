@@ -990,6 +990,32 @@ class TestServices(unittest.TestCase):
         self.assertNotIn('last_guess_quality', session)
 
 
+    def test_result_exposure_ranking_counts_displayed_rank_one_results(self):
+        events = [
+            result_exposure.build_event(1, '激重感情', 91, rank=1),
+            result_exposure.build_event(1, '激重感情', 88, rank=1),
+            result_exposure.build_event(2, '白衣', 77, rank=1),
+            result_exposure.build_event(3, '眼鏡', 55, rank=2),
+        ]
+
+        report = result_exposure.ranking_from_events(events, top_n=5)
+
+        self.assertEqual(report['total'], 3)
+        self.assertEqual(report['ranking'][0]['fetish_name'], '激重感情')
+        self.assertEqual(report['ranking'][0]['count'], 2)
+        self.assertEqual(report['ranking'][0]['source'], 'result_exposures')
+        self.assertEqual(report['ranking'][1]['fetish_name'], '白衣')
+
+    def test_result_exposure_filter_events_uses_jst_report_date_string(self):
+        events = [
+            {'timestamp': '2026-05-26T00:00:00+00:00', 'event_name': 'result_exposed', 'fetish_id': 1, 'fetish_name': '共依存'},
+            {'timestamp': '2026-05-27T00:00:00+00:00', 'event_name': 'result_exposed', 'fetish_id': 2, 'fetish_name': '白衣'},
+        ]
+
+        filtered = result_exposure.filter_events(events, days=1, date='2026-05-27')
+
+        self.assertEqual([event['fetish_name'] for event in filtered], ['白衣'])
+
     def test_result_exposure_balancing_downweights_overexposed_result(self):
         class Engine:
             fetishes = [
