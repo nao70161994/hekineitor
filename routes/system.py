@@ -88,6 +88,13 @@ def offline(ctx):
     return ctx.render_template('offline.html')
 
 
+def ads_txt(ctx):
+    path = ctx.join_path(ctx.static_folder, 'ads.txt')
+    with open(path, encoding='utf-8') as f:
+        body = f.read()
+    return ctx.Response(body, mimetype='text/plain', headers={'Cache-Control': 'public, max-age=3600'})
+
+
 ERROR_PAGE = '''<!DOCTYPE html>
 <html lang="ja"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -149,5 +156,9 @@ def create_public_blueprint(ctx_factory):
     @bp.route('/offline')
     def offline_route():
         return offline(ctx_factory())
+
+    @bp.route('/ads.txt')
+    def ads_txt_route():
+        return ads_txt(ctx_factory())
 
     return bp

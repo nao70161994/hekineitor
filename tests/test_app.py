@@ -701,6 +701,12 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn(b'standalone', res.data)
 
+    def test_ads_txt_served(self):
+        res = self.client.get('/ads.txt')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.mimetype, 'text/plain')
+        self.assertIn(b'google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0', res.data)
+
     # ── exclude_ids ────────────────────────────────────────
     def test_start_with_exclude_ids(self):
         res = self.client.post('/api/start', json={'exclude_ids': [0, 1]})

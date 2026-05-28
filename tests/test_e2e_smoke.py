@@ -128,6 +128,10 @@ class TestE2ESmoke(unittest.TestCase):
         offline = self.client.get('/offline')
         self.assertEqual(offline.status_code, 200)
 
+        ads = self.client.get('/ads.txt')
+        self.assertEqual(ads.status_code, 200)
+        self.assertEqual(ads.mimetype, 'text/plain')
+
 
 if __name__ == '__main__':
     unittest.main()

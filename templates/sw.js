@@ -1,5 +1,5 @@
 const CACHE = 'hekineitor-{{ version }}';
-const STATIC = ['/', '/manifest.json', '/static/icon-192.png', '/static/icon-512.png', '/offline'];
+const STATIC = ['/', '/manifest.json', '/ads.txt', '/static/icon-192.png', '/static/icon-512.png', '/offline'];
 
 self.addEventListener('install', e => {
   e.waitUntil(

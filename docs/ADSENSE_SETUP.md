@@ -14,3 +14,19 @@ AdSense 審査コードは導入済みです。
 npm run test:static
 npm run test:pwa
 ```
+
+## ads.txt
+
+AdSense 用の `ads.txt` は `static/ads.txt` に配置し、Flask の `/ads.txt` ルートから `text/plain` で配信します。
+
+現在の内容は審査・設定前の placeholder です。AdSense 側の publisher ID が確定したら `pub-XXXXXXXXXXXXXXXX` を差し替えてください。
+
+```text
+google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0
+```
+
+確認URL:
+
+```text
+https://hekineitor.onrender.com/ads.txt
+```
