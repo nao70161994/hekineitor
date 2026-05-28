@@ -759,6 +759,7 @@ class TestServices(unittest.TestCase):
         csp = Response.headers['Content-Security-Policy']
         self.assertIn("default-src 'self'", csp)
         self.assertIn('https://pagead2.googlesyndication.com', csp)
+        self.assertIn('https://ep1.adtrafficquality.google', csp)
         self.assertIn('https://googleads.g.doubleclick.net', csp)
 
     def test_response_hooks_audit_admin_mutations_only(self):
