@@ -9,8 +9,10 @@
 <meta name="apple-mobile-web-app-title" content="へきネイター">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/static/icon-192.png">
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8683516545883768"
+{% if adsense_client %}
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ adsense_client }}"
      crossorigin="anonymous"></script>
+{% endif %}
 <title>へきネイター {{ display_version }} — 性癖診断</title>
 <meta name="description" content="質問に答えるだけであなたの性癖を当てる！Akinator風の性癖診断アプリ「へきネイター」。{{ public_fetish_count }}種類の性癖から最もマッチするものを推定します。">
 <link rel="canonical" href="{{ base_url }}/">
@@ -140,6 +142,7 @@
       質問に正直に答えてください。<br>
       遊ぶほど賢くなります。
     </p>
+    {% include '_adsense_slot.html' with context %}
     <button class="btn btn-start" data-action="start-game">スタート</button>
     <a class="catalog-link" href="/fetishes">性癖一覧を見る</a>
     <button class="history-btn" id="history-btn" data-action="toggle-history">📜 診断履歴<span id="history-badge" class="history-badge hidden"></span></button>
@@ -225,6 +228,8 @@
     <button class="btn btn-idk" style="width:100%;margin-top:6px;font-size:0.82rem;" data-action="show-start">タイトルに戻る</button>
     <button class="btn btn-idk btn-exclude" style="width:100%;margin-top:4px;font-size:0.82rem;opacity:0.75;" data-action="start-excluding">別の性癖を探す →</button>
     <button id="btn-quick-retry" class="btn btn-idk" style="width:100%;margin-top:4px;font-size:0.82rem;background:linear-gradient(135deg,#1a4a8a,#0f3460);display:none;" data-action="quick-retry">⚡ すぐ再挑戦（今の診断を除外）</button>
+    {% set placement = 'result' %}
+    {% include '_adsense_slot.html' with context %}
   </div>
 
   <!-- 正解選択画面 -->

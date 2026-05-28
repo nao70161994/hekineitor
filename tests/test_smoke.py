@@ -82,16 +82,34 @@ class TestSmoke(unittest.TestCase):
             positions.append(body.index(script))
         self.assertEqual(positions, sorted(positions))
 
-    def test_index_contains_adsense_review_script_once(self):
-        res = self.client.get('/')
+    def test_adsense_hidden_without_client(self):
+        with patch.dict(os.environ, {}, clear=True):
+            os.environ['SECRET_KEY'] = 'test_secret_key_for_testing'
+            res = self.client.get('/')
         self.assertEqual(res.status_code, 200)
         body = res.data.decode('utf-8')
-        src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8683516545883768'
+        self.assertNotIn('adsbygoogle.js?client=', body)
+        self.assertNotIn('class="adsbygoogle"', body)
+
+    def test_index_contains_adsense_slots_when_client_configured(self):
+        with patch.dict(os.environ, {'ADSENSE_CLIENT': 'ca-pub-test', 'SECRET_KEY': 'test_secret_key_for_testing'}):
+            import app as app_module
+            app_module.BOOTSTRAP.adsense_client = 'ca-pub-test'
+            try:
+                res = self.client.get('/')
+            finally:
+                app_module.BOOTSTRAP.adsense_client = ''
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-test'
         self.assertEqual(body.count(src), 1)
         self.assertIn(f'<script async src="{src}"', body)
         self.assertIn('crossorigin="anonymous"></script>', body)
         head = body.split('</head>', 1)[0]
         self.assertIn(src, head)
+        self.assertEqual(body.count('class="adsbygoogle"'), 2)
+        self.assertIn('adsense-slot-inline', body)
+        self.assertIn('adsense-slot-result', body)
 
     def test_index_uses_png_og_image(self):
         res = self.client.get('/')

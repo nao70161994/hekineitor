@@ -106,6 +106,7 @@ def _seo_context():
         app_version=BOOTSTRAP.app_version,
         safe_work_url=safe_work_url,
         amazon_associate_id=BOOTSTRAP.amazon_associate_id,
+        adsense_client=BOOTSTRAP.adsense_client,
         fetish_relations=FETISH_RELATIONS,
         error_page=system_routes.ERROR_PAGE,
         record_share_event=lambda *args, **kwargs: share_events_service.safe_record_event(*args, environ=os.environ, **kwargs),

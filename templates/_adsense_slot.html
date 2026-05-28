@@ -1,0 +1,10 @@
+{% if adsense_client %}
+<div class="adsense-slot adsense-slot-{{ placement|default('inline') }}" aria-label="広告">
+  <ins class="adsbygoogle"
+       style="display:block"
+       data-ad-client="{{ adsense_client }}"
+       data-ad-slot="{{ ad_slot|default('0000000000') }}"
+       data-ad-format="auto"
+       data-full-width-responsive="true"></ins>
+</div>
+{% endif %}

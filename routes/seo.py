@@ -13,6 +13,7 @@ def index(ctx):
         display_version=ctx.display_version,
         app_version=ctx.app_version,
         amazon_associate_id=ctx.amazon_associate_id,
+        adsense_client=ctx.adsense_client,
         base_url=base_url,
         public_fetish_count=public_fetish_count,
         learning_disabled=ctx.learning_disabled(),
@@ -196,6 +197,7 @@ def _render_result_share(ctx, *, name, probability, desc, share_url):
         result_tagline=ctx.result_tagline(name, probability),
         result_title=ctx.result_title(probability),
         result_rarity=ctx.result_rarity(probability),
+        adsense_client=ctx.adsense_client,
     )
     return ctx.Response(body, headers={'X-Robots-Tag': 'noindex, follow'})
 

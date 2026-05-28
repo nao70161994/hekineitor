@@ -14,6 +14,7 @@ class AppBootstrap:
         self.app_version = app_version_fn(base_dir)
         self.display_version = display_version
         self.amazon_associate_id = environ.get('AMAZON_ASSOCIATE_ID', '')
+        self.adsense_client = environ.get('ADSENSE_CLIENT', '')
         self.guess_threshold = guess_threshold
         self.soft_max_questions = soft_max_questions
         self.hard_max_questions = hard_max_questions

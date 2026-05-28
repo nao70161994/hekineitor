@@ -19,6 +19,10 @@
 <meta name="twitter:description" content="{% if probability %}AI精度{{ probability }}%。{% endif %}次はあなたの番です……">
 {% if og_image %}<meta name="twitter:image" content="{{ og_image }}">{% endif %}
 <meta name="twitter:image:alt" content="へきネイター診断結果 {{ fetish_name }}">
+{% if adsense_client %}
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ adsense_client }}"
+     crossorigin="anonymous"></script>
+{% endif %}
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -56,6 +60,7 @@
     width: 100%;
   }
   .sub { color: #555; font-size: 0.78rem; margin-top: 16px; }
+  .adsense-slot { width: 100%; max-width: 400px; min-height: 90px; margin: 14px auto 0; overflow: hidden; opacity: 0.92; }
 </style>
 </head>
 <body>
@@ -73,6 +78,8 @@
   <a class="share-link" href="https://twitter.com/intent/tweet?{{ {'text': share_text ~ ' #へきネイター', 'url': share_url} | urlencode }}" target="_blank" rel="noopener">Xに記録する</a>
   {% endif %}
   <a class="btn" href="/">次はあなたの番です……</a>
+  {% set placement = 'result-share' %}
+  {% include '_adsense_slot.html' with context %}
   <div class="sub">へきネイター {{ display_version }}</div>
 </div>
 </body>
