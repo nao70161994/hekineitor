@@ -39,6 +39,8 @@ ADSENSE_CLIENT=ca-pub-8835165458837368
 
 `ADSENSE_CLIENT` 未設定時は広告 script / slot は出力されません。
 
+CSP では AdSense の所有権確認と広告表示に必要な `https://pagead2.googlesyndication.com` などの最小ドメインを許可します。
+
 ## Minimal Ad Slots
 
 `ADSENSE_CLIENT` が設定されている場合のみ、`templates/_adsense_slot.html` を通じて最小広告枠を表示します。未設定時は script も slot も出力しません。

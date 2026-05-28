@@ -756,7 +756,10 @@ class TestServices(unittest.TestCase):
         response_hooks.apply_security_headers(Response)
         self.assertEqual(counts['4xx'], 1)
         self.assertEqual(Response.headers['X-Content-Type-Options'], 'nosniff')
-        self.assertIn("default-src 'self'", Response.headers['Content-Security-Policy'])
+        csp = Response.headers['Content-Security-Policy']
+        self.assertIn("default-src 'self'", csp)
+        self.assertIn('https://pagead2.googlesyndication.com', csp)
+        self.assertIn('https://googleads.g.doubleclick.net', csp)
 
     def test_response_hooks_audit_admin_mutations_only(self):
         calls = []
