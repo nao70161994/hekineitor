@@ -155,6 +155,7 @@
 
 ## Next PRs
 
+- Future works-master PR: add duplicate/title normalization reporting for recommended works before considering a `works_master` / `fetish_work_links` DB migration.
 1. Keep `app.py` as composition root; avoid further extraction unless a dependency group has clear ownership outside Flask wiring.
 2. Execute `docs/QA_EXECUTION_LOG.md` manual mobile/OGP/PWA backlog against real devices and a deployed URL.
 3. OGP Japanese font follow-up: enable `DOWNLOAD_OGP_FONT=1 sh scripts/render_build.sh` or set `OGP_FONT_PATH` on Render, then manually verify Japanese PNG output.

@@ -110,6 +110,7 @@
 
 ## Still Open
 
+- Recommended works still use per-fetish inline JSON; track future works-master normalization in `docs/RECOMMENDED_WORKS_LIST.md` before any DB schema migration.
 - Keep remaining `app.py` factories as explicit composition-root adapters; only extract when ownership is clearer than Flask wiring.
 - Expand browser-oriented E2E coverage beyond Flask smoke paths when a lightweight browser runner is available.
 - Execute the manual QA backlog in `docs/QA_EXECUTION_LOG.md` for mobile CTA, OGP previews, and PWA install/update behavior.

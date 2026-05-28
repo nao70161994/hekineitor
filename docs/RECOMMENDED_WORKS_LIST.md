@@ -633,3 +633,26 @@
 - Future Diary | https://www.amazon.co.jp/dp/B00K6THSBE?tag=hekinator-22
 - School Days | https://www.amazon.co.jp/dp/B07YKHDK28?tag=hekinator-22
 - 犬夜叉 | https://www.amazon.co.jp/dp/B06XKSDMC9?tag=hekinator-22
+
+
+## Open Operations Issue: 作品マスタ化
+
+Current recommended works are stored inline on each fetish row as `works` entries.
+The same title can appear under multiple fetishes, but it is duplicated as separate JSON objects rather than referenced by a shared work ID.
+
+Impact:
+
+- The same work URL/ASIN may need to be fixed in multiple places.
+- Title variants such as `魔法使いの嫁`, `魔法使いの嫁（漫画）`, and `魔法使いの嫁 1巻` are treated as separate works.
+- Work click analytics are aggregated by `work_title`, so title drift weakens analysis.
+- Direct ASIN backfill and affiliate URL maintenance are harder to audit globally.
+
+Safe migration direction:
+
+1. Keep existing `fetishes.works` as the compatibility source.
+2. Add a read-only duplicate/title-normalization report first.
+3. Normalize obvious duplicate titles and URLs without changing DB schema.
+4. Design a future `works_master` / `fetish_work_links` migration only after deployed analytics prove work-click volume is meaningful.
+5. Keep fallback rendering from legacy `fetishes.works` during any migration.
+
+Do not start with a DB schema migration while production recommendation coverage and click analytics are still stabilizing.
