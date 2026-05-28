@@ -1073,6 +1073,24 @@ class TestServices(unittest.TestCase):
         self.assertEqual(ranked[0], 1)
 
 
+    def test_result_exposure_adjustment_extends_pool_for_low_exposure_candidates(self):
+        class Engine:
+            fetishes = [{'id': index + 1, 'name': f'F{index + 1}'} for index in range(32)]
+
+        # Fill enough samples and overexpose the first candidates so later low-exposure
+        # candidates receive the positive factor while still being plausible.
+        events = []
+        for fetish_id in range(1, 13):
+            events.extend(result_exposure.build_event(fetish_id, f'F{fetish_id}') for _ in range(8))
+        probs = [0.90] + [0.40 - index * 0.003 for index in range(1, 32)]
+        ranked = list(range(32))
+        ranked[1], ranked[17] = ranked[17], ranked[1]
+
+        adjusted = result_exposure.adjust_ranked(Engine(), probs, ranked, events=events)
+
+        self.assertIn(17, adjusted[:12])
+        self.assertLess(adjusted.index(17), adjusted.index(1))
+
     def test_result_exposure_keeps_dominant_top_result(self):
         class Engine:
             fetishes = [

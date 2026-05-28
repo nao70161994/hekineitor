@@ -19,6 +19,7 @@ MAIN_WINDOW = 300
 SHORT_WINDOW = 100
 MIN_SAMPLES = 50
 CANDIDATE_POOL = 12
+LOW_EXPOSURE_POOL = 30
 SMOOTHING = 2.0
 MIN_FACTOR = 0.7
 MAX_FACTOR = 1.25
@@ -379,13 +380,28 @@ def exposure_factors(fetishes, *, events=None, path=None, environ=None):
     return factors
 
 
+def _adjustment_pool(engine, ranked, factors):
+    primary = list(ranked[:CANDIDATE_POOL])
+    pool = list(primary)
+    seen = set(pool)
+    for index in ranked[CANDIDATE_POOL:LOW_EXPOSURE_POOL]:
+        fetish_id = engine.fetishes[index].get('id')
+        if factors.get(fetish_id, 1.0) <= 1.0:
+            continue
+        if index not in seen:
+            pool.append(index)
+            seen.add(index)
+    return pool
+
+
 def adjust_ranked(engine, probs, ranked, *, events=None, path=None, environ=None):
     ranked = list(ranked)
     if len(ranked) < 2:
         return ranked
     factors = exposure_factors(engine.fetishes, events=events, path=path, environ=environ)
-    pool = ranked[:CANDIDATE_POOL]
-    rest = ranked[CANDIDATE_POOL:]
+    pool = _adjustment_pool(engine, ranked, factors)
+    pool_set = set(pool)
+    rest = [index for index in ranked if index not in pool_set]
     original_top = ranked[0]
     top_score = probs[ranked[0]]
     second_score = max(probs[ranked[1]], 1e-12)

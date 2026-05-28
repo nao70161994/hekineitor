@@ -124,3 +124,9 @@ curl -u admin:$ADMIN_PASS \
 ```
 
 Backfilled rows are tagged with `source=stats_history_backfill`. They are used by the diversity balancing window, but the public/read-only result exposure ranking excludes them by default so daily reports continue to represent real displayed results only. Use `include_backfill=1` only when auditing the backfill itself.
+
+## Low-exposure rescue pool
+
+Diversity balancing keeps the primary candidate pool at the top 12 results, but it also inspects ranks 13-30 for low-exposure candidates. A candidate is eligible for this rescue pool only when its exposure factor is above 1.0, meaning it has appeared less often than expected in the recent exposure window. The boosted candidate still competes by adjusted score, so this does not pull arbitrary distant results into the final answer.
+
+This gives under-shown results more learning opportunities while keeping the main result close to the user's posterior ranking.
