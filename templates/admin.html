@@ -213,6 +213,16 @@
 <div style="margin-top:8px;font-size:0.72rem;color:#777;line-height:1.6;">
   result distribution / feedback は Engine の stats_history・fetish_log、share analytics / question analytics は本番Postgresの analytics_events、またはローカルJSONLを参照します。
 </div>
+<div style="margin-top:12px;border-top:1px solid #263244;padding-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+  <span style="font-size:0.76rem;color:#aaa;">分散ボーナス初期化</span>
+  <label style="font-size:0.7rem;color:#777;">max_events
+    <input id="result-exposure-backfill-max" type="number" min="1" max="5000" value="1000" style="width:82px;background:#1a1a2e;color:#eee;border:1px solid #444;border-radius:4px;padding:3px 6px;">
+  </label>
+  <button type="button" class="btn-action" data-action="preview-result-exposure-backfill" style="font-size:0.74rem;padding:3px 10px;">backfill確認</button>
+  <button type="button" class="btn-save" data-action="apply-result-exposure-backfill" style="font-size:0.74rem;padding:3px 10px;margin-top:0;">確認して適用</button>
+  <span id="result-exposure-backfill-msg" style="font-size:0.76rem;color:#888;"></span>
+</div>
+<div id="result-exposure-backfill-result" style="margin-top:8px;font-size:0.74rem;color:#888;line-height:1.6;"></div>
 </details>
 {% endif %}
 

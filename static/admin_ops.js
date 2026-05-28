@@ -221,3 +221,55 @@ async function loadWorksLinkQueue() {
   const counts = data.counts || {};
   el.innerHTML = `<div>合計 <strong style="color:#f5a623;">${Number.parseInt(data.total || 0, 10)}</strong> 件 / URLなし ${Number.parseInt(counts.missing_url || 0, 10)} / 検索URL ${Number.parseInt(counts.search_url || 0, 10)} / ASINなし ${Number.parseInt(counts.missing_asin || 0, 10)}</div>` + renderWorksQueueSamples(data.samples || {});
 }
+
+function renderResultExposureBackfill(data) {
+  const el = document.getElementById('result-exposure-backfill-result');
+  if (!el) return;
+  const rows = data.candidates || [];
+  const topRows = rows.slice(0, 8).map(row => `<div style="display:flex;gap:8px;border-top:1px solid #222;padding:4px 0;flex-wrap:wrap;">
+    <span style="color:#ccc;min-width:130px;">${escapeHtml(row.fetish_name)}</span>
+    <span style="color:#666;">ID ${Number.parseInt(row.fetish_id, 10)}</span>
+    <span style="color:#aaa;">raw ${Number.parseInt(row.raw_count || 0, 10)}</span>
+    <span style="color:#f5a623;">backfill ${Number.parseInt(row.backfill_count || 0, 10)}</span>
+  </div>`).join('');
+  const skipped = data.skipped ? `<div style="color:#f5a623;">既にbackfill済みのため通常はスキップされます。再投入は行わないでください。</div>` : '';
+  el.innerHTML = `<div>mode <code>${escapeHtml(data.mode || '')}</code> / raw ${Number.parseInt(data.raw_total || 0, 10)} / planned ${Number.parseInt(data.planned_total || 0, 10)} / existing ${Number.parseInt(data.existing_backfill_count || 0, 10)}</div>${skipped}${topRows || '<div style="color:#555;">候補なし</div>'}`;
+}
+
+async function previewResultExposureBackfill() {
+  const maxInput = document.getElementById('result-exposure-backfill-max');
+  const msg = document.getElementById('result-exposure-backfill-msg');
+  const maxEvents = Math.max(1, Math.min(Number.parseInt(maxInput?.value || '1000', 10) || 1000, 5000));
+  if (msg) { msg.style.color = '#aaa'; msg.textContent = '確認中...'; }
+  const res = await adminFetch(`/api/admin/result_exposures/backfill?max_events=${maxEvents}`, {method: 'GET', headers: {}});
+  if (!res) return;
+  const data = await res.json();
+  if (!res.ok) {
+    if (msg) { msg.style.color = '#e74c3c'; msg.textContent = data.message || '確認に失敗しました'; }
+    return;
+  }
+  renderResultExposureBackfill(data);
+  if (msg) { msg.style.color = data.skipped ? '#f5a623' : '#27ae60'; msg.textContent = data.skipped ? '既にbackfill済みです' : `予定 ${Number.parseInt(data.planned_total || 0, 10)}件`; }
+}
+
+async function applyResultExposureBackfill() {
+  const maxInput = document.getElementById('result-exposure-backfill-max');
+  const msg = document.getElementById('result-exposure-backfill-msg');
+  const maxEvents = Math.max(1, Math.min(Number.parseInt(maxInput?.value || '1000', 10) || 1000, 5000));
+  const text = prompt('過去の診断回数から分散ボーナス用の補助露出ログをPostgresへ追加します。通常は1回だけ実行してください。\n続行するには BACKFILL_RESULT_EXPOSURES と入力してください。');
+  if (text !== 'BACKFILL_RESULT_EXPOSURES') return;
+  if (msg) { msg.style.color = '#aaa'; msg.textContent = '適用中...'; }
+  const res = await adminFetch('/api/admin/result_exposures/backfill', {
+    method: 'POST',
+    body: JSON.stringify({confirm_text: text, max_events: maxEvents}),
+  });
+  if (!res) return;
+  const data = await res.json();
+  if (!res.ok) {
+    if (msg) { msg.style.color = '#e74c3c'; msg.textContent = data.message || '適用に失敗しました'; }
+    renderResultExposureBackfill(data);
+    return;
+  }
+  renderResultExposureBackfill(data);
+  if (msg) { msg.style.color = data.skipped ? '#f5a623' : '#27ae60'; msg.textContent = data.skipped ? '既にbackfill済みです' : `追加しました: ${Number.parseInt(data.inserted_count || 0, 10)}件`; }
+}
