@@ -1278,6 +1278,63 @@ class TestShareLinks(unittest.TestCase):
             self.assertNotIn('ip', resolved)
             self.assertNotIn('user_agent', resolved)
 
+
+    def test_share_links_use_postgres_when_available(self):
+        executed = []
+
+        class Cursor:
+            def __init__(self):
+                self.rows = []
+                self.payload = None
+
+            def execute(self, sql, params=None):
+                executed.append((sql, params))
+                if sql.startswith('SELECT share_id FROM share_links'):
+                    self.rows = []
+                elif sql.startswith('SELECT payload FROM share_links'):
+                    self.rows = [(self.payload,)] if self.payload else []
+                elif sql.startswith('SELECT COUNT'):
+                    self.rows = [(1,)]
+                elif sql.startswith('INSERT INTO share_links'):
+                    self.payload = params[1]
+
+            def fetchall(self):
+                return self.rows
+
+            def fetchone(self):
+                return self.rows[0] if self.rows else None
+
+        class Conn:
+            def __init__(self):
+                self.cursor_obj = Cursor()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def cursor(self):
+                return self.cursor_obj
+
+        conn = Conn()
+        with patch.object(share_links, 'use_db', return_value=True), \
+                patch.object(share_links, 'get_conn', return_value=conn), \
+                patch.object(share_links, 'put_conn'):
+            share_id, payload = share_links.create_link(
+                {'name': '眼鏡', 'probability': '88', 'desc': 'テスト'},
+                token_fn=lambda length: 'Ab12',
+            )
+            resolved = share_links.resolve_link(share_id)
+            count = share_links.count_links()
+
+        self.assertEqual(share_id, 'Ab12')
+        self.assertEqual(payload['name'], '眼鏡')
+        self.assertEqual(resolved['probability'], '88')
+        self.assertEqual(count, 1)
+        self.assertTrue(any('CREATE TABLE IF NOT EXISTS share_links' in sql for sql, _params in executed))
+        self.assertTrue(any(sql.startswith('INSERT INTO share_links') for sql, _params in executed))
+
     def test_share_link_rejects_invalid_id_and_missing_name(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'share_links.json')

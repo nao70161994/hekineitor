@@ -220,7 +220,7 @@ def result_share(ctx):
 
 
 def result_share_by_id(ctx, share_id):
-    payload = share_links.resolve_link(share_id)
+    payload = share_links.resolve_link(share_id, environ=ctx.environ)
     if not payload:
         return ctx.error_page.format(
             title='見つかりません', emoji='🔍', code='404',

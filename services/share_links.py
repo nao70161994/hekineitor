@@ -4,7 +4,7 @@ import re
 import secrets
 from datetime import datetime, timezone
 
-from storage import atomic_write_json, data_path
+from storage import atomic_write_json, data_path, get_conn, put_conn, use_db
 
 
 SHARE_LINKS_FILE = 'share_links.json'
@@ -18,6 +18,26 @@ def links_path(environ=None):
     return data_path(SHARE_LINKS_FILE)
 
 
+def _use_db(environ=None, path=None):
+    environ = environ or {}
+    if path is not None or environ.get('SHARE_LINKS_PATH'):
+        return False
+    if environ.get('SHARE_LINKS_STORAGE') == 'json':
+        return False
+    return use_db()
+
+
+def _ensure_schema(conn):
+    cur = conn.cursor()
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS share_links (
+            share_id TEXT PRIMARY KEY,
+            payload TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+    ''')
+
+
 def _load_json(path):
     try:
         with open(path, encoding='utf-8') as file_obj:
@@ -27,7 +47,37 @@ def _load_json(path):
     return data if isinstance(data, dict) else {}
 
 
+def _load_db_links():
+    conn = get_conn()
+    try:
+        with conn:
+            _ensure_schema(conn)
+            cur = conn.cursor()
+            cur.execute('SELECT share_id, payload FROM share_links')
+            rows = cur.fetchall()
+    finally:
+        put_conn(conn)
+    result = {}
+    for share_id, raw_payload in rows:
+        if not valid_share_id(share_id):
+            continue
+        try:
+            payload = json.loads(raw_payload)
+        except (TypeError, json.JSONDecodeError):
+            continue
+        if isinstance(payload, dict):
+            cleaned = clean_payload(payload)
+            if cleaned['name']:
+                result[share_id] = cleaned
+    return result
+
+
 def load_links(path=None, environ=None):
+    if _use_db(environ, path):
+        try:
+            return _load_db_links()
+        except Exception:
+            return {}
     raw = _load_json(path or links_path(environ))
     result = {}
     for share_id, payload in raw.items():
@@ -39,6 +89,19 @@ def load_links(path=None, environ=None):
 
 
 def count_links(path=None, environ=None):
+    if _use_db(environ, path):
+        conn = get_conn()
+        try:
+            with conn:
+                _ensure_schema(conn)
+                cur = conn.cursor()
+                cur.execute('SELECT COUNT(*) FROM share_links')
+                row = cur.fetchone()
+                return int(row[0] or 0) if row else 0
+        except Exception:
+            return 0
+        finally:
+            put_conn(conn)
     return len(load_links(path=path, environ=environ))
 
 
@@ -75,7 +138,32 @@ def _new_share_id(existing, *, token_length=4, token_fn=None):
     raise RuntimeError('share_id generation failed')
 
 
+def _create_db_link(payload, *, environ=None, now_fn=None, token_fn=None):
+    cleaned = clean_payload(payload)
+    if not cleaned['name']:
+        raise ValueError('name is required')
+    now = now_fn() if now_fn else datetime.now(timezone.utc)
+    cleaned['created_at'] = now.astimezone(timezone.utc).isoformat(timespec='seconds')
+    conn = get_conn()
+    try:
+        with conn:
+            _ensure_schema(conn)
+            cur = conn.cursor()
+            cur.execute('SELECT share_id FROM share_links')
+            existing = {row[0] for row in cur.fetchall()}
+            share_id = _new_share_id(existing, token_fn=token_fn)
+            cur.execute(
+                'INSERT INTO share_links (share_id, payload, created_at) VALUES (%s, %s, %s)',
+                (share_id, json.dumps(cleaned, ensure_ascii=False, separators=(',', ':')), cleaned['created_at']),
+            )
+    finally:
+        put_conn(conn)
+    return share_id, cleaned
+
+
 def create_link(payload, *, path=None, environ=None, now_fn=None, token_fn=None):
+    if _use_db(environ, path):
+        return _create_db_link(payload, environ=environ, now_fn=now_fn, token_fn=token_fn)
     target = path or links_path(environ)
     links = load_links(path=target)
     cleaned = clean_payload(payload)
@@ -93,4 +181,24 @@ def resolve_link(share_id, *, path=None, environ=None):
     share_id = str(share_id or '').strip()
     if not valid_share_id(share_id):
         return None
+    if _use_db(environ, path):
+        conn = get_conn()
+        try:
+            with conn:
+                _ensure_schema(conn)
+                cur = conn.cursor()
+                cur.execute('SELECT payload FROM share_links WHERE share_id = %s', (share_id,))
+                row = cur.fetchone()
+        except Exception:
+            row = None
+        finally:
+            put_conn(conn)
+        if not row:
+            return None
+        try:
+            payload = json.loads(row[0])
+        except (TypeError, json.JSONDecodeError):
+            return None
+        cleaned = clean_payload(payload)
+        return cleaned if cleaned['name'] else None
     return load_links(path=path, environ=environ).get(share_id)

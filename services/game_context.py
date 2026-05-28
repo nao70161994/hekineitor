@@ -25,6 +25,7 @@ def build(
     preserve_test_play_flag,
     restore_test_play_flag,
     learning_disabled,
+    environ=None,
 ):
     request = flask_runtime.request
     session = flask_runtime.session
@@ -71,6 +72,7 @@ def build(
         preserve_test_play_flag=preserve_test_play_flag,
         restore_test_play_flag=restore_test_play_flag,
         learning_disabled=learning_disabled,
+        environ=environ or {},
     )
     question_flow = context.game_question_flow(
         best_question=question_selection.best_question,

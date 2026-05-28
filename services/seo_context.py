@@ -19,6 +19,7 @@ def build(
     record_share_event,
     learning_disabled,
     rate_limit=None,
+    environ=None,
 ):
     return context.seo_context(
         engine=engine,
@@ -44,4 +45,5 @@ def build(
         record_share_event=record_share_event,
         learning_disabled=learning_disabled,
         rate_limit=rate_limit or (lambda *_args, **_kwargs: None),
+        environ=environ or {},
     )

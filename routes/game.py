@@ -763,7 +763,7 @@ def create_share_link(ctx):
             'desc': desc,
             'title': share.result_title(probability),
             'rank': share.result_rarity(probability),
-        })
+        }, environ=ctx.environ)
     except (OSError, RuntimeError, ValueError):
         return ctx.jsonify({'status': 'error', 'message': 'share link could not be created'}), 500
     return ctx.jsonify({
