@@ -185,6 +185,7 @@ def _system_context():
         app_version=BOOTSTRAP.app_version,
         environ=os.environ,
         error_counts=_ERROR_COUNTS,
+        adsense_client=BOOTSTRAP.adsense_client,
         app_started_at=APP_STARTED_AT,
         time_fn=_time.time,
         local_session_count=server_session_service.local_session_count,

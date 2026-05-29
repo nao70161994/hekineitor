@@ -10,6 +10,7 @@ def build(
     static_folder,
     app_version,
     environ,
+    adsense_client,
     error_counts,
     app_started_at,
     time_fn,
@@ -44,4 +45,4 @@ def build(
         path_exists=filesystem.path_exists,
         path_getmtime=filesystem.path_getmtime,
     )
-    return context.build_system_context(runtime, storage)
+    return context.build_system_context(runtime, storage, adsense_client=adsense_client)

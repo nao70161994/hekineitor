@@ -26,3 +26,5 @@ works_review.html
 add_fetishes_*.py
 check_works_links.py
 verify_asins.py
+data/question_events.jsonl
+data/result_exposures.jsonl

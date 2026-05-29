@@ -88,7 +88,21 @@ def offline(ctx):
     return ctx.render_template('offline.html')
 
 
+def _ads_txt_pub_from_client(client):
+    client = (client or '').strip()
+    if client.startswith('ca-pub-'):
+        return 'pub-' + client[len('ca-pub-'):]
+    if client.startswith('pub-'):
+        return client
+    return ''
+
+
 def ads_txt(ctx):
+    ads_client = _ads_txt_pub_from_client(getattr(ctx, 'adsense_client', ''))
+    if ads_client:
+        body = f'google.com, {ads_client}, DIRECT, f08c47fec0942fa0\n'
+        return ctx.Response(body, mimetype='text/plain', headers={'Cache-Control': 'public, max-age=3600'})
+
     path = ctx.join_path(ctx.static_folder, 'ads.txt')
     with open(path, encoding='utf-8') as f:
         body = f.read()

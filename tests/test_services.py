@@ -646,6 +646,7 @@ class TestServices(unittest.TestCase):
             static_folder='/static',
             app_version='abc',
             environ={},
+            adsense_client="",
             error_counts={'4xx': 0, '5xx': 0},
             app_started_at=10,
             time_fn=lambda: 15,

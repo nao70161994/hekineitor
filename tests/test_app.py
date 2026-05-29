@@ -708,6 +708,19 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn(b'google.com, pub-8683516545883768, DIRECT, f08c47fec0942fa0', res.data)
 
     # ── exclude_ids ────────────────────────────────────────
+    def test_ads_txt_reflects_env_client(self):
+        import app as app_module
+        original_client = app_module.BOOTSTRAP.adsense_client
+        try:
+            app_module.BOOTSTRAP.adsense_client = 'ca-pub-test-ads'
+            res = self.client.get('/ads.txt')
+        finally:
+            app_module.BOOTSTRAP.adsense_client = original_client
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.mimetype, 'text/plain')
+        self.assertIn(b'google.com, pub-test-ads, DIRECT, f08c47fec0942fa0', res.data)
+
+    # ── exclude_ids ────────────────────────────────────────
     def test_start_with_exclude_ids(self):
         res = self.client.post('/api/start', json={'exclude_ids': [0, 1]})
         self.assertEqual(res.status_code, 200)

@@ -17,7 +17,7 @@ npm run test:pwa
 
 ## ads.txt
 
-AdSense 用の `ads.txt` は `static/ads.txt` に配置し、Flask の `/ads.txt` ルートから `text/plain` で配信します。
+AdSense 用の `/ads.txt` は起動時の `ADSENSE_CLIENT` から Publisher ID を導出して返す構成です。`ADSENSE_CLIENT` 未設定時は `static/ads.txt` をフォールバックとして配信します。
 
 現在の publisher ID は `pub-8683516545883768` です。Render では `ADSENSE_CLIENT=ca-pub-8683516545883768` を設定してください。
 
