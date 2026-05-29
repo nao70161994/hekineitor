@@ -1007,7 +1007,6 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         res = self.client.get('/health')
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.headers['X-Content-Type-Options'], 'nosniff')
-        self.assertEqual(res.headers['X-Frame-Options'], 'DENY')
         self.assertIn('Content-Security-Policy', res.headers)
         self.assertIn('https://pagead2.googlesyndication.com', res.headers['Content-Security-Policy'])
         data = res.get_json()

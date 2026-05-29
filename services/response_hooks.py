@@ -2,7 +2,6 @@ MUTATION_METHODS = {'POST', 'PUT', 'PATCH', 'DELETE'}
 
 SECURITY_HEADERS = {
     'X-Content-Type-Options': 'nosniff',
-    'X-Frame-Options': 'DENY',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
     'Content-Security-Policy': (
@@ -10,7 +9,7 @@ SECURITY_HEADERS = {
         "script-src 'self' 'unsafe-inline' https://pagead2.googlesyndication.com https://ep2.adtrafficquality.google; "
         "style-src 'self' 'unsafe-inline'; connect-src 'self' https://pagead2.googlesyndication.com https://ep1.adtrafficquality.google https://ep2.adtrafficquality.google; "
         "frame-src https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://ep2.adtrafficquality.google https://www.google.com; "
-        "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+        "object-src 'none'; base-uri 'self'"
     ),
 }
 
@@ -44,13 +43,15 @@ def write_admin_audit(response, request, write_audit):
         pass
 
 
-def apply_security_headers(response):
+def apply_security_headers(response, request):
     for name, value in SECURITY_HEADERS.items():
         response.headers.setdefault(name, value)
+    if request.path.startswith('/admin') or request.path.startswith('/api/admin'):
+        response.headers.setdefault('X-Frame-Options', 'DENY')
 
 
 def after_request(response, request, error_counts, write_audit):
     record_status_counts(response, error_counts)
     write_admin_audit(response, request, write_audit)
-    apply_security_headers(response)
+    apply_security_headers(response, request)
     return response

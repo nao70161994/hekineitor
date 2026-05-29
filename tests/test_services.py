@@ -753,7 +753,7 @@ class TestServices(unittest.TestCase):
 
         counts = {'4xx': 0, '5xx': 0}
         response_hooks.record_status_counts(Response, counts)
-        response_hooks.apply_security_headers(Response)
+        response_hooks.apply_security_headers(Response, type('Request', (), {'path': '/'})())
         self.assertEqual(counts['4xx'], 1)
         self.assertEqual(Response.headers['X-Content-Type-Options'], 'nosniff')
         csp = Response.headers['Content-Security-Policy']
