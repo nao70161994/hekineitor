@@ -156,6 +156,69 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('OGP PNG failure: TimeoutError (admin metrics reachable; downgraded from CRITICAL)', warn)
 
 
+    def test_heavy_ratio_warning_is_suppressed_when_samples_are_small(self):
+        def fake_json(path):
+            if path == '/health':
+                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+            if path == '/api/admin/preflight':
+                return {'checks': []}
+            if path == '/api/admin/works_health':
+                return {'maintenance': {'works_count': 100}}
+            if path.startswith('/api/admin/result_exposures'):
+                return {
+                    'source': 'result_exposures',
+                    'ranking': [
+                        {'fetish_name': '共依存', 'guessed': 3, 'total': 3},
+                        {'fetish_name': '激重感情', 'guessed': 2, 'total': 2},
+                    ],
+                }
+            if path.startswith('/api/admin/question_events'):
+                return {'total': 1, 'metrics': {}, 'questions': [], 'dropoff_ranking': []}
+            if path == '/api/admin/funnel_metrics':
+                return {'completion': {'recent_7_days': {'starts': 30, 'completions': 15, 'completion_rate': 50}}}
+            if path.startswith('/api/admin/share_events'):
+                return {'total': 0, 'metrics': {'result_page_views': 0, 'share_actions': 0}}
+            raise AssertionError(path)
+
+        report = operations_check.build_report(
+            environ={'ADMIN_READ_TOKEN': 'token', 'NTFY_HEAVY_RESULT_MIN_SAMPLES': '10'},
+            json_getter=fake_json,
+            bytes_getter=lambda path: operations_check.PNG_SIGNATURE + b'abc',
+        )
+
+        self.assertNotIn('heavy_result_ratio=100.0% TOP:', report['message'])
+        self.assertIn('heavy_result_ratio=100.0%', report['message'])
+        # sample不足時は警告にしない（metrics は残す）
+
+
+    def test_completion_reference_warning_is_suppressed_with_small_starts(self):
+        def fake_json(path):
+            if path == '/health':
+                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+            if path == '/api/admin/preflight':
+                return {'checks': []}
+            if path == '/api/admin/works_health':
+                return {'maintenance': {'works_count': 100}}
+            if path.startswith('/api/admin/recent_fetish_ranking'):
+                return {'ranking': []}
+            if path.startswith('/api/admin/question_events'):
+                return {'total': 1, 'metrics': {}, 'questions': [], 'dropoff_ranking': []}
+            if path == '/api/admin/funnel_metrics':
+                return {'completion': {'recent_7_days': {'starts': 4, 'completions': 2, 'completion_rate': 50}}}
+            if path.startswith('/api/admin/share_events'):
+                return {'total': 0, 'metrics': {'result_page_views': 0, 'share_actions': 0}}
+            raise AssertionError(path)
+
+        report = operations_check.build_report(
+            environ={'ADMIN_READ_TOKEN': 'token', 'NTFY_COMPLETION_WARN_MIN_STARTS': '10'},
+            json_getter=fake_json,
+            bytes_getter=lambda path: operations_check.PNG_SIGNATURE + b'abc',
+        )
+
+        self.assertIn('completion_rate=50.0% (参考値) (2/4)', report['message'])
+        self.assertEqual(report['message'].count('completion_rate=50.0% (参考値) (2/4)'), 1)
+
+
     def test_operations_report_rechecks_public_endpoints_after_admin_warmup(self):
         attempts = {'health': 0, 'png': 0}
 

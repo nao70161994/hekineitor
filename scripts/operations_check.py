@@ -104,8 +104,13 @@ def _result_count(row: dict[str, Any]) -> int:
     return int(row.get('total') or row.get('count') or row.get('guessed') or 0)
 
 
+
+def _total_results(ranking: list[dict[str, Any]]) -> int:
+    return sum(_result_count(row) for row in ranking)
+
+
 def _top_heavy_ratio(ranking: list[dict[str, Any]]) -> tuple[float, list[str]]:
-    total = sum(_result_count(row) for row in ranking)
+    total = _total_results(ranking)
     heavy_rows = [row for row in ranking if _result_name(row) in HEAVY_RESULTS]
     heavy_total = sum(_result_count(row) for row in heavy_rows)
     top = []
@@ -214,7 +219,6 @@ def _demote_public_timeout_criticals(critical, warn, *, admin_signal_available=F
             remaining.append(item)
     return remaining
 
-
 def build_report(
     *,
     environ: Mapping[str, str] | None = None,
@@ -280,9 +284,11 @@ def build_report(
             ranking, result_source = _fetch_result_ranking(json_getter, days=7, top_n=20)
             admin_signal_available = True
             heavy_ratio, heavy_top = _top_heavy_ratio(ranking)
+            ranking_total = _total_results(ranking)
             daily.append(f'heavy_result_ratio={_pct(heavy_ratio)}')
             daily.append(f'result_source={result_source}')
-            if heavy_ratio >= _env_float(environ, 'NTFY_HEAVY_RESULT_WARN_RATIO', 65.0):
+            min_heavy_samples = _env_int(environ, 'NTFY_HEAVY_RESULT_MIN_SAMPLES', 30)
+            if ranking_total >= min_heavy_samples and heavy_ratio >= _env_float(environ, 'NTFY_HEAVY_RESULT_WARN_RATIO', 65.0):
                 warn.append(f'heavy_result_ratio={_pct(heavy_ratio)} TOP: {", ".join(heavy_top[:4])}')
         except Exception as exc:
             warn.append(f'result ranking unavailable: {_error_label(exc)}')
@@ -327,9 +333,10 @@ def build_report(
             )
             completion_rate = completion_metric.get('rate')
             daily.append(_completion_label(completion_metric))
+            completion_warn_min = _env_int(environ, 'NTFY_COMPLETION_WARN_MIN_STARTS', 20)
             if completion_rate is None:
                 warn.append('completion_rate unavailable; start/completion母数が不足しています')
-            elif not completion_metric.get('reliable'):
+            elif completion_metric.get('starts', 0) >= completion_warn_min and not completion_metric.get('reliable'):
                 warn.append(_completion_label(completion_metric))
             min_feedback = _env_float(environ, 'NTFY_FEEDBACK_WARN_RATE', 5.0)
             if completion_metric.get('reliable') and completion_rate is not None and completion_rate < min_feedback:
