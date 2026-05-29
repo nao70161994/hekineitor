@@ -3,7 +3,7 @@
 AdSense 審査コードと最小広告枠は導入済みです。
 
 - 対象: `templates/index.html` / `templates/result_share.html` の `<head>` 内
-- client: 環境変数 `ADSENSE_CLIENT` (`ca-pub-8835165458837368`)
+- client: 環境変数 `ADSENSE_CLIENT` (`ca-pub-8683516545883768`)
 - script: `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=$ADSENSE_CLIENT`
 - `async` と `crossorigin="anonymous"` を維持
 - 重複防止と未設定時の非表示は `tests/test_smoke.py` の AdSense smoke test で確認
@@ -19,10 +19,10 @@ npm run test:pwa
 
 AdSense 用の `ads.txt` は `static/ads.txt` に配置し、Flask の `/ads.txt` ルートから `text/plain` で配信します。
 
-現在の publisher ID は `pub-8835165458837368` です。Render では `ADSENSE_CLIENT=ca-pub-8835165458837368` を設定してください。
+現在の publisher ID は `pub-8683516545883768` です。Render では `ADSENSE_CLIENT=ca-pub-8683516545883768` を設定してください。
 
 ```text
-google.com, pub-8835165458837368, DIRECT, f08c47fec0942fa0
+google.com, pub-8683516545883768, DIRECT, f08c47fec0942fa0
 ```
 
 確認URL:
@@ -34,7 +34,7 @@ https://hekineitor.onrender.com/ads.txt
 Render 環境変数:
 
 ```text
-ADSENSE_CLIENT=ca-pub-8835165458837368
+ADSENSE_CLIENT=ca-pub-8683516545883768
 ```
 
 `ADSENSE_CLIENT` 未設定時は広告 script / slot は出力されません。
