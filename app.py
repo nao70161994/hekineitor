@@ -93,6 +93,15 @@ def _matrix_operations():
     )
 
 
+def _record_valid_share_event(*args, **kwargs):
+    return share_events_service.safe_record_event(
+        *args,
+        environ=os.environ,
+        allowed_result_names=_share_event_allowed_result_names(),
+        **kwargs,
+    )
+
+
 def _seo_context():
     return seo_context_service.build(
         engine=engine,
@@ -109,7 +118,7 @@ def _seo_context():
         adsense_client=BOOTSTRAP.adsense_client,
         fetish_relations=FETISH_RELATIONS,
         error_page=system_routes.ERROR_PAGE,
-        record_share_event=lambda *args, **kwargs: share_events_service.safe_record_event(*args, environ=os.environ, **kwargs),
+        record_share_event=_record_valid_share_event,
         learning_disabled=lambda: test_play_service.is_learning_disabled(session),
         rate_limit=_flask_runtime().rate_limit,
         environ=os.environ,
@@ -129,7 +138,7 @@ def _game_context():
         focus_threshold=FOCUS_THRESHOLD,
         work_title=work_title,
         get_compound_works=get_compound_works,
-        record_share_event=lambda *args, **kwargs: share_events_service.safe_record_event(*args, environ=os.environ, **kwargs),
+        record_share_event=_record_valid_share_event,
         record_question_event=lambda *args, **kwargs: question_events_service.safe_record_event(*args, environ=os.environ, **kwargs),
         preserve_test_play_flag=lambda: test_play_service.preserve_flag(session),
         restore_test_play_flag=lambda enabled: test_play_service.restore_flag(session, enabled),

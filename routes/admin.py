@@ -77,6 +77,7 @@ def analysis_log_status(ctx, *, stats_history=None, share_events=None, question_
         'share_event_count': share_count,
         'question_event_count': question_count,
         'share_event_loaded': share_events.get('total', 0),
+        'share_invalid_result_events': share_events.get('invalid_result_events', 0),
         'question_event_loaded': question_events.get('total', 0),
         'share_event_storage': share_storage,
         'question_event_storage': question_storage,
@@ -721,6 +722,7 @@ def operations_snapshot(ctx):
         'analysis_logs': analysis_log_status(ctx, stats_history=stats_history, share_events=share_events, question_events=question_events),
         'share_events_summary': {
             'total': share_events.get('total', 0),
+            'invalid_result_events': share_events.get('invalid_result_events', 0),
             'metrics': share_events.get('metrics', {}),
             'work_ranking': share_events.get('work_ranking', [])[:20],
         },

@@ -2314,6 +2314,21 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertNotIn('ip', event)
         self.assertNotIn('user_agent', event)
 
+    def test_share_event_api_ignores_unknown_result_name(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'share_events.jsonl')
+            with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path}):
+                res = self.client.post('/api/share_event', json={
+                    'event_name': 'share_button_click',
+                    'result_name': 'health',
+                    'channel': 'button',
+                    'success': True,
+                })
+
+        self.assertEqual(res.status_code, 200)
+        self.assertFalse(res.get_json()['recorded'])
+        self.assertFalse(os.path.exists(path))
+
     def test_share_event_api_ignores_unknown_event(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'share_events.jsonl')
@@ -2327,9 +2342,9 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'share_events.jsonl')
             with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path, 'SHARE_LINKS_PATH': os.path.join(tmp, 'share_links.json')}):
-                self.client.get('/r?f=NTR&p=82&d=テスト')
-                self.client.get('/ogp.png?f=NTR&p=82')
-                self.client.get('/ogp?f=NTR&p=82')
+                self.client.get('/r?f=白衣&p=82&d=テスト')
+                self.client.get('/ogp.png?f=白衣&p=82')
+                self.client.get('/ogp?f=白衣&p=82')
                 events = share_events_service.read_events(path=path, limit=10)
         names = [event['event_name'] for event in events]
         self.assertIn('result_page_view', names)

@@ -203,6 +203,7 @@
   <div><div style="font-size:1.25rem;color:{% if analysis_logs.share_ready %}#7af0a0{% else %}#f5a623{% endif %};font-weight:bold;">{{ analysis_logs.share_event_count }}</div><div style="font-size:0.72rem;color:#888;">share_events行数</div><div style="font-size:0.68rem;color:#666;">取得元: {{ analysis_logs.sources.share_analytics }}</div></div>
   <div><div style="font-size:1.25rem;color:{% if analysis_logs.question_ready %}#7af0a0{% else %}#f5a623{% endif %};font-weight:bold;">{{ analysis_logs.question_event_count }}</div><div style="font-size:0.72rem;color:#888;">question_events行数</div><div style="font-size:0.68rem;color:#666;">取得元: {{ analysis_logs.sources.question_analytics }}</div></div>
   <div><div style="font-size:1.25rem;color:#aaa;font-weight:bold;">{{ analysis_logs.question_event_loaded }} / {{ analysis_logs.share_event_loaded }}</div><div style="font-size:0.72rem;color:#888;">管理画面読込 Q/S</div><div style="font-size:0.68rem;color:#666;">取得元: {{ analysis_logs.sources.feedback }}</div></div>
+  <div><div style="font-size:1.25rem;color:{% if analysis_logs.share_invalid_result_events %}#f5a623{% else %}#7af0a0{% endif %};font-weight:bold;">{{ analysis_logs.share_invalid_result_events }}</div><div style="font-size:0.72rem;color:#888;">無効結果名イベント</div><div style="font-size:0.68rem;color:#666;">ランキング集計から除外</div></div>
 </div>
 {% if not analysis_logs.question_ready or not analysis_logs.share_ready %}
 <div style="margin-top:10px;border:1px solid #5a3320;background:#21150f;border-radius:8px;padding:8px 10px;line-height:1.6;">

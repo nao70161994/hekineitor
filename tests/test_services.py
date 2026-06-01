@@ -371,6 +371,31 @@ class TestServices(unittest.TestCase):
         self.assertEqual(ranking[1]['result_page_views'], 1)
         self.assertEqual(ranking[1]['web_share_successes'], 1)
 
+    def test_share_events_record_event_can_skip_unknown_result_names(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'share_events.jsonl')
+            skipped = share_events.record_event(
+                'result_page_view',
+                result_name='health',
+                channel='result_page',
+                success=True,
+                path=path,
+                allowed_result_names={'白衣'},
+            )
+            recorded = share_events.record_event(
+                'result_page_view',
+                result_name='白衣',
+                channel='result_page',
+                success=True,
+                path=path,
+                allowed_result_names={'白衣'},
+            )
+            events = share_events.read_events(path=path, limit=10)
+
+        self.assertIsNone(skipped)
+        self.assertEqual(recorded['result_name'], '白衣')
+        self.assertEqual([event['result_name'] for event in events], ['白衣'])
+
     def test_share_events_result_ranking_can_filter_unknown_result_names(self):
         events = [
             {'result_name': '白衣', 'event_name': 'result_page_view'},

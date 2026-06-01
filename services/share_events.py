@@ -88,8 +88,23 @@ def _rotate_if_needed(target, max_bytes=_MAX_LOG_BYTES):
         pass
 
 
-def record_event(event_name, *, result_name='', channel='', success=None, work_title='', page='', path=None, environ=None, now_fn=None):
+def record_event(
+    event_name,
+    *,
+    result_name='',
+    channel='',
+    success=None,
+    work_title='',
+    page='',
+    path=None,
+    environ=None,
+    now_fn=None,
+    allowed_result_names=None,
+):
     event = build_event(event_name, result_name=result_name, channel=channel, success=success, work_title=work_title, page=page, now_fn=now_fn)
+    allowed_names = _allowed_result_set(allowed_result_names)
+    if event.get('result_name') and not _is_allowed_result_name(event['result_name'], allowed_names):
+        return None
     if path is None and event_store.enabled(environ):
         try:
             return event_store.record_event('share', event)
@@ -387,6 +402,18 @@ def work_ranking(events, limit=20, allowed_result_names=None):
     rows = sorted(ranking.values(), key=lambda row: (row['clicks'], row['work_title']), reverse=True)
     return rows[:max(1, int(limit or 20))]
 
+def _invalid_result_event_count(events, allowed_result_names=None):
+    allowed_names = _allowed_result_set(allowed_result_names)
+    if allowed_names is None:
+        return 0
+    total = 0
+    for event in events:
+        result_name = _clean_result_name(event.get('result_name'), 80)
+        if result_name and not _is_allowed_result_name(result_name, allowed_names):
+            total += 1
+    return total
+
+
 def _report_for_events(events, allowed_result_names=None):
     by_event = {}
     by_channel = {}
@@ -409,6 +436,7 @@ def _report_for_events(events, allowed_result_names=None):
         'by_channel': by_channel,
         'success': success,
         'metrics': _summary_metrics(by_event),
+        'invalid_result_events': _invalid_result_event_count(events, allowed_result_names=allowed_result_names),
         'daily': daily_summary(events, days=14),
         'ranking': result_ranking(events, limit=20, allowed_result_names=allowed_result_names),
         'work_ranking': work_ranking(events, limit=20, allowed_result_names=allowed_result_names),
