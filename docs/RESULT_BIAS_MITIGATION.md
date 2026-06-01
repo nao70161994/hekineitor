@@ -82,7 +82,7 @@ The main correction compares recent exposure count to the expected count and cla
 - `25%` or higher: `x0.60`
 - `40%` or higher: `x0.45`
 
-Broad heavy-emotion results (`共依存`, `激重感情`, `共生関係`, `執着`) have a factor cap of `0.55` and can be pushed down to `0.35` when recent exposure is still concentrated. Dominant top-result protection is disabled, so overexposed heavy-emotion results can lose close races even when they start as the top posterior candidate.
+Broad heavy-emotion results (`共依存`, `激重感情`, `共生関係`, `執着`) have a factor cap of `0.55` and can be pushed down to `0.35` when recent exposure is still concentrated. A category quota applies on the latest 300 results: if heavy-emotion results exceed `10%`, their factor is capped at `0.25`; if they exceed `25%`, their factor is capped at `0.12`. Dominant top-result protection is disabled, so overexposed heavy-emotion results can lose close races even when they start as the top posterior candidate.
 
 The read-only endpoint `/api/admin/result_exposure_factors` exposes aggregate correction diagnostics: sample size, config, most downweighted results, most boosted results, and heavy-result factors. It does not return raw events, IP, User-Agent, session id, or tokens.
 

@@ -25,6 +25,10 @@ MIN_FACTOR = 0.5
 HEAVY_MIN_FACTOR = 0.35
 MAX_FACTOR = 1.6
 HEAVY_FACTOR_CAP = 0.55
+HEAVY_QUOTA_SOFT_RATIO = 0.10
+HEAVY_QUOTA_SOFT_CAP = 0.25
+HEAVY_QUOTA_HARD_RATIO = 0.25
+HEAVY_QUOTA_HARD_CAP = 0.12
 DOMINANT_RATIO = None
 DOMINANT_MIN_FACTOR = None
 
@@ -347,6 +351,28 @@ def _factor_floor(fetish):
     return HEAVY_MIN_FACTOR if fetish.get('name') in HEAVY_RESULT_NAMES else MIN_FACTOR
 
 
+def _heavy_exposure_ratio(events, fetishes_by_id):
+    total = 0
+    heavy = 0
+    for event in events:
+        if int(event.get('rank') or 1) != 1:
+            continue
+        total += 1
+        fetish_id = _clean_int(event.get('fetish_id'))
+        name = fetishes_by_id.get(fetish_id, {}).get('name') or _clean_text(event.get('fetish_name'), 80)
+        if name in HEAVY_RESULT_NAMES:
+            heavy += 1
+    return heavy / total if total else 0.0
+
+
+def _heavy_quota_cap(heavy_ratio):
+    if heavy_ratio >= HEAVY_QUOTA_HARD_RATIO:
+        return HEAVY_QUOTA_HARD_CAP
+    if heavy_ratio >= HEAVY_QUOTA_SOFT_RATIO:
+        return HEAVY_QUOTA_SOFT_CAP
+    return None
+
+
 def exposure_factors(fetishes, *, events=None, path=None, environ=None):
     events = list(events) if events is not None else read_events(path=path, environ=environ, limit=MAIN_WINDOW)
     main_events = events[-MAIN_WINDOW:]
@@ -355,6 +381,7 @@ def exposure_factors(fetishes, *, events=None, path=None, environ=None):
     if main_total < MIN_SAMPLES or not ids:
         return {fetish_id: 1.0 for fetish_id in ids}
 
+    fetishes_by_id = {fetish.get('id'): fetish for fetish in fetishes if fetish.get('id') is not None}
     main_counts = _counts(main_events)
     expected = main_total / max(len(ids), 1) + SMOOTHING
     factors = {}
@@ -383,6 +410,12 @@ def exposure_factors(fetishes, *, events=None, path=None, environ=None):
             elif rate >= 0.15:
                 guard = 0.75
             factors[fetish_id] = max(_factor_floor(fetish), factors[fetish_id] * guard)
+        heavy_cap = _heavy_quota_cap(_heavy_exposure_ratio(short_events, fetishes_by_id))
+        if heavy_cap is not None:
+            for fetish in fetishes:
+                if fetish.get('name') in HEAVY_RESULT_NAMES:
+                    fetish_id = fetish.get('id')
+                    factors[fetish_id] = min(factors.get(fetish_id, 1.0), heavy_cap)
     return factors
 
 
@@ -440,8 +473,10 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
     events = list(events) if events is not None else read_events(path=path, environ=environ, limit=row_limit)
     main_events = events[-MAIN_WINDOW:]
     short_events = main_events[-SHORT_WINDOW:]
+    fetishes_by_id = {fetish.get('id'): fetish for fetish in fetishes if fetish.get('id') is not None}
     main_counts = _counts(main_events)
     short_counts = _counts(short_events)
+    short_heavy_ratio = _heavy_exposure_ratio(short_events, fetishes_by_id)
     factors = exposure_factors(fetishes, events=events)
     rows = []
     for fetish in fetishes:
@@ -471,6 +506,7 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
             'main_total': len(main_events),
             'short_window': SHORT_WINDOW,
             'short_total': len(short_events),
+            'short_heavy_ratio': round(short_heavy_ratio * 100, 1) if short_events else 0.0,
             'min_samples': MIN_SAMPLES,
             'active': len(main_events) >= MIN_SAMPLES,
         },
@@ -479,6 +515,10 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
             'heavy_min_factor': HEAVY_MIN_FACTOR,
             'max_factor': MAX_FACTOR,
             'heavy_factor_cap': HEAVY_FACTOR_CAP,
+            'heavy_quota_soft_ratio': HEAVY_QUOTA_SOFT_RATIO,
+            'heavy_quota_soft_cap': HEAVY_QUOTA_SOFT_CAP,
+            'heavy_quota_hard_ratio': HEAVY_QUOTA_HARD_RATIO,
+            'heavy_quota_hard_cap': HEAVY_QUOTA_HARD_CAP,
             'candidate_pool': CANDIDATE_POOL,
             'low_exposure_pool': LOW_EXPOSURE_POOL,
             'smoothing': SMOOTHING,

@@ -1126,7 +1126,7 @@ class TestServices(unittest.TestCase):
         events.extend(result_exposure.build_event(2, '白衣', 80, now_fn=lambda: __import__('datetime').datetime.now(__import__('datetime').timezone.utc)) for _ in range(5))
         factors = result_exposure.exposure_factors(Engine.fetishes, events=events)
 
-        self.assertEqual(factors[1], 0.35)
+        self.assertEqual(factors[1], 0.12)
         self.assertGreater(factors[2], 1.0)
 
 
@@ -1150,11 +1150,30 @@ class TestServices(unittest.TestCase):
         self.assertEqual(report['config']['low_exposure_pool'], 50)
         self.assertEqual(report['config']['heavy_factor_cap'], 0.55)
         self.assertEqual(report['config']['heavy_min_factor'], 0.35)
+        self.assertEqual(report['config']['heavy_quota_soft_ratio'], 0.10)
+        self.assertEqual(report['config']['heavy_quota_soft_cap'], 0.25)
+        self.assertEqual(report['config']['heavy_quota_hard_ratio'], 0.25)
+        self.assertEqual(report['config']['heavy_quota_hard_cap'], 0.12)
+        self.assertEqual(report['sample']['short_heavy_ratio'], 94.1)
         heavy = {row['fetish_name']: row for row in report['heavy_results']}
-        self.assertEqual(heavy['激重感情']['factor'], 0.35)
+        self.assertEqual(heavy['激重感情']['factor'], 0.12)
         self.assertIn('most_downweighted', report)
         self.assertIn('most_boosted', report)
         self.assertNotIn('events', report)
+
+    def test_result_exposure_heavy_quota_uses_soft_cap_above_ten_percent(self):
+        class Engine:
+            fetishes = [
+                {'id': 1, 'name': '激重感情'},
+                {'id': 2, 'name': '白衣'},
+                {'id': 3, 'name': '眼鏡'},
+            ]
+
+        events = [result_exposure.build_event(1, '激重感情', 90) for _ in range(8)]
+        events.extend(result_exposure.build_event(2, '白衣', 80) for _ in range(52))
+        factors = result_exposure.exposure_factors(Engine.fetishes, events=events)
+
+        self.assertEqual(factors[1], 0.25)
 
     def test_result_exposure_adjustment_can_promote_close_low_exposure_candidate(self):
         class Engine:
