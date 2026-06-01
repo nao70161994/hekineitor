@@ -1089,6 +1089,29 @@ class TestServices(unittest.TestCase):
         self.assertGreater(factors[2], 1.0)
 
 
+
+    def test_result_exposure_factor_report_summarizes_correction_without_raw_events(self):
+        class Engine:
+            fetishes = [
+                {'id': 1, 'name': '激重感情'},
+                {'id': 2, 'name': '白衣'},
+                {'id': 3, 'name': '眼鏡'},
+            ]
+
+        events = [result_exposure.build_event(1, '激重感情', 90) for _ in range(80)]
+        events.extend(result_exposure.build_event(2, '白衣', 80) for _ in range(5))
+        report = result_exposure.factor_report(Engine.fetishes, events=events, top_n=5)
+
+        self.assertEqual(report['status'], 'ok')
+        self.assertEqual(report['sample']['main_total'], 85)
+        self.assertTrue(report['sample']['active'])
+        self.assertEqual(report['config']['heavy_factor_cap'], 0.55)
+        heavy = {row['fetish_name']: row for row in report['heavy_results']}
+        self.assertLessEqual(heavy['激重感情']['factor'], 0.55)
+        self.assertIn('most_downweighted', report)
+        self.assertIn('most_boosted', report)
+        self.assertNotIn('events', report)
+
     def test_result_exposure_adjustment_can_promote_close_low_exposure_candidate(self):
         class Engine:
             fetishes = [

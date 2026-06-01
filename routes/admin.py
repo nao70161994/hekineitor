@@ -376,6 +376,17 @@ def result_exposures_report(ctx):
     return ctx.jsonify(report)
 
 
+def result_exposure_factors(ctx):
+    top_n = ctx.bounded_int(ctx.request.args.get('top_n'), 30, 1, 200)
+    limit = ctx.bounded_int(ctx.request.args.get('limit'), 5000, 1, 50000)
+    return ctx.jsonify(result_exposure_service.factor_report(
+        ctx.engine.fetishes,
+        environ=ctx.environ,
+        limit=limit,
+        top_n=top_n,
+    ))
+
+
 def result_exposures_backfill(ctx, *, apply=False):
     data = ctx.request.get_json(silent=True) or {}
     value = data.get('max_events') if apply else ctx.request.args.get('max_events')
@@ -753,6 +764,7 @@ def admin_read_overview(ctx):
             '/api/admin/low_exposure_fetishes',
             '/api/admin/recent_fetish_ranking',
             '/api/admin/result_exposures',
+            '/api/admin/result_exposure_factors',
             '/api/admin/result_exposures/backfill',
             '/api/admin/question_events',
             '/api/admin/share_events',
@@ -1596,6 +1608,11 @@ def create_blueprint(ctx_factory, require_admin, require_admin_or_read=None):
     @require_admin_or_read
     def result_exposures_route():
         return result_exposures_report(ctx_factory())
+
+    @bp.route('/api/admin/result_exposure_factors', methods=['GET'])
+    @require_admin_or_read
+    def result_exposure_factors_route():
+        return result_exposure_factors(ctx_factory())
 
     @bp.route('/api/admin/result_exposures/backfill', methods=['GET'])
     @require_admin_or_read

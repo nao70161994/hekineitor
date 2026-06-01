@@ -481,10 +481,16 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('completion_rate: 20.0% (20/100)', report['message'])
         self.assertIn('共依存 40', report['message'])
         self.assertNotIn('unknown 40', report['message'])
-        self.assertIn('heavy_result_ratio: 40.0%', report['message'])
+        self.assertIn('heavy_result_ratio: 40.0% (40/100)', report['message'])
         self.assertIn('share_rate: 10.0%', report['message'])
         self.assertNotIn('note: question_events未蓄積', report['message'])
         self.assertNotIn('token', report['message'])
+
+
+    def test_daily_report_marks_heavy_ratio_as_reference_when_sample_is_small(self):
+        line = daily_analytics_report._heavy_line([{'fetish_name': '激重感情', 'count': 4}, {'fetish_name': '白衣', 'count': 1}])
+
+        self.assertEqual(line, 'heavy_result_ratio: 80.0% (参考値) (4/5)')
 
     def test_daily_report_marks_empty_analytics_logs(self):
         def fake_json(path):

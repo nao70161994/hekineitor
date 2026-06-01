@@ -69,20 +69,22 @@ Result display now applies a presentation-only exposure correction before the fi
 
 In production with `DATABASE_URL`, the service records primary result exposures to the `analytics_events` table so deploys do not reset the exposure window. When `RESULT_EXPOSURE_LOG_PATH` is set, or when DB storage is unavailable locally, it falls back to JSONL (`data/result_exposures.jsonl`). It stores only result id/name, probability, rank, and timestamp. It does not store IP, User-Agent, session id, or user identifiers.
 
-Initial windows:
+Current windows and correction range:
 
-- main window: latest `300` primary result exposures
-- short over-concentration guard: latest `100` primary result exposures
+- main window: latest `1000` primary result exposures
+- short over-concentration guard: latest `300` primary result exposures
 - minimum samples before correction: `50`
-- candidate pool: posterior top `12` only
+- candidate pool: posterior top `12`, plus low-exposure rescue candidates through rank `30`
 
-The main correction compares recent exposure count to the expected count and clamps the factor to `0.7` - `1.25`. The short-window guard applies extra downweighting for over-concentrated results:
+The main correction compares recent exposure count to the expected count and clamps the factor to `0.5` - `1.6`. The short-window guard applies extra downweighting for over-concentrated results:
 
-- `15%` or higher in the latest 100: `x0.75`
+- `15%` or higher in the latest 300: `x0.75`
 - `25%` or higher: `x0.60`
 - `40%` or higher: `x0.45`
 
-Broad heavy-emotion results (`共依存`, `激重感情`, `共生関係`, `執着`) have a factor cap of `0.75`. If the original posterior top result is dominant (`top / second >= 1.8`), its factor floor is `0.85` so a clearly matched result is not hidden just because it has been common recently.
+Broad heavy-emotion results (`共依存`, `激重感情`, `共生関係`, `執着`) have a factor cap of `0.55`. Dominant top-result protection is disabled, so overexposed heavy-emotion results can lose close races even when they start as the top posterior candidate.
+
+The read-only endpoint `/api/admin/result_exposure_factors` exposes aggregate correction diagnostics: sample size, config, most downweighted results, most boosted results, and heavy-result factors. It does not return raw events, IP, User-Agent, session id, or tokens.
 
 ## Expected Effect
 
@@ -133,13 +135,4 @@ This gives under-shown results more learning opportunities while keeping the mai
 
 ## Stronger diversity tuning
 
-After the initial backfill, diversity balancing uses a wider window and stronger score range:
-
-- `MAIN_WINDOW = 1000`
-- `SHORT_WINDOW = 300`
-- `MIN_FACTOR = 0.5`
-- `MAX_FACTOR = 1.6`
-- `HEAVY_FACTOR_CAP = 0.55`
-- dominant top-result protection is disabled
-
-This makes overexposed heavy-emotion results lose more close races while allowing underexposed candidates to gain more learning opportunities. The rescue pool remains capped at rank 30 to avoid pulling in distant results.
+The current tuning makes overexposed heavy-emotion results lose more close races while allowing underexposed candidates to gain more learning opportunities. The rescue pool remains capped at rank 30 to avoid pulling in distant results.

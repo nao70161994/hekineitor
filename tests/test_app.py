@@ -1417,6 +1417,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
                 '/api/admin/fetish_log_rows',
                 '/api/admin/recent_fetish_ranking',
                 '/api/admin/result_exposures',
+                '/api/admin/result_exposure_factors',
                 '/api/admin/result_exposures/backfill',
                 '/api/admin/export_stats_history',
                 '/api/admin/matrix_backups',
@@ -1434,6 +1435,23 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(res.status_code, 401)
         self.assertEqual(share_note.status_code, 401)
 
+
+    def test_admin_result_exposure_factors_is_read_only_and_aggregate(self):
+        with patch.dict(os.environ, {'ADMIN_READ_TOKEN': 'read-token', 'ADMIN_PASS': 'testpass'}):
+            res = self.client.get('/api/admin/result_exposure_factors?top_n=5', headers=self._admin_read_headers())
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertIn('sample', data)
+        self.assertIn('config', data)
+        self.assertIn('most_downweighted', data)
+        self.assertIn('heavy_results', data)
+        body = json.dumps(data, ensure_ascii=False)
+        self.assertNotIn('read-token', body)
+        self.assertNotIn('ADMIN_PASS', body)
+        self.assertNotIn('DATABASE_URL', body)
+        self.assertNotIn('events', data)
+
     def test_admin_read_overview_lists_safe_snapshot_endpoints(self):
         with patch.dict(os.environ, {'ADMIN_READ_TOKEN': 'read-token', 'ADMIN_PASS': 'testpass'}):
             res = self.client.get('/api/admin/read_overview', headers=self._admin_read_headers())
@@ -1445,6 +1463,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('/api/admin/compound_works', data['available_endpoints'])
         self.assertIn('/api/admin/low_exposure_fetishes', data['available_endpoints'])
         self.assertIn('/api/admin/result_exposures', data['available_endpoints'])
+        self.assertIn('/api/admin/result_exposure_factors', data['available_endpoints'])
         self.assertIn('/api/admin/result_exposures/backfill', data['available_endpoints'])
         self.assertIn('analysis_log_status', data)
         self.assertIn('share_links_count', data)

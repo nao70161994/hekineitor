@@ -421,5 +421,65 @@ def adjust_ranked(engine, probs, ranked, *, events=None, path=None, environ=None
     return [index for _score, index in adjusted] + rest
 
 
+
+def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000, top_n=30):
+    try:
+        row_limit = max(1, min(int(limit or 5000), 50000))
+    except (TypeError, ValueError):
+        row_limit = 5000
+    try:
+        display_limit = max(1, min(int(top_n or 30), 200))
+    except (TypeError, ValueError):
+        display_limit = 30
+    events = list(events) if events is not None else read_events(path=path, environ=environ, limit=row_limit)
+    main_events = events[-MAIN_WINDOW:]
+    short_events = main_events[-SHORT_WINDOW:]
+    main_counts = _counts(main_events)
+    short_counts = _counts(short_events)
+    factors = exposure_factors(fetishes, events=events)
+    rows = []
+    for fetish in fetishes:
+        fetish_id = fetish.get('id')
+        if fetish_id is None:
+            continue
+        main_count = main_counts.get(fetish_id, 0)
+        short_count = short_counts.get(fetish_id, 0)
+        rows.append({
+            'fetish_id': fetish_id,
+            'fetish_name': fetish.get('name', ''),
+            'factor': round(float(factors.get(fetish_id, 1.0)), 4),
+            'main_count': main_count,
+            'main_share': round(main_count / len(main_events) * 100, 1) if main_events else 0.0,
+            'short_count': short_count,
+            'short_share': round(short_count / len(short_events) * 100, 1) if short_events else 0.0,
+            'heavy_result': fetish.get('name') in HEAVY_RESULT_NAMES,
+        })
+    rows_by_factor = sorted(rows, key=lambda row: (row['factor'], -row['main_count'], row['fetish_id']))
+    rows_by_boost = sorted(rows, key=lambda row: (-row['factor'], row['main_count'], row['fetish_id']))
+    return {
+        'status': 'ok',
+        'source': 'result_exposures',
+        'sample': {
+            'events_loaded': len(events),
+            'main_window': MAIN_WINDOW,
+            'main_total': len(main_events),
+            'short_window': SHORT_WINDOW,
+            'short_total': len(short_events),
+            'min_samples': MIN_SAMPLES,
+            'active': len(main_events) >= MIN_SAMPLES,
+        },
+        'config': {
+            'min_factor': MIN_FACTOR,
+            'max_factor': MAX_FACTOR,
+            'heavy_factor_cap': HEAVY_FACTOR_CAP,
+            'candidate_pool': CANDIDATE_POOL,
+            'low_exposure_pool': LOW_EXPOSURE_POOL,
+            'smoothing': SMOOTHING,
+        },
+        'most_downweighted': rows_by_factor[:display_limit],
+        'most_boosted': rows_by_boost[:display_limit],
+        'heavy_results': [row for row in rows if row['heavy_result']],
+    }
+
 def make_rank_adjuster(engine):
     return lambda probs, ranked: adjust_ranked(engine, probs, ranked)

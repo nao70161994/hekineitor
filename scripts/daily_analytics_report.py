@@ -102,10 +102,20 @@ def _top_results(ranking: list[dict[str, Any]], limit: int = 5) -> list[str]:
     return rows
 
 
-def _heavy_ratio(ranking: list[dict[str, Any]]) -> float:
+def _heavy_stats(ranking: list[dict[str, Any]]) -> dict[str, Any]:
     total = sum(_result_count(row) for row in ranking)
     heavy = sum(_result_count(row) for row in ranking if _result_name(row) in HEAVY_RESULTS)
-    return _ratio(heavy, total)
+    return {'ratio': _ratio(heavy, total), 'heavy': heavy, 'total': total}
+
+
+def _heavy_ratio(ranking: list[dict[str, Any]]) -> float:
+    return _heavy_stats(ranking)['ratio']
+
+
+def _heavy_line(ranking: list[dict[str, Any]], *, min_samples: int = 30) -> str:
+    stats = _heavy_stats(ranking)
+    suffix = '' if stats['total'] >= min_samples else ' (参考値)'
+    return f"heavy_result_ratio: {_pct(stats['ratio'])}{suffix} ({stats['heavy']}/{stats['total']})"
 
 
 def _fetch_result_ranking(json_getter: Callable[[str], dict[str, Any]], *, target_date: str, top_n: int = 10) -> tuple[list[dict[str, Any]], str]:
@@ -206,7 +216,7 @@ def build_daily_report(
         f"date: {stats['date']}",
         f"plays: {stats['plays']}",
         _completion_line(stats),
-        f"heavy_result_ratio: {_pct(_heavy_ratio(ranking))}",
+        _heavy_line(ranking),
         f"result_source: {result_source}",
         f"share_rate: {_pct(share_rate)} ({share_actions}/{result_views})",
         f"question_events: {questions.get('total', 0)}",
