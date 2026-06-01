@@ -18,10 +18,11 @@ BACKFILL_CONFIRM_TEXT = 'BACKFILL_RESULT_EXPOSURES'
 MAIN_WINDOW = 1000
 SHORT_WINDOW = 300
 MIN_SAMPLES = 50
-CANDIDATE_POOL = 12
-LOW_EXPOSURE_POOL = 30
+CANDIDATE_POOL = 20
+LOW_EXPOSURE_POOL = 50
 SMOOTHING = 2.0
 MIN_FACTOR = 0.5
+HEAVY_MIN_FACTOR = 0.35
 MAX_FACTOR = 1.6
 HEAVY_FACTOR_CAP = 0.55
 DOMINANT_RATIO = None
@@ -342,6 +343,10 @@ def _counts(events):
     return counter
 
 
+def _factor_floor(fetish):
+    return HEAVY_MIN_FACTOR if fetish.get('name') in HEAVY_RESULT_NAMES else MIN_FACTOR
+
+
 def exposure_factors(fetishes, *, events=None, path=None, environ=None):
     events = list(events) if events is not None else read_events(path=path, environ=environ, limit=MAIN_WINDOW)
     main_events = events[-MAIN_WINDOW:]
@@ -357,7 +362,8 @@ def exposure_factors(fetishes, *, events=None, path=None, environ=None):
         fetish_id = fetish.get('id')
         actual = main_counts.get(fetish_id, 0) + SMOOTHING
         factor = math.sqrt(expected / actual)
-        factor = max(MIN_FACTOR, min(MAX_FACTOR, factor))
+        floor = _factor_floor(fetish)
+        factor = max(floor, min(MAX_FACTOR, factor))
         if fetish.get('name') in HEAVY_RESULT_NAMES:
             factor = min(factor, HEAVY_FACTOR_CAP)
         factors[fetish_id] = factor
@@ -376,7 +382,7 @@ def exposure_factors(fetishes, *, events=None, path=None, environ=None):
                 guard = 0.60
             elif rate >= 0.15:
                 guard = 0.75
-            factors[fetish_id] = max(MIN_FACTOR, factors[fetish_id] * guard)
+            factors[fetish_id] = max(_factor_floor(fetish), factors[fetish_id] * guard)
     return factors
 
 
@@ -470,6 +476,7 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
         },
         'config': {
             'min_factor': MIN_FACTOR,
+            'heavy_min_factor': HEAVY_MIN_FACTOR,
             'max_factor': MAX_FACTOR,
             'heavy_factor_cap': HEAVY_FACTOR_CAP,
             'candidate_pool': CANDIDATE_POOL,

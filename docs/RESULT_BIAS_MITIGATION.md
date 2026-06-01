@@ -74,15 +74,15 @@ Current windows and correction range:
 - main window: latest `1000` primary result exposures
 - short over-concentration guard: latest `300` primary result exposures
 - minimum samples before correction: `50`
-- candidate pool: posterior top `12`, plus low-exposure rescue candidates through rank `30`
+- candidate pool: posterior top `20`, plus low-exposure rescue candidates through rank `50`
 
-The main correction compares recent exposure count to the expected count and clamps the factor to `0.5` - `1.6`. The short-window guard applies extra downweighting for over-concentrated results:
+The main correction compares recent exposure count to the expected count and clamps the factor to `0.5` - `1.6` for normal results. Broad heavy-emotion results use a stronger floor of `0.35`. The short-window guard applies extra downweighting for over-concentrated results:
 
 - `15%` or higher in the latest 300: `x0.75`
 - `25%` or higher: `x0.60`
 - `40%` or higher: `x0.45`
 
-Broad heavy-emotion results (`共依存`, `激重感情`, `共生関係`, `執着`) have a factor cap of `0.55`. Dominant top-result protection is disabled, so overexposed heavy-emotion results can lose close races even when they start as the top posterior candidate.
+Broad heavy-emotion results (`共依存`, `激重感情`, `共生関係`, `執着`) have a factor cap of `0.55` and can be pushed down to `0.35` when recent exposure is still concentrated. Dominant top-result protection is disabled, so overexposed heavy-emotion results can lose close races even when they start as the top posterior candidate.
 
 The read-only endpoint `/api/admin/result_exposure_factors` exposes aggregate correction diagnostics: sample size, config, most downweighted results, most boosted results, and heavy-result factors. It does not return raw events, IP, User-Agent, session id, or tokens.
 

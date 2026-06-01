@@ -1126,7 +1126,7 @@ class TestServices(unittest.TestCase):
         events.extend(result_exposure.build_event(2, '白衣', 80, now_fn=lambda: __import__('datetime').datetime.now(__import__('datetime').timezone.utc)) for _ in range(5))
         factors = result_exposure.exposure_factors(Engine.fetishes, events=events)
 
-        self.assertLessEqual(factors[1], 0.55)
+        self.assertEqual(factors[1], 0.35)
         self.assertGreater(factors[2], 1.0)
 
 
@@ -1146,9 +1146,12 @@ class TestServices(unittest.TestCase):
         self.assertEqual(report['status'], 'ok')
         self.assertEqual(report['sample']['main_total'], 85)
         self.assertTrue(report['sample']['active'])
+        self.assertEqual(report['config']['candidate_pool'], 20)
+        self.assertEqual(report['config']['low_exposure_pool'], 50)
         self.assertEqual(report['config']['heavy_factor_cap'], 0.55)
+        self.assertEqual(report['config']['heavy_min_factor'], 0.35)
         heavy = {row['fetish_name']: row for row in report['heavy_results']}
-        self.assertLessEqual(heavy['激重感情']['factor'], 0.55)
+        self.assertEqual(heavy['激重感情']['factor'], 0.35)
         self.assertIn('most_downweighted', report)
         self.assertIn('most_boosted', report)
         self.assertNotIn('events', report)
@@ -1170,21 +1173,21 @@ class TestServices(unittest.TestCase):
 
     def test_result_exposure_adjustment_extends_pool_for_low_exposure_candidates(self):
         class Engine:
-            fetishes = [{'id': index + 1, 'name': f'F{index + 1}'} for index in range(32)]
+            fetishes = [{'id': index + 1, 'name': f'F{index + 1}'} for index in range(60)]
 
         # Fill enough samples and overexpose the first candidates so later low-exposure
         # candidates receive the positive factor while still being plausible.
         events = []
-        for fetish_id in range(1, 13):
-            events.extend(result_exposure.build_event(fetish_id, f'F{fetish_id}') for _ in range(8))
-        probs = [0.90] + [0.40 - index * 0.003 for index in range(1, 32)]
-        ranked = list(range(32))
-        ranked[1], ranked[17] = ranked[17], ranked[1]
+        for fetish_id in range(1, 21):
+            events.extend(result_exposure.build_event(fetish_id, f'F{fetish_id}') for _ in range(5))
+        probs = [0.90] + [0.55 - index * 0.003 for index in range(1, 60)]
+        ranked = list(range(60))
+        ranked[1], ranked[37] = ranked[37], ranked[1]
 
         adjusted = result_exposure.adjust_ranked(Engine(), probs, ranked, events=events)
 
-        self.assertIn(17, adjusted[:12])
-        self.assertLess(adjusted.index(17), adjusted.index(1))
+        self.assertIn(37, adjusted[:20])
+        self.assertLess(adjusted.index(37), adjusted.index(1))
 
     def test_result_exposure_no_longer_protects_dominant_overexposed_top_result(self):
         class Engine:
