@@ -312,11 +312,26 @@ def _finalize_result_row(row):
     return row
 
 
-def result_ranking(events, limit=20):
+def _allowed_result_set(allowed_result_names):
+    if allowed_result_names is None:
+        return None
+    return {
+        str(name).strip()
+        for name in allowed_result_names
+        if str(name or '').strip()
+    }
+
+
+def _is_allowed_result_name(result_name, allowed_names):
+    return allowed_names is None or result_name in allowed_names
+
+
+def result_ranking(events, limit=20, allowed_result_names=None):
+    allowed_names = _allowed_result_set(allowed_result_names)
     ranking = {}
     for event in events:
         result_name = _clean_result_name(event.get('result_name'), 80)
-        if not result_name:
+        if not result_name or not _is_allowed_result_name(result_name, allowed_names):
             continue
         row = ranking.setdefault(result_name, _empty_result_row(result_name))
         row['total'] += 1
@@ -351,13 +366,17 @@ def result_ranking(events, limit=20):
 
 
 
-def work_ranking(events, limit=20):
+def work_ranking(events, limit=20, allowed_result_names=None):
+    allowed_names = _allowed_result_set(allowed_result_names)
     ranking = {}
     for event in events:
         if event.get('event_name') != 'work_click':
             continue
         title = _clean_result_name(event.get('work_title'), 100) or 'unknown'
-        key = (title, _clean_result_name(event.get('result_name'), 80), _clean_text(event.get('channel'), 32))
+        result_name = _clean_result_name(event.get('result_name'), 80)
+        if result_name and not _is_allowed_result_name(result_name, allowed_names):
+            continue
+        key = (title, result_name, _clean_text(event.get('channel'), 32))
         row = ranking.setdefault(key, {
             'work_title': title,
             'result_name': key[1],
@@ -368,7 +387,7 @@ def work_ranking(events, limit=20):
     rows = sorted(ranking.values(), key=lambda row: (row['clicks'], row['work_title']), reverse=True)
     return rows[:max(1, int(limit or 20))]
 
-def _report_for_events(events):
+def _report_for_events(events, allowed_result_names=None):
     by_event = {}
     by_channel = {}
     success = {'true': 0, 'false': 0, 'unknown': 0}
@@ -391,8 +410,8 @@ def _report_for_events(events):
         'success': success,
         'metrics': _summary_metrics(by_event),
         'daily': daily_summary(events, days=14),
-        'ranking': result_ranking(events, limit=20),
-        'work_ranking': work_ranking(events, limit=20),
+        'ranking': result_ranking(events, limit=20, allowed_result_names=allowed_result_names),
+        'work_ranking': work_ranking(events, limit=20, allowed_result_names=allowed_result_names),
         'recent': events[-20:],
     }
 
@@ -448,10 +467,20 @@ def _comparison(current_report, previous_report):
     }
 
 
-def event_report(path=None, environ=None, limit=500, since=None, until=None, days=None, compare_since=None, compare_until=None):
+def event_report(
+    path=None,
+    environ=None,
+    limit=500,
+    since=None,
+    until=None,
+    days=None,
+    compare_since=None,
+    compare_until=None,
+    allowed_result_names=None,
+):
     all_events = read_events(path=path, environ=environ, limit=limit)
     events = filter_events(all_events, since=since, until=until, days=days)
-    report = _report_for_events(events)
+    report = _report_for_events(events, allowed_result_names=allowed_result_names)
     report['filters'] = {
         'days': _clean_positive_int(days),
         'since': _clean_date(since),
@@ -461,7 +490,7 @@ def event_report(path=None, environ=None, limit=500, since=None, until=None, day
     }
     if compare_since or compare_until:
         previous_events = filter_events(all_events, since=compare_since, until=compare_until)
-        comparison = _comparison(report, _report_for_events(previous_events))
+        comparison = _comparison(report, _report_for_events(previous_events, allowed_result_names=allowed_result_names))
         report['comparison'] = comparison
         report['ranking'] = comparison['ranking']
     else:

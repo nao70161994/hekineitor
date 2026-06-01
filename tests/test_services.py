@@ -371,6 +371,22 @@ class TestServices(unittest.TestCase):
         self.assertEqual(ranking[1]['result_page_views'], 1)
         self.assertEqual(ranking[1]['web_share_successes'], 1)
 
+    def test_share_events_result_ranking_can_filter_unknown_result_names(self):
+        events = [
+            {'result_name': '白衣', 'event_name': 'result_page_view'},
+            {'result_name': 'health', 'event_name': 'result_page_view'},
+            {'result_name': 'abc', 'event_name': 'share_button_click'},
+            {'result_name': 'へきネイター', 'event_name': 'ogp_png_view'},
+            {'result_name': '白衣', 'event_name': 'work_click', 'work_title': '作品A'},
+            {'result_name': 'abc', 'event_name': 'work_click', 'work_title': '作品B'},
+        ]
+
+        report = share_events._report_for_events(events, allowed_result_names={'白衣'})
+
+        self.assertEqual([row['result_name'] for row in report['ranking']], ['白衣'])
+        self.assertEqual(report['ranking'][0]['total'], 2)
+        self.assertEqual([row['work_title'] for row in report['work_ranking']], ['作品A'])
+
     def test_name_matching_finds_close_names_without_exact_self_match(self):
         fetishes = [
             {'id': 1, 'name': 'ヤンデレ'},

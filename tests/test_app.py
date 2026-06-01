@@ -1431,7 +1431,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
     def test_admin_read_token_cannot_mutate(self):
         with patch.dict(os.environ, {'ADMIN_READ_TOKEN': 'read-token', 'ADMIN_PASS': 'testpass'}):
             res = self.client.post('/api/admin/params', headers=self._admin_read_headers(), json={'guess_threshold': 0.8})
-            share_note = self.client.post('/api/admin/share_notes', headers=self._admin_read_headers(), json={'result_name': 'NTR', 'note': 'x'})
+            share_note = self.client.post('/api/admin/share_notes', headers=self._admin_read_headers(), json={'result_name': 'NTR（寝取られ）', 'note': 'x'})
         self.assertEqual(res.status_code, 401)
         self.assertEqual(share_note.status_code, 401)
 
@@ -1576,7 +1576,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             ('/api/admin/edit_fetish/0', {'name': 'x'}),
             ('/api/admin/merge_fetishes', {'id_keep': 0, 'id_remove': 1}),
             ('/api/admin/import_matrix/dry_run', {'matrix_rows': []}),
-            ('/api/admin/share_notes', {'result_name': 'NTR', 'note': 'x'}),
+            ('/api/admin/share_notes', {'result_name': 'NTR（寝取られ）', 'note': 'x'}),
             ('/api/admin/result_exposures/backfill', {'confirm_text': 'BACKFILL_RESULT_EXPOSURES'}),
         )
         try:
@@ -1612,7 +1612,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             q_path = os.path.join(tmp, 'question_events.jsonl')
             s_path = os.path.join(tmp, 'share_events.jsonl')
             question_events_service.record_event('question_shown', question_id=1, path=q_path)
-            share_events_service.record_event('result_page_view', result_name='NTR', channel='result_page', success=True, path=s_path)
+            share_events_service.record_event('result_page_view', result_name='NTR（寝取られ）', channel='result_page', success=True, path=s_path)
             with patch.dict(os.environ, {'QUESTION_EVENT_LOG_PATH': q_path, 'SHARE_EVENT_LOG_PATH': s_path}):
                 res = self.client.get('/api/admin/preflight', headers=headers)
         self.assertEqual(res.status_code, 200)
@@ -2273,7 +2273,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path}):
                 res = self.client.post('/api/share_event', json={
                     'event_name': 'share_button_click',
-                    'result_name': 'NTR',
+                    'result_name': 'NTR（寝取られ）',
                     'channel': 'button',
                     'success': True,
                     'ignored': 'not persisted',
@@ -2284,7 +2284,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
                 event = json.loads(file_obj.readline())
         self.assertEqual(set(event), {'timestamp', 'event_name', 'result_name', 'channel', 'success'})
         self.assertEqual(event['event_name'], 'share_button_click')
-        self.assertEqual(event['result_name'], 'NTR')
+        self.assertEqual(event['result_name'], 'NTR（寝取られ）')
         self.assertEqual(event['channel'], 'button')
         self.assertTrue(event['success'])
         self.assertNotIn('ip', event)
@@ -2402,7 +2402,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             q_path = os.path.join(tmp, 'question_events.jsonl')
             s_path = os.path.join(tmp, 'share_events.jsonl')
             question_events_service.record_event('question_shown', question_id=1, path=q_path)
-            share_events_service.record_event('result_page_view', result_name='NTR', channel='result_page', success=True, path=s_path)
+            share_events_service.record_event('result_page_view', result_name='NTR（寝取られ）', channel='result_page', success=True, path=s_path)
             with patch.dict(os.environ, {'QUESTION_EVENT_LOG_PATH': q_path, 'SHARE_EVENT_LOG_PATH': s_path}):
                 res = self.client.get('/admin', headers=headers)
         self.assertEqual(res.status_code, 200)
@@ -2419,11 +2419,11 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             old_now = type('Now', (), {'astimezone': lambda self, tz: self, 'isoformat': lambda self, timespec='seconds': '2026-05-23T00:00:00+00:00'})()
             new_now = type('Now', (), {'astimezone': lambda self, tz: self, 'isoformat': lambda self, timespec='seconds': '2026-05-24T00:00:00+00:00'})()
             share_events_service.record_event('share_button_click', result_name='OLD', channel='button', success=True, path=path, now_fn=lambda: old_now)
-            share_events_service.record_event('copy_success', result_name='NTR', channel='clipboard', success=True, path=path, now_fn=lambda: new_now)
-            share_events_service.record_event('copy_failure', result_name='NTR', channel='clipboard', success=False, path=path, now_fn=lambda: new_now)
-            share_events_service.record_event('share_button_click', result_name='NTR', channel='button', success=True, path=path, now_fn=lambda: new_now)
-            share_events_service.record_event('result_page_view', result_name='NTR', channel='result_page', success=True, path=path, now_fn=lambda: new_now)
-            share_events_service.record_event('work_click', result_name='NTR', channel='work', success=True, work_title='作品A', page='result_works', path=path, now_fn=lambda: new_now)
+            share_events_service.record_event('copy_success', result_name='NTR（寝取られ）', channel='clipboard', success=True, path=path, now_fn=lambda: new_now)
+            share_events_service.record_event('copy_failure', result_name='NTR（寝取られ）', channel='clipboard', success=False, path=path, now_fn=lambda: new_now)
+            share_events_service.record_event('share_button_click', result_name='NTR（寝取られ）', channel='button', success=True, path=path, now_fn=lambda: new_now)
+            share_events_service.record_event('result_page_view', result_name='NTR（寝取られ）', channel='result_page', success=True, path=path, now_fn=lambda: new_now)
+            share_events_service.record_event('work_click', result_name='NTR（寝取られ）', channel='work', success=True, work_title='作品A', page='result_works', path=path, now_fn=lambda: new_now)
             with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path}):
                 res = self.client.get('/api/admin/share_events?since=2026-05-24&until=2026-05-24', headers=headers)
         self.assertEqual(res.status_code, 200)
@@ -2438,7 +2438,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(data['metrics']['copy_failures'], 1)
         self.assertEqual(data['daily'][0]['copy_successes'], 1)
         self.assertEqual(data['daily'][0]['work_clicks'], 1)
-        self.assertEqual(data['ranking'][0]['result_name'], 'NTR')
+        self.assertEqual(data['ranking'][0]['result_name'], 'NTR（寝取られ）')
         self.assertEqual(data['ranking'][0]['copy_successes'], 1)
         self.assertEqual(data['ranking'][0]['share_actions'], 1)
         self.assertEqual(data['ranking'][0]['share_success_rate'], 100.0)
@@ -2451,13 +2451,37 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(data['filters']['compare_since'], '2026-05-23')
         self.assertIn('share_actions_delta', data['ranking'][0])
 
+    def test_admin_share_events_ranking_filters_unknown_result_names(self):
+        headers = self._admin_headers()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'share_events.jsonl')
+            for result_name in ('白衣', 'health', 'abc', 'へきネイター'):
+                share_events_service.record_event(
+                    'result_page_view',
+                    result_name=result_name,
+                    channel='result_page',
+                    success=True,
+                    path=path,
+                )
+            with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path}):
+                res = self.client.get('/api/admin/share_events', headers=headers)
+
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['total'], 4)
+        ranking_names = [row['result_name'] for row in data['ranking']]
+        self.assertIn('白衣', ranking_names)
+        self.assertNotIn('health', ranking_names)
+        self.assertNotIn('abc', ranking_names)
+        self.assertNotIn('へきネイター', ranking_names)
+
     def test_admin_share_events_csv_exports(self):
         headers = self._admin_headers()
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'share_events.jsonl')
             now = type('Now', (), {'astimezone': lambda self, tz: self, 'isoformat': lambda self, timespec='seconds': '2026-05-24T00:00:00+00:00'})()
-            share_events_service.record_event('share_button_click', result_name='NTR', channel='button', success=True, path=path, now_fn=lambda: now)
-            share_events_service.record_event('result_page_view', result_name='NTR', channel='result_page', success=True, path=path, now_fn=lambda: now)
+            share_events_service.record_event('share_button_click', result_name='NTR（寝取られ）', channel='button', success=True, path=path, now_fn=lambda: now)
+            share_events_service.record_event('result_page_view', result_name='NTR（寝取られ）', channel='result_page', success=True, path=path, now_fn=lambda: now)
             with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path}):
                 ranking = self.client.get('/api/admin/share_events/ranking.csv?since=2026-05-24', headers=headers)
                 daily = self.client.get('/api/admin/share_events/daily.csv?since=2026-05-24', headers=headers)
@@ -2467,7 +2491,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         ranking_header = ranking.data.decode('utf-8').splitlines()[0]
         self.assertIn('result_name,total,share_button_clicks', ranking_header)
         self.assertIn('filter_since', ranking_header)
-        self.assertIn('NTR', ranking.data.decode('utf-8'))
+        self.assertIn('NTR（寝取られ）', ranking.data.decode('utf-8'))
         self.assertIn('2026-05-24', ranking.data.decode('utf-8'))
         self.assertEqual(daily.status_code, 200)
         daily_header = daily.data.decode('utf-8').splitlines()[0]
@@ -2483,11 +2507,11 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         headers = self._admin_headers()
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'share_events.jsonl')
-            share_events_service.record_event('share_button_click', result_name='NTR', channel='button', success=True, path=path)
-            share_events_service.record_event('web_share_success', result_name='NTR', channel='web_share', success=True, path=path)
-            share_events_service.record_event('x_share_click', result_name='NTR', channel='x', success=True, path=path)
-            share_events_service.record_event('ogp_png_view', result_name='NTR', channel='ogp', success=True, path=path)
-            share_events_service.record_event('result_page_view', result_name='NTR', channel='result_page', success=True, path=path)
+            share_events_service.record_event('share_button_click', result_name='NTR（寝取られ）', channel='button', success=True, path=path)
+            share_events_service.record_event('web_share_success', result_name='NTR（寝取られ）', channel='web_share', success=True, path=path)
+            share_events_service.record_event('x_share_click', result_name='NTR（寝取られ）', channel='x', success=True, path=path)
+            share_events_service.record_event('ogp_png_view', result_name='NTR（寝取られ）', channel='ogp', success=True, path=path)
+            share_events_service.record_event('result_page_view', result_name='NTR（寝取られ）', channel='result_page', success=True, path=path)
             share_events_service.record_event('share_button_click', result_name='眼鏡', channel='button', success=True, path=path)
             with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': path}):
                 res = self.client.get('/admin?compare_since=2026-05-20&compare_until=2026-05-20', headers=headers)
@@ -2520,7 +2544,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
                 res = self.client.post(
                     '/api/admin/share_notes',
                     headers=headers,
-                    json={'result_name': 'NTR', 'note': 'OGP称号を強める'},
+                    json={'result_name': 'NTR（寝取られ）', 'note': 'OGP称号を強める'},
                 )
                 self.assertEqual(res.status_code, 200)
                 data = res.get_json()
@@ -2528,7 +2552,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
                 self.assertEqual(data['note']['note'], 'OGP称号を強める')
                 get_res = self.client.get('/api/admin/share_notes', headers=headers)
                 self.assertEqual(get_res.status_code, 200)
-                self.assertEqual(get_res.get_json()['notes']['NTR']['note'], 'OGP称号を強める')
+                self.assertEqual(get_res.get_json()['notes']['NTR（寝取られ）']['note'], 'OGP称号を強める')
         self.assertNotIn('remote_addr', json.dumps(data, ensure_ascii=False))
 
     def test_admin_share_notes_csrf_enforced_when_enabled(self):
@@ -2541,7 +2565,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
                     blocked = self.client.post(
                         '/api/admin/share_notes',
                         headers=headers,
-                        json={'result_name': 'NTR', 'note': 'blocked'},
+                        json={'result_name': 'NTR（寝取られ）', 'note': 'blocked'},
                     )
                     self.assertEqual(blocked.status_code, 403)
                     admin = self.client.get('/admin', headers=headers)
@@ -2551,7 +2575,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
                     ok = self.client.post(
                         '/api/admin/share_notes',
                         headers={**headers, 'X-CSRF-Token': match.group(1)},
-                        json={'result_name': 'NTR', 'note': 'saved'},
+                        json={'result_name': 'NTR（寝取られ）', 'note': 'saved'},
                     )
                     self.assertEqual(ok.status_code, 200)
         finally:
@@ -2562,8 +2586,8 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             events_path = os.path.join(tmp, 'share_events.jsonl')
             notes_path = os.path.join(tmp, 'share_notes.json')
-            share_events_service.record_event('share_button_click', result_name='NTR', channel='button', success=True, path=events_path)
-            share_notes_service.save_note('NTR', '<script>alert(1)</script>', path=notes_path)
+            share_events_service.record_event('share_button_click', result_name='NTR（寝取られ）', channel='button', success=True, path=events_path)
+            share_notes_service.save_note('NTR（寝取られ）', '<script>alert(1)</script>', path=notes_path)
             with patch.dict(os.environ, {'SHARE_EVENT_LOG_PATH': events_path, 'SHARE_NOTES_PATH': notes_path}):
                 res = self.client.get('/admin', headers=headers)
         self.assertEqual(res.status_code, 200)

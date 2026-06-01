@@ -138,6 +138,22 @@ def _game_context():
     )
 
 
+def _share_event_allowed_result_names():
+    return {
+        str(fetish.get('name') or '').strip()
+        for fetish in getattr(engine, 'fetishes', [])
+        if str(fetish.get('name') or '').strip()
+    }
+
+
+def _admin_share_event_report(**kwargs):
+    return share_events_service.event_report(
+        environ=os.environ,
+        allowed_result_names=_share_event_allowed_result_names(),
+        **kwargs,
+    )
+
+
 def _admin_context():
     return admin_context_service.build(
         engine=engine,
@@ -161,7 +177,7 @@ def _admin_context():
         delete_compound_works=delete_compound_works,
         write_audit=write_audit,
         filesystem=_filesystem_context(),
-        share_event_report=lambda **kwargs: share_events_service.event_report(environ=os.environ, **kwargs),
+        share_event_report=_admin_share_event_report,
         question_event_report=lambda **kwargs: question_events_service.event_report(engine, environ=os.environ, **kwargs),
         share_event_count=lambda: share_events_service.event_count(environ=os.environ),
         question_event_count=lambda: question_events_service.event_count(environ=os.environ),
