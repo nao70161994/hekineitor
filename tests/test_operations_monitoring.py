@@ -507,6 +507,32 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('note: share_events未蓄積', report['message'])
 
 
+
+    def test_daily_report_survives_partial_api_timeouts(self):
+        def fake_json(path):
+            if path == '/api/admin/funnel_metrics':
+                return {'stats_history': [{'date': '2026-05-26', 'start': 8, 'completion': 5}]}
+            if path.startswith('/api/admin/result_exposures'):
+                raise TimeoutError()
+            if path.startswith('/api/admin/recent_fetish_ranking'):
+                raise TimeoutError()
+            if path.startswith('/api/admin/share_events'):
+                raise TimeoutError()
+            if path.startswith('/api/admin/question_events'):
+                return {'total': 4, 'dropoff_ranking': [], 'questions': []}
+            raise AssertionError(path)
+
+        report = daily_analytics_report.build_daily_report(
+            environ={'ADMIN_READ_TOKEN': 'token', 'HEKI_REPORT_DATE': '2026-05-26'},
+            json_getter=fake_json,
+        )
+
+        self.assertEqual(report['status'], 'ok')
+        self.assertIn('result_source: unavailable', report['message'])
+        self.assertIn('partial_failures:', report['message'])
+        self.assertIn('/api/admin/share_events?days=1&limit=5000: TimeoutError', report['message'])
+        self.assertIn('note: share_events未蓄積', report['message'])
+
     def test_daily_report_uses_jst_yesterday_and_latest_active_stats(self):
         stats = daily_analytics_report._previous_day_stats({
             'stats_history': [

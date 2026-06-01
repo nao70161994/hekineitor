@@ -2113,6 +2113,19 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             self.assertEqual(applied.status_code, 200)
             self.assertEqual(applied.get_json()['mode'], 'applied')
 
+
+    def test_high_yes_rate_questions_are_more_selective(self):
+        with open(os.path.join(DATA_DIR, 'questions.json'), encoding='utf-8') as f:
+            questions = json.load(f)
+
+        self.assertEqual(questions[5]['id'], 5)
+        self.assertIn('少し波がある関係の方が好き', questions[5]['text'])
+        self.assertNotIn('甘くて幸せ', questions[5]['text'])
+        self.assertEqual(questions[111]['id'], 111)
+        self.assertIn('少しだけ余裕をなくす展開が好き', questions[111]['text'])
+        self.assertEqual(questions[124]['id'], 124)
+        self.assertIn('距離感のまま近づく関係が好き', questions[124]['text'])
+
     def test_edit_question_empty_text_rejected(self):
         headers = self._admin_headers()
         res = self.client.post('/api/admin/edit_question/0',

@@ -116,8 +116,24 @@ def _fetch_result_ranking(json_getter: Callable[[str], dict[str, Any]], *, targe
             return ranking, str(exposure.get('source') or 'result_exposures')
     except Exception:
         pass
-    fallback = json_getter(f'/api/admin/recent_fetish_ranking?days=1&date={target_date}&top_n={top_n}')
-    return fallback.get('ranking') or [], 'stats_history_fallback'
+    try:
+        fallback = json_getter(f'/api/admin/recent_fetish_ranking?days=1&date={target_date}&top_n={top_n}')
+        return fallback.get('ranking') or [], 'stats_history_fallback'
+    except Exception:
+        return [], 'unavailable'
+
+
+def _safe_fetch_json(
+    json_getter: Callable[[str], dict[str, Any]],
+    path: str,
+    fallback: dict[str, Any],
+    failures: list[str],
+):
+    try:
+        return json_getter(path)
+    except Exception as exc:
+        failures.append(f'{path}: {exc.__class__.__name__}')
+        return dict(fallback)
 
 
 def _top_dropoff_questions(question_report: dict[str, Any], limit: int = 3) -> list[str]:
@@ -158,10 +174,23 @@ def build_daily_report(
     json_getter = json_getter or (lambda path: fetch_json(path, environ=environ))
     target_date = str(environ.get('HEKI_REPORT_DATE') or _yesterday())[:10]
 
-    funnel = json_getter('/api/admin/funnel_metrics')
+    failures: list[str] = []
+    funnel = _safe_fetch_json(json_getter, '/api/admin/funnel_metrics', {'stats_history': []}, failures)
     ranking, result_source = _fetch_result_ranking(json_getter, target_date=target_date, top_n=10)
-    share = json_getter('/api/admin/share_events?days=1&limit=5000')
-    questions = json_getter('/api/admin/question_events?limit=5000')
+    if result_source == 'unavailable':
+        failures.append('/api/admin/result_exposures: unavailable')
+    share = _safe_fetch_json(
+        json_getter,
+        '/api/admin/share_events?days=1&limit=5000',
+        {'total': 0, 'metrics': {'result_page_views': 0, 'share_actions': 0}},
+        failures,
+    )
+    questions = _safe_fetch_json(
+        json_getter,
+        '/api/admin/question_events?limit=5000',
+        {'total': 0, 'dropoff_ranking': [], 'questions': []},
+        failures,
+    )
 
     stats = _previous_day_stats(funnel, target_date)
     share_metrics = share.get('metrics') or {}
@@ -187,6 +216,9 @@ def build_daily_report(
         lines.append('note: question_events未蓄積')
     if int(share.get('total') or 0) == 0:
         lines.append('note: share_events未蓄積')
+    if failures:
+        lines.append('partial_failures:')
+        lines.extend(f'- {failure}' for failure in failures[:4])
     if top_results:
         lines.append('top_results:')
         lines.extend(f'- {item}' for item in top_results)
