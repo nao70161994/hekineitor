@@ -50,6 +50,57 @@ def result_diversity_candidate(exposure_events):
     return {'status': status, 'sample_count': total, 'top_share': top_share, 'top_results': top}
 
 
+def low_learning_candidates(fetish_rows, exposure_events=None, *, limit=10):
+    exposure_counts = Counter()
+    for event in exposure_events or []:
+        try:
+            if int(event.get('rank') or 1) != 1:
+                continue
+        except (TypeError, ValueError):
+            continue
+        fetish_id = event.get('fetish_id')
+        try:
+            fetish_id = int(fetish_id)
+        except (TypeError, ValueError):
+            fetish_id = None
+        if fetish_id is not None:
+            exposure_counts[fetish_id] += 1
+
+    rows = []
+    for row in fetish_rows or []:
+        fetish_id = row.get('id')
+        try:
+            fetish_id = int(fetish_id)
+        except (TypeError, ValueError):
+            continue
+        guessed = int(row.get('guessed', 0) or 0)
+        correct = int(row.get('correct', 0) or 0)
+        wrong = int(row.get('wrong', 0) or 0)
+        feedback_total = int(row.get('feedback_total', correct + wrong) or 0)
+        exposures = exposure_counts.get(fetish_id, 0)
+        rows.append({
+            'id': fetish_id,
+            'name': row.get('name', ''),
+            'guessed': guessed,
+            'exposed': exposures,
+            'feedback_total': feedback_total,
+            'correct': correct,
+            'wrong': wrong,
+        })
+
+    rows.sort(key=lambda item: (item['exposed'], item['feedback_total'], item['guessed'], item['id']))
+    zero_exposure = sum(1 for row in rows if row['exposed'] == 0)
+    zero_feedback = sum(1 for row in rows if row['feedback_total'] == 0)
+    return {
+        'status': 'ok',
+        'sample_count': sum(exposure_counts.values()),
+        'zero_exposure_count': zero_exposure,
+        'zero_feedback_count': zero_feedback,
+        'least_exposed': rows[:limit],
+        'least_feedback': sorted(rows, key=lambda item: (item['feedback_total'], item['exposed'], item['guessed'], item['id']))[:limit],
+    }
+
+
 def build_candidates(question_report, *, exposure_events=None, min_answers=5, limit=5):
     questions = list(question_report.get('questions', []))
     answered_rows = [row for row in questions if int(row.get('answered', 0) or 0) >= min_answers]

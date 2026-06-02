@@ -131,6 +131,23 @@ class TestServices(unittest.TestCase):
         self.assertEqual(csv_safety.safe_csv_cell('plain'), 'plain')
 
 
+    def test_improvement_candidates_reports_low_learning_candidates(self):
+        rows = [
+            {'id': 1, 'name': 'A', 'guessed': 10, 'correct': 2, 'wrong': 1, 'feedback_total': 3},
+            {'id': 2, 'name': 'B', 'guessed': 0, 'correct': 0, 'wrong': 0, 'feedback_total': 0},
+            {'id': 3, 'name': 'C', 'guessed': 1, 'correct': 0, 'wrong': 0, 'feedback_total': 0},
+        ]
+        events = [result_exposure.build_event(1, 'A'), result_exposure.build_event(1, 'A')]
+
+        report = improvement_candidates.low_learning_candidates(rows, events, limit=2)
+
+        self.assertEqual(report['status'], 'ok')
+        self.assertEqual(report['sample_count'], 2)
+        self.assertEqual(report['zero_exposure_count'], 2)
+        self.assertEqual(report['zero_feedback_count'], 2)
+        self.assertEqual([row['id'] for row in report['least_exposed']], [2, 3])
+
+
     def test_event_storage_status_reports_paths_and_writability(self):
         with tempfile.TemporaryDirectory() as tmp:
             share_path = os.path.join(tmp, 'share_events.jsonl')
@@ -1147,9 +1164,9 @@ class TestServices(unittest.TestCase):
         self.assertEqual(report['sample']['main_total'], 85)
         self.assertTrue(report['sample']['active'])
         self.assertEqual(report['config']['candidate_pool'], 20)
-        self.assertEqual(report['config']['low_exposure_pool'], 50)
+        self.assertEqual(report['config']['low_exposure_rescue_limit'], 30)
         self.assertEqual(report['config']['heavy_factor_cap'], 0.55)
-        self.assertEqual(report['config']['heavy_min_factor'], 0.35)
+        self.assertEqual(report['config']['heavy_min_factor'], 0.2)
         self.assertEqual(report['config']['heavy_quota_soft_ratio'], 0.10)
         self.assertEqual(report['config']['heavy_quota_soft_cap'], 0.25)
         self.assertEqual(report['config']['heavy_quota_hard_ratio'], 0.25)
@@ -1236,6 +1253,34 @@ class TestServices(unittest.TestCase):
         ranked = result_exposure.adjust_ranked(Engine(), [0.90, 0.58, 0.1], [0, 1, 2], events=events)
 
         self.assertEqual(ranked[0], 1)
+
+
+    def test_result_exposure_explores_deeper_low_exposure_candidates_globally(self):
+        class Engine:
+            fetishes = [{'id': index + 1, 'name': f'F{index + 1}'} for index in range(120)]
+
+        events = [result_exposure.build_event(1, 'F1') for _ in range(100)]
+        probs = [0.90] + [0.20 - index * 0.001 for index in range(1, 120)]
+        probs[80] = 0.33
+        ranked = list(range(120))
+        ranked[80], ranked[99] = ranked[99], ranked[80]
+
+        adjusted = result_exposure.adjust_ranked(Engine(), probs, ranked, events=events)
+
+        self.assertEqual(adjusted[0], 80)
+
+    def test_result_exposure_caps_global_low_exposure_rescue_pool(self):
+        class Engine:
+            fetishes = [{'id': index + 1, 'name': f'F{index + 1}'} for index in range(80)]
+
+        events = [result_exposure.build_event(1, 'F1') for _ in range(80)]
+        probs = [0.80] + [0.20 - index * 0.001 for index in range(1, 80)]
+        ranked = list(range(80))
+
+        adjusted = result_exposure.adjust_ranked(Engine(), probs, ranked, events=events)
+
+        rescued = [index for index in adjusted[:50] if index >= result_exposure.CANDIDATE_POOL]
+        self.assertLessEqual(len(rescued), result_exposure.LOW_EXPOSURE_RESCUE_LIMIT)
 
 
     def test_question_selection_low_confidence_extension_bounds(self):

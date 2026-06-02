@@ -1496,6 +1496,8 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIsInstance(data['share_links_count'], int)
         self.assertIn('improvement_candidates', data)
         self.assertIn('result_diversity', data['improvement_candidates'])
+        self.assertIn('low_learning_candidates', data)
+        self.assertIn('least_exposed', data['low_learning_candidates'])
 
     def test_operations_snapshot_exposes_admin_analysis_without_secrets(self):
         env = {

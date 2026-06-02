@@ -741,11 +741,16 @@ def admin_read_overview(ctx):
     logs = analysis_log_status(ctx, stats_history=ctx.engine.get_stats_history(days=90))
     question_report = ctx.question_event_report(limit=5000)
     exposure_events = result_exposure_service.read_events(environ=ctx.environ, limit=300)
+    fetish_rows = ctx.build_fetish_log_rows()
     return ctx.jsonify({
         'status': 'ok',
         'share_links_count': share_links_service.count_links(environ=ctx.environ),
         'improvement_candidates': improvement_candidates_service.build_candidates(
             question_report,
+            exposure_events=exposure_events,
+        ),
+        'low_learning_candidates': improvement_candidates_service.low_learning_candidates(
+            fetish_rows,
             exposure_events=exposure_events,
         ),
         'available_endpoints': [

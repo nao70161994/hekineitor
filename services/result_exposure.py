@@ -19,11 +19,11 @@ MAIN_WINDOW = 1000
 SHORT_WINDOW = 300
 MIN_SAMPLES = 50
 CANDIDATE_POOL = 20
-LOW_EXPOSURE_POOL = 50
+LOW_EXPOSURE_RESCUE_LIMIT = 30
 SMOOTHING = 2.0
-MIN_FACTOR = 0.5
-HEAVY_MIN_FACTOR = 0.35
-MAX_FACTOR = 1.6
+MIN_FACTOR = 0.25
+HEAVY_MIN_FACTOR = 0.2
+MAX_FACTOR = 3.0
 HEAVY_FACTOR_CAP = 0.55
 HEAVY_QUOTA_SOFT_RATIO = 0.10
 HEAVY_QUOTA_SOFT_CAP = 0.25
@@ -420,14 +420,21 @@ def exposure_factors(fetishes, *, events=None, path=None, environ=None):
     return factors
 
 
-def _adjustment_pool(engine, ranked, factors):
+def _adjustment_pool(engine, ranked, factors, *, probs=None):
     primary = list(ranked[:CANDIDATE_POOL])
     pool = list(primary)
     seen = set(pool)
-    for index in ranked[CANDIDATE_POOL:LOW_EXPOSURE_POOL]:
+    rescue_candidates = []
+    for index in ranked[CANDIDATE_POOL:]:
         fetish_id = engine.fetishes[index].get('id')
-        if factors.get(fetish_id, 1.0) <= 1.0:
+        factor = factors.get(fetish_id, 1.0)
+        if factor <= 1.0:
             continue
+        score = factor * float(probs[index]) if probs is not None else factor
+        rescue_candidates.append((score, factor, index))
+    rank_position = {index: position for position, index in enumerate(ranked)}
+    rescue_candidates.sort(key=lambda item: (-item[0], -item[1], rank_position[item[2]]))
+    for _score, _factor, index in rescue_candidates[:LOW_EXPOSURE_RESCUE_LIMIT]:
         if index not in seen:
             pool.append(index)
             seen.add(index)
@@ -447,12 +454,12 @@ def adjust_ranked(engine, probs, ranked, *, events=None, path=None, environ=None
     fetishes_by_id = {fetish.get('id'): fetish for fetish in engine.fetishes if fetish.get('id') is not None}
     short_events = exposure_events[-MAIN_WINDOW:][-SHORT_WINDOW:]
     hard_quota_active = _heavy_exposure_ratio(short_events, fetishes_by_id) >= HEAVY_QUOTA_HARD_RATIO
-    pool = _adjustment_pool(engine, ranked, factors)
-    pool_set = set(pool)
-    rest = [index for index in ranked if index not in pool_set]
     original_top = ranked[0]
     top_score = probs[ranked[0]]
     second_score = max(probs[ranked[1]], 1e-12)
+    pool = _adjustment_pool(engine, ranked, factors, probs=probs)
+    pool_set = set(pool)
+    rest = [index for index in ranked if index not in pool_set]
     best_non_heavy_prob = max(
         [probs[index] for index in pool if not _is_heavy_fetish(engine.fetishes[index])] or [0.0]
     )
@@ -536,7 +543,7 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
             'heavy_quota_hard_cap': HEAVY_QUOTA_HARD_CAP,
             'heavy_quota_gate_factor': HEAVY_QUOTA_GATE_FACTOR,
             'candidate_pool': CANDIDATE_POOL,
-            'low_exposure_pool': LOW_EXPOSURE_POOL,
+            'low_exposure_rescue_limit': LOW_EXPOSURE_RESCUE_LIMIT,
             'smoothing': SMOOTHING,
         },
         'most_downweighted': rows_by_factor[:display_limit],

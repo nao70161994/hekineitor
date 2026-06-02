@@ -65,7 +65,7 @@ The broad near-miss factor is still above regular positive learning, but lower t
 
 ## Recent Exposure Balancing
 
-Result display now applies a presentation-only exposure correction before the final result is returned. This does not change posterior math, priors, matrix values, question selection, or learning. It only re-ranks the final top candidate pool.
+Result display now applies an exposure correction before the final result is returned. This does not change posterior math, priors, matrix values, or question selection. It re-ranks the final candidate pool and uses the same exposure signal to dampen positive feedback and strengthen negative feedback for overexposed results.
 
 In production with `DATABASE_URL`, the service records primary result exposures to the `analytics_events` table so deploys do not reset the exposure window. When `RESULT_EXPOSURE_LOG_PATH` is set, or when DB storage is unavailable locally, it falls back to JSONL (`data/result_exposures.jsonl`). It stores only result id/name, probability, rank, and timestamp. It does not store IP, User-Agent, session id, or user identifiers.
 
@@ -74,15 +74,15 @@ Current windows and correction range:
 - main window: latest `1000` primary result exposures
 - short over-concentration guard: latest `300` primary result exposures
 - minimum samples before correction: `50`
-- candidate pool: posterior top `20`, plus low-exposure rescue candidates through rank `50`
+- candidate pool: posterior top `20`, plus up to `30` low-exposure rescue candidates selected from the rest of the ranked list
 
-The main correction compares recent exposure count to the expected count and clamps the factor to `0.5` - `1.6` for normal results. Broad heavy-emotion results use a stronger floor of `0.35`. The short-window guard applies extra downweighting for over-concentrated results:
+The main correction compares recent exposure count to the expected count and clamps the factor to `0.25` - `3.0` for normal results. Broad heavy-emotion results use a stronger floor of `0.2`. The short-window guard applies extra downweighting for over-concentrated results:
 
 - `15%` or higher in the latest 300: `x0.75`
 - `25%` or higher: `x0.60`
 - `40%` or higher: `x0.45`
 
-Broad heavy-emotion results (`共依存`, `激重感情`, `共生関係`, `執着`) have a factor cap of `0.55` and can be pushed down to `0.35` when recent exposure is still concentrated. A category quota applies on the latest 300 results: if heavy-emotion results exceed `10%`, their factor is capped at `0.25`; if they exceed `25%`, their factor is capped at `0.12`. While that hard quota is active, heavy-emotion results are capped at an effective factor of `0.02` whenever there is any non-heavy candidate in the adjustment pool. Dominant top-result protection is disabled, so overexposed heavy-emotion results can lose close races even when they start as the top posterior candidate.
+Broad heavy-emotion results (`共依存`, `激重感情`, `共生関係`, `執着`) have a factor cap of `0.55` and can be pushed down to `0.2` when recent exposure is still concentrated. A category quota applies on the latest 300 results: if heavy-emotion results exceed `10%`, their factor is capped at `0.25`; if they exceed `25%`, their factor is capped at `0.12`. While that hard quota is active, heavy-emotion results are capped at an effective factor of `0.02` whenever there is any non-heavy candidate in the adjustment pool. Dominant top-result protection is disabled, so overexposed heavy-emotion results can lose close races even when they start as the top posterior candidate.
 
 The read-only endpoint `/api/admin/result_exposure_factors` exposes aggregate correction diagnostics: sample size, config, most downweighted results, most boosted results, and heavy-result factors. It does not return raw events, IP, User-Agent, session id, or tokens.
 
@@ -129,10 +129,14 @@ Backfilled rows are tagged with `source=stats_history_backfill`. They are used b
 
 ## Low-exposure rescue pool
 
-Diversity balancing keeps the primary candidate pool at the top 12 results, but it also inspects ranks 13-30 for low-exposure candidates. A candidate is eligible for this rescue pool only when its exposure factor is above 1.0, meaning it has appeared less often than expected in the recent exposure window. The boosted candidate still competes by adjusted score, so this does not pull arbitrary distant results into the final answer.
+Diversity balancing keeps the primary candidate pool at the top 20 results, but it also selects up to 30 low-exposure rescue candidates from the rest of the ranked list. A candidate is eligible for this rescue pool only when its exposure factor is above 1.0, meaning it has appeared less often than expected in the recent exposure window.
 
-This gives under-shown results more learning opportunities while keeping the main result close to the user's posterior ranking.
+This rescue pool is no longer limited to low-confidence results. Under-shown results always get a chance to compete by adjusted score, while the final answer still comes from posterior score multiplied by exposure factor rather than from random injection.
+
+## Feedback balancing
+
+Positive feedback for overexposed results is now dampened by the exposure factor with a floor of `x0.2`. Negative feedback for overexposed results is strengthened by the inverse exposure factor with a cap of `x2.5`. When exposure data is missing or below the minimum sample threshold, feedback factors fall back to the previous broad/concrete values.
 
 ## Stronger diversity tuning
 
-The current tuning makes overexposed heavy-emotion results lose more close races while allowing underexposed candidates to gain more learning opportunities. The rescue pool remains capped at rank 30 to avoid pulling in distant results.
+The current tuning makes any overexposed result lose more close races while allowing underexposed candidates to gain more learning opportunities. The rescue pool is capped at 30 candidates to avoid turning the result into a random rotation.
