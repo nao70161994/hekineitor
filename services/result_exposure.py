@@ -29,6 +29,9 @@ HEAVY_QUOTA_SOFT_RATIO = 0.10
 HEAVY_QUOTA_SOFT_CAP = 0.25
 HEAVY_QUOTA_HARD_RATIO = 0.25
 HEAVY_QUOTA_HARD_CAP = 0.12
+HEAVY_QUOTA_DOMINANCE_RATIO = 2.5
+HEAVY_QUOTA_DOMINANT_FACTOR = 0.55
+HEAVY_QUOTA_GATE_FACTOR = 0.02
 DOMINANT_RATIO = None
 DOMINANT_MIN_FACTOR = None
 
@@ -433,21 +436,38 @@ def _adjustment_pool(engine, ranked, factors):
     return pool
 
 
+def _is_heavy_fetish(fetish):
+    return fetish.get('name') in HEAVY_RESULT_NAMES
+
+
 def adjust_ranked(engine, probs, ranked, *, events=None, path=None, environ=None):
     ranked = list(ranked)
     if len(ranked) < 2:
         return ranked
-    factors = exposure_factors(engine.fetishes, events=events, path=path, environ=environ)
+    exposure_events = list(events) if events is not None else read_events(path=path, environ=environ, limit=MAIN_WINDOW)
+    factors = exposure_factors(engine.fetishes, events=exposure_events)
+    fetishes_by_id = {fetish.get('id'): fetish for fetish in engine.fetishes if fetish.get('id') is not None}
+    short_events = exposure_events[-MAIN_WINDOW:][-SHORT_WINDOW:]
+    hard_quota_active = _heavy_exposure_ratio(short_events, fetishes_by_id) >= HEAVY_QUOTA_HARD_RATIO
     pool = _adjustment_pool(engine, ranked, factors)
     pool_set = set(pool)
     rest = [index for index in ranked if index not in pool_set]
     original_top = ranked[0]
     top_score = probs[ranked[0]]
     second_score = max(probs[ranked[1]], 1e-12)
+    best_non_heavy_prob = max(
+        [probs[index] for index in pool if not _is_heavy_fetish(engine.fetishes[index])] or [0.0]
+    )
     adjusted = []
     for index in pool:
-        fetish_id = engine.fetishes[index].get('id')
+        fetish = engine.fetishes[index]
+        fetish_id = fetish.get('id')
         factor = factors.get(fetish_id, 1.0)
+        if hard_quota_active and _is_heavy_fetish(fetish) and best_non_heavy_prob > 0:
+            if probs[index] >= best_non_heavy_prob * HEAVY_QUOTA_DOMINANCE_RATIO:
+                factor = max(factor, HEAVY_QUOTA_DOMINANT_FACTOR)
+            else:
+                factor = min(factor, HEAVY_QUOTA_GATE_FACTOR)
         if (
             DOMINANT_RATIO is not None
             and DOMINANT_MIN_FACTOR is not None
@@ -519,6 +539,9 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
             'heavy_quota_soft_cap': HEAVY_QUOTA_SOFT_CAP,
             'heavy_quota_hard_ratio': HEAVY_QUOTA_HARD_RATIO,
             'heavy_quota_hard_cap': HEAVY_QUOTA_HARD_CAP,
+            'heavy_quota_dominance_ratio': HEAVY_QUOTA_DOMINANCE_RATIO,
+            'heavy_quota_dominant_factor': HEAVY_QUOTA_DOMINANT_FACTOR,
+            'heavy_quota_gate_factor': HEAVY_QUOTA_GATE_FACTOR,
             'candidate_pool': CANDIDATE_POOL,
             'low_exposure_pool': LOW_EXPOSURE_POOL,
             'smoothing': SMOOTHING,
