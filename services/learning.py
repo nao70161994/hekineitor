@@ -1,4 +1,7 @@
 import math
+import os
+
+from services import result_exposure
 
 
 def learn_positive(engine, answers, fetish_idx, *, strength_factor=1.0):
@@ -45,6 +48,8 @@ NEGATIVE_SCALE = 1.3
 BROAD_RESULT_NEGATIVE_SCALE = 1.7
 NEAR_MISS_SCALE = 1.6
 BROAD_NEAR_MISS_SCALE = 1.15
+EXPOSURE_POSITIVE_MIN_SCALE = 0.2
+EXPOSURE_NEGATIVE_MAX_SCALE = 2.5
 
 
 def _fetish_name(engine, fetish_idx):
@@ -54,12 +59,45 @@ def _fetish_name(engine, fetish_idx):
         return ''
 
 
+def _fetish_id(engine, fetish_idx):
+    try:
+        return engine.fetishes[fetish_idx].get('id')
+    except (IndexError, AttributeError, TypeError):
+        return None
+
+
+def _exposure_feedback_scale(engine, fetish_idx):
+    fetish_id = _fetish_id(engine, fetish_idx)
+    if fetish_id is None:
+        return 1.0
+    try:
+        factors = result_exposure.exposure_factors(engine.fetishes, environ=os.environ)
+        factor = float(factors.get(fetish_id, 1.0))
+    except Exception:
+        return 1.0
+    if not math.isfinite(factor) or factor <= 0:
+        return 1.0
+    return factor
+
+
+def _positive_exposure_feedback_scale(engine, fetish_idx):
+    factor = _exposure_feedback_scale(engine, fetish_idx)
+    return max(EXPOSURE_POSITIVE_MIN_SCALE, min(1.0, factor))
+
+
+def _negative_exposure_feedback_scale(engine, fetish_idx):
+    factor = _exposure_feedback_scale(engine, fetish_idx)
+    return max(1.0, min(EXPOSURE_NEGATIVE_MAX_SCALE, 1.0 / factor))
+
+
 def positive_feedback_factor(engine, fetish_idx):
-    return BROAD_RESULT_POSITIVE_SCALE if _fetish_name(engine, fetish_idx) in BROAD_RESULT_NAMES else POSITIVE_SCALE
+    base = BROAD_RESULT_POSITIVE_SCALE if _fetish_name(engine, fetish_idx) in BROAD_RESULT_NAMES else POSITIVE_SCALE
+    return base * _positive_exposure_feedback_scale(engine, fetish_idx)
 
 
 def negative_feedback_factor(engine, fetish_idx):
-    return BROAD_RESULT_NEGATIVE_SCALE if _fetish_name(engine, fetish_idx) in BROAD_RESULT_NAMES else NEGATIVE_SCALE
+    base = BROAD_RESULT_NEGATIVE_SCALE if _fetish_name(engine, fetish_idx) in BROAD_RESULT_NAMES else NEGATIVE_SCALE
+    return base * _negative_exposure_feedback_scale(engine, fetish_idx)
 
 
 def near_miss_feedback_factor(engine, fetish_idx):

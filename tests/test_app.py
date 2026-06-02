@@ -506,15 +506,37 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
 
     def test_feedback_factor_reduces_broad_correct_and_boosts_near_miss(self):
         from app import engine as app_engine
-        broad_idx = app_engine.index_of(self._fetish_id_by_name('共依存'))
-        concrete_idx = app_engine.index_of(0)
+        broad_id = self._fetish_id_by_name('共依存')
+        concrete_id = 0
+        broad_idx = app_engine.index_of(broad_id)
+        concrete_idx = app_engine.index_of(concrete_id)
 
-        self.assertEqual(learning_service.positive_feedback_factor(app_engine, broad_idx), 0.45)
-        self.assertEqual(learning_service.positive_feedback_factor(app_engine, concrete_idx), 0.7)
-        self.assertEqual(learning_service.negative_feedback_factor(app_engine, broad_idx), 1.7)
-        self.assertEqual(learning_service.negative_feedback_factor(app_engine, concrete_idx), 1.3)
+        with patch('services.learning.result_exposure.exposure_factors', return_value={
+            broad_id: 1.0,
+            concrete_id: 1.0,
+        }):
+            self.assertEqual(learning_service.positive_feedback_factor(app_engine, broad_idx), 0.45)
+            self.assertEqual(learning_service.positive_feedback_factor(app_engine, concrete_idx), 0.7)
+            self.assertEqual(learning_service.negative_feedback_factor(app_engine, broad_idx), 1.7)
+            self.assertEqual(learning_service.negative_feedback_factor(app_engine, concrete_idx), 1.3)
         self.assertEqual(learning_service.near_miss_feedback_factor(app_engine, broad_idx), 1.15)
         self.assertEqual(learning_service.near_miss_feedback_factor(app_engine, concrete_idx), 1.6)
+
+    def test_feedback_factor_uses_exposure_to_weaken_positive_and_boost_negative(self):
+        from app import engine as app_engine
+        broad_id = self._fetish_id_by_name('共依存')
+        concrete_id = 0
+        broad_idx = app_engine.index_of(broad_id)
+        concrete_idx = app_engine.index_of(concrete_id)
+
+        with patch('services.learning.result_exposure.exposure_factors', return_value={
+            broad_id: 0.12,
+            concrete_id: 0.5,
+        }):
+            self.assertAlmostEqual(learning_service.positive_feedback_factor(app_engine, broad_idx), 0.45 * 0.2)
+            self.assertAlmostEqual(learning_service.negative_feedback_factor(app_engine, broad_idx), 1.7 * 2.5)
+            self.assertAlmostEqual(learning_service.positive_feedback_factor(app_engine, concrete_idx), 0.7 * 0.5)
+            self.assertAlmostEqual(learning_service.negative_feedback_factor(app_engine, concrete_idx), 1.3 * 2.0)
 
     def test_confirm_broad_result_uses_reduced_positive_factor(self):
         from app import BOOTSTRAP
@@ -538,7 +560,8 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             sess['last_guess_compound_ids'] = []
             sess.pop('feedback_status', None)
 
-        with patch('services.learning.learn_positive') as learn_positive:
+        with patch('services.learning.result_exposure.exposure_factors', return_value={broad_id: 1.0}), \
+                patch('services.learning.learn_positive') as learn_positive:
             res = self.client.post('/api/confirm', json={
                 'correct': True,
                 'fetish_id': broad_id,
@@ -567,7 +590,8 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             sess['last_guess_compound_ids'] = []
             sess.pop('feedback_status', None)
 
-        with patch('services.learning.learn_negative') as learn_negative:
+        with patch('services.learning.result_exposure.exposure_factors', return_value={broad_id: 1.0}), \
+                patch('services.learning.learn_negative') as learn_negative:
             res = self.client.post('/api/confirm', json={
                 'correct': False,
                 'fetish_id': broad_id,
@@ -602,7 +626,9 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             sess['candidate_db_ids'] = [correct_id]
             sess['feedback_status'] = 'pending_correction'
 
-        with patch('services.learning.learn_positive'), patch('services.learning.learn_negative') as learn_negative:
+        with patch('services.learning.result_exposure.exposure_factors', return_value={broad_id: 1.0}), \
+                patch('services.learning.learn_positive'), \
+                patch('services.learning.learn_negative') as learn_negative:
             res = self.client.post('/api/finalize_added', json={
                 'items': [{'id': correct_id, 'is_new': False}],
             })
