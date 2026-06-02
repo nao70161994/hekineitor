@@ -315,7 +315,7 @@ def build_report(
                 warn.append('question_events=0; 質問分析ログが未蓄積です')
             if relation_share >= _env_float(environ, 'NTFY_RELATION_ATTACHMENT_WARN_RATIO', 55.0):
                 warn.append(f'relation/attachment share={_pct(relation_share)}')
-            min_answers = _env_int(environ, 'NTFY_QUESTION_MIN_ANSWERS', 5)
+            min_answers = _env_int(environ, 'NTFY_QUESTION_MIN_ANSWERS', 20)
             yes_threshold = _env_float(environ, 'NTFY_QUESTION_YES_WARN_RATE', 90.0)
             yes_questions = [
                 row for row in question_report.get('questions', [])

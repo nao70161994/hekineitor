@@ -97,7 +97,7 @@ class OperationsMonitoringTests(unittest.TestCase):
             raise AssertionError(path)
 
         report = operations_check.build_report(
-            environ={'ADMIN_READ_TOKEN': secret, 'NTFY_WORKS_MIN_COUNT': '20'},
+            environ={'ADMIN_READ_TOKEN': secret, 'NTFY_WORKS_MIN_COUNT': '20', 'NTFY_QUESTION_MIN_ANSWERS': '5'},
             json_getter=fake_json,
             bytes_getter=lambda path: b'not-png',
         )
@@ -468,7 +468,7 @@ class OperationsMonitoringTests(unittest.TestCase):
                 return {
                     'total': 30,
                     'dropoff_ranking': [{'question_id': 3, 'question_text': '少人数の方が楽？', 'shown': 10, 'dropoff_rate': 20}],
-                    'questions': [{'question_id': 4, 'question_text': '整った静かな雰囲気？', 'answered': 10, 'shown': 11, 'yes_rate': 92, 'category': 'aesthetic'}],
+                    'questions': [{'question_id': 4, 'question_text': '整った静かな雰囲気？', 'answered': 20, 'shown': 21, 'yes_rate': 92, 'category': 'aesthetic'}],
                 }
             raise AssertionError(path)
 
@@ -484,7 +484,7 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertNotIn('unknown 40', report['message'])
         self.assertIn('heavy_result_ratio: 40.0% (40/100)', report['message'])
         self.assertIn('share_rate: 10.0%', report['message'])
-        self.assertIn('Q4 92.0% (10/11, aesthetic)', report['message'])
+        self.assertIn('Q4 92.0% (20/21, aesthetic)', report['message'])
         self.assertNotIn('note: question_events未蓄積', report['message'])
         self.assertNotIn('token', report['message'])
 

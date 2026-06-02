@@ -169,10 +169,10 @@ def _top_dropoff_questions(question_report: dict[str, Any], limit: int = 3) -> l
     return rows
 
 
-def _yes_anomaly_questions(question_report: dict[str, Any], limit: int = 3, threshold: float = 90.0) -> list[str]:
+def _yes_anomaly_questions(question_report: dict[str, Any], limit: int = 3, threshold: float = 90.0, min_answers: int = 20) -> list[str]:
     rows = []
     for row in sorted(question_report.get('questions', []), key=lambda r: (-float(r.get('yes_rate') or 0), -int(r.get('answered') or 0))):
-        if int(row.get('answered') or 0) < 5 or float(row.get('yes_rate') or 0) < threshold:
+        if int(row.get('answered') or 0) < min_answers or float(row.get('yes_rate') or 0) < threshold:
             continue
         text = str(row.get('question_text') or '')[:28]
         rows.append(f"{_question_yes_summary(row)} {text}")
