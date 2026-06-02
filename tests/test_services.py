@@ -1154,8 +1154,6 @@ class TestServices(unittest.TestCase):
         self.assertEqual(report['config']['heavy_quota_soft_cap'], 0.25)
         self.assertEqual(report['config']['heavy_quota_hard_ratio'], 0.25)
         self.assertEqual(report['config']['heavy_quota_hard_cap'], 0.12)
-        self.assertEqual(report['config']['heavy_quota_dominance_ratio'], 2.5)
-        self.assertEqual(report['config']['heavy_quota_dominant_factor'], 0.55)
         self.assertEqual(report['config']['heavy_quota_gate_factor'], 0.02)
         self.assertEqual(report['sample']['short_heavy_ratio'], 94.1)
         heavy = {row['fetish_name']: row for row in report['heavy_results']}
@@ -1191,20 +1189,6 @@ class TestServices(unittest.TestCase):
         ranked = result_exposure.adjust_ranked(Engine(), [0.95, 0.50, 0.2], [0, 1, 2], events=events)
 
         self.assertEqual(ranked[0], 1)
-
-    def test_result_exposure_hard_quota_allows_clearly_dominant_heavy_result(self):
-        class Engine:
-            fetishes = [
-                {'id': 1, 'name': '激重感情'},
-                {'id': 2, 'name': '白衣'},
-                {'id': 3, 'name': '眼鏡'},
-            ]
-
-        events = [result_exposure.build_event(1, '激重感情', 90) for _ in range(80)]
-        events.extend(result_exposure.build_event(2, '白衣', 80) for _ in range(5))
-        ranked = result_exposure.adjust_ranked(Engine(), [0.95, 0.30, 0.2], [0, 1, 2], events=events)
-
-        self.assertEqual(ranked[0], 0)
 
     def test_result_exposure_adjustment_can_promote_close_low_exposure_candidate(self):
         class Engine:

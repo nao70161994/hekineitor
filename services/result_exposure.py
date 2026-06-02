@@ -29,8 +29,6 @@ HEAVY_QUOTA_SOFT_RATIO = 0.10
 HEAVY_QUOTA_SOFT_CAP = 0.25
 HEAVY_QUOTA_HARD_RATIO = 0.25
 HEAVY_QUOTA_HARD_CAP = 0.12
-HEAVY_QUOTA_DOMINANCE_RATIO = 2.5
-HEAVY_QUOTA_DOMINANT_FACTOR = 0.55
 HEAVY_QUOTA_GATE_FACTOR = 0.02
 DOMINANT_RATIO = None
 DOMINANT_MIN_FACTOR = None
@@ -464,10 +462,7 @@ def adjust_ranked(engine, probs, ranked, *, events=None, path=None, environ=None
         fetish_id = fetish.get('id')
         factor = factors.get(fetish_id, 1.0)
         if hard_quota_active and _is_heavy_fetish(fetish) and best_non_heavy_prob > 0:
-            if probs[index] >= best_non_heavy_prob * HEAVY_QUOTA_DOMINANCE_RATIO:
-                factor = max(factor, HEAVY_QUOTA_DOMINANT_FACTOR)
-            else:
-                factor = min(factor, HEAVY_QUOTA_GATE_FACTOR)
+            factor = min(factor, HEAVY_QUOTA_GATE_FACTOR)
         if (
             DOMINANT_RATIO is not None
             and DOMINANT_MIN_FACTOR is not None
@@ -539,8 +534,6 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
             'heavy_quota_soft_cap': HEAVY_QUOTA_SOFT_CAP,
             'heavy_quota_hard_ratio': HEAVY_QUOTA_HARD_RATIO,
             'heavy_quota_hard_cap': HEAVY_QUOTA_HARD_CAP,
-            'heavy_quota_dominance_ratio': HEAVY_QUOTA_DOMINANCE_RATIO,
-            'heavy_quota_dominant_factor': HEAVY_QUOTA_DOMINANT_FACTOR,
             'heavy_quota_gate_factor': HEAVY_QUOTA_GATE_FACTOR,
             'candidate_pool': CANDIDATE_POOL,
             'low_exposure_pool': LOW_EXPOSURE_POOL,
