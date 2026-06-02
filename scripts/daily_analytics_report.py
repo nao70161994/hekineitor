@@ -52,7 +52,16 @@ def _result_count(row: dict[str, Any]) -> int:
     return int(row.get('total') or row.get('count') or row.get('guessed') or 0)
 
 
-def _previous_day_stats(funnel: dict[str, Any], target_date: str, *, min_starts: int = 20) -> dict[str, Any]:
+def _previous_day_stats(funnel: dict[str, Any], target_date: str, *, min_starts: int = 20, available: bool = True) -> dict[str, Any]:
+    if not available:
+        return {
+            'date': target_date,
+            'plays': None,
+            'completions': 0,
+            'feedback': 0,
+            'completion_rate': None,
+            'completion_reliable': False,
+        }
     rows = funnel.get('stats_history') or []
     selected = None
     for row in rows:
@@ -79,6 +88,11 @@ def _previous_day_stats(funnel: dict[str, Any], target_date: str, *, min_starts:
         'completion_rate': rate,
         'completion_reliable': reliable,
     }
+
+
+def _plays_line(stats: dict[str, Any]) -> str:
+    plays = stats.get('plays')
+    return 'plays: unavailable' if plays is None else f'plays: {plays}'
 
 
 def _completion_line(stats: dict[str, Any]) -> str:
@@ -163,7 +177,9 @@ def _top_dropoff_questions(question_report: dict[str, Any], limit: int = 3) -> l
         if int(row.get('shown') or 0) <= 0 or float(row.get('dropoff_rate') or 0) <= 0:
             continue
         text = str(row.get('question_text') or '')[:28]
-        rows.append(f"Q{row.get('question_id')} {_pct(row.get('dropoff_rate'))} {text}")
+        dropoff = int(row.get('dropoff') or 0)
+        shown = int(row.get('shown') or 0)
+        rows.append(f"Q{row.get('question_id')} {_pct(row.get('dropoff_rate'))} ({dropoff}/{shown}) {text}")
         if len(rows) >= limit:
             break
     return rows
@@ -196,7 +212,9 @@ def build_daily_report(
     target_date = str(environ.get('HEKI_REPORT_DATE') or _yesterday())[:10]
 
     failures: list[str] = []
+    funnel_failures_before = len(failures)
     funnel = _safe_fetch_json(json_getter, '/api/admin/funnel_metrics', {'stats_history': []}, failures)
+    funnel_available = len(failures) == funnel_failures_before
     ranking, result_source = _fetch_result_ranking(json_getter, target_date=target_date, top_n=10)
     if result_source == 'unavailable':
         failures.append('/api/admin/result_exposures: unavailable')
@@ -213,7 +231,7 @@ def build_daily_report(
         failures,
     )
 
-    stats = _previous_day_stats(funnel, target_date)
+    stats = _previous_day_stats(funnel, target_date, available=funnel_available)
     share_metrics = share.get('metrics') or {}
     result_views = int(share_metrics.get('result_page_views') or 0)
     share_actions = int(share_metrics.get('share_actions') or 0)
@@ -225,7 +243,7 @@ def build_daily_report(
     lines = [
         '[DAILY] Hekineitor analytics',
         f"date: {stats['date']}",
-        f"plays: {stats['plays']}",
+        _plays_line(stats),
         _completion_line(stats),
         _heavy_line(ranking),
         f"result_source: {result_source}",

@@ -467,7 +467,7 @@ class OperationsMonitoringTests(unittest.TestCase):
             if path.startswith('/api/admin/question_events'):
                 return {
                     'total': 30,
-                    'dropoff_ranking': [{'question_id': 3, 'question_text': '少人数の方が楽？', 'shown': 10, 'dropoff_rate': 20}],
+                    'dropoff_ranking': [{'question_id': 3, 'question_text': '少人数の方が楽？', 'shown': 10, 'dropoff': 2, 'dropoff_rate': 20}],
                     'questions': [{'question_id': 4, 'question_text': '整った静かな雰囲気？', 'answered': 20, 'shown': 21, 'yes_rate': 92, 'category': 'aesthetic'}],
                 }
             raise AssertionError(path)
@@ -484,6 +484,7 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertNotIn('unknown 40', report['message'])
         self.assertIn('heavy_result_ratio: 40.0% (40/100)', report['message'])
         self.assertIn('share_rate: 10.0%', report['message'])
+        self.assertIn('Q3 20.0% (2/10) 少人数の方が楽？', report['message'])
         self.assertIn('Q4 92.0% (20/21, aesthetic)', report['message'])
         self.assertNotIn('note: question_events未蓄積', report['message'])
         self.assertNotIn('token', report['message'])
@@ -519,7 +520,7 @@ class OperationsMonitoringTests(unittest.TestCase):
     def test_daily_report_survives_partial_api_timeouts(self):
         def fake_json(path):
             if path == '/api/admin/funnel_metrics':
-                return {'stats_history': [{'date': '2026-05-26', 'start': 8, 'completion': 5}]}
+                raise TimeoutError()
             if path.startswith('/api/admin/result_exposures'):
                 raise TimeoutError()
             if path.startswith('/api/admin/recent_fetish_ranking'):
@@ -536,6 +537,9 @@ class OperationsMonitoringTests(unittest.TestCase):
         )
 
         self.assertEqual(report['status'], 'ok')
+        self.assertIn('plays: unavailable', report['message'])
+        self.assertIn('completion_rate: unavailable', report['message'])
+        self.assertIn('/api/admin/funnel_metrics: TimeoutError', report['message'])
         self.assertIn('result_source: unavailable', report['message'])
         self.assertIn('partial_failures:', report['message'])
         self.assertIn('/api/admin/share_events?days=1&limit=5000: TimeoutError', report['message'])
