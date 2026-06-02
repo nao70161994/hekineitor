@@ -146,6 +146,17 @@ def _safe_fetch_json(
         return dict(fallback)
 
 
+def _question_yes_summary(row: dict[str, Any]) -> str:
+    answered = int(row.get('answered') or 0)
+    shown = int(row.get('shown') or 0)
+    category = str(row.get('category') or '').strip()
+    suffix = f' ({answered}/{shown or answered}'
+    if category:
+        suffix += f', {category}'
+    suffix += ')'
+    return f"Q{row.get('question_id')} {_pct(row.get('yes_rate'))}{suffix}"
+
+
 def _top_dropoff_questions(question_report: dict[str, Any], limit: int = 3) -> list[str]:
     rows = []
     for row in question_report.get('dropoff_ranking', []):
@@ -164,7 +175,7 @@ def _yes_anomaly_questions(question_report: dict[str, Any], limit: int = 3, thre
         if int(row.get('answered') or 0) < 5 or float(row.get('yes_rate') or 0) < threshold:
             continue
         text = str(row.get('question_text') or '')[:28]
-        rows.append(f"Q{row.get('question_id')} {_pct(row.get('yes_rate'))} {text}")
+        rows.append(f"{_question_yes_summary(row)} {text}")
         if len(rows) >= limit:
             break
     return rows

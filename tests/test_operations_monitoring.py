@@ -87,7 +87,7 @@ class OperationsMonitoringTests(unittest.TestCase):
                 return {
                     'total': 20,
                     'metrics': {'relation_attachment_share': 70},
-                    'questions': [{'question_id': 1, 'answered': 10, 'yes_rate': 95}],
+                    'questions': [{'question_id': 1, 'answered': 10, 'shown': 12, 'yes_rate': 95, 'category': 'tone'}],
                     'dropoff_ranking': [{'question_id': 2, 'shown': 10, 'dropoff_rate': 40}],
                 }
             if path == '/api/admin/funnel_metrics':
@@ -105,6 +105,7 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertEqual(report['severity'], 'CRITICAL')
         self.assertIn('storage=local_json', report['message'])
         self.assertIn('heavy_result_ratio=80.0%', report['message'])
+        self.assertIn('Q1 95.0% (10/12, tone)', report['message'])
         self.assertNotIn(secret, report['message'])
         self.assertNotIn('ADMIN_READ_TOKEN', report['message'])
 
@@ -467,7 +468,7 @@ class OperationsMonitoringTests(unittest.TestCase):
                 return {
                     'total': 30,
                     'dropoff_ranking': [{'question_id': 3, 'question_text': '少人数の方が楽？', 'shown': 10, 'dropoff_rate': 20}],
-                    'questions': [{'question_id': 4, 'question_text': '整った静かな雰囲気？', 'answered': 10, 'yes_rate': 92}],
+                    'questions': [{'question_id': 4, 'question_text': '整った静かな雰囲気？', 'answered': 10, 'shown': 11, 'yes_rate': 92, 'category': 'aesthetic'}],
                 }
             raise AssertionError(path)
 
@@ -483,6 +484,7 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertNotIn('unknown 40', report['message'])
         self.assertIn('heavy_result_ratio: 40.0% (40/100)', report['message'])
         self.assertIn('share_rate: 10.0%', report['message'])
+        self.assertIn('Q4 92.0% (10/11, aesthetic)', report['message'])
         self.assertNotIn('note: question_events未蓄積', report['message'])
         self.assertNotIn('token', report['message'])
 

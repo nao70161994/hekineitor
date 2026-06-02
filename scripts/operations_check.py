@@ -80,6 +80,17 @@ def _pct(value: float | int | None) -> str:
     return f'{float(value):.1f}%'
 
 
+def _question_yes_summary(row: dict[str, Any]) -> str:
+    answered = int(row.get('answered') or 0)
+    shown = int(row.get('shown') or 0)
+    category = str(row.get('category') or '').strip()
+    suffix = f' ({answered}/{shown or answered}'
+    if category:
+        suffix += f', {category}'
+    suffix += ')'
+    return f"Q{row.get('question_id')} {_pct(row.get('yes_rate'))}{suffix}"
+
+
 def _error_label(exc: Exception) -> str:
     if isinstance(exc, HTTPError):
         return f'HTTP {exc.code}'
@@ -311,7 +322,7 @@ def build_report(
                 if int(row.get('answered') or 0) >= min_answers and float(row.get('yes_rate') or 0) >= yes_threshold
             ]
             if yes_questions:
-                sample = ', '.join(f"Q{row.get('question_id')} {_pct(row.get('yes_rate'))}" for row in yes_questions[:3])
+                sample = ', '.join(_question_yes_summary(row) for row in yes_questions[:3])
                 warn.append(f'YES率{yes_threshold:.0f}%以上質問: {sample}')
             drop_threshold = _env_float(environ, 'NTFY_DROPOFF_WARN_RATE', 35.0)
             drop_questions = [
