@@ -1,5 +1,6 @@
 import sys
 import os
+import json
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -1120,6 +1121,30 @@ class TestServices(unittest.TestCase):
         self.assertEqual(report['ranking'][0]['count'], 2)
         self.assertEqual(report['ranking'][0]['source'], 'result_exposures')
         self.assertEqual(report['ranking'][1]['fetish_name'], '白衣')
+
+    def test_result_exposure_recent_report_returns_safe_tail_events(self):
+        events = [
+            {
+                **result_exposure.build_event(1, '激重感情', 91, rank=1),
+                'remote_addr': '203.0.113.1',
+                'user_agent': 'secret ua',
+                'session_id': 'secret session',
+            },
+            result_exposure.build_event(2, '白衣', 77, rank=1),
+            result_exposure.build_event(3, '眼鏡', 55, rank=2, source=result_exposure.BACKFILL_SOURCE),
+        ]
+
+        with patch('services.result_exposure.read_events', return_value=events):
+            report = result_exposure.recent_events_report(limit=5, include_backfill=False)
+
+        self.assertEqual(report['status'], 'ok')
+        self.assertEqual(len(report['events']), 2)
+        self.assertEqual(report['events'][0]['fetish_name'], '白衣')
+        self.assertEqual(report['events'][1]['fetish_name'], '激重感情')
+        body = json.dumps(report, ensure_ascii=False)
+        self.assertNotIn('remote_addr', body)
+        self.assertNotIn('user_agent', body)
+        self.assertNotIn('session_id', body)
 
     def test_result_exposure_filter_events_uses_jst_report_date_string(self):
         events = [

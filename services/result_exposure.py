@@ -214,6 +214,45 @@ def ranking_from_events(events, *, top_n=10, include_backfill=False):
     return {'total': total, 'ranking': rows}
 
 
+def _safe_recent_event(event):
+    row = {
+        'timestamp': _clean_text(event.get('timestamp'), 40),
+        'event_name': _clean_text(event.get('event_name') or 'result_exposed', 40),
+        'rank': max(1, _clean_int(event.get('rank')) or 1),
+    }
+    fetish_id = _clean_int(event.get('fetish_id'))
+    if fetish_id is not None:
+        row['fetish_id'] = fetish_id
+    name = _clean_text(event.get('fetish_name'), 80)
+    if name:
+        row['fetish_name'] = name
+    source = _clean_text(event.get('source'), 40)
+    if source:
+        row['source'] = source
+    probability = _clean_float(event.get('probability'))
+    if probability is not None:
+        row['probability'] = round(probability, 4)
+    return row
+
+
+def recent_events_report(*, path=None, environ=None, limit=20, include_backfill=False):
+    try:
+        row_limit = max(1, min(int(limit or 20), 100))
+    except (TypeError, ValueError):
+        row_limit = 20
+    events = read_events(path=path, environ=environ, limit=max(row_limit * 5, row_limit))
+    if not include_backfill:
+        events = [event for event in events if event.get('source') != BACKFILL_SOURCE]
+    rows = [_safe_recent_event(event) for event in reversed(events[-row_limit:])]
+    return {
+        'status': 'ok',
+        'source': 'result_exposures',
+        'include_backfill': include_backfill,
+        'limit': row_limit,
+        'events': rows,
+    }
+
+
 def ranking_report(*, path=None, environ=None, limit=5000, days=None, date=None, until=None, top_n=10, include_backfill=False):
     events = read_events(path=path, environ=environ, limit=limit)
     filtered = filter_events(events, days=days, date=date, until=until)

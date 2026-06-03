@@ -1489,6 +1489,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('/api/admin/compound_works', data['available_endpoints'])
         self.assertIn('/api/admin/low_exposure_fetishes', data['available_endpoints'])
         self.assertIn('/api/admin/result_exposures', data['available_endpoints'])
+        self.assertIn('/api/admin/result_exposures/recent', data['available_endpoints'])
         self.assertIn('/api/admin/result_exposure_factors', data['available_endpoints'])
         self.assertIn('/api/admin/result_exposures/backfill', data['available_endpoints'])
         self.assertIn('analysis_log_status', data)
@@ -1908,6 +1909,27 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(data['total'], 3)
         self.assertEqual(data['ranking'][0]['fetish_name'], '激重感情')
         self.assertEqual(data['ranking'][0]['count'], 2)
+
+    def test_result_exposures_recent_endpoint_reports_safe_timestamped_events(self):
+        headers = self._admin_headers()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'result_exposures.jsonl')
+            with patch.dict(os.environ, {'RESULT_EXPOSURE_LOG_PATH': path, 'ANALYTICS_EVENT_STORAGE': 'jsonl'}, clear=False):
+                result_exposure_service.record_result(1, '激重感情', 91, path=path)
+                result_exposure_service.record_result(2, '白衣', 75, path=path)
+                res = self.client.get('/api/admin/result_exposures/recent?limit=1', headers=headers)
+
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(data['source'], 'result_exposures')
+        self.assertEqual(len(data['events']), 1)
+        self.assertEqual(data['events'][0]['fetish_name'], '白衣')
+        self.assertIn('timestamp', data['events'][0])
+        body = json.dumps(data, ensure_ascii=False)
+        self.assertNotIn('remote_addr', body)
+        self.assertNotIn('user_agent', body)
+        self.assertNotIn('session_id', body)
 
     def test_quality_report_endpoint(self):
         headers = self._admin_headers()

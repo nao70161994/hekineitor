@@ -68,6 +68,13 @@ curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" \
 
 It returns aggregate counts only. It does not include IP address, User-Agent, session id, tokens, or raw URLs.
 
+For deploy cutover checks, use the recent safe event endpoint. It returns only timestamp, result id/name, rank, probability, and source:
+
+```sh
+curl -H "Authorization: Bearer $ADMIN_READ_TOKEN" \
+  "https://hekineitor.onrender.com/api/admin/result_exposures/recent?limit=20"
+```
+
 Backfill preview is read-only and available through the same token:
 
 ```sh
