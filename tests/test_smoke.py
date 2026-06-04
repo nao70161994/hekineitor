@@ -151,6 +151,9 @@ class TestSmoke(unittest.TestCase):
         self.assertIn("'/manifest.json'", body)
         self.assertIn("'/ads.txt'", body)
         self.assertIn("'/offline'", body)
+        self.assertIn("'/static/app.css'", body)
+        self.assertIn("'/static/app.js'", body)
+        self.assertIn("'/static/share.js'", body)
         self.assertIn("url.pathname.startsWith('/static/')", body)
         self.assertIn("url.pathname.includes('/api/')", body)
 
@@ -285,7 +288,9 @@ class TestSmoke(unittest.TestCase):
 
         with open(os.path.join(root, 'templates', 'sw.js'), 'rb') as f:
             sw = f.read()
-        self.assertIn(b"const STATIC = ['/', '/manifest.json', '/ads.txt'", sw)
+        self.assertIn(b"const STATIC = [", sw)
+        for asset in (b"'/static/app.css'", b"'/static/app.js'", b"'/static/share.js'", b"'/static/pwa.js'"):
+            self.assertIn(asset, sw)
         self.assertIn(b"url.pathname.includes('/admin')", sw)
         self.assertIn(b"caches.match('/offline')", sw)
         self.assertIn(b'Promise.all(STATIC.map', sw)

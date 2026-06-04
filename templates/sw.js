@@ -1,5 +1,28 @@
 const CACHE = 'hekineitor-{{ version }}';
-const STATIC = ['/', '/manifest.json', '/ads.txt', '/static/icon-192.png', '/static/icon-512.png', '/offline'];
+const STATIC = [
+  '/',
+  '/manifest.json',
+  '/ads.txt',
+  '/static/icon-192.png',
+  '/static/icon-512.png',
+  '/static/app.css',
+  '/static/game_state.js',
+  '/static/api_client.js',
+  '/static/utils.js',
+  '/static/renderers.js',
+  '/static/app.js',
+  '/static/network.js',
+  '/static/ui.js',
+  '/static/game_flow.js',
+  '/static/draft.js',
+  '/static/teach.js',
+  '/static/history.js',
+  '/static/feedback.js',
+  '/static/share.js',
+  '/static/pwa.js',
+  '/static/events.js',
+  '/offline',
+];
 
 self.addEventListener('install', e => {
   e.waitUntil(

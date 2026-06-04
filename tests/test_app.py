@@ -1913,20 +1913,24 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertTrue(ranked['include_backfill'])
 
     def test_result_exposures_endpoint_reports_displayed_result_ranking(self):
+        from app import engine as app_engine
         headers = self._admin_headers()
+        primary = app_engine.fetishes[0]
+        secondary = app_engine.fetishes[1]
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'result_exposures.jsonl')
             with patch.dict(os.environ, {'RESULT_EXPOSURE_LOG_PATH': path}, clear=False):
-                result_exposure_service.record_result(1, '激重感情', 91, path=path)
-                result_exposure_service.record_result(1, '激重感情', 89, path=path)
-                result_exposure_service.record_result(2, '白衣', 75, path=path)
+                result_exposure_service.record_result(primary['id'], '古い名前', 91, path=path)
+                result_exposure_service.record_result(primary['id'], 'さらに古い名前', 89, path=path)
+                result_exposure_service.record_result(secondary['id'], secondary['name'], 75, path=path)
                 res = self.client.get('/api/admin/result_exposures?top_n=2', headers=headers)
 
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertEqual(data['source'], 'result_exposures')
         self.assertEqual(data['total'], 3)
-        self.assertEqual(data['ranking'][0]['fetish_name'], '激重感情')
+        self.assertEqual(data['ranking'][0]['fetish_id'], primary['id'])
+        self.assertEqual(data['ranking'][0]['fetish_name'], primary['name'])
         self.assertEqual(data['ranking'][0]['count'], 2)
 
     def test_result_exposures_recent_endpoint_reports_safe_timestamped_events(self):

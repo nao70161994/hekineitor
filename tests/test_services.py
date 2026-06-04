@@ -1170,6 +1170,23 @@ class TestServices(unittest.TestCase):
         self.assertEqual(report['ranking'][0]['source'], 'result_exposures')
         self.assertEqual(report['ranking'][1]['fetish_name'], '白衣')
 
+    def test_result_exposure_ranking_can_normalize_current_fetish_names(self):
+        events = [
+            result_exposure.build_event(132, '古い名前', 91, rank=1),
+            result_exposure.build_event(132, 'さらに古い名前', 88, rank=1),
+        ]
+
+        report = result_exposure.ranking_from_events(
+            events,
+            top_n=5,
+            fetish_names={132: '現在の名前'},
+        )
+
+        self.assertEqual(report['total'], 2)
+        self.assertEqual(report['ranking'][0]['fetish_id'], 132)
+        self.assertEqual(report['ranking'][0]['fetish_name'], '現在の名前')
+        self.assertEqual(report['ranking'][0]['count'], 2)
+
     def test_result_exposure_recent_report_returns_safe_tail_events(self):
         events = [
             {

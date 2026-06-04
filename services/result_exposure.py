@@ -180,13 +180,24 @@ def filter_events(events, *, days=None, date=None, until=None):
     return [event for event in events if start <= _event_date(event) <= end]
 
 
-def ranking_from_events(events, *, top_n=10, include_backfill=False):
+def _fetish_name_map(fetish_names):
+    if not fetish_names:
+        return {}
+    return {
+        _clean_int(key): _clean_text(value, 80)
+        for key, value in dict(fetish_names).items()
+        if _clean_int(key) is not None and _clean_text(value, 80)
+    }
+
+
+def ranking_from_events(events, *, top_n=10, include_backfill=False, fetish_names=None):
     try:
         limit = max(1, min(int(top_n or 10), 100))
     except (TypeError, ValueError):
         limit = 10
     counts = Counter()
     names = {}
+    current_names = _fetish_name_map(fetish_names)
     for event in events:
         if int(event.get('rank') or 1) != 1:
             continue
@@ -195,6 +206,8 @@ def ranking_from_events(events, *, top_n=10, include_backfill=False):
         fetish_id = _clean_int(event.get('fetish_id'))
         name = _clean_text(event.get('fetish_name') or 'unknown', 80) or 'unknown'
         key = fetish_id if fetish_id is not None else name
+        if fetish_id is not None and fetish_id in current_names:
+            name = current_names[fetish_id]
         counts[key] += 1
         names[key] = name
     total = sum(counts.values())
@@ -253,10 +266,10 @@ def recent_events_report(*, path=None, environ=None, limit=20, include_backfill=
     }
 
 
-def ranking_report(*, path=None, environ=None, limit=5000, days=None, date=None, until=None, top_n=10, include_backfill=False):
+def ranking_report(*, path=None, environ=None, limit=5000, days=None, date=None, until=None, top_n=10, include_backfill=False, fetish_names=None):
     events = read_events(path=path, environ=environ, limit=limit)
     filtered = filter_events(events, days=days, date=date, until=until)
-    report = ranking_from_events(filtered, top_n=top_n, include_backfill=include_backfill)
+    report = ranking_from_events(filtered, top_n=top_n, include_backfill=include_backfill, fetish_names=fetish_names)
     report.update({
         'status': 'ok',
         'source': 'result_exposures',

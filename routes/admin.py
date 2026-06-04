@@ -365,6 +365,11 @@ def result_exposures_report(ctx):
     top_n = ctx.bounded_int(ctx.request.args.get('top_n'), 10, 1, 50)
     end_date = (ctx.request.args.get('date') or ctx.request.args.get('until') or '').strip()[:10] or None
     include_backfill = str(ctx.request.args.get('include_backfill') or '').lower() in ('1', 'true', 'yes')
+    fetish_names = {
+        fetish.get('id'): fetish.get('name', '')
+        for fetish in getattr(ctx.engine, 'fetishes', [])
+        if fetish.get('id') is not None
+    }
     report = result_exposure_service.ranking_report(
         environ=ctx.environ,
         limit=5000,
@@ -372,6 +377,7 @@ def result_exposures_report(ctx):
         date=end_date,
         top_n=top_n,
         include_backfill=include_backfill,
+        fetish_names=fetish_names,
     )
     report['include_backfill'] = include_backfill
     return ctx.jsonify(report)
