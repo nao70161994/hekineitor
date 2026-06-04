@@ -59,12 +59,14 @@ class TestEngineDbHelpers(unittest.TestCase):
         seed = [{
             'works': [
                 {'title': '薬屋のひとりごと', 'url': 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22'},
+                {'title': 'Future Diary', 'url': 'https://www.amazon.co.jp/dp/B00K6THSBE?tag=hekinator-22'},
                 {'title': '検索だけ', 'url': 'https://www.amazon.co.jp/s?k=x&tag=hekinator-22'},
             ],
         }]
         lookup = engine_db.build_direct_work_url_lookup(seed)
         self.assertEqual(lookup['薬屋のひとりごと'], 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22')
         self.assertEqual(lookup[engine_db._canonical_work_title('薬屋のひとりごと（小説）')], 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22')
+        self.assertEqual(lookup['未来日記'], 'https://www.amazon.co.jp/dp/B00K6THSBE?tag=hekinator-22')
         self.assertNotIn('検索だけ', lookup)
 
     def test_backfill_recommended_work_urls_updates_only_missing_or_search_urls(self):
@@ -72,6 +74,7 @@ class TestEngineDbHelpers(unittest.TestCase):
             'works': [
                 {'title': '薬屋のひとりごと', 'url': 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22'},
                 {'title': '氷菓', 'url': 'https://www.amazon.co.jp/dp/B0GS3NTD6R?tag=hekinator-22'},
+                {'title': 'Future Diary', 'url': 'https://www.amazon.co.jp/dp/B00K6THSBE?tag=hekinator-22'},
             ],
         }]
         existing = json.dumps([
@@ -79,6 +82,7 @@ class TestEngineDbHelpers(unittest.TestCase):
             {'title': '氷菓', 'url': 'https://www.amazon.co.jp/s?k=%E6%B0%B7%E8%8F%93&tag=hekinator-22'},
             {'title': '既存直リンク', 'url': 'https://www.amazon.co.jp/dp/B000000000?tag=hekinator-22'},
             '薬屋のひとりごと',
+            {'title': '未来日記', 'url': ''},
         ], ensure_ascii=False)
         cursor = FakeCursor(fetchall_values=[[(10, existing), (11, '[]')]])
         cursor.rowcount = 1
@@ -93,6 +97,7 @@ class TestEngineDbHelpers(unittest.TestCase):
         self.assertEqual(works[1]['url'], 'https://www.amazon.co.jp/dp/B0GS3NTD6R?tag=hekinator-22')
         self.assertEqual(works[2]['url'], 'https://www.amazon.co.jp/dp/B000000000?tag=hekinator-22')
         self.assertEqual(works[3]['url'], 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22')
+        self.assertEqual(works[4]['url'], 'https://www.amazon.co.jp/dp/B00K6THSBE?tag=hekinator-22')
 
 
 class FakeCursor:

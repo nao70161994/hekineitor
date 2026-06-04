@@ -173,6 +173,11 @@ DEFAULT_RECOMMENDED_WORKS_BY_NAME = {
     '制服': ['明日ちゃんのセーラー服', 'その着せ替え人形は恋をする', '響け！ユーフォニアム'],
 }
 
+DIRECT_WORK_TITLE_ALIASES = {
+    '未来日記': 'Future Diary',
+    'CLANNAD': 'クラナド',
+}
+
 
 def default_recommended_works_for_name(name):
     return [
@@ -216,6 +221,12 @@ def build_direct_work_url_lookup(seed_fetishes):
                 continue
             lookup.setdefault(title, url)
             lookup.setdefault(_canonical_work_title(title), url)
+    for alias, target_title in DIRECT_WORK_TITLE_ALIASES.items():
+        target_url = lookup.get(target_title) or lookup.get(_canonical_work_title(target_title))
+        if not target_url:
+            continue
+        lookup.setdefault(alias, target_url)
+        lookup.setdefault(_canonical_work_title(alias), target_url)
     return lookup
 
 
