@@ -39,6 +39,8 @@ class TestEngineDbHelpers(unittest.TestCase):
     def test_default_recommended_works_cover_promoted_seed_gaps(self):
         works = engine_db.default_recommended_works_for_name('激重感情')
         self.assertEqual([work['title'] for work in works], ['ハッピーシュガーライフ', '未来日記', '君に愛されて痛かった'])
+        uniform_works = engine_db.default_recommended_works_for_name('制服')
+        self.assertEqual([work['title'] for work in uniform_works], ['明日ちゃんのセーラー服', 'その着せ替え人形は恋をする', '響け！ユーフォニアム'])
         self.assertEqual(engine_db.default_recommended_works_for_name('unknown'), [])
 
     def test_backfill_empty_recommended_works_updates_only_empty_rows(self):
