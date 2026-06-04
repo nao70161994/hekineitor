@@ -1,5 +1,7 @@
 import json
+import re
 import time
+import unicodedata
 
 
 SAVE_MATRIX_SQL = """
@@ -191,6 +193,76 @@ def backfill_empty_recommended_works(cur):
     return updated
 
 
+def _canonical_work_title(title):
+    title = unicodedata.normalize('NFKC', str(title or '')).strip().casefold()
+    title = re.sub(r'[（(][^）)]*[）)]', '', title).strip()
+    return re.sub(r'\s+', ' ', title)
+
+
+def _is_search_work_url(url):
+    url = str(url or '').strip()
+    return 'amazon.co.jp/s?' in url or 'amazon.co.jp/s/' in url
+
+
+def build_direct_work_url_lookup(seed_fetishes):
+    lookup = {}
+    for fetish in seed_fetishes:
+        for work in fetish.get('works') or []:
+            if not isinstance(work, dict):
+                continue
+            title = str(work.get('title') or '').strip()
+            url = str(work.get('url') or '').strip()
+            if not title or '/dp/' not in url:
+                continue
+            lookup.setdefault(title, url)
+            lookup.setdefault(_canonical_work_title(title), url)
+    return lookup
+
+
+def _recommended_work_dict(work):
+    if isinstance(work, dict):
+        return dict(work)
+    return {'title': str(work or ''), 'url': ''}
+
+
+def backfill_recommended_work_urls(cur, seed_fetishes):
+    """Fill missing/search work URLs from the checked seed direct-link map."""
+    lookup = build_direct_work_url_lookup(seed_fetishes)
+    if not lookup:
+        return 0
+
+    cur.execute('SELECT id, works FROM fetishes')
+    rows = cur.fetchall()
+    updated = 0
+    for fetish_id, works_raw in rows:
+        try:
+            works = json.loads(works_raw) if works_raw else []
+        except (TypeError, json.JSONDecodeError):
+            continue
+        if not isinstance(works, list):
+            continue
+
+        changed = False
+        next_works = []
+        for work in works:
+            item = _recommended_work_dict(work)
+            title = str(item.get('title') or '').strip()
+            current_url = str(item.get('url') or '').strip()
+            direct_url = lookup.get(title) or lookup.get(_canonical_work_title(title))
+            if title and direct_url and (not current_url or _is_search_work_url(current_url)):
+                item['url'] = direct_url
+                changed = True
+            next_works.append(item)
+        if not changed:
+            continue
+        cur.execute(
+            'UPDATE fetishes SET works=%s WHERE id=%s',
+            (json.dumps(next_works, ensure_ascii=False), fetish_id),
+        )
+        updated += int(getattr(cur, 'rowcount', 0) or 0)
+    return updated
+
+
 def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id, build_initial_matrix):
     conn = get_conn()
     try:
@@ -303,6 +375,7 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                     (fetish['name'], fetish['desc'], fetish['id']),
                 )
             backfill_empty_recommended_works(cur)
+            backfill_recommended_work_urls(cur, seed)
             nq = len(engine.questions)
             cur.execute('SELECT MAX(question_id) FROM matrix')
             max_qid = cur.fetchone()[0]

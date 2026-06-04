@@ -1,3 +1,4 @@
+import json
 import unittest
 
 import engine_db
@@ -53,6 +54,45 @@ class TestEngineDbHelpers(unittest.TestCase):
         self.assertIn("works='[]'", sql)
         self.assertEqual(params[1], '激重感情')
         self.assertIn('ハッピーシュガーライフ', params[0])
+
+    def test_direct_work_url_lookup_uses_seed_dp_links_and_canonical_titles(self):
+        seed = [{
+            'works': [
+                {'title': '薬屋のひとりごと', 'url': 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22'},
+                {'title': '検索だけ', 'url': 'https://www.amazon.co.jp/s?k=x&tag=hekinator-22'},
+            ],
+        }]
+        lookup = engine_db.build_direct_work_url_lookup(seed)
+        self.assertEqual(lookup['薬屋のひとりごと'], 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22')
+        self.assertEqual(lookup[engine_db._canonical_work_title('薬屋のひとりごと（小説）')], 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22')
+        self.assertNotIn('検索だけ', lookup)
+
+    def test_backfill_recommended_work_urls_updates_only_missing_or_search_urls(self):
+        seed = [{
+            'works': [
+                {'title': '薬屋のひとりごと', 'url': 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22'},
+                {'title': '氷菓', 'url': 'https://www.amazon.co.jp/dp/B0GS3NTD6R?tag=hekinator-22'},
+            ],
+        }]
+        existing = json.dumps([
+            {'title': '薬屋のひとりごと（小説）', 'url': ''},
+            {'title': '氷菓', 'url': 'https://www.amazon.co.jp/s?k=%E6%B0%B7%E8%8F%93&tag=hekinator-22'},
+            {'title': '既存直リンク', 'url': 'https://www.amazon.co.jp/dp/B000000000?tag=hekinator-22'},
+            '薬屋のひとりごと',
+        ], ensure_ascii=False)
+        cursor = FakeCursor(fetchall_values=[[(10, existing), (11, '[]')]])
+        cursor.rowcount = 1
+        updated = engine_db.backfill_recommended_work_urls(cursor, seed)
+        self.assertEqual(updated, 1)
+        self.assertEqual(cursor.executed[0][0], 'SELECT id, works FROM fetishes')
+        sql, params = cursor.executed[1]
+        self.assertEqual(sql, 'UPDATE fetishes SET works=%s WHERE id=%s')
+        self.assertEqual(params[1], 10)
+        works = json.loads(params[0])
+        self.assertEqual(works[0]['url'], 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22')
+        self.assertEqual(works[1]['url'], 'https://www.amazon.co.jp/dp/B0GS3NTD6R?tag=hekinator-22')
+        self.assertEqual(works[2]['url'], 'https://www.amazon.co.jp/dp/B000000000?tag=hekinator-22')
+        self.assertEqual(works[3]['url'], 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22')
 
 
 class FakeCursor:
