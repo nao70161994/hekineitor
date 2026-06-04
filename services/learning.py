@@ -66,12 +66,20 @@ def _fetish_id(engine, fetish_idx):
         return None
 
 
-def _exposure_feedback_scale(engine, fetish_idx):
+def _load_exposure_factors(engine, environ=None):
+    try:
+        return result_exposure.exposure_factors(engine.fetishes, environ=environ or os.environ)
+    except Exception:
+        return {}
+
+
+def _exposure_feedback_scale(engine, fetish_idx, factors=None):
     fetish_id = _fetish_id(engine, fetish_idx)
     if fetish_id is None:
         return 1.0
     try:
-        factors = result_exposure.exposure_factors(engine.fetishes, environ=os.environ)
+        if factors is None:
+            factors = _load_exposure_factors(engine)
         factor = float(factors.get(fetish_id, 1.0))
     except Exception:
         return 1.0
@@ -80,24 +88,39 @@ def _exposure_feedback_scale(engine, fetish_idx):
     return factor
 
 
-def _positive_exposure_feedback_scale(engine, fetish_idx):
-    factor = _exposure_feedback_scale(engine, fetish_idx)
+def _positive_exposure_feedback_scale(engine, fetish_idx, factors=None):
+    factor = _exposure_feedback_scale(engine, fetish_idx, factors=factors)
     return max(EXPOSURE_POSITIVE_MIN_SCALE, min(1.0, factor))
 
 
-def _negative_exposure_feedback_scale(engine, fetish_idx):
-    factor = _exposure_feedback_scale(engine, fetish_idx)
+def _negative_exposure_feedback_scale(engine, fetish_idx, factors=None):
+    factor = _exposure_feedback_scale(engine, fetish_idx, factors=factors)
     return max(1.0, min(EXPOSURE_NEGATIVE_MAX_SCALE, 1.0 / factor))
 
 
-def positive_feedback_factor(engine, fetish_idx):
+def positive_feedback_factor(engine, fetish_idx, *, exposure_factors=None):
     base = BROAD_RESULT_POSITIVE_SCALE if _fetish_name(engine, fetish_idx) in BROAD_RESULT_NAMES else POSITIVE_SCALE
-    return base * _positive_exposure_feedback_scale(engine, fetish_idx)
+    return base * _positive_exposure_feedback_scale(engine, fetish_idx, factors=exposure_factors)
 
 
-def negative_feedback_factor(engine, fetish_idx):
+def negative_feedback_factor(engine, fetish_idx, *, exposure_factors=None):
     base = BROAD_RESULT_NEGATIVE_SCALE if _fetish_name(engine, fetish_idx) in BROAD_RESULT_NAMES else NEGATIVE_SCALE
-    return base * _negative_exposure_feedback_scale(engine, fetish_idx)
+    return base * _negative_exposure_feedback_scale(engine, fetish_idx, factors=exposure_factors)
+
+
+def make_feedback_factor_provider(engine, environ=None):
+    exposure_factors_cache = None
+
+    def factors():
+        nonlocal exposure_factors_cache
+        if exposure_factors_cache is None:
+            exposure_factors_cache = _load_exposure_factors(engine, environ=environ)
+        return exposure_factors_cache
+
+    return {
+        'positive': lambda _engine, fetish_idx: positive_feedback_factor(_engine, fetish_idx, exposure_factors=factors()),
+        'negative': lambda _engine, fetish_idx: negative_feedback_factor(_engine, fetish_idx, exposure_factors=factors()),
+    }
 
 
 def near_miss_feedback_factor(engine, fetish_idx):

@@ -538,6 +538,25 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             self.assertAlmostEqual(learning_service.positive_feedback_factor(app_engine, concrete_idx), 0.7 * 0.5)
             self.assertAlmostEqual(learning_service.negative_feedback_factor(app_engine, concrete_idx), 1.3 * 2.0)
 
+    def test_feedback_factor_provider_loads_exposure_once_per_context(self):
+        from app import engine as app_engine
+        broad_id = self._fetish_id_by_name('共依存')
+        concrete_id = 0
+        broad_idx = app_engine.index_of(broad_id)
+        concrete_idx = app_engine.index_of(concrete_id)
+
+        with patch('services.learning.result_exposure.exposure_factors', return_value={
+            broad_id: 0.12,
+            concrete_id: 0.5,
+        }) as exposure_factors:
+            provider = learning_service.make_feedback_factor_provider(app_engine, environ={})
+            self.assertAlmostEqual(provider['positive'](app_engine, broad_idx), 0.45 * 0.2)
+            self.assertAlmostEqual(provider['negative'](app_engine, broad_idx), 1.7 * 2.5)
+            self.assertAlmostEqual(provider['positive'](app_engine, concrete_idx), 0.7 * 0.5)
+            self.assertAlmostEqual(provider['negative'](app_engine, concrete_idx), 1.3 * 2.0)
+
+        exposure_factors.assert_called_once()
+
     def test_confirm_broad_result_uses_reduced_positive_factor(self):
         from app import BOOTSTRAP
         from app import engine as app_engine

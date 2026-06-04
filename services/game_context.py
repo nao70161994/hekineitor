@@ -92,14 +92,15 @@ def build(
         select_low_exposure_axis_question=question_selection.make_low_exposure_axis_probe(engine, hard_max_questions),
         progress_message=question_selection.progress_message,
     )
+    feedback_factors = learning.make_feedback_factor_provider(engine, environ=environ or {})
     game_learning = context.game_learning(
         learn_factor=learning.make_learn_factor(engine, inference.posteriors, guess_threshold),
         learn_positive=learning.learn_positive,
         learn_cooccurrence=learning.learn_cooccurrence,
         learn_near_miss=learning.learn_near_miss,
         learn_negative=learning.learn_negative,
-        positive_feedback_factor=learning.positive_feedback_factor,
-        negative_feedback_factor=learning.negative_feedback_factor,
+        positive_feedback_factor=feedback_factors['positive'],
+        negative_feedback_factor=feedback_factors['negative'],
         near_miss_feedback_factor=learning.near_miss_feedback_factor,
         posteriors=inference.posteriors,
         parse_id_list=ids.parse_id_list,

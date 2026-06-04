@@ -42,6 +42,9 @@ window.HekiTeach = (() => {
 
   async function submitTeach() {
     if (window.gameState?.fetching) return;
+    const btn = document.getElementById('teach-submit-btn');
+    const previousText = btn ? btn.textContent : '';
+    if (btn) btn.textContent = '学習中...';
     setFetching(true);
     try {
       const selected = window._teachSelected || new Map();
@@ -55,8 +58,6 @@ window.HekiTeach = (() => {
       const wrongNames = [...selected.values()];
       const allNames = [...correctNames, ...wrongNames];
       window._addedItems = [];
-      if (window.setLastFetishName) window.setLastFetishName(allNames.join(' × '));
-      if (window.setDiagnosedName) window.setDiagnosedName(allNames.join(' × '));
       if (window.setConfirmedIds) window.setConfirmedIds([...selected.keys(), ...(window._teachCorrectIds || [])]);
       const msg = testPlayMessage(teachData, allNames.length > 0
         ? `✓「${allNames.join('」「')}」として学習しました！`
@@ -66,6 +67,9 @@ window.HekiTeach = (() => {
       show('done-screen');
     } finally {
       setFetching(false);
+      if (btn && document.getElementById('teach-screen')?.style.display !== 'none') {
+        btn.textContent = previousText;
+      }
     }
   }
 
@@ -212,8 +216,6 @@ window.HekiTeach = (() => {
     document.getElementById('add-step1').style.display = '';
     document.getElementById('add-skip-btn').style.display = '';
     const names = items.map(item => item.name);
-    if (window.setLastFetishName) window.setLastFetishName(names.join(' × '));
-    if (window.setDiagnosedName) window.setDiagnosedName(names.join(' × '));
     if (window.setConfirmedIds) window.setConfirmedIds(items.map(item => item.id));
     document.getElementById('done-msg').textContent = testPlayMessage(finalizeData, `✓「${names.join('」「')}」を学習しました！`);
     show('done-screen');

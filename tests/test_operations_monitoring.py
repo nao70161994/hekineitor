@@ -104,7 +104,7 @@ class OperationsMonitoringTests(unittest.TestCase):
 
         self.assertEqual(report['severity'], 'CRITICAL')
         self.assertIn('storage=local_json', report['message'])
-        self.assertIn('heavy_result_ratio=80.0%', report['message'])
+        self.assertIn('heavy_result_ratio=unavailable (stats_history_fallback)', report['message'])
         self.assertIn('Q1 95.0% (10/12, tone)', report['message'])
         self.assertNotIn(secret, report['message'])
         self.assertNotIn('ADMIN_READ_TOKEN', report['message'])
@@ -395,6 +395,37 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('share analytics unavailable: HTTP 403', report['message'])
 
 
+    def test_operations_report_does_not_warn_heavy_ratio_from_stats_history_fallback(self):
+        def fake_json(path):
+            if path == '/health':
+                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+            if path == '/api/admin/preflight':
+                return {'checks': []}
+            if path == '/api/admin/works_health':
+                return {'maintenance': {'works_count': 100}}
+            if path.startswith('/api/admin/result_exposures'):
+                return {'source': 'result_exposures', 'ranking': []}
+            if path.startswith('/api/admin/recent_fetish_ranking'):
+                return {'ranking': [{'fetish_name': '共依存', 'guessed': 90, 'total': 90}, {'fetish_name': '白衣', 'guessed': 10, 'total': 10}]}
+            if path.startswith('/api/admin/question_events'):
+                return {'total': 1, 'metrics': {}, 'questions': [], 'dropoff_ranking': []}
+            if path == '/api/admin/funnel_metrics':
+                return {'completion': {'recent_7_days': {'starts': 30, 'completions': 15, 'completion_rate': 50}}}
+            if path.startswith('/api/admin/share_events'):
+                return {'total': 1, 'metrics': {'result_page_views': 1, 'share_actions': 0}}
+            raise AssertionError(path)
+
+        report = operations_check.build_report(
+            environ={'ADMIN_READ_TOKEN': 'token'},
+            json_getter=fake_json,
+            bytes_getter=lambda path: operations_check.PNG_SIGNATURE + b'abc',
+        )
+
+        self.assertIn('heavy_result_ratio=unavailable (stats_history_fallback)', report['message'])
+        self.assertIn('result_source=stats_history_fallback', report['message'])
+        self.assertNotIn('heavy_result_ratio=90.0% TOP:', report['message'])
+
+
     def test_operations_report_uses_result_exposure_ranking_before_stats_history(self):
         calls = []
 
@@ -452,6 +483,7 @@ class OperationsMonitoringTests(unittest.TestCase):
         )
 
         self.assertIn('result_source: result_exposures', report['message'])
+        self.assertIn('heavy_result_ratio: 0.0% (参考値) (0/8)', report['message'])
         self.assertIn('白衣 8', report['message'])
         self.assertIn('/api/admin/result_exposures?days=1&date=2026-05-26&top_n=10', calls)
 
@@ -482,7 +514,8 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('completion_rate: 20.0% (20/100)', report['message'])
         self.assertIn('共依存 40', report['message'])
         self.assertNotIn('unknown 40', report['message'])
-        self.assertIn('heavy_result_ratio: 40.0% (40/100)', report['message'])
+        self.assertIn('heavy_result_ratio: unavailable (stats_history_fallback)', report['message'])
+        self.assertIn('note: result stats are legacy fallback', report['message'])
         self.assertIn('share_rate: 10.0%', report['message'])
         self.assertIn('Q3 20.0% (2/10) 少人数の方が楽？', report['message'])
         self.assertIn('Q4 92.0% (20/21, aesthetic)', report['message'])

@@ -126,7 +126,9 @@ def _heavy_ratio(ranking: list[dict[str, Any]]) -> float:
     return _heavy_stats(ranking)['ratio']
 
 
-def _heavy_line(ranking: list[dict[str, Any]], *, min_samples: int = 30) -> str:
+def _heavy_line(ranking: list[dict[str, Any]], *, result_source: str = 'result_exposures', min_samples: int = 30) -> str:
+    if result_source != 'result_exposures':
+        return f'heavy_result_ratio: unavailable ({result_source})'
     stats = _heavy_stats(ranking)
     suffix = '' if stats['total'] >= min_samples else ' (参考値)'
     return f"heavy_result_ratio: {_pct(stats['ratio'])}{suffix} ({stats['heavy']}/{stats['total']})"
@@ -245,7 +247,7 @@ def build_daily_report(
         f"date: {stats['date']}",
         _plays_line(stats),
         _completion_line(stats),
-        _heavy_line(ranking),
+        _heavy_line(ranking, result_source=result_source),
         f"result_source: {result_source}",
         f"share_rate: {_pct(share_rate)} ({share_actions}/{result_views})",
         f"question_events: {questions.get('total', 0)}",
@@ -258,6 +260,8 @@ def build_daily_report(
     if failures:
         lines.append('partial_failures:')
         lines.extend(f'- {failure}' for failure in failures[:4])
+    if result_source == 'stats_history_fallback':
+        lines.append('note: result stats are legacy fallback; use result_exposures/recent for deploy checks')
     if top_results:
         lines.append('top_results:')
         lines.extend(f'- {item}' for item in top_results)

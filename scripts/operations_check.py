@@ -296,11 +296,14 @@ def build_report(
             admin_signal_available = True
             heavy_ratio, heavy_top = _top_heavy_ratio(ranking)
             ranking_total = _total_results(ranking)
-            daily.append(f'heavy_result_ratio={_pct(heavy_ratio)}')
+            if result_source == 'result_exposures':
+                daily.append(f'heavy_result_ratio={_pct(heavy_ratio)}')
+                min_heavy_samples = _env_int(environ, 'NTFY_HEAVY_RESULT_MIN_SAMPLES', 30)
+                if ranking_total >= min_heavy_samples and heavy_ratio >= _env_float(environ, 'NTFY_HEAVY_RESULT_WARN_RATIO', 65.0):
+                    warn.append(f'heavy_result_ratio={_pct(heavy_ratio)} TOP: {", ".join(heavy_top[:4])}')
+            else:
+                daily.append(f'heavy_result_ratio=unavailable ({result_source})')
             daily.append(f'result_source={result_source}')
-            min_heavy_samples = _env_int(environ, 'NTFY_HEAVY_RESULT_MIN_SAMPLES', 30)
-            if ranking_total >= min_heavy_samples and heavy_ratio >= _env_float(environ, 'NTFY_HEAVY_RESULT_WARN_RATIO', 65.0):
-                warn.append(f'heavy_result_ratio={_pct(heavy_ratio)} TOP: {", ".join(heavy_top[:4])}')
         except Exception as exc:
             warn.append(f'result ranking unavailable: {_error_label(exc)}')
 

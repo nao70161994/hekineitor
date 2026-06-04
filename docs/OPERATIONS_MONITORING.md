@@ -88,6 +88,8 @@ DAILY:
 - YES率異常質問
 - question_events / share_events 件数
 
+`result_source=stats_history_fallback` の場合、結果分布は過去の累積/legacy guessed counters を含む可能性があるため、`heavy_result_ratio` は `unavailable` として扱います。最新デプロイ後の偏り確認は `/api/admin/result_exposures/recent` または `result_source=result_exposures` の集計だけを使います。
+
 ## 通知例
 
 ```text
