@@ -73,6 +73,17 @@ class TestEngineDbHelpers(unittest.TestCase):
         self.assertEqual(lookup['異形頭さんとニンゲンちゃん'], 'https://www.amazon.co.jp/dp/B0D7C3CVBM?tag=hekinator-22')
         self.assertNotIn('検索だけ', lookup)
 
+    def test_recommended_work_replacement_uses_checked_direct_links(self):
+        self.assertEqual(
+            engine_db.recommended_work_replacement_for_title('灰かぶり姫の幸運'),
+            {'title': 'わたしの幸せな結婚', 'url': 'https://www.amazon.co.jp/dp/B07X25T546?tag=hekinator-22'},
+        )
+        self.assertEqual(
+            engine_db.recommended_work_replacement_for_title('極道くんの甘い溺愛'),
+            {'title': '来世は他人がいい', 'url': 'https://www.amazon.co.jp/dp/B07796N6LJ?tag=hekinator-22'},
+        )
+        self.assertIsNone(engine_db.recommended_work_replacement_for_title('既存直リンク'))
+
     def test_backfill_recommended_work_urls_updates_only_missing_or_search_urls(self):
         seed = [{
             'works': [
@@ -87,6 +98,7 @@ class TestEngineDbHelpers(unittest.TestCase):
             {'title': '既存直リンク', 'url': 'https://www.amazon.co.jp/dp/B000000000?tag=hekinator-22'},
             '薬屋のひとりごと',
             {'title': '未来日記', 'url': ''},
+            {'title': '灰かぶり姫の幸運', 'url': 'https://www.amazon.co.jp/s?k=x&tag=hekinator-22'},
         ], ensure_ascii=False)
         cursor = FakeCursor(fetchall_values=[[(10, existing), (11, '[]')]])
         cursor.rowcount = 1
@@ -102,6 +114,8 @@ class TestEngineDbHelpers(unittest.TestCase):
         self.assertEqual(works[2]['url'], 'https://www.amazon.co.jp/dp/B000000000?tag=hekinator-22')
         self.assertEqual(works[3]['url'], 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22')
         self.assertEqual(works[4]['url'], 'https://www.amazon.co.jp/dp/B00K6THSBE?tag=hekinator-22')
+        self.assertEqual(works[5]['title'], 'わたしの幸せな結婚')
+        self.assertEqual(works[5]['url'], 'https://www.amazon.co.jp/dp/B07X25T546?tag=hekinator-22')
 
 
 class FakeCursor:

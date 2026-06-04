@@ -239,6 +239,25 @@ DIRECT_WORK_TITLE_ALIASES = {
 }
 
 
+RECOMMENDED_WORK_REPLACEMENTS_BY_TITLE = {
+    '灰かぶり姫の幸運': {'title': 'わたしの幸せな結婚', 'url': 'https://www.amazon.co.jp/dp/B07X25T546?tag=hekinator-22'},
+    '私の夫は冷酷帝': {'title': 'わたしの幸せな結婚', 'url': 'https://www.amazon.co.jp/dp/B07X25T546?tag=hekinator-22'},
+    '極道くんの甘い溺愛（漫画）': {'title': '来世は他人がいい', 'url': 'https://www.amazon.co.jp/dp/B07796N6LJ?tag=hekinator-22'},
+    '着せ恋（彼女、お借りします）': {'title': 'その着せ替え人形は恋をする', 'url': 'https://www.amazon.co.jp/dp/B07JZNFJVD?tag=hekinator-22'},
+    '薔薇のないフローリスト': {'title': '同級生', 'url': 'https://www.amazon.co.jp/dp/B074CF91MQ?tag=hekinator-22'},
+    'ヤクザと花嫁（漫画）': {'title': '来世は他人がいい', 'url': 'https://www.amazon.co.jp/dp/B07796N6LJ?tag=hekinator-22'},
+    '兎と猛獣（漫画）': {'title': '贄姫と獣の王', 'url': 'https://www.amazon.co.jp/dp/B01MT8SP41?tag=hekinator-22'},
+    '拾われた伯爵令嬢は騎士団長に溺愛される（漫画）': {'title': '魔法使いの嫁', 'url': 'https://www.amazon.co.jp/dp/B0CVL3R7DW?tag=hekinator-22'},
+    '捨て猫に似た恋をする（漫画）': {'title': 'フルーツバスケット', 'url': 'https://www.amazon.co.jp/dp/B00DMU66SK?tag=hekinator-22'},
+    '偽婚約者は本気で愛したい（漫画）': {'title': '誰かこの状況を説明してください！', 'url': 'https://www.amazon.co.jp/dp/B07DL6G318?tag=hekinator-22'},
+    '契約結婚のはずが、旦那様が本気になってしまいました（漫画）': {'title': '誰かこの状況を説明してください！', 'url': 'https://www.amazon.co.jp/dp/B07DL6G318?tag=hekinator-22'},
+    '偽りの花嫁（小説）': {'title': 'わたしの幸せな結婚', 'url': 'https://www.amazon.co.jp/dp/B07X25T546?tag=hekinator-22'},
+    '探偵は今夜も嘘をつく（小説）': {'title': '虚構推理', 'url': 'https://www.amazon.co.jp/dp/B017GUUV0U?tag=hekinator-22'},
+    '不良と優等生（漫画）': {'title': 'ヤンキー君と白杖ガール', 'url': 'https://www.amazon.co.jp/dp/B07MSBK5BZ?tag=hekinator-22'},
+    '極上の敵（漫画）': {'title': 'となりの怪物くん', 'url': 'https://www.amazon.co.jp/dp/B009KYBS3U?tag=hekinator-22'},
+}
+
+
 def default_recommended_works_for_name(name):
     return [
         {'title': title, 'url': ''}
@@ -262,6 +281,18 @@ def _canonical_work_title(title):
     title = unicodedata.normalize('NFKC', str(title or '')).strip().casefold()
     title = re.sub(r'[（(][^）)]*[）)]', '', title).strip()
     return re.sub(r'\s+', ' ', title)
+
+
+def recommended_work_replacement_for_title(title):
+    title = str(title or '').strip()
+    replacement = RECOMMENDED_WORK_REPLACEMENTS_BY_TITLE.get(title)
+    if replacement is not None:
+        return replacement
+    canonical_title = _canonical_work_title(title)
+    for source_title, candidate in RECOMMENDED_WORK_REPLACEMENTS_BY_TITLE.items():
+        if _canonical_work_title(source_title) == canonical_title:
+            return candidate
+    return None
 
 
 def _is_search_work_url(url):
@@ -324,6 +355,14 @@ def backfill_recommended_work_urls(cur, seed_fetishes):
         for work in works:
             item = _recommended_work_dict(work)
             title = str(item.get('title') or '').strip()
+            replacement = recommended_work_replacement_for_title(title)
+            if replacement is not None:
+                item['title'] = replacement['title']
+                item['url'] = replacement['url']
+                changed = True
+                next_works.append(item)
+                continue
+
             current_url = str(item.get('url') or '').strip()
             direct_url = lookup.get(title) or lookup.get(_canonical_work_title(title))
             if title and direct_url and (not current_url or _is_search_work_url(current_url)):
