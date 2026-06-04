@@ -173,9 +173,69 @@ DEFAULT_RECOMMENDED_WORKS_BY_NAME = {
     '制服': ['明日ちゃんのセーラー服', 'その着せ替え人形は恋をする', '響け！ユーフォニアム'],
 }
 
+DIRECT_WORK_URLS_BY_TITLE = {
+    'ハッピーシュガーライフ': 'https://www.amazon.co.jp/dp/B015Z262MW?tag=hekinator-22',
+    '君に愛されて痛かった': 'https://www.amazon.co.jp/dp/B0BKPTJN4S?tag=hekinator-22',
+    'からかい上手の高木さん': 'https://www.amazon.co.jp/dp/B00N2QXHRW?tag=hekinator-22',
+    '響け！ユーフォニアム': 'https://www.amazon.co.jp/dp/B07SZBJR55?tag=hekinator-22',
+    '四月は君の嘘': 'https://www.amazon.co.jp/dp/B00AF5PJOM?tag=hekinator-22',
+    '天気の子': 'https://www.amazon.co.jp/dp/B07TXN8GK1?tag=hekinator-22',
+    'NANA': 'https://www.amazon.co.jp/dp/B00AMB4JCM?tag=hekinator-22',
+    'リエゾン': 'https://www.amazon.co.jp/dp/B08B3JKJRS?tag=hekinator-22',
+    'コウノドリ': 'https://www.amazon.co.jp/dp/B00F02CMZ4?tag=hekinator-22',
+    'まじっく快斗': 'https://www.amazon.co.jp/dp/B00BH943D8?tag=hekinator-22',
+    '怪盗セイント・テール': 'https://www.amazon.co.jp/dp/B00ARAGSBS?tag=hekinator-22',
+    'ルパン三世': 'https://www.amazon.co.jp/dp/B019FPZ2JO?tag=hekinator-22',
+    '桜蘭高校ホスト部': 'https://www.amazon.co.jp/dp/B00DMU9GQ4?tag=hekinator-22',
+    '美少年探偵団': 'https://www.amazon.co.jp/dp/B015GW70N6?tag=hekinator-22',
+    'NHKへようこそ！': 'https://www.amazon.co.jp/dp/B0093G7X20?tag=hekinator-22',
+    'ぼっち・ざ・ろっく！': 'https://www.amazon.co.jp/dp/B07N3NRSKF?tag=hekinator-22',
+    'Rozen Maiden': 'https://www.amazon.co.jp/dp/B00DGI5C06?tag=hekinator-22',
+    '機動天使エンジェリックレイヤー': 'https://www.amazon.co.jp/dp/B0G6RL2N1T?tag=hekinator-22',
+    '境界の彼方': 'https://www.amazon.co.jp/dp/4990581245?tag=hekinator-22',
+    'Dr.STONE': 'https://www.amazon.co.jp/dp/B071VV14SF?tag=hekinator-22',
+    'SPY×FAMILY': 'https://www.amazon.co.jp/dp/B07S5K4L4H?tag=hekinator-22',
+    'ヤンキー君と白杖ガール': 'https://www.amazon.co.jp/dp/B07MSBK5BZ?tag=hekinator-22',
+    '山田くんとLv999の恋をする': 'https://www.amazon.co.jp/dp/B084JHMGD8?tag=hekinator-22',
+    'ひるなかの流星': 'https://www.amazon.co.jp/dp/B00AU3M82U?tag=hekinator-22',
+    'とつくにの少女': 'https://www.amazon.co.jp/dp/B01C5M5W1M?tag=hekinator-22',
+    '異形頭さんとニンゲンちゃん': 'https://www.amazon.co.jp/dp/B0D7C3CVBM?tag=hekinator-22',
+    '宝石の国': 'https://www.amazon.co.jp/dp/B00DW4ZYBG?tag=hekinator-22',
+    '蟲師': 'https://www.amazon.co.jp/dp/B009KYBN44?tag=hekinator-22',
+    '花束みたいな恋をした': 'https://www.amazon.co.jp/dp/B091YSWXYG?tag=hekinator-22',
+    '最後から二番目の恋': 'https://www.amazon.co.jp/dp/B0F5ZH2W18?tag=hekinator-22',
+    '半分、青い。': 'https://www.amazon.co.jp/dp/B07CXM1XYH?tag=hekinator-22',
+    'ロミオとジュリエット（宝塚版）': 'https://www.amazon.co.jp/dp/B08H5BS5JV?tag=hekinator-22',
+    '恋はDeepに': 'https://www.amazon.co.jp/dp/B096VJ6P7J?tag=hekinator-22',
+    'ラヴレター': 'https://www.amazon.co.jp/dp/B00QKD6LYU?tag=hekinator-22',
+    '明日ちゃんのセーラー服': 'https://www.amazon.co.jp/dp/B06XPYX4V1?tag=hekinator-22',
+    'その着せ替え人形は恋をする': 'https://www.amazon.co.jp/dp/B07JZNFJVD?tag=hekinator-22',
+    '後宮の烏': 'https://www.amazon.co.jp/dp/B07DK8QHGV?tag=hekinator-22',
+    '悪役令嬢後宮物語': 'https://www.amazon.co.jp/dp/B07MQCV562?tag=hekinator-22',
+    'ループ7回目の悪役令嬢は、元敵国で自由に生きる': 'https://www.amazon.co.jp/dp/B096RNH7JZ?tag=hekinator-22',
+    '時をかける少女': 'https://www.amazon.co.jp/dp/B009GPM8OQ?tag=hekinator-22',
+    'スパイ教室': 'https://www.amazon.co.jp/dp/B083PRSFG5?tag=hekinator-22',
+    '魔探偵ロキ': 'https://www.amazon.co.jp/dp/B009WNRLWQ?tag=hekinator-22',
+    '逃げるは恥だが役に立つ': 'https://www.amazon.co.jp/dp/B00GWVP77W?tag=hekinator-22',
+    '同期のサクラ': 'https://www.amazon.co.jp/dp/B07TJQRVF5?tag=hekinator-22',
+    '左ききのエレン': 'https://www.amazon.co.jp/dp/B076HN94KS?tag=hekinator-22',
+    '君に届け': 'https://www.amazon.co.jp/dp/B009PL81RE?tag=hekinator-22',
+    '青のフラッグ': 'https://www.amazon.co.jp/dp/B06VXVPNFZ?tag=hekinator-22',
+    'ハチミツとクローバー': 'https://www.amazon.co.jp/dp/B01JIC5TFG?tag=hekinator-22',
+}
+
 DIRECT_WORK_TITLE_ALIASES = {
     '未来日記': 'Future Diary',
     'CLANNAD': 'クラナド',
+    'まじっく快斗（怪盗キッド）': 'まじっく快斗',
+    '美少年探偵団（西尾維新）': '美少年探偵団',
+    'SPY×FAMILY（漫画）': 'SPY×FAMILY',
+    '薬屋のひとりごと（小説）': '薬屋のひとりごと',
+    'ヤンキー君と白杖ガール（漫画）': 'ヤンキー君と白杖ガール',
+    'ループ7回目の悪役令嬢は、元敵国で自由に生きる（漫画）': 'ループ7回目の悪役令嬢は、元敵国で自由に生きる',
+    'スパイ教室（小説）': 'スパイ教室',
+    '同期のサクラ（ドラマ小説）': '同期のサクラ',
+    'からかい上手の高木さん（漫画）': 'からかい上手の高木さん',
 }
 
 
@@ -211,6 +271,9 @@ def _is_search_work_url(url):
 
 def build_direct_work_url_lookup(seed_fetishes):
     lookup = {}
+    for title, url in DIRECT_WORK_URLS_BY_TITLE.items():
+        lookup.setdefault(title, url)
+        lookup.setdefault(_canonical_work_title(title), url)
     for fetish in seed_fetishes:
         for work in fetish.get('works') or []:
             if not isinstance(work, dict):
@@ -245,7 +308,10 @@ def backfill_recommended_work_urls(cur, seed_fetishes):
     cur.execute('SELECT id, works FROM fetishes')
     rows = cur.fetchall()
     updated = 0
-    for fetish_id, works_raw in rows:
+    for row in rows:
+        if len(row) < 2:
+            continue
+        fetish_id, works_raw = row[0], row[1]
         try:
             works = json.loads(works_raw) if works_raw else []
         except (TypeError, json.JSONDecodeError):

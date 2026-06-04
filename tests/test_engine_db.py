@@ -67,6 +67,10 @@ class TestEngineDbHelpers(unittest.TestCase):
         self.assertEqual(lookup['薬屋のひとりごと'], 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22')
         self.assertEqual(lookup[engine_db._canonical_work_title('薬屋のひとりごと（小説）')], 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22')
         self.assertEqual(lookup['未来日記'], 'https://www.amazon.co.jp/dp/B00K6THSBE?tag=hekinator-22')
+        self.assertEqual(lookup['ハッピーシュガーライフ'], 'https://www.amazon.co.jp/dp/B015Z262MW?tag=hekinator-22')
+        self.assertEqual(lookup['SPY×FAMILY（漫画）'], 'https://www.amazon.co.jp/dp/B07S5K4L4H?tag=hekinator-22')
+        self.assertEqual(lookup['境界の彼方'], 'https://www.amazon.co.jp/dp/4990581245?tag=hekinator-22')
+        self.assertEqual(lookup['異形頭さんとニンゲンちゃん'], 'https://www.amazon.co.jp/dp/B0D7C3CVBM?tag=hekinator-22')
         self.assertNotIn('検索だけ', lookup)
 
     def test_backfill_recommended_work_urls_updates_only_missing_or_search_urls(self):
@@ -269,7 +273,7 @@ class TestEngineDbLoadAndConfigHelpers(unittest.TestCase):
     def test_ensure_schema_preserves_table_creation_seed_and_question_migration_contract(self):
         cursor = FakeCursor(
             fetchone_values=[(0,), (0,), (0,)],
-            fetchall_values=[[(0,)], [(0,), (1,)]],
+            fetchall_values=[[(0,)], [(0, '[]')], [(0,), (1,)]],
         )
         conn = FakeConn(cursor)
         engine = FakeEngine()
