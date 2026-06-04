@@ -41,7 +41,17 @@ def result_tagline(name, prob):
 
 
 def public_base_url(environ, request):
-    configured = environ.get('SITE_BASE_URL', '').strip().rstrip('/')
+    """Return the public origin for SEO/share URLs.
+
+    Set SITE_BASE_URL in production. Without it, production uses the known
+    Render origin instead of trusting the request Host header.
+    """
+    environ = environ or {}
+    configured = str(environ.get('SITE_BASE_URL') or '').strip().rstrip('/')
     if configured:
         return configured
-    return request.host_url.rstrip('/')
+    app_env = str(environ.get('APP_ENV') or '').strip().lower()
+    if app_env in ('production', 'prod') or environ.get('RENDER'):
+        render_url = str(environ.get('RENDER_EXTERNAL_URL') or '').strip().rstrip('/')
+        return render_url or 'https://hekineitor.onrender.com'
+    return str(getattr(request, 'host_url', '') or '').rstrip('/')

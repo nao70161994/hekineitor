@@ -259,6 +259,11 @@ class RestoreMatrixWorkflowTests(unittest.TestCase):
         workflow = (ROOT / '.github' / 'workflows' / 'restore_matrix.yml').read_text(encoding='utf-8')
 
         self.assertIn('backup_run_id', workflow)
+        self.assertRegex(workflow, r"backup_run_id:\n        description: '.*run_id'\n        required: true")
+        self.assertIn('backup_run_id is required', workflow)
+        self.assertIn('backup_run_id must be a numeric workflow run_id', workflow)
+        self.assertNotIn('checkout 内の data/matrix_backup.json', workflow)
+        self.assertNotIn("github.event.inputs.backup_run_id != ''", workflow)
         self.assertIn('actions/download-artifact@v4', workflow)
         self.assertIn('/tmp/admin_cookies.txt', workflow)
         self.assertIn('X-CSRF-Token: $CSRF', workflow)

@@ -59,6 +59,10 @@ def _record_question_event(ctx, event_name, question_id=None, question_text='', 
         q_data = ctx.engine.questions[question_id]
         category = q_data.get('category', '')
         axis = q_data.get('axis', '')
+        if not axis:
+            question_axis = getattr(ctx.engine, '_question_axis', None)
+            if callable(question_axis):
+                axis = question_axis(question_id) or ''
         question_text = question_text or q_data.get('text', '')
     recorder(
         event_name,

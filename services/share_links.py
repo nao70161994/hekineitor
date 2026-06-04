@@ -9,7 +9,10 @@ from storage import atomic_write_json, data_path, get_conn, put_conn, use_db
 
 SHARE_LINKS_FILE = 'share_links.json'
 ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-SHARE_ID_RE = re.compile(r'^[0-9A-Za-z]{4,12}$')
+MIN_SHARE_ID_LENGTH = 4
+GENERATED_SHARE_ID_LENGTH = 8
+MAX_SHARE_ID_LENGTH = 12
+SHARE_ID_RE = re.compile(rf'^[0-9A-Za-z]{{{MIN_SHARE_ID_LENGTH},{MAX_SHARE_ID_LENGTH}}}$')
 
 
 def links_path(environ=None):
@@ -128,12 +131,12 @@ def clean_payload(payload):
     }
 
 
-def _new_share_id(existing, *, token_length=4, token_fn=None):
+def _new_share_id(existing, *, token_length=GENERATED_SHARE_ID_LENGTH, token_fn=None):
     token_fn = token_fn or (lambda length: ''.join(secrets.choice(ALPHABET) for _ in range(length)))
-    for length in range(token_length, 7):
+    for length in range(token_length, MAX_SHARE_ID_LENGTH + 1):
         for _ in range(20):
             share_id = token_fn(length)
-            if valid_share_id(share_id) and share_id not in existing:
+            if len(str(share_id or '')) == length and valid_share_id(share_id) and share_id not in existing:
                 return share_id
     raise RuntimeError('share_id generation failed')
 

@@ -125,12 +125,17 @@ def _record_result_contributions(ctx, result):
         return
     for rank, item in enumerate(result.get('reasons', [])[:5], start=1):
         question_id = item.get('q_id') if isinstance(item, dict) else None
+        answer = None
+        if isinstance(item, dict):
+            answer = item.get('answer')
+            if answer is None:
+                answer = item.get('ans')
         recorder(
             'question_result_contribution',
             question_id=question_id,
             result_name=result.get('fetish_name', ''),
             result_rank=rank,
-            answer=item.get('answer') if isinstance(item, dict) else None,
+            answer=answer,
         )
 
 

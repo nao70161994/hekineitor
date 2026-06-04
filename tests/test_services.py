@@ -8,6 +8,7 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import audit
+from routes import game as game_routes
 from services import admin_context, admin_helpers, admin_security, bootstrap, context, csv_safety, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, ogp, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, question_events, result_exposure, improvement_candidates, event_store, share_links, share_notes, system_context, test_play
 
 
@@ -192,6 +193,37 @@ class TestServices(unittest.TestCase):
         self.assertEqual(report['questions'][0]['yes_rate'], 50.0)
         self.assertEqual(report['contribution_ranking'][0]['top_results'][0]['result_name'], '共依存')
         self.assertEqual(report['warnings'][0]['type'], 'relation_attachment_bias')
+
+    def test_question_events_report_uses_engine_axis_fallback_when_question_axis_missing(self):
+        class Engine:
+            questions = [{'text': 'Q0', 'category': 'world'}]
+
+            def _question_axis(self, question_id):
+                return 'content' if question_id == 0 else None
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'question_events.jsonl')
+            question_events.record_event('question_shown', question_id=0, category='world', path=path)
+            report = question_events.event_report(Engine(), path=path)
+
+        self.assertEqual(report['questions'][0]['axis'], 'content')
+
+    def test_game_question_event_records_axis_from_engine_fallback(self):
+        events = []
+
+        class Engine:
+            questions = [{'text': 'Q0', 'category': 'world'}]
+
+            def _question_axis(self, question_id):
+                return 'personality' if question_id == 0 else None
+
+        ctx = type('Ctx', (), {})()
+        ctx.engine = Engine()
+        ctx.record_question_event = lambda event_name, **kwargs: events.append(question_events.build_event(event_name, **kwargs))
+
+        game_routes._record_question_event(ctx, 'question_shown', 0)
+
+        self.assertEqual(events[0]['axis'], 'personality')
 
     def test_share_events_csv_escapes_formula_result_names(self):
         report = {'ranking': [{'result_name': '=HYPERLINK("x")', 'total': 1}], 'filters': {}}
@@ -613,6 +645,22 @@ class TestServices(unittest.TestCase):
             'https://example.com',
         )
         self.assertEqual(share.public_base_url({}, request), 'http://localhost:5000')
+        self.assertEqual(
+            share.public_base_url({'APP_ENV': 'production', 'SITE_BASE_URL': 'https://prod.example/'}, request),
+            'https://prod.example',
+        )
+        self.assertIn('SITE_BASE_URL', share.public_base_url.__doc__)
+
+    def test_public_base_url_uses_known_origin_in_production_without_site_base_url(self):
+        request = type('Request', (), {'host_url': 'https://untrusted.example/'})()
+        self.assertEqual(
+            share.public_base_url({'APP_ENV': 'production'}, request),
+            'https://hekineitor.onrender.com',
+        )
+        self.assertEqual(
+            share.public_base_url({'RENDER': 'true', 'RENDER_EXTERNAL_URL': 'https://public.example/'}, request),
+            'https://public.example',
+        )
 
 
     def test_context_merge_keeps_later_domains_overriding_earlier_values(self):
@@ -1383,6 +1431,52 @@ class TestServices(unittest.TestCase):
         self.assertEqual(result['fetish_id'], 7)
         self.assertEqual(calls, ['increment', 'quality', ('guessed', 7)])
 
+    def test_inference_result_contribution_events_use_ans_answer(self):
+        events = []
+
+        class Engine:
+            fetishes = [{'id': 7, 'name': 'A', 'desc': '', 'works': []}]
+            questions = [{'text': 'Q0'}]
+            config = {}
+
+            def increment_play_count(self):
+                pass
+
+            def posteriors(self, answers):
+                return [0.9]
+
+            def get_related(self, source_db_id):
+                return []
+
+            def get_answer_contributions(self, answers, fetish_idx):
+                return [{'q_id': 0, 'text': 'Q0', 'ans': -0.5}]
+
+            def log_guessed(self, fetish_id):
+                pass
+
+        ctx = type('Ctx', (), {})()
+        ctx.engine = Engine()
+        ctx.session = {}
+        ctx.soft_max_questions = 20
+        ctx.mark_guess_quality = lambda engine, session, answers, soft: None
+        ctx.record_question_event = lambda event_name, **kwargs: events.append(question_events.build_event(event_name, **kwargs))
+        ctx.inference_context = lambda: type('InferenceCtx', (), {
+            'engine': ctx.engine,
+            'session': ctx.session,
+            'work_title': staticmethod(lambda work: str(work)),
+            'get_compound_works': staticmethod(lambda a, b: []),
+            'profile_min_ratio': 0.25,
+            'profile_min_prob': 0.08,
+            'compound_ratio': 0.55,
+            'triple_ratio': 0.45,
+        })()
+        ctx.jsonify = lambda payload: payload
+
+        inference.make_guess(ctx, {'0': -0.5})
+
+        self.assertEqual(events[0]['event_name'], 'question_result_contribution')
+        self.assertEqual(events[0]['answer'], -0.5)
+        self.assertEqual(events[0]['answer_bucket'], 'no')
 
 
     def test_analytics_events_use_postgres_store_when_enabled(self):
@@ -1525,10 +1619,10 @@ if __name__ == '__main__':
     unittest.main()
 
 class TestShareLinks(unittest.TestCase):
-    def test_share_link_round_trip_uses_short_base62_id_and_no_personal_fields(self):
+    def test_share_link_round_trip_uses_longer_base62_id_and_no_personal_fields(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'share_links.json')
-            seq = iter(['7f3k'])
+            seq = iter(['7f3kQ9Lm'])
             share_id, payload = share_links.create_link(
                 {
                     'name': '感覚遮断落とし穴',
@@ -1542,13 +1636,22 @@ class TestShareLinks(unittest.TestCase):
                 path=path,
                 token_fn=lambda length: next(seq),
             )
-            self.assertEqual(share_id, '7f3k')
+            self.assertEqual(share_id, '7f3kQ9Lm')
             self.assertEqual(payload['name'], '感覚遮断落とし穴')
-            resolved = share_links.resolve_link('7f3k', path=path)
+            resolved = share_links.resolve_link('7f3kQ9Lm', path=path)
             self.assertEqual(resolved['probability'], '93')
             self.assertEqual(share_links.count_links(path=path), 1)
             self.assertNotIn('ip', resolved)
             self.assertNotIn('user_agent', resolved)
+
+    def test_resolve_link_accepts_existing_four_character_ids(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'share_links.json')
+            with open(path, 'w', encoding='utf-8') as file_obj:
+                json.dump({'7f3k': {'name': '旧共有', 'probability': '93'}}, file_obj, ensure_ascii=False)
+            resolved = share_links.resolve_link('7f3k', path=path)
+        self.assertEqual(resolved['name'], '旧共有')
+        self.assertEqual(resolved['probability'], '93')
 
 
     def test_share_links_use_postgres_when_available(self):
@@ -1595,12 +1698,12 @@ class TestShareLinks(unittest.TestCase):
                 patch.object(share_links, 'put_conn'):
             share_id, payload = share_links.create_link(
                 {'name': '眼鏡', 'probability': '88', 'desc': 'テスト'},
-                token_fn=lambda length: 'Ab12',
+                token_fn=lambda length: 'Ab12Cd34',
             )
             resolved = share_links.resolve_link(share_id)
             count = share_links.count_links()
 
-        self.assertEqual(share_id, 'Ab12')
+        self.assertEqual(share_id, 'Ab12Cd34')
         self.assertEqual(payload['name'], '眼鏡')
         self.assertEqual(resolved['probability'], '88')
         self.assertEqual(count, 1)

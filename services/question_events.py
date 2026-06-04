@@ -203,6 +203,10 @@ def _question_meta(engine, question_id, event=None):
     text = event.get('question_text') or question.get('text', '')
     category = event.get('category') or question.get('category', '') or 'uncategorized'
     axis = event.get('axis') or question.get('axis', '') or ''
+    if not axis:
+        question_axis = getattr(engine, '_question_axis', None)
+        if callable(question_axis):
+            axis = question_axis(question_id) or ''
     return text, category, axis
 
 

@@ -222,6 +222,11 @@ def result_share(ctx):
 
 
 def result_share_by_id(ctx, share_id):
+    rate_limit = getattr(ctx, 'rate_limit', None)
+    if callable(rate_limit):
+        limited = rate_limit('result_share_by_id', 120)
+        if limited:
+            return limited
     payload = share_links.resolve_link(share_id, environ=ctx.environ)
     if not payload:
         return ctx.error_page.format(

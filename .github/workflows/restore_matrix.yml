@@ -7,9 +7,8 @@ on:
         description: '「restore」と入力して実行確認'
         required: true
       backup_run_id:
-        description: '復元する Matrix Backup workflow の run_id（空なら checkout 内の data/matrix_backup.json を使用）'
-        required: false
-        default: ''
+        description: '復元する Matrix Backup workflow の run_id'
+        required: true
 
 jobs:
   restore:
@@ -17,10 +16,24 @@ jobs:
     if: ${{ github.event.inputs.confirm == 'restore' }}
 
     steps:
+      - name: Require backup_run_id
+        env:
+          BACKUP_RUN_ID: ${{ github.event.inputs.backup_run_id }}
+        run: |
+          if [ -z "$BACKUP_RUN_ID" ]; then
+            echo "backup_run_id is required. Run Matrix Backup first and pass that workflow run_id."
+            exit 1
+          fi
+          case "$BACKUP_RUN_ID" in
+            *[!0-9]*)
+              echo "backup_run_id must be a numeric workflow run_id."
+              exit 1
+              ;;
+          esac
+
       - uses: actions/checkout@v4
 
       - name: Download backup artifact
-        if: ${{ github.event.inputs.backup_run_id != '' }}
         uses: actions/download-artifact@v4
         with:
           name: matrix-backup-${{ github.event.inputs.backup_run_id }}
@@ -31,7 +44,7 @@ jobs:
       - name: Check backup exists
         run: |
           if [ ! -f data/matrix_backup.json ]; then
-            echo "data/matrix_backup.json が見つかりません"
+            echo "Downloaded artifact did not include data/matrix_backup.json"
             exit 1
           fi
           echo "バックアップサイズ: $(wc -c < data/matrix_backup.json) bytes"

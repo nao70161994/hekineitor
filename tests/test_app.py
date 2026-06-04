@@ -2236,7 +2236,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertNotIn('レア度', body)
         self.assertIn('og:url', body)
         self.assertIn('/r?f=NTR&amp;p=82&amp;d=', body)
-        self.assertNotRegex(body, r'https?://[^" ]+/r/[0-9A-Za-z]{4,6}')
+        self.assertNotRegex(body, r'https?://[^" ]+/r/[0-9A-Za-z]{4,12}')
         self.assertIn("あなたの『癖』は…… NTR", body)
         self.assertIn('/ogp.png?f=NTR&amp;p=82', body)
         self.assertEqual(res.headers.get('X-Robots-Tag'), 'noindex, follow')
@@ -2250,7 +2250,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
                 self.assertEqual(res.status_code, 200)
                 self.assertFalse(os.path.exists(path))
 
-    def test_short_result_share_link_round_trip(self):
+    def test_share_result_link_round_trip_uses_longer_id(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'share_links.json')
             with patch.dict(os.environ, {'SHARE_LINKS_PATH': path}):
@@ -2262,7 +2262,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
                 self.assertEqual(created.status_code, 200)
                 data = created.get_json()
                 self.assertEqual(data['status'], 'ok')
-                self.assertRegex(data['share_id'], r'^[0-9A-Za-z]{4,6}$')
+                self.assertRegex(data['share_id'], r'^[0-9A-Za-z]{8}$')
                 self.assertEqual(data['share_url'], f"/r/{data['share_id']}")
 
                 res = self.client.get(data['share_url'])
@@ -2272,6 +2272,44 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
                 self.assertIn('AI精度93%', body)
                 self.assertIn(f"/r/{data['share_id']}", body)
                 self.assertIn('/ogp.png?f=%E6%84%9F%E8%A6%9A%E9%81%AE%E6%96%AD%E8%90%BD%E3%81%A8%E3%81%97%E7%A9%B4&amp;p=93', body)
+
+    def test_legacy_four_character_share_link_still_resolves(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'share_links.json')
+            with open(path, 'w', encoding='utf-8') as file_obj:
+                json.dump({
+                    'Ab12': {
+                        'name': '旧リンク結果',
+                        'probability': '71',
+                        'desc': '旧形式',
+                    },
+                }, file_obj, ensure_ascii=False)
+            with patch.dict(os.environ, {'SHARE_LINKS_PATH': path}):
+                res = self.client.get('/r/Ab12')
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        self.assertIn('旧リンク結果', body)
+        self.assertIn('AI精度71%', body)
+
+    def test_result_share_by_id_rate_limit_can_be_enforced(self):
+        import app as app_module
+        app.config['ENFORCE_RATE_LIMIT'] = True
+        app.config['RATE_LIMIT_OVERRIDES'] = {'result_share_by_id': (1, 60)}
+        app_module._RATE_LIMIT_BUCKETS.clear()
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                path = os.path.join(tmp, 'share_links.json')
+                with open(path, 'w', encoding='utf-8') as file_obj:
+                    json.dump({'Ab12Cd34': {'name': '共有結果', 'probability': '88'}}, file_obj, ensure_ascii=False)
+                with patch.dict(os.environ, {'SHARE_LINKS_PATH': path}):
+                    self.assertEqual(self.client.get('/r/Ab12Cd34').status_code, 200)
+                    limited = self.client.get('/r/Ab12Cd34')
+            self.assertEqual(limited.status_code, 429)
+            self.assertIn('Retry-After', limited.headers)
+        finally:
+            app.config.pop('ENFORCE_RATE_LIMIT', None)
+            app.config.pop('RATE_LIMIT_OVERRIDES', None)
+            app_module._RATE_LIMIT_BUCKETS.clear()
 
     def test_share_link_api_rejects_missing_name(self):
         res = self.client.post('/api/share_link', json={'probability': '88'})

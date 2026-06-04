@@ -142,6 +142,25 @@ class OperationsMonitoringTests(unittest.TestCase):
 
 
 
+    def test_works_count_accepts_actual_works_health_shape(self):
+        works_health = {
+            'status': 'ok',
+            'maintenance': {
+                'total_works': 42,
+                'missing_work_fetish_count': 0,
+                'missing_url_work_count': 0,
+                'unsafe_url_work_count': 0,
+            },
+            'link_queue': {'count': 0, 'samples': []},
+            'seed_backfill': {'candidate_count': 0, 'candidates': []},
+        }
+
+        self.assertEqual(operations_check._works_count(works_health), 42)
+
+    def test_works_count_keeps_legacy_fallbacks(self):
+        self.assertEqual(operations_check._works_count({'maintenance': {'works_count': 7}}), 7)
+        self.assertEqual(operations_check._works_count({'seed_backfill': {'works_count': 8}}), 8)
+
     def test_operations_report_demotes_public_timeout_critical_when_metrics_exist(self):
         critical = ['/health failed: TimeoutError', 'OGP PNG failure: TimeoutError', 'matrix shape mismatch']
         warn = []

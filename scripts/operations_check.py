@@ -162,6 +162,8 @@ def _validate_health_response(health, critical, warn, environ):
 
 def _works_count(works_health: dict[str, Any]) -> int | None:
     maintenance = works_health.get('maintenance') or {}
+    if isinstance(maintenance.get('total_works'), int):
+        return maintenance['total_works']
     if isinstance(maintenance.get('works_count'), int):
         return maintenance['works_count']
     seed = works_health.get('seed_backfill') or {}
