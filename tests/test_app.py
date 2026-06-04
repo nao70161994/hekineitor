@@ -1462,6 +1462,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
                 '/api/admin/fetish_log_rows',
                 '/api/admin/recent_fetish_ranking',
                 '/api/admin/result_exposures',
+                '/api/admin/result_exposure_trend',
                 '/api/admin/result_exposure_factors',
                 '/api/admin/result_exposures/backfill',
                 '/api/admin/export_stats_history',
@@ -1509,6 +1510,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('/api/admin/low_exposure_fetishes', data['available_endpoints'])
         self.assertIn('/api/admin/result_exposures', data['available_endpoints'])
         self.assertIn('/api/admin/result_exposures/recent', data['available_endpoints'])
+        self.assertIn('/api/admin/result_exposure_trend', data['available_endpoints'])
         self.assertIn('/api/admin/result_exposure_factors', data['available_endpoints'])
         self.assertIn('/api/admin/result_exposures/backfill', data['available_endpoints'])
         self.assertIn('analysis_log_status', data)
@@ -1575,6 +1577,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             '/api/admin/low_exposure_fetishes?threshold=3&limit=20',
             '/api/admin/recent_fetish_ranking',
             '/api/admin/result_exposures?days=7&top_n=20',
+            '/api/admin/result_exposure_trend?days=7&top_n=5',
             '/api/admin/result_exposures/backfill?max_events=50',
             '/api/admin/export_stats_history',
             '/api/admin/matrix_backups',
@@ -1933,6 +1936,28 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(data['ranking'][0]['fetish_name'], primary['name'])
         self.assertEqual(data['ranking'][0]['count'], 2)
 
+    def test_result_exposure_trend_endpoint_reports_daily_heavy_ratio(self):
+        from app import engine as app_engine
+        headers = self._admin_headers()
+        primary = app_engine.fetishes[0]
+        secondary = app_engine.fetishes[1]
+        old_now = type('Now', (), {'astimezone': lambda self, tz: self, 'isoformat': lambda self, timespec='seconds': '2026-06-01T00:00:00+00:00'})()
+        new_now = type('Now', (), {'astimezone': lambda self, tz: self, 'isoformat': lambda self, timespec='seconds': '2026-06-02T00:00:00+00:00'})()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'result_exposures.jsonl')
+            with patch.dict(os.environ, {'RESULT_EXPOSURE_LOG_PATH': path}, clear=False):
+                result_exposure_service.record_result(primary['id'], primary['name'], 91, path=path, now_fn=lambda: old_now)
+                result_exposure_service.record_result(secondary['id'], secondary['name'], 75, path=path, now_fn=lambda: new_now)
+                res = self.client.get('/api/admin/result_exposure_trend?days=7&date=2026-06-02', headers=headers)
+
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(data['source'], 'result_exposures')
+        self.assertEqual([row['date'] for row in data['rows']], ['2026-06-01', '2026-06-02'])
+        self.assertIn('heavy_result_ratio', data['rows'][0])
+        self.assertIn('top_results', data['rows'][0])
+
     def test_result_exposures_recent_endpoint_reports_safe_timestamped_events(self):
         headers = self._admin_headers()
         with tempfile.TemporaryDirectory() as tmp:
@@ -2015,6 +2040,10 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('low_questions', ids)
         self.assertIn('works', ids)
         self.assertIn('missing_url_work_count', data['works'])
+        self.assertIn('direct_url_work_count', data['works'])
+        self.assertIn('search_url_work_count', data['works'])
+        self.assertIn('missing_asin_work_count', data['works'])
+        self.assertIn('duplicate_work_title_count', data['works'])
         if data['weak_fetishes']:
             row = data['weak_fetishes'][0]
             self.assertIn('edit_anchor', row)

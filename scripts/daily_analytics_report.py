@@ -26,6 +26,31 @@ def fetch_json(path: str, *, environ: Mapping[str, str] | None = None, timeout: 
         return json.loads(response.read().decode('utf-8'))
 
 
+def _env_int(environ: Mapping[str, str], name: str, default: int) -> int:
+    try:
+        return int(environ.get(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def _with_retries(callable_fn, *, attempts=2):
+    last_error = None
+    for _attempt in range(max(1, int(attempts or 1))):
+        try:
+            return callable_fn()
+        except Exception as exc:
+            last_error = exc
+    if last_error:
+        raise last_error
+    raise RuntimeError('retry failed')
+
+
+def report_json_getter(environ: Mapping[str, str]) -> Callable[[str], dict[str, Any]]:
+    timeout = _env_int(environ, 'NTFY_ADMIN_TIMEOUT_SECONDS', 15)
+    attempts = _env_int(environ, 'NTFY_ADMIN_RETRIES', 2)
+    return lambda path: _with_retries(lambda: fetch_json(path, environ=environ, timeout=timeout), attempts=attempts)
+
+
 def _yesterday() -> str:
     return (datetime.now(ZoneInfo('Asia/Tokyo')).date() - timedelta(days=1)).isoformat()
 
@@ -210,7 +235,7 @@ def build_daily_report(
             'status': 'warning',
             'message': '[DAILY] Hekineitor analytics\nADMIN_READ_TOKEN is not set; report skipped',
         }
-    json_getter = json_getter or (lambda path: fetch_json(path, environ=environ))
+    json_getter = json_getter or report_json_getter(environ)
     target_date = str(environ.get('HEKI_REPORT_DATE') or _yesterday())[:10]
 
     failures: list[str] = []

@@ -82,7 +82,11 @@ def build_work_maintenance_summary(fetishes, *, work_title_fn, safe_work_url_fn,
     missing_work_fetishes = []
     missing_url_works = []
     unsafe_url_works = []
+    duplicate_index = {}
     total_works = 0
+    direct_url_work_count = 0
+    search_url_work_count = 0
+    missing_asin_work_count = 0
     for fetish in fetishes:
         works = fetish.get('works') or []
         if not works:
@@ -100,17 +104,43 @@ def build_work_maintenance_summary(fetishes, *, work_title_fn, safe_work_url_fn,
                 'fetish_name': fetish['name'],
                 'title': title,
             }
+            normalized_title = str(title or '').strip().casefold()
+            if normalized_title:
+                duplicate_index.setdefault(normalized_title, {'title': title, 'items': []})['items'].append(row)
+            status, _status_url = work_url_status(work)
+            if status == 'ok' and url:
+                direct_url_work_count += 1
+            elif status == 'search_url':
+                search_url_work_count += 1
+            elif status == 'missing_asin':
+                missing_asin_work_count += 1
             if not url:
                 missing_url_works.append(row)
             elif not safe_work_url_fn(url):
                 unsafe_url_works.append({**row, 'url': str(url)})
+    duplicate_works = []
+    for duplicate in duplicate_index.values():
+        items = duplicate['items']
+        if len(items) <= 1:
+            continue
+        duplicate_works.append({
+            'title': duplicate['title'],
+            'count': len(items),
+            'fetishes': items[:sample_limit],
+        })
+    duplicate_works.sort(key=lambda row: (-row['count'], row['title']))
     return {
         'total_works': total_works,
+        'direct_url_work_count': direct_url_work_count,
+        'search_url_work_count': search_url_work_count,
+        'missing_asin_work_count': missing_asin_work_count,
+        'duplicate_work_title_count': len(duplicate_works),
         'missing_work_fetish_count': len(missing_work_fetishes),
         'missing_url_work_count': len(missing_url_works),
         'unsafe_url_work_count': len(unsafe_url_works),
         'missing_work_fetishes': missing_work_fetishes[:sample_limit],
         'missing_url_works': missing_url_works[:sample_limit],
         'unsafe_url_works': unsafe_url_works[:sample_limit],
+        'duplicate_works': duplicate_works[:sample_limit],
         'works_review_url': '/api/admin/works_review',
     }

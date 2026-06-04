@@ -248,6 +248,76 @@ def _safe_recent_event(event):
     return row
 
 
+
+def _normalized_event_name(event, current_names):
+    fetish_id = _clean_int(event.get('fetish_id'))
+    if fetish_id is not None and fetish_id in current_names:
+        return current_names[fetish_id]
+    return _clean_text(event.get('fetish_name') or 'unknown', 80) or 'unknown'
+
+
+def heavy_result_trend_from_events(events, *, days=14, date=None, until=None, include_backfill=False, fetish_names=None, top_n=5):
+    filtered = filter_events(events, days=days, date=date, until=until)
+    current_names = _fetish_name_map(fetish_names)
+    try:
+        result_limit = max(1, min(int(top_n or 5), 20))
+    except (TypeError, ValueError):
+        result_limit = 5
+    daily = {}
+    for event in filtered:
+        if int(event.get('rank') or 1) != 1:
+            continue
+        if not include_backfill and event.get('source') == BACKFILL_SOURCE:
+            continue
+        day = _event_date(event) or 'unknown'
+        row = daily.setdefault(day, {'date': day, 'total': 0, 'heavy_total': 0, '_counts': Counter()})
+        name = _normalized_event_name(event, current_names)
+        row['total'] += 1
+        row['_counts'][name] += 1
+        if name in HEAVY_RESULT_NAMES:
+            row['heavy_total'] += 1
+    rows = []
+    for day in sorted(daily):
+        row = daily[day]
+        total = row['total']
+        top_results = []
+        for name, count in row['_counts'].most_common(result_limit):
+            top_results.append({
+                'fetish_name': name,
+                'count': count,
+                'percent': round(count / total * 100, 1) if total else 0.0,
+            })
+        rows.append({
+            'date': row['date'],
+            'total': total,
+            'heavy_total': row['heavy_total'],
+            'heavy_result_ratio': round(row['heavy_total'] / total * 100, 1) if total else 0.0,
+            'top_results': top_results,
+        })
+    return rows
+
+
+def heavy_result_trend_report(*, path=None, environ=None, limit=5000, days=14, date=None, until=None, include_backfill=False, fetish_names=None, top_n=5):
+    events = read_events(path=path, environ=environ, limit=limit)
+    rows = heavy_result_trend_from_events(
+        events,
+        days=days,
+        date=date,
+        until=until,
+        include_backfill=include_backfill,
+        fetish_names=fetish_names,
+        top_n=top_n,
+    )
+    return {
+        'status': 'ok',
+        'source': 'result_exposures',
+        'days': days,
+        'date': date or until,
+        'include_backfill': include_backfill,
+        'rows': rows,
+    }
+
+
 def recent_events_report(*, path=None, environ=None, limit=20, include_backfill=False):
     try:
         row_limit = max(1, min(int(limit or 20), 100))

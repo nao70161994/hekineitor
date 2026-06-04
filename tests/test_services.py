@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import audit
 from routes import game as game_routes
-from services import admin_context, admin_helpers, admin_security, bootstrap, context, csv_safety, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, ogp, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, question_events, result_exposure, improvement_candidates, event_store, share_links, share_notes, system_context, test_play
+from services import admin_context, admin_helpers, admin_security, bootstrap, context, csv_safety, filesystem_context, game_context, seo_context, app_meta, ids, inference, matrix_backups, name_matching, ogp, quality_stats, question_selection, rate_limit, response_hooks, runtime_guards, runtime as runtime_service, share, share_events, question_events, result_exposure, improvement_candidates, event_store, share_links, share_notes, system_context, test_play, works_links
 
 
 class DummyRequest:
@@ -483,6 +483,35 @@ class TestServices(unittest.TestCase):
                 f.write('b')
             second = app_meta.app_version(tmp, paths=('app.py',))
         self.assertNotEqual(first, second)
+
+    def test_work_maintenance_summary_reports_quality_counts(self):
+        fetishes = [
+            {'id': 1, 'name': 'A', 'works': [
+                {'title': '重複作品', 'url': 'https://www.amazon.co.jp/dp/B000000000'},
+                {'title': '検索作品', 'url': 'https://www.amazon.co.jp/s?k=x'},
+            ]},
+            {'id': 2, 'name': 'B', 'works': [
+                {'title': '重複作品', 'url': 'https://www.amazon.co.jp/dp/B000000001'},
+                {'title': 'ASINなし', 'url': 'https://www.amazon.co.jp/gp/product/noasin'},
+                'URLなし',
+            ]},
+        ]
+
+        summary = works_links.build_work_maintenance_summary(
+            fetishes,
+            work_title_fn=lambda work: work.get('title', '') if isinstance(work, dict) else str(work),
+            safe_work_url_fn=lambda url: str(url).startswith('https://www.amazon.co.jp/'),
+            sample_limit=5,
+        )
+
+        self.assertEqual(summary['total_works'], 5)
+        self.assertEqual(summary['direct_url_work_count'], 2)
+        self.assertEqual(summary['search_url_work_count'], 1)
+        self.assertEqual(summary['missing_asin_work_count'], 1)
+        self.assertEqual(summary['missing_url_work_count'], 1)
+        self.assertEqual(summary['duplicate_work_title_count'], 1)
+        self.assertEqual(summary['duplicate_works'][0]['title'], '重複作品')
+        self.assertEqual(summary['duplicate_works'][0]['count'], 2)
 
     def test_app_version_default_includes_pwa_assets(self):
         self.assertIn('static/icon-192.png', app_meta.APP_VERSION_PATHS)

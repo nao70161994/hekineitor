@@ -62,6 +62,20 @@ def fetch_bytes(path: str, *, environ: Mapping[str, str] | None = None, timeout:
         return response.read(512)
 
 
+def report_json_getter(environ: Mapping[str, str]) -> Callable[[str], dict[str, Any]]:
+    public_timeout = _env_int(environ, 'NTFY_PUBLIC_TIMEOUT_SECONDS', 25)
+    admin_timeout = _env_int(environ, 'NTFY_ADMIN_TIMEOUT_SECONDS', 15)
+    admin_retries = _env_int(environ, 'NTFY_ADMIN_RETRIES', 2)
+
+    def getter(path: str) -> dict[str, Any]:
+        timeout = admin_timeout if path.startswith('/api/admin/') else public_timeout
+        if path.startswith('/api/admin/'):
+            return _with_retries(lambda: fetch_json(path, environ=environ, timeout=timeout), attempts=admin_retries)
+        return fetch_json(path, environ=environ, timeout=timeout)
+
+    return getter
+
+
 def _with_retries(callable_fn, *, attempts=2):
     last_error = None
     for _attempt in range(max(1, int(attempts or 1))):
@@ -240,14 +254,7 @@ def build_report(
 ) -> dict[str, Any]:
     environ = os.environ if environ is None else environ
     public_timeout = _env_int(environ, 'NTFY_PUBLIC_TIMEOUT_SECONDS', 25)
-    admin_timeout = _env_int(environ, 'NTFY_ADMIN_TIMEOUT_SECONDS', 15)
-    json_getter = json_getter or (
-        lambda path: fetch_json(
-            path,
-            environ=environ,
-            timeout=admin_timeout if path.startswith('/api/admin/') else public_timeout,
-        )
-    )
+    json_getter = json_getter or report_json_getter(environ)
     bytes_getter = bytes_getter or (lambda path: fetch_bytes(path, environ=environ, timeout=public_timeout))
     critical: list[str] = []
     warn: list[str] = []

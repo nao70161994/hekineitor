@@ -232,9 +232,21 @@ def build_admin_maintenance_checklist(engine, works_summary_fn):
         {
             'id': 'works',
             'label': '作品データの不足',
-            'count': works['missing_work_fetish_count'] + works['missing_url_work_count'] + works['unsafe_url_work_count'],
+            'count': (
+                works['missing_work_fetish_count']
+                + works['missing_url_work_count']
+                + works['unsafe_url_work_count']
+                + works.get('search_url_work_count', 0)
+                + works.get('missing_asin_work_count', 0)
+                + works.get('duplicate_work_title_count', 0)
+            ),
             'severity': 'warn' if (
-                works['missing_work_fetish_count'] or works['missing_url_work_count'] or works['unsafe_url_work_count']
+                works['missing_work_fetish_count']
+                or works['missing_url_work_count']
+                or works['unsafe_url_work_count']
+                or works.get('search_url_work_count', 0)
+                or works.get('missing_asin_work_count', 0)
+                or works.get('duplicate_work_title_count', 0)
             ) else 'ok',
             'next_action': '作品リンク確認からURLなし・不正URL・作品なしの性癖を補修する',
         },

@@ -365,11 +365,7 @@ def result_exposures_report(ctx):
     top_n = ctx.bounded_int(ctx.request.args.get('top_n'), 10, 1, 50)
     end_date = (ctx.request.args.get('date') or ctx.request.args.get('until') or '').strip()[:10] or None
     include_backfill = str(ctx.request.args.get('include_backfill') or '').lower() in ('1', 'true', 'yes')
-    fetish_names = {
-        fetish.get('id'): fetish.get('name', '')
-        for fetish in getattr(ctx.engine, 'fetishes', [])
-        if fetish.get('id') is not None
-    }
+    fetish_names = _current_fetish_names(ctx)
     report = result_exposure_service.ranking_report(
         environ=ctx.environ,
         limit=5000,
@@ -381,6 +377,31 @@ def result_exposures_report(ctx):
     )
     report['include_backfill'] = include_backfill
     return ctx.jsonify(report)
+
+
+
+def _current_fetish_names(ctx):
+    return {
+        fetish.get('id'): fetish.get('name', '')
+        for fetish in getattr(ctx.engine, 'fetishes', [])
+        if fetish.get('id') is not None
+    }
+
+
+def result_exposure_trend(ctx):
+    days = ctx.bounded_int(ctx.request.args.get('days'), 14, 1, 90)
+    top_n = ctx.bounded_int(ctx.request.args.get('top_n'), 5, 1, 20)
+    end_date = (ctx.request.args.get('date') or ctx.request.args.get('until') or '').strip()[:10] or None
+    include_backfill = str(ctx.request.args.get('include_backfill') or '').lower() in ('1', 'true', 'yes')
+    return ctx.jsonify(result_exposure_service.heavy_result_trend_report(
+        environ=ctx.environ,
+        limit=5000,
+        days=days,
+        date=end_date,
+        top_n=top_n,
+        include_backfill=include_backfill,
+        fetish_names=_current_fetish_names(ctx),
+    ))
 
 
 def result_exposures_recent(ctx):
@@ -788,6 +809,7 @@ def admin_read_overview(ctx):
             '/api/admin/recent_fetish_ranking',
             '/api/admin/result_exposures',
             '/api/admin/result_exposures/recent',
+            '/api/admin/result_exposure_trend',
             '/api/admin/result_exposure_factors',
             '/api/admin/result_exposures/backfill',
             '/api/admin/question_events',
@@ -1637,6 +1659,11 @@ def create_blueprint(ctx_factory, require_admin, require_admin_or_read=None):
     @require_admin_or_read
     def result_exposures_recent_route():
         return result_exposures_recent(ctx_factory())
+
+    @bp.route('/api/admin/result_exposure_trend', methods=['GET'])
+    @require_admin_or_read
+    def result_exposure_trend_route():
+        return result_exposure_trend(ctx_factory())
 
     @bp.route('/api/admin/result_exposure_factors', methods=['GET'])
     @require_admin_or_read

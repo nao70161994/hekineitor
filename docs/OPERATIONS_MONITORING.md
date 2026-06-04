@@ -17,6 +17,7 @@ NTFY_SERVER=https://ntfy.sh
 
 ```text
 NTFY_HEAVY_RESULT_WARN_RATIO=65
+NTFY_ADMIN_RETRIES=2
 NTFY_RELATION_ATTACHMENT_WARN_RATIO=55
 NTFY_QUESTION_YES_WARN_RATE=90
 NTFY_DROPOFF_WARN_RATE=35
@@ -234,3 +235,18 @@ python scripts/daily_analytics_report.py
 ## 運用メモ
 
 初回ローカル確認は `python scripts/operations_check.py` を実行し、判定本文だけ確認してください。ローカルの `NTFY_TOPIC` はデフォルトで送信ブロックされます。GitHub Secrets の topic 確認は Actions の `workflow_dispatch` で行います。
+
+
+## Result Exposure Trend
+
+Use the read-only endpoint below to inspect recent displayed-result bias without relying on legacy stats history:
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_READ_TOKEN"   "https://hekineitor.onrender.com/api/admin/result_exposure_trend?days=14&top_n=5"
+```
+
+The response contains daily `total`, `heavy_total`, `heavy_result_ratio`, and top displayed results. It normalizes current display names by `fetish_id` when available.
+
+## Retry Policy
+
+GitHub Actions checks retry read-only admin API calls with `NTFY_ADMIN_RETRIES` attempts. This is only for transient GET/timeout failures. It does not call POST endpoints and does not include secrets in notification text.

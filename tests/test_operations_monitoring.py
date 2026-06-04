@@ -66,6 +66,46 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertEqual(request.headers['Priority'], 'high')
         self.assertEqual(request.headers['Tags'], 'warning')
 
+    def test_operations_admin_getter_retries_admin_reads(self):
+        calls = []
+
+        def fake_fetch(path, *, environ=None, timeout=15):
+            calls.append((path, timeout))
+            if len(calls) == 1:
+                raise TimeoutError('temporary')
+            return {'status': 'ok'}
+
+        with patch.object(operations_check, 'fetch_json', fake_fetch):
+            getter = operations_check.report_json_getter({
+                'ADMIN_READ_TOKEN': 'token',
+                'NTFY_ADMIN_RETRIES': '2',
+                'NTFY_ADMIN_TIMEOUT_SECONDS': '7',
+            })
+            self.assertEqual(getter('/api/admin/preflight'), {'status': 'ok'})
+
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0], ('/api/admin/preflight', 7))
+
+    def test_daily_report_admin_getter_retries_admin_reads(self):
+        calls = []
+
+        def fake_fetch(path, *, environ=None, timeout=15):
+            calls.append((path, timeout))
+            if len(calls) == 1:
+                raise TimeoutError('temporary')
+            return {'status': 'ok'}
+
+        with patch.object(daily_analytics_report, 'fetch_json', fake_fetch):
+            getter = daily_analytics_report.report_json_getter({
+                'ADMIN_READ_TOKEN': 'token',
+                'NTFY_ADMIN_RETRIES': '2',
+                'NTFY_ADMIN_TIMEOUT_SECONDS': '8',
+            })
+            self.assertEqual(getter('/api/admin/funnel_metrics'), {'status': 'ok'})
+
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0], ('/api/admin/funnel_metrics', 8))
+
     def test_operations_report_flags_critical_and_warn_without_leaking_token(self):
         secret = 'read-token-should-not-appear'
 
