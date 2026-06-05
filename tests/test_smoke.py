@@ -232,6 +232,7 @@ class TestSmoke(unittest.TestCase):
         self.assertIn(b'function sharePayloadImmediate', share)
         self.assertIn(b'function shareResult', share)
         self.assertIn(b'function openXShare', share)
+        self.assertIn('あなたの『癖』は…… 『'.encode('utf-8'), share)
         self.assertNotIn(b'async function shareResult', share)
         self.assertNotIn(b'async function openXShare', share)
         self.assertNotIn(b'await sharePayload', share)
@@ -255,6 +256,8 @@ class TestSmoke(unittest.TestCase):
         self.assertIn(b'defer_learning', feedback)
         self.assertIn('ありがとうございます。'.encode('utf-8'), feedback)
         self.assertIn('保存せず確認しました'.encode('utf-8'), feedback)
+        self.assertNotIn(b'setDiagnosedName(displayName)', feedback)
+        self.assertNotIn(b'setLastFetishName(displayName)', feedback)
         with open(os.path.join(root, 'static', 'teach.js'), 'rb') as f:
             teach = f.read()
         with open(os.path.join(root, 'templates', 'index.html'), 'rb') as f:

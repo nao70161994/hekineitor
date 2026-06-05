@@ -148,9 +148,6 @@ window.HekiFeedback = (() => {
           const el = document.getElementById(`ci-${id}`);
           return el ? el.querySelector('.confirm-item-name').textContent : '';
         }).filter(Boolean);
-        const displayName = names.join(' × ');
-        if (window.setLastFetishName) window.setLastFetishName(displayName);
-        if (window.setDiagnosedName) window.setDiagnosedName(displayName);
         if (window.setConfirmedIds) window.setConfirmedIds(correctIds);
         const addData = await apiFetch('/api/confirm', {
           correct: false,

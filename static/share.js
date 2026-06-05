@@ -131,7 +131,7 @@ window.HekiShare = (() => {
     const payload = sharePayloadImmediate(name);
     trackShareEvent('share_button_click', {resultName: name, channel: 'button', success: true});
     if (navigator.share) {
-      navigator.share({title: `あなたの『癖』は…… ${name}`, text: payload.text, url: payload.url})
+      navigator.share({title: `あなたの『癖』は…… 『${name || '???'}』`, text: payload.text, url: payload.url})
         .then(() => trackShareEvent('web_share_success', {resultName: name, channel: 'web_share', success: true}))
         .catch(() => trackShareEvent('web_share_failure', {resultName: name, channel: 'web_share', success: false}));
       return;
