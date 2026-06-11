@@ -267,8 +267,9 @@ def event_report(engine, *, path=None, environ=None, limit=5000):
 
     question_rows = []
     for row in rows.values():
-        shown = int(row.get('shown', 0))
+        raw_shown = int(row.get('shown', 0))
         answered = int(row.get('answered', 0))
+        shown = max(raw_shown, answered)
         dropoff = int(row.get('dropoff', 0))
         question_rows.append({
             'question_id': row['question_id'],

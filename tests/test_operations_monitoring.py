@@ -582,6 +582,12 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertNotIn('token', report['message'])
 
 
+    def test_yes_rate_summary_normalizes_missing_shown_events(self):
+        row = {'question_id': 111, 'answered': 20, 'shown': 19, 'yes_rate': 95.2, 'category': 'tone'}
+
+        self.assertEqual(operations_check._question_yes_summary(row), 'Q111 95.2% (20/20, tone)')
+        self.assertEqual(daily_analytics_report._question_yes_summary(row), 'Q111 95.2% (20/20, tone)')
+
     def test_daily_report_marks_heavy_ratio_as_reference_when_sample_is_small(self):
         line = daily_analytics_report._heavy_line([{'fetish_name': '激重感情', 'count': 4}, {'fetish_name': '白衣', 'count': 1}])
 

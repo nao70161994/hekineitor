@@ -2243,9 +2243,9 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('少し波がある関係の方が好き', questions[5]['text'])
         self.assertNotIn('甘くて幸せ', questions[5]['text'])
         self.assertEqual(questions[111]['id'], 111)
-        self.assertIn('少しだけ余裕をなくす展開が好き', questions[111]['text'])
+        self.assertIn('たまに余裕をなくす人の方が好き', questions[111]['text'])
         self.assertEqual(questions[124]['id'], 124)
-        self.assertIn('距離感のまま近づく関係が好き', questions[124]['text'])
+        self.assertIn('礼儀を保ったまま少しずつ近づく関係が好き', questions[124]['text'])
 
     def test_edit_question_empty_text_rejected(self):
         headers = self._admin_headers()

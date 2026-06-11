@@ -189,7 +189,7 @@ def _safe_fetch_json(
 
 def _question_yes_summary(row: dict[str, Any]) -> str:
     answered = int(row.get('answered') or 0)
-    shown = int(row.get('shown') or 0)
+    shown = max(int(row.get('shown') or 0), answered)
     category = str(row.get('category') or '').strip()
     suffix = f' ({answered}/{shown or answered}'
     if category:
