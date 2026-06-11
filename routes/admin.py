@@ -1038,8 +1038,24 @@ def promote_fetish(ctx, fetish_id):
     new_id = ctx.engine.promote_fetish(fetish_id)
     if new_id is None:
         return ctx.jsonify({'status': 'error', 'message': '見つかりません'}), 404
-    ctx.write_audit('promote_fetish', 'ok', {'old_id': fetish_id, 'new_id': new_id}, ctx.request)
-    return ctx.jsonify({'status': 'promoted', 'old_id': fetish_id, 'new_id': new_id})
+    promoted = next((fetish for fetish in ctx.engine.fetishes if fetish.get('id') == new_id), {})
+    reassign_report = result_exposure_service.safe_reassign_fetish_id(
+        fetish_id,
+        new_id,
+        fetish_name=promoted.get('name', ''),
+        environ=ctx.environ,
+    )
+    ctx.write_audit('promote_fetish', 'ok', {
+        'old_id': fetish_id,
+        'new_id': new_id,
+        'result_exposure_reassign': reassign_report,
+    }, ctx.request)
+    return ctx.jsonify({
+        'status': 'promoted',
+        'old_id': fetish_id,
+        'new_id': new_id,
+        'result_exposure_reassign': reassign_report,
+    })
 
 
 def _repair_mappings_from_request(ctx):

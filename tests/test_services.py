@@ -1320,6 +1320,22 @@ class TestServices(unittest.TestCase):
         self.assertGreater(factors[3], 1.0)
 
 
+    def test_result_exposure_reassign_fetish_id_updates_jsonl_events(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'result_exposures.jsonl')
+            result_exposure.record_result(10000, '制服', 90, path=path)
+            result_exposure.record_result(2, '白衣', 80, path=path)
+
+            report = result_exposure.reassign_fetish_id(10000, 133, fetish_name='制服', path=path)
+            events = result_exposure.read_events(path=path, limit=10)
+
+        self.assertEqual(report['status'], 'ok')
+        self.assertEqual(report['updated_count'], 1)
+        self.assertEqual(events[0]['fetish_id'], 133)
+        self.assertEqual(events[0]['fetish_name'], '制服')
+        self.assertEqual(events[1]['fetish_id'], 2)
+
+
     def test_result_exposure_factor_report_summarizes_correction_without_raw_events(self):
         class Engine:
             fetishes = [

@@ -1123,6 +1123,27 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         creds = base64.b64encode(b'admin:testpass').decode()
         return {'Authorization': f'Basic {creds}'}
 
+    def test_admin_promote_fetish_reassigns_result_exposure_events(self):
+        import app as app_module
+        headers = self._admin_headers()
+        with patch.object(app_module.engine, 'promote_fetish', return_value=3), \
+             patch('routes.admin.result_exposure_service.safe_reassign_fetish_id', return_value={
+                 'status': 'ok',
+                 'storage': 'postgres',
+                 'updated_count': 2,
+             }) as reassign:
+            res = self.client.post('/api/admin/promote_fetish/10000', headers=headers)
+
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['status'], 'promoted')
+        self.assertEqual(data['result_exposure_reassign']['updated_count'], 2)
+        reassign.assert_called_once()
+        args, kwargs = reassign.call_args
+        self.assertEqual(args[:2], (10000, 3))
+        self.assertIn('fetish_name', kwargs)
+
+
     def _full_matrix_rows(self):
         from app import engine as app_engine
         rows = []

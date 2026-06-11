@@ -6,7 +6,7 @@ import threading
 from collections import Counter, deque
 from datetime import datetime, timedelta, timezone
 
-from storage import data_path
+from storage import data_path, get_conn, put_conn
 from services import event_store
 
 
@@ -122,6 +122,102 @@ def safe_record_result(*args, **kwargs):
         return record_result(*args, **kwargs)
     except Exception:
         return None
+
+
+def _reassigned_event(event, old_id, new_id, fetish_name=''):
+    if not isinstance(event, dict) or event.get('event_name') != 'result_exposed':
+        return None
+    if _clean_int(event.get('fetish_id')) != old_id:
+        return None
+    updated = dict(event)
+    updated['fetish_id'] = new_id
+    clean_name = _clean_text(fetish_name, 80)
+    if clean_name:
+        updated['fetish_name'] = clean_name
+    return updated
+
+
+def _reassign_postgres_events(old_id, new_id, fetish_name=''):
+    conn = get_conn()
+    try:
+        with conn:
+            event_store.ensure_schema(conn)
+            cur = conn.cursor()
+            cur.execute(
+                'SELECT id, payload FROM analytics_events WHERE event_type = %s ORDER BY id ASC',
+                ('result_exposure',),
+            )
+            rows = cur.fetchall()
+            updated_count = 0
+            for row_id, payload in rows:
+                try:
+                    event = payload if isinstance(payload, dict) else json.loads(payload)
+                except (TypeError, json.JSONDecodeError):
+                    continue
+                updated = _reassigned_event(event, old_id, new_id, fetish_name=fetish_name)
+                if updated is None:
+                    continue
+                cur.execute(
+                    'UPDATE analytics_events SET payload = %s WHERE id = %s',
+                    (json.dumps(updated, ensure_ascii=False, separators=(',', ':')), row_id),
+                )
+                updated_count += 1
+            return updated_count
+    finally:
+        put_conn(conn)
+
+
+def _reassign_jsonl_events(path, old_id, new_id, fetish_name=''):
+    try:
+        with open(path, encoding='utf-8') as file_obj:
+            lines = file_obj.readlines()
+    except OSError:
+        return 0
+    changed = False
+    updated_count = 0
+    output = []
+    for line in lines:
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            output.append(line)
+            continue
+        updated = _reassigned_event(event, old_id, new_id, fetish_name=fetish_name)
+        if updated is None:
+            output.append(line)
+            continue
+        output.append(json.dumps(updated, ensure_ascii=False, separators=(',', ':')) + '\n')
+        changed = True
+        updated_count += 1
+    if not changed:
+        return 0
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    with _LOCK:
+        tmp = path + '.tmp'
+        with open(tmp, 'w', encoding='utf-8') as file_obj:
+            file_obj.writelines(output)
+        os.replace(tmp, path)
+    return updated_count
+
+
+def reassign_fetish_id(old_id, new_id, *, fetish_name='', path=None, environ=None):
+    old_id = _clean_int(old_id)
+    new_id = _clean_int(new_id)
+    if old_id is None or new_id is None or old_id == new_id:
+        return {'status': 'skipped', 'updated_count': 0, 'reason': 'invalid_mapping'}
+    if path is None and event_store.enabled(environ):
+        updated_count = _reassign_postgres_events(old_id, new_id, fetish_name=fetish_name)
+        return {'status': 'ok', 'storage': 'postgres', 'updated_count': updated_count}
+    target = path or event_log_path(environ)
+    updated_count = _reassign_jsonl_events(target, old_id, new_id, fetish_name=fetish_name)
+    return {'status': 'ok', 'storage': 'jsonl', 'updated_count': updated_count}
+
+
+def safe_reassign_fetish_id(*args, **kwargs):
+    try:
+        return reassign_fetish_id(*args, **kwargs)
+    except Exception as exc:
+        return {'status': 'error', 'updated_count': 0, 'error': exc.__class__.__name__}
 
 
 def read_events(*, path=None, environ=None, limit=MAIN_WINDOW):
