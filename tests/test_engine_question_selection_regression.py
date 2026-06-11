@@ -6,6 +6,7 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from engine import Engine
+from engine import question_selection as engine_question_selection
 
 
 
@@ -17,6 +18,7 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
             patch.object(Engine, '_save_to_db', return_value=None),
             patch.object(Engine, '_load_matrix_file', new=lambda self: self._init_matrix_file()),
             patch.object(Engine, 'get_fetish_log', return_value={}),
+            patch.object(Engine, '_question_balance_stats', return_value={}),
             patch('engine_question_selection.random.choice', side_effect=lambda pool: pool[0]),
         ]
         for patcher in self._patches:
@@ -26,6 +28,35 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
     def tearDown(self):
         for patcher in self._patches:
             patcher.stop()
+
+
+    def test_yes_rate_balance_multiplier_penalizes_extreme_rates_only_with_enough_answers(self):
+        self.assertEqual(
+            engine_question_selection.question_yes_balance_multiplier({'answered': 19, 'yes_rate': 100}),
+            1.0,
+        )
+        self.assertAlmostEqual(
+            engine_question_selection.question_yes_balance_multiplier({'answered': 20, 'yes_rate': 50}),
+            1.0,
+        )
+        self.assertAlmostEqual(
+            engine_question_selection.question_yes_balance_multiplier({'answered': 20, 'yes_rate': 100}),
+            0.65,
+        )
+        self.assertAlmostEqual(
+            engine_question_selection.question_yes_balance_multiplier({'answered': 20, 'yes_rate': 90}),
+            0.72,
+        )
+
+    def test_best_question_penalizes_high_yes_rate_question_when_alternatives_exist(self):
+        answers = {'60': 1, '2': 1, '91': 1}
+        asked = {60, 2, 91}
+        baseline = self.engine.best_question(answers, asked)
+        stats = {baseline: {'answered': 30, 'yes_rate': 100.0}}
+        with patch.object(self.engine, '_question_balance_stats', return_value=stats):
+            balanced = self.engine.best_question(answers, asked)
+        self.assertNotEqual(balanced, baseline)
+        self.assertNotIn(balanced, asked)
 
     def test_best_question_snapshots_with_deterministic_randomness(self):
         cases = [

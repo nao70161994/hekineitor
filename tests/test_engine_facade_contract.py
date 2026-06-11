@@ -76,6 +76,7 @@ class TestEngineFacadeContract(unittest.TestCase):
                 early_random_depth=EARLY_RANDOM_DEPTH,
                 early_random_top_k=EARLY_RANDOM_TOP_K,
                 axis_indirect_bonus=AXIS_INDIRECT_BONUS,
+                question_balance_stats=self.engine._question_balance_stats(),
             )
         self.assertEqual(facade_question, helper_question)
         self.assertEqual(

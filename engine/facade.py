@@ -131,6 +131,8 @@ class Engine:
         self._disc_cache_time      = 0.0
         self._corr_cache           = []   # get_correlation_stats のキャッシュ
         self._corr_cache_time      = 0.0
+        self._question_balance_cache = {}
+        self._question_balance_time = 0.0
         self.config                = self._load_config()
 
     # ── JSON ローカル ──────────────────────────────────────
@@ -450,6 +452,8 @@ class Engine:
         'triple_ratio':    0.45,
         'ucb_explore_c':   0.05,
         'focus_threshold': 0.40,
+        'question_yes_balance_min_answers': 20.0,
+        'question_yes_balance_max_penalty': 0.35,
     }
     _CONFIG_RANGES = {
         'guess_threshold': (0.0, 1.0),
@@ -457,6 +461,8 @@ class Engine:
         'triple_ratio': (0.0, 1.0),
         'ucb_explore_c': (0.0, 10.0),
         'focus_threshold': (0.0, 1.0),
+        'question_yes_balance_min_answers': (0.0, 10000.0),
+        'question_yes_balance_max_penalty': (0.0, 0.9),
     }
 
     def _load_config(self):
@@ -571,6 +577,32 @@ class Engine:
     def _question_category(self, q):
         return engine_question_selection.question_category(self, q)
 
+    def _question_balance_stats(self):
+        if self.config.get('question_yes_balance_max_penalty', 0.35) <= 0:
+            return {}
+        now = time.monotonic()
+        if now - self._question_balance_time < 30.0:
+            return self._question_balance_cache
+        try:
+            from services import question_events as question_events_service
+            report = question_events_service.event_report(self, limit=5000)
+            rows = report.get('questions', []) if isinstance(report, dict) else []
+            stats = {}
+            for row in rows:
+                try:
+                    question_id = int(row.get('question_id'))
+                except (TypeError, ValueError, AttributeError):
+                    continue
+                stats[question_id] = {
+                    'answered': int(row.get('answered') or 0),
+                    'yes_rate': float(row.get('yes_rate') or 0),
+                }
+        except Exception:
+            stats = {}
+        self._question_balance_cache = stats
+        self._question_balance_time = now
+        return stats
+
     def best_question(self, answers, asked, idk_streak=0):
         return engine_question_selection.best_question(
             self,
@@ -584,6 +616,7 @@ class Engine:
             early_random_depth=EARLY_RANDOM_DEPTH,
             early_random_top_k=EARLY_RANDOM_TOP_K,
             axis_indirect_bonus=AXIS_INDIRECT_BONUS,
+            question_balance_stats=self._question_balance_stats(),
         )
 
     def best_disambiguating_question(self, answers, asked, candidate_count=3, idk_streak=0):

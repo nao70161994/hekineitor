@@ -32,15 +32,31 @@ def question_category(engine, question_id):
     return 'value'
 
 
+
+def question_yes_balance_multiplier(row, *, min_answers=20, max_penalty=0.35):
+    try:
+        answered = int(row.get('answered') or 0)
+        yes_rate = float(row.get('yes_rate') or 0)
+    except (AttributeError, TypeError, ValueError):
+        return 1.0
+    if answered < int(min_answers or 0):
+        return 1.0
+    penalty = max(0.0, min(float(max_penalty or 0), 0.9))
+    distance = min(abs(yes_rate - 50.0) / 50.0, 1.0)
+    return 1.0 - penalty * distance
+
 def best_question(engine, answers, asked, idk_streak=0, *, question_axes, focus_threshold_default,
                   ucb_explore_c, focus_top_n, early_random_depth, early_random_top_k,
-                  axis_indirect_bonus):
+                  axis_indirect_bonus, question_balance_stats=None):
     probs = engine.posteriors(answers)
     nf = len(engine.fetishes)
     asked_list = list(asked)
 
     focus_threshold = engine.config.get('focus_threshold', focus_threshold_default)
     ucb_c = engine.config.get('ucb_explore_c', ucb_explore_c)
+    balance_min_answers = engine.config.get('question_yes_balance_min_answers', 20)
+    balance_max_penalty = engine.config.get('question_yes_balance_max_penalty', 0.35)
+    question_balance_stats = question_balance_stats or {}
     top_p = max(probs)
     ranked_by_prob = sorted(range(nf), key=lambda i: probs[i], reverse=True)
     top_fetish = engine.fetishes[ranked_by_prob[0]] if ranked_by_prob else {}
@@ -132,6 +148,13 @@ def best_question(engine, answers, asked, idk_streak=0, *, question_axes, focus_
         axis_name = engine._question_axis(q)
         category = engine._question_category(q)
         weighted = score * axis_indirect_bonus.get(axis_name, 1.0)
+        balance_row = question_balance_stats.get(q) if isinstance(question_balance_stats, dict) else None
+        if balance_row:
+            weighted *= question_yes_balance_multiplier(
+                balance_row,
+                min_answers=balance_min_answers,
+                max_penalty=balance_max_penalty,
+            )
         if engine.questions[q].get('early_penalty') and len(asked_list) < 5:
             weighted *= 0.35
         if category in recent_categories:
