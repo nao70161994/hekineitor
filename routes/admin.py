@@ -785,6 +785,7 @@ def admin_read_overview(ctx):
         'improvement_candidates': improvement_candidates_service.build_candidates(
             question_report,
             exposure_events=exposure_events,
+            fetish_rows=fetish_rows,
         ),
         'low_learning_candidates': improvement_candidates_service.low_learning_candidates(
             fetish_rows,

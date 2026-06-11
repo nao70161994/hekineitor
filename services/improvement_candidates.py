@@ -1,6 +1,6 @@
 from collections import Counter
 
-from services.result_exposure import HEAVY_RESULT_NAMES
+from services.result_exposure import HEAVY_RESULT_NAMES, canonical_event_identity
 
 
 def _compact_question(row):
@@ -30,15 +30,29 @@ def _heavy_contribution_count(row):
     return total
 
 
-def result_diversity_candidate(exposure_events):
+def _current_names_from_rows(fetish_rows):
+    names = {}
+    for row in fetish_rows or []:
+        try:
+            fetish_id = int(row.get('id'))
+        except (TypeError, ValueError):
+            continue
+        name = str(row.get('name') or '').strip()
+        if name:
+            names[fetish_id] = name
+    return names
+
+
+def result_diversity_candidate(exposure_events, fetish_rows=None):
     counts = Counter()
+    current_names = _current_names_from_rows(fetish_rows)
     for event in exposure_events or []:
         try:
             if int(event.get('rank') or 1) != 1:
                 continue
         except (TypeError, ValueError):
             continue
-        name = str(event.get('fetish_name') or '').strip()
+        _key, name = canonical_event_identity(event, current_names)
         if name:
             counts[name] += 1
     total = sum(counts.values())
@@ -52,19 +66,16 @@ def result_diversity_candidate(exposure_events):
 
 def low_learning_candidates(fetish_rows, exposure_events=None, *, limit=10):
     exposure_counts = Counter()
+    current_names = _current_names_from_rows(fetish_rows)
     for event in exposure_events or []:
         try:
             if int(event.get('rank') or 1) != 1:
                 continue
         except (TypeError, ValueError):
             continue
-        fetish_id = event.get('fetish_id')
-        try:
-            fetish_id = int(fetish_id)
-        except (TypeError, ValueError):
-            fetish_id = None
-        if fetish_id is not None:
-            exposure_counts[fetish_id] += 1
+        key, _name = canonical_event_identity(event, current_names)
+        if isinstance(key, int):
+            exposure_counts[key] += 1
 
     rows = []
     for row in fetish_rows or []:
@@ -101,7 +112,7 @@ def low_learning_candidates(fetish_rows, exposure_events=None, *, limit=10):
     }
 
 
-def build_candidates(question_report, *, exposure_events=None, min_answers=5, limit=5):
+def build_candidates(question_report, *, exposure_events=None, fetish_rows=None, min_answers=5, limit=5):
     questions = list(question_report.get('questions', []))
     answered_rows = [row for row in questions if int(row.get('answered', 0) or 0) >= min_answers]
     shown_rows = [row for row in questions if int(row.get('shown', 0) or 0) >= min_answers]
@@ -128,5 +139,5 @@ def build_candidates(question_report, *, exposure_events=None, min_answers=5, li
             lambda row: (-_heavy_contribution_count(row), -int(row.get('contribution', 0) or 0), row.get('question_id', 0)),
             limit=limit,
         ),
-        'result_diversity': result_diversity_candidate(exposure_events or []),
+        'result_diversity': result_diversity_candidate(exposure_events or [], fetish_rows),
     }

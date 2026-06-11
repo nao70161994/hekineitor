@@ -150,6 +150,21 @@ class TestServices(unittest.TestCase):
         self.assertEqual([row['id'] for row in report['least_exposed']], [2, 3])
 
 
+    def test_improvement_candidates_count_stale_exposure_id_by_current_name(self):
+        rows = [
+            {'id': 133, 'name': '制服', 'guessed': 10, 'correct': 0, 'wrong': 0, 'feedback_total': 0},
+            {'id': 2, 'name': '白衣', 'guessed': 0, 'correct': 0, 'wrong': 0, 'feedback_total': 0},
+        ]
+        events = [result_exposure.build_event(10000, '制服'), result_exposure.build_event(133, '制服')]
+
+        report = improvement_candidates.low_learning_candidates(rows, events, limit=2)
+
+        self.assertEqual(report['sample_count'], 2)
+        exposed = {row['id']: row['exposed'] for row in report['least_exposed']}
+        self.assertEqual(exposed[133], 2)
+        self.assertEqual(exposed[2], 0)
+
+
     def test_event_storage_status_reports_paths_and_writability(self):
         with tempfile.TemporaryDirectory() as tmp:
             share_path = os.path.join(tmp, 'share_events.jsonl')
@@ -1220,6 +1235,24 @@ class TestServices(unittest.TestCase):
         self.assertEqual(report['ranking'][0]['fetish_name'], '現在の名前')
         self.assertEqual(report['ranking'][0]['count'], 2)
 
+    def test_result_exposure_ranking_merges_stale_promoted_id_by_current_name(self):
+        events = [
+            result_exposure.build_event(10000, '制服', 91, rank=1),
+            result_exposure.build_event(133, '制服', 88, rank=1),
+            result_exposure.build_event(2, '白衣', 77, rank=1),
+        ]
+
+        report = result_exposure.ranking_from_events(
+            events,
+            top_n=5,
+            fetish_names={133: '制服', 2: '白衣'},
+        )
+
+        self.assertEqual(report['total'], 3)
+        self.assertEqual(report['ranking'][0]['fetish_id'], 133)
+        self.assertEqual(report['ranking'][0]['fetish_name'], '制服')
+        self.assertEqual(report['ranking'][0]['count'], 2)
+
     def test_result_exposure_recent_report_returns_safe_tail_events(self):
         events = [
             {
@@ -1269,6 +1302,22 @@ class TestServices(unittest.TestCase):
         self.assertEqual(factors[1], 0.12)
         self.assertGreater(factors[2], 1.0)
 
+
+
+    def test_result_exposure_balancing_counts_stale_id_by_current_name(self):
+        class Engine:
+            fetishes = [
+                {'id': 133, 'name': '制服'},
+                {'id': 2, 'name': '白衣'},
+                {'id': 3, 'name': '眼鏡'},
+            ]
+
+        events = [result_exposure.build_event(10000, '制服', 90) for _ in range(80)]
+        events.extend(result_exposure.build_event(2, '白衣', 80) for _ in range(5))
+        factors = result_exposure.exposure_factors(Engine.fetishes, events=events)
+
+        self.assertLess(factors[133], 1.0)
+        self.assertGreater(factors[3], 1.0)
 
 
     def test_result_exposure_factor_report_summarizes_correction_without_raw_events(self):

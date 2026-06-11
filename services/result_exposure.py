@@ -190,6 +190,32 @@ def _fetish_name_map(fetish_names):
     }
 
 
+def _unique_name_to_id(current_names):
+    by_name = {}
+    duplicates = set()
+    for fetish_id, name in current_names.items():
+        if name in by_name and by_name[name] != fetish_id:
+            duplicates.add(name)
+            continue
+        by_name[name] = fetish_id
+    for name in duplicates:
+        by_name.pop(name, None)
+    return by_name
+
+
+def canonical_event_identity(event, current_names):
+    fetish_id = _clean_int(event.get('fetish_id'))
+    event_name = _clean_text(event.get('fetish_name') or 'unknown', 80) or 'unknown'
+    if fetish_id is not None and fetish_id in current_names:
+        return fetish_id, current_names[fetish_id]
+    current_id = _unique_name_to_id(current_names).get(event_name)
+    if current_id is not None:
+        return current_id, current_names[current_id]
+    if fetish_id is not None:
+        return fetish_id, event_name
+    return event_name, event_name
+
+
 def ranking_from_events(events, *, top_n=10, include_backfill=False, fetish_names=None):
     try:
         limit = max(1, min(int(top_n or 10), 100))
@@ -203,11 +229,7 @@ def ranking_from_events(events, *, top_n=10, include_backfill=False, fetish_name
             continue
         if not include_backfill and event.get('source') == BACKFILL_SOURCE:
             continue
-        fetish_id = _clean_int(event.get('fetish_id'))
-        name = _clean_text(event.get('fetish_name') or 'unknown', 80) or 'unknown'
-        key = fetish_id if fetish_id is not None else name
-        if fetish_id is not None and fetish_id in current_names:
-            name = current_names[fetish_id]
+        key, name = canonical_event_identity(event, current_names)
         counts[key] += 1
         names[key] = name
     total = sum(counts.values())
@@ -250,10 +272,8 @@ def _safe_recent_event(event):
 
 
 def _normalized_event_name(event, current_names):
-    fetish_id = _clean_int(event.get('fetish_id'))
-    if fetish_id is not None and fetish_id in current_names:
-        return current_names[fetish_id]
-    return _clean_text(event.get('fetish_name') or 'unknown', 80) or 'unknown'
+    _key, name = canonical_event_identity(event, current_names)
+    return name
 
 
 def heavy_result_trend_from_events(events, *, days=14, date=None, until=None, include_backfill=False, fetish_names=None, top_n=5):
@@ -459,14 +479,15 @@ def event_count(*, path=None, environ=None):
     return len(read_events(path=path, environ=environ, limit=5000))
 
 
-def _counts(events):
+def _counts(events, current_names=None):
+    current_names = current_names or {}
     counter = Counter()
     for event in events:
         if int(event.get('rank') or 1) != 1:
             continue
-        fetish_id = _clean_int(event.get('fetish_id'))
-        if fetish_id is not None:
-            counter[fetish_id] += 1
+        key, _name = canonical_event_identity(event, current_names)
+        if isinstance(key, int):
+            counter[key] += 1
     return counter
 
 
@@ -475,14 +496,14 @@ def _factor_floor(fetish):
 
 
 def _heavy_exposure_ratio(events, fetishes_by_id):
+    current_names = {fetish_id: fetish.get('name', '') for fetish_id, fetish in fetishes_by_id.items()}
     total = 0
     heavy = 0
     for event in events:
         if int(event.get('rank') or 1) != 1:
             continue
         total += 1
-        fetish_id = _clean_int(event.get('fetish_id'))
-        name = fetishes_by_id.get(fetish_id, {}).get('name') or _clean_text(event.get('fetish_name'), 80)
+        _key, name = canonical_event_identity(event, current_names)
         if name in HEAVY_RESULT_NAMES:
             heavy += 1
     return heavy / total if total else 0.0
@@ -505,7 +526,8 @@ def exposure_factors(fetishes, *, events=None, path=None, environ=None):
         return {fetish_id: 1.0 for fetish_id in ids}
 
     fetishes_by_id = {fetish.get('id'): fetish for fetish in fetishes if fetish.get('id') is not None}
-    main_counts = _counts(main_events)
+    current_names = {fetish_id: fetish.get('name', '') for fetish_id, fetish in fetishes_by_id.items()}
+    main_counts = _counts(main_events, current_names)
     expected = main_total / max(len(ids), 1) + SMOOTHING
     factors = {}
     for fetish in fetishes:
@@ -521,7 +543,7 @@ def exposure_factors(fetishes, *, events=None, path=None, environ=None):
     short_events = main_events[-SHORT_WINDOW:]
     short_total = len(short_events)
     if short_total >= MIN_SAMPLES:
-        short_counts = _counts(short_events)
+        short_counts = _counts(short_events, current_names)
         for fetish in fetishes:
             fetish_id = fetish.get('id')
             rate = short_counts.get(fetish_id, 0) / short_total
@@ -618,8 +640,9 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
     main_events = events[-MAIN_WINDOW:]
     short_events = main_events[-SHORT_WINDOW:]
     fetishes_by_id = {fetish.get('id'): fetish for fetish in fetishes if fetish.get('id') is not None}
-    main_counts = _counts(main_events)
-    short_counts = _counts(short_events)
+    current_names = {fetish_id: fetish.get('name', '') for fetish_id, fetish in fetishes_by_id.items()}
+    main_counts = _counts(main_events, current_names)
+    short_counts = _counts(short_events, current_names)
     short_heavy_ratio = _heavy_exposure_ratio(short_events, fetishes_by_id)
     factors = exposure_factors(fetishes, events=events)
     rows = []
