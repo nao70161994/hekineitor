@@ -21,15 +21,9 @@ MIN_SAMPLES = 50
 CANDIDATE_POOL = 20
 LOW_EXPOSURE_RESCUE_LIMIT = 30
 SMOOTHING = 2.0
-MIN_FACTOR = 0.25
-HEAVY_MIN_FACTOR = 0.2
+MIN_FACTOR = 0.08
 MAX_FACTOR = 3.0
-HEAVY_FACTOR_CAP = 0.55
-HEAVY_QUOTA_SOFT_RATIO = 0.10
-HEAVY_QUOTA_SOFT_CAP = 0.25
-HEAVY_QUOTA_HARD_RATIO = 0.25
-HEAVY_QUOTA_HARD_CAP = 0.12
-HEAVY_QUOTA_GATE_FACTOR = 0.02
+DIVERSITY_ALPHA = 1.2
 DOMINANT_RATIO = None
 DOMINANT_MIN_FACTOR = None
 
@@ -588,29 +582,7 @@ def _counts(events, current_names=None):
 
 
 def _factor_floor(fetish):
-    return HEAVY_MIN_FACTOR if fetish.get('name') in HEAVY_RESULT_NAMES else MIN_FACTOR
-
-
-def _heavy_exposure_ratio(events, fetishes_by_id):
-    current_names = {fetish_id: fetish.get('name', '') for fetish_id, fetish in fetishes_by_id.items()}
-    total = 0
-    heavy = 0
-    for event in events:
-        if int(event.get('rank') or 1) != 1:
-            continue
-        total += 1
-        _key, name = canonical_event_identity(event, current_names)
-        if name in HEAVY_RESULT_NAMES:
-            heavy += 1
-    return heavy / total if total else 0.0
-
-
-def _heavy_quota_cap(heavy_ratio):
-    if heavy_ratio >= HEAVY_QUOTA_HARD_RATIO:
-        return HEAVY_QUOTA_HARD_CAP
-    if heavy_ratio >= HEAVY_QUOTA_SOFT_RATIO:
-        return HEAVY_QUOTA_SOFT_CAP
-    return None
+    return MIN_FACTOR
 
 
 def exposure_factors(fetishes, *, events=None, path=None, environ=None):
@@ -618,45 +590,19 @@ def exposure_factors(fetishes, *, events=None, path=None, environ=None):
     main_events = events[-MAIN_WINDOW:]
     main_total = len(main_events)
     ids = [fetish.get('id') for fetish in fetishes if fetish.get('id') is not None]
-    if main_total < MIN_SAMPLES or not ids:
-        return {fetish_id: 1.0 for fetish_id in ids}
+    if not ids:
+        return {}
 
-    fetishes_by_id = {fetish.get('id'): fetish for fetish in fetishes if fetish.get('id') is not None}
-    current_names = {fetish_id: fetish.get('name', '') for fetish_id, fetish in fetishes_by_id.items()}
-    main_counts = _counts(main_events, current_names)
-    expected = main_total / max(len(ids), 1) + SMOOTHING
+    current_names = {fetish.get('id'): fetish.get('name', '') for fetish in fetishes if fetish.get('id') is not None}
+    counts = _counts(main_events, current_names)
+    expected = main_total / max(len(ids), 1)
     factors = {}
     for fetish in fetishes:
         fetish_id = fetish.get('id')
-        actual = main_counts.get(fetish_id, 0) + SMOOTHING
-        factor = math.sqrt(expected / actual)
-        floor = _factor_floor(fetish)
-        factor = max(floor, min(MAX_FACTOR, factor))
-        if fetish.get('name') in HEAVY_RESULT_NAMES:
-            factor = min(factor, HEAVY_FACTOR_CAP)
-        factors[fetish_id] = factor
-
-    short_events = main_events[-SHORT_WINDOW:]
-    short_total = len(short_events)
-    if short_total >= MIN_SAMPLES:
-        short_counts = _counts(short_events, current_names)
-        for fetish in fetishes:
-            fetish_id = fetish.get('id')
-            rate = short_counts.get(fetish_id, 0) / short_total
-            guard = 1.0
-            if rate >= 0.40:
-                guard = 0.45
-            elif rate >= 0.25:
-                guard = 0.60
-            elif rate >= 0.15:
-                guard = 0.75
-            factors[fetish_id] = max(_factor_floor(fetish), factors[fetish_id] * guard)
-        heavy_cap = _heavy_quota_cap(_heavy_exposure_ratio(short_events, fetishes_by_id))
-        if heavy_cap is not None:
-            for fetish in fetishes:
-                if fetish.get('name') in HEAVY_RESULT_NAMES:
-                    fetish_id = fetish.get('id')
-                    factors[fetish_id] = min(factors.get(fetish_id, 1.0), heavy_cap)
+        actual = counts.get(fetish_id, 0)
+        ratio = (actual + SMOOTHING) / (expected + SMOOTHING) if expected else 1.0
+        factor = ratio ** (-DIVERSITY_ALPHA)
+        factors[fetish_id] = max(MIN_FACTOR, min(MAX_FACTOR, factor))
     return factors
 
 
@@ -691,25 +637,17 @@ def adjust_ranked(engine, probs, ranked, *, events=None, path=None, environ=None
         return ranked
     exposure_events = list(events) if events is not None else read_events(path=path, environ=environ, limit=MAIN_WINDOW)
     factors = exposure_factors(engine.fetishes, events=exposure_events)
-    fetishes_by_id = {fetish.get('id'): fetish for fetish in engine.fetishes if fetish.get('id') is not None}
-    short_events = exposure_events[-MAIN_WINDOW:][-SHORT_WINDOW:]
-    hard_quota_active = _heavy_exposure_ratio(short_events, fetishes_by_id) >= HEAVY_QUOTA_HARD_RATIO
     original_top = ranked[0]
     top_score = probs[ranked[0]]
     second_score = max(probs[ranked[1]], 1e-12)
     pool = _adjustment_pool(engine, ranked, factors, probs=probs)
     pool_set = set(pool)
     rest = [index for index in ranked if index not in pool_set]
-    best_non_heavy_prob = max(
-        [probs[index] for index in pool if not _is_heavy_fetish(engine.fetishes[index])] or [0.0]
-    )
     adjusted = []
     for index in pool:
         fetish = engine.fetishes[index]
         fetish_id = fetish.get('id')
         factor = factors.get(fetish_id, 1.0)
-        if hard_quota_active and _is_heavy_fetish(fetish) and best_non_heavy_prob > 0:
-            factor = min(factor, HEAVY_QUOTA_GATE_FACTOR)
         if (
             DOMINANT_RATIO is not None
             and DOMINANT_MIN_FACTOR is not None
@@ -735,11 +673,10 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
     events = list(events) if events is not None else read_events(path=path, environ=environ, limit=row_limit)
     main_events = events[-MAIN_WINDOW:]
     short_events = main_events[-SHORT_WINDOW:]
-    fetishes_by_id = {fetish.get('id'): fetish for fetish in fetishes if fetish.get('id') is not None}
-    current_names = {fetish_id: fetish.get('name', '') for fetish_id, fetish in fetishes_by_id.items()}
+    current_names = {fetish.get('id'): fetish.get('name', '') for fetish in fetishes if fetish.get('id') is not None}
     main_counts = _counts(main_events, current_names)
     short_counts = _counts(short_events, current_names)
-    short_heavy_ratio = _heavy_exposure_ratio(short_events, fetishes_by_id)
+    expected = len(main_events) / max(len(current_names), 1) if current_names else 0.0
     factors = exposure_factors(fetishes, events=events)
     rows = []
     for fetish in fetishes:
@@ -769,20 +706,14 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
             'main_total': len(main_events),
             'short_window': SHORT_WINDOW,
             'short_total': len(short_events),
-            'short_heavy_ratio': round(short_heavy_ratio * 100, 1) if short_events else 0.0,
+            'expected_per_result': round(expected, 4),
             'min_samples': MIN_SAMPLES,
-            'active': len(main_events) >= MIN_SAMPLES,
+            'active': len(main_events) > 0,
         },
         'config': {
             'min_factor': MIN_FACTOR,
-            'heavy_min_factor': HEAVY_MIN_FACTOR,
             'max_factor': MAX_FACTOR,
-            'heavy_factor_cap': HEAVY_FACTOR_CAP,
-            'heavy_quota_soft_ratio': HEAVY_QUOTA_SOFT_RATIO,
-            'heavy_quota_soft_cap': HEAVY_QUOTA_SOFT_CAP,
-            'heavy_quota_hard_ratio': HEAVY_QUOTA_HARD_RATIO,
-            'heavy_quota_hard_cap': HEAVY_QUOTA_HARD_CAP,
-            'heavy_quota_gate_factor': HEAVY_QUOTA_GATE_FACTOR,
+            'diversity_alpha': DIVERSITY_ALPHA,
             'candidate_pool': CANDIDATE_POOL,
             'low_exposure_rescue_limit': LOW_EXPOSURE_RESCUE_LIMIT,
             'smoothing': SMOOTHING,

@@ -1295,12 +1295,13 @@ class TestServices(unittest.TestCase):
                 {'id': 3, 'name': '眼鏡'},
             ]
 
-        events = [result_exposure.build_event(1, '激重感情', 90, now_fn=lambda: __import__('datetime').datetime.now(__import__('datetime').timezone.utc)) for _ in range(80)]
-        events.extend(result_exposure.build_event(2, '白衣', 80, now_fn=lambda: __import__('datetime').datetime.now(__import__('datetime').timezone.utc)) for _ in range(5))
+        events = [result_exposure.build_event(1, '激重感情', 90) for _ in range(80)]
+        events.extend(result_exposure.build_event(2, '白衣', 80) for _ in range(5))
         factors = result_exposure.exposure_factors(Engine.fetishes, events=events)
 
-        self.assertEqual(factors[1], 0.12)
+        self.assertLess(factors[1], 0.35)
         self.assertGreater(factors[2], 1.0)
+        self.assertEqual(factors[3], result_exposure.MAX_FACTOR)
 
 
 
@@ -1316,8 +1317,36 @@ class TestServices(unittest.TestCase):
         events.extend(result_exposure.build_event(2, '白衣', 80) for _ in range(5))
         factors = result_exposure.exposure_factors(Engine.fetishes, events=events)
 
-        self.assertLess(factors[133], 1.0)
+        self.assertLess(factors[133], 0.35)
         self.assertGreater(factors[3], 1.0)
+
+
+    def test_result_exposure_ratio_correction_penalizes_current_spike(self):
+        class Engine:
+            fetishes = [{'id': index, 'name': f'F{index}'} for index in range(132)] + [
+                {'id': 133, 'name': '制服'},
+            ]
+
+        events = [result_exposure.build_event(133, '制服', 90) for _ in range(21)]
+        events.extend(result_exposure.build_event(index % 132, f'F{index % 132}', 80) for index in range(279))
+        factors = result_exposure.exposure_factors(Engine.fetishes, events=events)
+
+        self.assertLess(factors[133], 0.35)
+        self.assertGreater(factors[0], factors[133])
+
+    def test_result_exposure_ratio_correction_works_with_small_samples(self):
+        class Engine:
+            fetishes = [
+                {'id': 133, 'name': '制服'},
+                {'id': 2, 'name': '白衣'},
+                {'id': 3, 'name': '眼鏡'},
+            ]
+
+        events = [result_exposure.build_event(133, '制服', 90) for _ in range(5)]
+        factors = result_exposure.exposure_factors(Engine.fetishes, events=events)
+
+        self.assertLess(factors[133], 1.0)
+        self.assertGreater(factors[2], 1.0)
 
 
     def test_result_exposure_reassign_fetish_id_updates_jsonl_events(self):
@@ -1353,21 +1382,15 @@ class TestServices(unittest.TestCase):
         self.assertTrue(report['sample']['active'])
         self.assertEqual(report['config']['candidate_pool'], 20)
         self.assertEqual(report['config']['low_exposure_rescue_limit'], 30)
-        self.assertEqual(report['config']['heavy_factor_cap'], 0.55)
-        self.assertEqual(report['config']['heavy_min_factor'], 0.2)
-        self.assertEqual(report['config']['heavy_quota_soft_ratio'], 0.10)
-        self.assertEqual(report['config']['heavy_quota_soft_cap'], 0.25)
-        self.assertEqual(report['config']['heavy_quota_hard_ratio'], 0.25)
-        self.assertEqual(report['config']['heavy_quota_hard_cap'], 0.12)
-        self.assertEqual(report['config']['heavy_quota_gate_factor'], 0.02)
-        self.assertEqual(report['sample']['short_heavy_ratio'], 94.1)
+        self.assertEqual(report['config']['diversity_alpha'], 1.2)
+        self.assertAlmostEqual(report['sample']['expected_per_result'], 85 / 3, places=4)
         heavy = {row['fetish_name']: row for row in report['heavy_results']}
-        self.assertEqual(heavy['激重感情']['factor'], 0.12)
+        self.assertLess(heavy['激重感情']['factor'], 0.35)
         self.assertIn('most_downweighted', report)
         self.assertIn('most_boosted', report)
         self.assertNotIn('events', report)
 
-    def test_result_exposure_heavy_quota_uses_soft_cap_above_ten_percent(self):
+    def test_result_exposure_uses_same_ratio_rule_for_heavy_names(self):
         class Engine:
             fetishes = [
                 {'id': 1, 'name': '激重感情'},
@@ -1379,7 +1402,8 @@ class TestServices(unittest.TestCase):
         events.extend(result_exposure.build_event(2, '白衣', 80) for _ in range(52))
         factors = result_exposure.exposure_factors(Engine.fetishes, events=events)
 
-        self.assertEqual(factors[1], 0.25)
+        self.assertGreater(factors[1], 1.0)
+        self.assertLess(factors[2], 1.0)
 
     def test_result_exposure_hard_quota_blocks_non_dominant_heavy_result(self):
         class Engine:
