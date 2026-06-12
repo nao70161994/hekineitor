@@ -515,6 +515,7 @@ class OperationsMonitoringTests(unittest.TestCase):
         )
 
         self.assertIn('/api/admin/result_exposures?days=7&top_n=20', calls)
+        self.assertIn('/api/admin/question_events?limit=500', calls)
         self.assertIn('result_source=result_exposures', report['message'])
         self.assertIn('heavy_result_ratio=0.0%', report['message'])
 
@@ -545,6 +546,7 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('heavy_result_ratio: 0.0% (参考値) (0/8)', report['message'])
         self.assertIn('白衣 8', report['message'])
         self.assertIn('/api/admin/result_exposures?days=1&date=2026-05-26&top_n=10', calls)
+        self.assertIn('/api/admin/question_events?limit=500', calls)
 
     def test_daily_report_summarizes_safe_analytics(self):
         def fake_json(path):

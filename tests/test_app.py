@@ -2113,6 +2113,28 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIsNone(metrics['recent_7_days']['completion_rate'])
         self.assertFalse(metrics['recent_7_days']['completion_rate_reliable'])
 
+    def test_funnel_metrics_default_is_lightweight(self):
+        headers = self._admin_headers()
+        res = self.client.get('/api/admin/funnel_metrics', headers=headers)
+
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertFalse(data['details_included'])
+        self.assertIn('completion', data)
+        self.assertIn('stats_history', data)
+        self.assertNotIn('share_metrics', data)
+        self.assertNotIn('question_summary', data)
+
+    def test_funnel_metrics_can_include_details_explicitly(self):
+        headers = self._admin_headers()
+        res = self.client.get('/api/admin/funnel_metrics?include_details=1', headers=headers)
+
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data['details_included'])
+        self.assertIn('share_metrics', data)
+        self.assertIn('question_summary', data)
+
     def test_unverified_resumed_guess_skips_learning(self):
         from app import engine as app_engine
         q = 8
@@ -2267,6 +2289,8 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('たまに余裕をなくす人の方が好き', questions[111]['text'])
         self.assertEqual(questions[124]['id'], 124)
         self.assertIn('礼儀を保ったまま少しずつ近づく関係が好き', questions[124]['text'])
+        self.assertEqual(questions[135]['id'], 135)
+        self.assertIn('身近にいそうな相手より、少し現実離れした相手の方が好き', questions[135]['text'])
 
     def test_edit_question_empty_text_rejected(self):
         headers = self._admin_headers()
@@ -2552,6 +2576,11 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             '生活感のある賑やかさより、余白が多く整った静けさの方が落ち着く？',
         )
         self.assertEqual(app_engine.questions[141].get('category'), 'aesthetic')
+        self.assertEqual(
+            app_engine.questions[135]['text'],
+            '身近にいそうな相手より、少し現実離れした相手の方が好き？',
+        )
+        self.assertEqual(app_engine.questions[135].get('category'), 'world')
 
 
     def test_question_events_are_recorded_without_personal_fields(self):

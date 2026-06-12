@@ -626,20 +626,26 @@ def matrix_health(ctx):
 
 
 def funnel_metrics(ctx):
+    include_details = str(ctx.request.args.get('include_details') or '').lower() in ('1', 'true', 'yes')
     app_stats = ctx.engine.get_stats()
     stats_history = ctx.engine.get_stats_history(days=30)
     dropoff_summary = ctx.engine.get_dropoff_summary(days=30)
     completion = ctx.build_completion_metrics(app_stats, stats_history, dropoff_summary)
-    share_report = ctx.share_event_report(limit=5000)
-    question_report = ctx.question_event_report(limit=5000)
-    return ctx.jsonify({
+    payload = {
         'status': 'ok',
         'completion': completion,
         'dropoff_summary': dropoff_summary,
         'stats_history': stats_history,
-        'share_metrics': share_report.get('metrics', {}),
-        'question_summary': question_report.get('summary', {}),
-    })
+        'details_included': include_details,
+    }
+    if include_details:
+        share_report = ctx.share_event_report(limit=1000)
+        question_report = ctx.question_event_report(limit=1000)
+        payload.update({
+            'share_metrics': share_report.get('metrics', {}),
+            'question_summary': question_report.get('summary', {}),
+        })
+    return ctx.jsonify(payload)
 
 
 def player_fetishes(ctx):

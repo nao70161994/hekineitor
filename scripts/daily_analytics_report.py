@@ -253,7 +253,7 @@ def build_daily_report(
     )
     questions = _safe_fetch_json(
         json_getter,
-        '/api/admin/question_events?limit=5000',
+        f"/api/admin/question_events?limit={_env_int(environ, 'NTFY_QUESTION_EVENT_LIMIT', 500)}",
         {'total': 0, 'dropoff_ranking': [], 'questions': []},
         failures,
     )

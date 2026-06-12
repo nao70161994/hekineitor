@@ -317,7 +317,7 @@ def build_report(
             warn.append(f'result ranking unavailable: {_error_label(exc)}')
 
         try:
-            question_report = json_getter('/api/admin/question_events?limit=5000')
+            question_report = json_getter(f"/api/admin/question_events?limit={_env_int(environ, 'NTFY_QUESTION_EVENT_LIMIT', 500)}")
             admin_signal_available = True
             q_metrics = question_report.get('metrics') or {}
             relation_share = float(q_metrics.get('relation_attachment_share') or 0)
