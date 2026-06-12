@@ -149,6 +149,41 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertNotIn(secret, report['message'])
         self.assertNotIn('ADMIN_READ_TOKEN', report['message'])
 
+    def test_operations_report_keeps_repeated_insights_out_of_warn_severity(self):
+        def fake_json(path):
+            if path == '/health':
+                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+            if path == '/api/admin/preflight':
+                return {'checks': []}
+            if path == '/api/admin/works_health':
+                return {'maintenance': {'works_count': 100}}
+            if path.startswith('/api/admin/result_exposures'):
+                return {'source': 'result_exposures', 'ranking': [{'fetish_name': '制服', 'count': 10, 'total': 10}]}
+            if path.startswith('/api/admin/question_events'):
+                return {
+                    'total': 500,
+                    'metrics': {'relation_attachment_share': 10},
+                    'questions': [{'question_id': 111, 'answered': 23, 'shown': 23, 'yes_rate': 95.7, 'category': 'tone'}],
+                    'dropoff_ranking': [],
+                }
+            if path == '/api/admin/funnel_metrics':
+                return {'completion': {'recent_7_days': {'starts': 30, 'completions': 30, 'completion_rate': 100}}}
+            if path.startswith('/api/admin/share_events'):
+                return {'total': 100, 'metrics': {'result_page_views': 43, 'share_actions': 0}}
+            raise AssertionError(path)
+
+        report = operations_check.build_report(
+            environ={'ADMIN_READ_TOKEN': 'token'},
+            json_getter=fake_json,
+            bytes_getter=lambda path: operations_check.PNG_SIGNATURE + b'abc',
+        )
+
+        self.assertEqual(report['severity'], 'OK')
+        self.assertEqual(report['warn'], [])
+        self.assertIn('YES率90%以上質問', report['message'])
+        self.assertIn('share rate low=0.0%', report['message'])
+        self.assertIn('insights:', report['message'])
+
     def test_operations_report_warns_when_admin_token_missing(self):
         called = []
 

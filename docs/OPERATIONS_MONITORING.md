@@ -72,11 +72,15 @@ WARN:
 
 - heavy_result_ratio が高すぎる
 - relation/attachment 質問表示比率が高すぎる
-- YES率90%以上の質問
 - 離脱率急増候補
-- share率低下
 - feedback/completion率低下
 - 読み取りAPI取得失敗
+
+INSIGHTS（ntfy通知しない・Actionsログ/本文確認用）:
+
+- YES率90%以上の質問
+- share率低下
+- 母数不足または参考値のcompletion_rate
 
 DAILY:
 
@@ -137,6 +141,8 @@ NTFY_SERVER=https://ntfy.sh
 `NTFY_SERVER` は ntfy.sh を使うなら `https://ntfy.sh` で構いません。未設定でもスクリプト側は `https://ntfy.sh` にfallbackしますが、Actions secretsには明示しておくと運用確認が楽です。
 
 ### 3時間ごとの監視
+
+CRITICAL/WARNのときだけntfy通知し、YES率異常や低シェア率のような反復しやすい分析シグナルは `insights` としてActionsログに残します。
 
 ```yaml
 name: Hekineitor Ops Check

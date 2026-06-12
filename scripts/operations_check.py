@@ -258,6 +258,7 @@ def build_report(
     bytes_getter = bytes_getter or (lambda path: fetch_bytes(path, environ=environ, timeout=public_timeout))
     critical: list[str] = []
     warn: list[str] = []
+    insight: list[str] = []
     daily: list[str] = []
 
     health_failed = None
@@ -335,7 +336,7 @@ def build_report(
             ]
             if yes_questions:
                 sample = ', '.join(_question_yes_summary(row) for row in yes_questions[:3])
-                warn.append(f'YES率{yes_threshold:.0f}%以上質問: {sample}')
+                insight.append(f'YES率{yes_threshold:.0f}%以上質問: {sample}')
             drop_threshold = _env_float(environ, 'NTFY_DROPOFF_WARN_RATE', 35.0)
             drop_questions = [
                 row for row in question_report.get('dropoff_ranking', [])
@@ -360,7 +361,7 @@ def build_report(
             if completion_rate is None:
                 warn.append('completion_rate unavailable; start/completion母数が不足しています')
             elif completion_metric.get('starts', 0) >= completion_warn_min and not completion_metric.get('reliable'):
-                warn.append(_completion_label(completion_metric))
+                insight.append(_completion_label(completion_metric))
             min_feedback = _env_float(environ, 'NTFY_FEEDBACK_WARN_RATE', 5.0)
             if completion_metric.get('reliable') and completion_rate is not None and completion_rate < min_feedback:
                 warn.append(f'feedback/completion rate low={_pct(completion_rate)}')
@@ -389,7 +390,7 @@ def build_report(
             if share_total == 0:
                 warn.append('share_events=0; シェア分析ログが未蓄積です')
             if result_views >= _env_int(environ, 'NTFY_SHARE_MIN_RESULT_VIEWS', 20) and share_rate < _env_float(environ, 'NTFY_SHARE_WARN_RATE', 3.0):
-                warn.append(f'share rate low={_pct(share_rate)} ({share_actions}/{result_views})')
+                insight.append(f'share rate low={_pct(share_rate)} ({share_actions}/{result_views})')
         except Exception as exc:
             warn.append(f'share analytics unavailable: {_error_label(exc)}')
     else:
@@ -440,10 +441,13 @@ def build_report(
     if warn:
         lines.append('WARN:')
         lines.extend(f'- {item}' for item in warn[:10])
+    if insight:
+        lines.append('insights:')
+        lines.extend(f'- {item}' for item in insight[:10])
     if daily:
         lines.append('metrics:')
         lines.extend(f'- {item}' for item in daily[:10])
-    return {'severity': severity, 'critical': critical, 'warn': warn, 'message': '\n'.join(lines)}
+    return {'severity': severity, 'critical': critical, 'warn': warn, 'insight': insight, 'message': '\n'.join(lines)}
 
 
 def main(argv: list[str] | None = None) -> int:
