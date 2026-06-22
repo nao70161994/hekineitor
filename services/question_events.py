@@ -3,6 +3,7 @@ import os
 import threading
 from collections import Counter, defaultdict, deque
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from services.csv_safety import csv_text
 from storage import data_path
@@ -172,6 +173,30 @@ def event_count(*, path=None, environ=None):
     return count
 
 
+def _event_local_date(event, timezone_name='Asia/Tokyo'):
+    timestamp = str(event.get('timestamp') or '')
+    if not timestamp:
+        return ''
+    try:
+        parsed = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+    except ValueError:
+        return timestamp[:10]
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    try:
+        zone = ZoneInfo(timezone_name)
+    except Exception:
+        zone = timezone.utc
+    return parsed.astimezone(zone).date().isoformat()
+
+
+def _filter_events_by_date(events, target_date=None, timezone_name='Asia/Tokyo'):
+    if not target_date:
+        return events
+    target = str(target_date)[:10]
+    return [event for event in events if _event_local_date(event, timezone_name) == target]
+
+
 def read_events(*, path=None, environ=None, limit=5000):
     limit = max(1, min(int(limit or 5000), 50000))
     if path is None and event_store.enabled(environ):
@@ -210,8 +235,19 @@ def _question_meta(engine, question_id, event=None):
     return text, category, axis
 
 
-def event_report(engine, *, path=None, environ=None, limit=5000):
-    events = read_events(path=path, environ=environ, limit=limit)
+def event_report(engine, *, path=None, environ=None, limit=5000, date=None, timezone_name='Asia/Tokyo'):
+    effective_limit = max(1, min(int(limit or 5000), 50000))
+    if date:
+        filtered_events = _filter_events_by_date(
+            read_events(path=path, environ=environ, limit=50000),
+            target_date=date,
+            timezone_name=timezone_name,
+        )
+        total_available = len(filtered_events)
+        events = filtered_events[-effective_limit:]
+    else:
+        events = read_events(path=path, environ=environ, limit=effective_limit)
+        total_available = event_count(path=path, environ=environ)
     rows = {}
     category = defaultdict(lambda: Counter({'shown': 0, 'answered': 0, 'yes': 0, 'no': 0, 'unknown': 0, 'dropoff': 0}))
     contribution = defaultdict(lambda: Counter())
@@ -331,6 +367,11 @@ def event_report(engine, *, path=None, environ=None, limit=5000):
 
     return {
         'total': len(events),
+        'loaded': len(events),
+        'limit': effective_limit,
+        'total_available': total_available,
+        'date': str(date)[:10] if date else '',
+        'timezone': timezone_name if date else '',
         'metrics': {
             'shown': totals['question_shown'],
             'answered': totals['question_answered'],

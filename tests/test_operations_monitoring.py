@@ -569,7 +569,7 @@ class OperationsMonitoringTests(unittest.TestCase):
             if path.startswith('/api/admin/share_events'):
                 return {'total': 2, 'metrics': {'result_page_views': 10, 'share_actions': 1}}
             if path.startswith('/api/admin/question_events'):
-                return {'total': 3, 'dropoff_ranking': [], 'questions': []}
+                return {'total': 3, 'loaded': 3, 'total_available': 1203, 'dropoff_ranking': [], 'questions': []}
             raise AssertionError(path)
 
         report = daily_analytics_report.build_daily_report(
@@ -578,10 +578,12 @@ class OperationsMonitoringTests(unittest.TestCase):
         )
 
         self.assertIn('result_source: result_exposures', report['message'])
+        self.assertIn('result_scope: displayed_results', report['message'])
+        self.assertIn('question_events: 1203', report['message'])
         self.assertIn('heavy_result_ratio: 0.0% (参考値) (0/8)', report['message'])
         self.assertIn('白衣 8', report['message'])
-        self.assertIn('/api/admin/result_exposures?days=1&date=2026-05-26&top_n=10', calls)
-        self.assertIn('/api/admin/question_events?limit=500', calls)
+        self.assertIn('/api/admin/result_exposures?days=1&date=2026-05-26&top_n=10&include_secondary=1', calls)
+        self.assertIn('/api/admin/question_events?date=2026-05-26&limit=500', calls)
 
     def test_daily_report_summarizes_safe_analytics(self):
         def fake_json(path):

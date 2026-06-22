@@ -322,7 +322,7 @@ def build_report(
             admin_signal_available = True
             q_metrics = question_report.get('metrics') or {}
             relation_share = float(q_metrics.get('relation_attachment_share') or 0)
-            question_total = int(question_report.get('total') or 0)
+            question_total = int(question_report.get('total_available', question_report.get('total', 0)) or 0)
             daily.append(f'question_events={question_total}')
             if question_total == 0:
                 warn.append('question_events=0; 質問分析ログが未蓄積です')

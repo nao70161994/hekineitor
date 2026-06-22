@@ -365,6 +365,7 @@ def result_exposures_report(ctx):
     top_n = ctx.bounded_int(ctx.request.args.get('top_n'), 10, 1, 50)
     end_date = (ctx.request.args.get('date') or ctx.request.args.get('until') or '').strip()[:10] or None
     include_backfill = str(ctx.request.args.get('include_backfill') or '').lower() in ('1', 'true', 'yes')
+    include_secondary = str(ctx.request.args.get('include_secondary') or '').lower() in ('1', 'true', 'yes')
     fetish_names = _current_fetish_names(ctx)
     report = result_exposure_service.ranking_report(
         environ=ctx.environ,
@@ -374,8 +375,10 @@ def result_exposures_report(ctx):
         top_n=top_n,
         include_backfill=include_backfill,
         fetish_names=fetish_names,
+        include_secondary=include_secondary,
     )
     report['include_backfill'] = include_backfill
+    report['include_secondary'] = include_secondary
     return ctx.jsonify(report)
 
 
@@ -488,12 +491,14 @@ def share_events_report(ctx):
 
 def question_events_report(ctx):
     limit = ctx.bounded_int(ctx.request.args.get('limit'), 1000, 1, 50000)
-    return ctx.jsonify({'status': 'ok', **ctx.question_event_report(limit=limit)})
+    target_date = (ctx.request.args.get('date') or '').strip()[:10]
+    return ctx.jsonify({'status': 'ok', **ctx.question_event_report(limit=limit, date=target_date or None)})
 
 
 def question_events_csv(ctx, kind):
     limit = ctx.bounded_int(ctx.request.args.get('limit'), 5000, 1, 50000)
-    report = ctx.question_event_report(limit=limit)
+    target_date = (ctx.request.args.get('date') or '').strip()[:10]
+    report = ctx.question_event_report(limit=limit, date=target_date or None)
     if kind == 'category':
         body = question_events_service.category_csv(report)
         filename = 'question_events_category.csv'

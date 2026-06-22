@@ -203,6 +203,9 @@ class TestServices(unittest.TestCase):
             question_events.record_event('question_dropoff', question_id=0, answered_count=1, category='relation', path=path)
             question_events.record_event('question_result_contribution', question_id=0, result_name='共依存', answer=1.0, path=path)
             report = question_events.event_report(Engine(), path=path)
+        self.assertEqual(report['total'], 15)
+        self.assertEqual(report['loaded'], 15)
+        self.assertEqual(report['total_available'], 15)
         self.assertEqual(report['metrics']['shown'], 10)
         self.assertEqual(report['metrics']['answered'], 3)
         self.assertEqual(report['metrics']['relation_attachment_share'], 90.9)
@@ -212,6 +215,44 @@ class TestServices(unittest.TestCase):
         self.assertEqual(report['questions'][0]['yes_rate'], 50.0)
         self.assertEqual(report['contribution_ranking'][0]['top_results'][0]['result_name'], '共依存')
         self.assertEqual(report['warnings'][0]['type'], 'relation_attachment_bias')
+
+    def test_question_events_report_exposes_available_total_when_limited(self):
+        class Engine:
+            questions = [{'text': 'Q0', 'category': 'relation', 'axis': 'abstract'}]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'question_events.jsonl')
+            for _ in range(3):
+                question_events.record_event('question_shown', question_id=0, category='relation', path=path)
+            report = question_events.event_report(Engine(), path=path, limit=2)
+
+        self.assertEqual(report['total'], 2)
+        self.assertEqual(report['loaded'], 2)
+        self.assertEqual(report['limit'], 2)
+        self.assertEqual(report['total_available'], 3)
+
+    def test_question_events_report_filters_by_jst_date(self):
+        class Engine:
+            questions = [{'text': 'Q0', 'category': 'relation', 'axis': 'abstract'}]
+
+        def fixed_now(value):
+            return type('Now', (), {
+                'astimezone': lambda self, tz: self,
+                'isoformat': lambda self, timespec='seconds': value,
+            })()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'question_events.jsonl')
+            question_events.record_event('question_shown', question_id=0, category='relation', path=path, now_fn=lambda: fixed_now('2026-06-20T14:59:00+00:00'))
+            question_events.record_event('question_shown', question_id=0, category='relation', path=path, now_fn=lambda: fixed_now('2026-06-20T15:00:00+00:00'))
+            question_events.record_event('question_answered', question_id=0, answer=1.0, category='relation', path=path, now_fn=lambda: fixed_now('2026-06-21T14:59:00+00:00'))
+            question_events.record_event('question_shown', question_id=0, category='relation', path=path, now_fn=lambda: fixed_now('2026-06-21T15:00:00+00:00'))
+            report = question_events.event_report(Engine(), path=path, date='2026-06-21')
+
+        self.assertEqual(report['date'], '2026-06-21')
+        self.assertEqual(report['total_available'], 2)
+        self.assertEqual(report['metrics']['shown'], 1)
+        self.assertEqual(report['metrics']['answered'], 1)
 
     def test_question_events_report_uses_engine_axis_fallback_when_question_axis_missing(self):
         class Engine:
@@ -1218,6 +1259,19 @@ class TestServices(unittest.TestCase):
         self.assertEqual(report['ranking'][0]['source'], 'result_exposures')
         self.assertEqual(report['ranking'][1]['fetish_name'], '白衣')
 
+    def test_result_exposure_ranking_can_count_secondary_displayed_results(self):
+        events = [
+            result_exposure.build_event(133, '制服', 91, rank=1),
+            result_exposure.build_event(1, '激重感情', 88, rank=2),
+            result_exposure.build_event(133, '制服', 77, rank=1),
+            result_exposure.build_event(1, '激重感情', 55, rank=2),
+        ]
+
+        report = result_exposure.ranking_from_events(events, top_n=5, include_secondary=True)
+
+        self.assertEqual(report['total'], 4)
+        self.assertEqual({row['fetish_name']: row['count'] for row in report['ranking']}, {'制服': 2, '激重感情': 2})
+
     def test_result_exposure_ranking_can_normalize_current_fetish_names(self):
         events = [
             result_exposure.build_event(132, '古い名前', 91, rank=1),
@@ -1404,6 +1458,22 @@ class TestServices(unittest.TestCase):
 
         self.assertGreater(factors[1], 1.0)
         self.assertLess(factors[2], 1.0)
+
+    def test_result_exposure_factors_count_secondary_displayed_results(self):
+        class Engine:
+            fetishes = [
+                {'id': 1, 'name': '激重感情'},
+                {'id': 2, 'name': '制服'},
+                {'id': 3, 'name': '眼鏡'},
+            ]
+
+        events = [result_exposure.build_event(2, '制服', 90, rank=1) for _ in range(8)]
+        events.extend(result_exposure.build_event(1, '激重感情', 80, rank=2) for _ in range(8))
+        factors = result_exposure.exposure_factors(Engine.fetishes, events=events)
+
+        self.assertLess(factors[1], 1.0)
+        self.assertLess(factors[2], 1.0)
+        self.assertGreater(factors[3], 1.0)
 
     def test_result_exposure_hard_quota_blocks_non_dominant_heavy_result(self):
         class Engine:
@@ -1714,7 +1784,9 @@ class TestServices(unittest.TestCase):
         self.assertEqual(result['fetish_name'], '白衣')
         self.assertEqual(ctx.session['last_guess_fetish_id'], 2)
         self.assertIn(('exposure', 2, '白衣', 58.0, 1), calls)
+        self.assertIn(('exposure', 1, '激重感情', 62.0, 2), calls)
         self.assertIn(('guessed', 2), calls)
+        self.assertIn(('guessed', 1), calls)
         self.assertIn(('question_result_contribution', '白衣'), calls)
 
     def test_admin_read_token_guard_method_matrix(self):
