@@ -222,6 +222,36 @@ def _top_dropoff_questions(question_report: dict[str, Any], limit: int = 3) -> l
     return rows
 
 
+def _share_breakdown_line(share_report: dict[str, Any]) -> str:
+    by_event = share_report.get('by_event') or {}
+    if not by_event:
+        return ''
+    parts = []
+    for key in ('result_page_view', 'share_button_click', 'x_share_click', 'web_share_success', 'copy_success', 'ogp_png_view', 'ogp_svg_view', 'work_click'):
+        value = int(by_event.get(key) or 0)
+        if value:
+            parts.append(f'{key}={value}')
+    return 'share_events_breakdown: ' + ', '.join(parts) if parts else ''
+
+
+def _question_quality_lines(question_report: dict[str, Any]) -> list[str]:
+    quality = question_report.get('quality') or {}
+    excluded = int(quality.get('excluded_suspicious_events') or 0)
+    if excluded <= 0:
+        return []
+    timestamp_count = int(quality.get('suspicious_timestamp_count') or 0)
+    return [f'question_events_excluded: {excluded} suspicious events ({timestamp_count} timestamp buckets)']
+
+
+def _question_events_line(question_report: dict[str, Any]) -> str:
+    raw_total = int(question_report.get('total_available', question_report.get('raw_loaded', question_report.get('total', 0))) or 0)
+    analyzed = int(question_report.get('total', 0) or 0)
+    excluded = int((question_report.get('quality') or {}).get('excluded_suspicious_events') or 0)
+    if excluded > 0:
+        return f'question_events: {analyzed} analyzed ({raw_total} raw, {excluded} excluded)'
+    return f'question_events: {raw_total}'
+
+
 def _yes_anomaly_questions(question_report: dict[str, Any], limit: int = 3, threshold: float = 90.0, min_answers: int = 20) -> list[str]:
     rows = []
     for row in sorted(question_report.get('questions', []), key=lambda r: (-float(r.get('yes_rate') or 0), -int(r.get('answered') or 0))):
@@ -269,7 +299,7 @@ def build_daily_report(
         failures.append('/api/admin/result_exposures: unavailable')
     share = _safe_fetch_json(
         json_getter,
-        '/api/admin/share_events?days=1&limit=5000',
+        f'/api/admin/share_events?since={target_date}&until={target_date}&limit=5000',
         {'total': 0, 'metrics': {'result_page_views': 0, 'share_actions': 0}},
         failures,
     )
@@ -298,15 +328,22 @@ def build_daily_report(
         _heavy_line(ranking, result_source=result_source),
         f"result_source: {result_source}",
         'result_scope: displayed_results',
+        'note: displayed result counts may exceed plays because compound results are counted separately',
         f"primary_result_source: {primary_result_source}",
         f"share_rate: {_pct(share_rate)} ({share_actions}/{result_views})",
-        f"question_events: {questions.get('total_available', questions.get('total', 0))}",
+        _question_events_line(questions),
         f"share_events: {share.get('total', 0)}",
     ]
     if int(questions.get('total_available', questions.get('total', 0)) or 0) == 0:
         lines.append('note: question_events未蓄積')
+    share_breakdown = _share_breakdown_line(share)
+    if share_breakdown:
+        lines.append(share_breakdown)
+    if result_views == 0 and int(share.get('total') or 0) > 0:
+        lines.append('note: share_rate denominator is 0 because no result_page_view events were recorded')
     if int(share.get('total') or 0) == 0:
         lines.append('note: share_events未蓄積')
+    lines.extend(_question_quality_lines(questions))
     if failures:
         lines.append('partial_failures:')
         lines.extend(f'- {failure}' for failure in failures[:4])

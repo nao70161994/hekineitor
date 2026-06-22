@@ -492,13 +492,15 @@ def share_events_report(ctx):
 def question_events_report(ctx):
     limit = ctx.bounded_int(ctx.request.args.get('limit'), 1000, 1, 50000)
     target_date = (ctx.request.args.get('date') or '').strip()[:10]
-    return ctx.jsonify({'status': 'ok', **ctx.question_event_report(limit=limit, date=target_date or None)})
+    exclude_suspicious = str(ctx.request.args.get('exclude_suspicious') or '1').strip().lower() not in ('0', 'false', 'no', 'off')
+    return ctx.jsonify({'status': 'ok', **ctx.question_event_report(limit=limit, date=target_date or None, exclude_suspicious=exclude_suspicious)})
 
 
 def question_events_csv(ctx, kind):
     limit = ctx.bounded_int(ctx.request.args.get('limit'), 5000, 1, 50000)
     target_date = (ctx.request.args.get('date') or '').strip()[:10]
-    report = ctx.question_event_report(limit=limit, date=target_date or None)
+    exclude_suspicious = str(ctx.request.args.get('exclude_suspicious') or '1').strip().lower() not in ('0', 'false', 'no', 'off')
+    report = ctx.question_event_report(limit=limit, date=target_date or None, exclude_suspicious=exclude_suspicious)
     if kind == 'category':
         body = question_events_service.category_csv(report)
         filename = 'question_events_category.csv'
@@ -810,6 +812,9 @@ def operations_snapshot(ctx):
         },
         'question_events_summary': {
             'total': question_events.get('total', 0),
+            'raw_loaded': question_events.get('raw_loaded', question_events.get('total', 0)),
+            'total_available': question_events.get('total_available', question_events.get('total', 0)),
+            'quality': question_events.get('quality', {}),
             'summary': question_events.get('summary', {}),
             'warnings': question_events.get('warnings', []),
         },

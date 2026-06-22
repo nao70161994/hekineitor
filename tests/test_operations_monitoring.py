@@ -3,7 +3,7 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request
 
-from scripts import daily_analytics_report, ntfy_notifier, operations_check
+from scripts import analytics_data_diff, daily_analytics_report, ntfy_notifier, operations_check
 
 
 class FakeResponse:
@@ -20,6 +20,31 @@ class FakeResponse:
 
 
 class OperationsMonitoringTests(unittest.TestCase):
+    def test_analytics_data_diff_findings_surface_known_data_gaps(self):
+        reports = {
+            'question_filtered': {'total': 210, 'quality': {'excluded_suspicious_events': 0}},
+            'question_raw': {'raw_loaded': 210, 'total_available': 210},
+            'share': {'total': 2, 'metrics': {'result_page_views': 1, 'share_actions': 0}, 'by_event': {'result_page_view': 1, 'ogp_png_view': 1}},
+            'result_displayed': {'total': 3, 'ranking': [{'fetish_name': '制服', 'count': 3, 'total': 3}]},
+            'result_primary': {'total': 3, 'ranking': [{'fetish_name': '制服', 'count': 3, 'total': 3}]},
+        }
+
+        findings = analytics_data_diff._date_findings(
+            '2026-06-21',
+            reports,
+            expected_question_events={'2026-06-21': 500},
+            expected_share_events={'2026-06-21': 1},
+            expected_results=['激重感情'],
+        )
+
+        self.assertIn('question_events mismatch previous_log=500 current_api=210', findings)
+        self.assertIn('share_events mismatch previous_log=1 current_api=2', findings)
+        self.assertIn('share_events contain no share actions; totals are views/OGP/work events only', findings)
+        self.assertIn('displayed and primary rankings match; observed bias is not from secondary result inflation', findings)
+        self.assertIn('result sample is small primary_total=3; treat dominance as reference only', findings)
+        self.assertIn('primary result dominated by 制服: 3/3 (100.0%)', findings)
+        self.assertIn('expected observed result missing from result_exposures ranking: 激重感情', findings)
+
     def test_ntfy_skips_when_topic_is_unset(self):
         result = ntfy_notifier.notify(
             'title',
@@ -588,6 +613,7 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('/api/admin/result_exposures?days=1&date=2026-05-26&top_n=10&include_secondary=1', calls)
         self.assertIn('/api/admin/result_exposures?days=1&date=2026-05-26&top_n=10', calls)
         self.assertIn('/api/admin/question_events?date=2026-05-26&limit=500', calls)
+        self.assertIn('/api/admin/share_events?since=2026-05-26&until=2026-05-26&limit=5000', calls)
 
     def test_daily_report_summarizes_safe_analytics(self):
         def fake_json(path):
@@ -597,10 +623,17 @@ class OperationsMonitoringTests(unittest.TestCase):
                 self.assertIn('date=2026-05-26', path)
                 return {'ranking': [{'fetish_name': '共依存', 'guessed': 40, 'total': 40}, {'fetish_name': '眼鏡', 'guessed': 60, 'total': 60}]}
             if path.startswith('/api/admin/share_events'):
-                return {'total': 12, 'metrics': {'result_page_views': 50, 'share_actions': 5}}
+                return {
+                    'total': 12,
+                    'metrics': {'result_page_views': 50, 'share_actions': 5},
+                    'by_event': {'result_page_view': 50, 'share_button_click': 4, 'copy_success': 1},
+                }
             if path.startswith('/api/admin/question_events'):
                 return {
                     'total': 30,
+                    'raw_loaded': 38,
+                    'total_available': 38,
+                    'quality': {'excluded_suspicious_events': 8, 'suspicious_timestamp_count': 1},
                     'dropoff_ranking': [{'question_id': 3, 'question_text': '少人数の方が楽？', 'shown': 10, 'dropoff': 2, 'dropoff_rate': 20}],
                     'questions': [{'question_id': 4, 'question_text': '整った静かな雰囲気？', 'answered': 20, 'shown': 21, 'yes_rate': 92, 'category': 'aesthetic'}],
                 }
@@ -619,6 +652,9 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('heavy_result_ratio: unavailable (stats_history_fallback)', report['message'])
         self.assertIn('note: result stats are legacy fallback', report['message'])
         self.assertIn('share_rate: 10.0%', report['message'])
+        self.assertIn('share_events_breakdown: result_page_view=50, share_button_click=4, copy_success=1', report['message'])
+        self.assertIn('question_events: 30 analyzed (38 raw, 8 excluded)', report['message'])
+        self.assertIn('question_events_excluded: 8 suspicious events (1 timestamp buckets)', report['message'])
         self.assertIn('Q3 20.0% (2/10) 少人数の方が楽？', report['message'])
         self.assertIn('Q4 92.0% (20/21, aesthetic)', report['message'])
         self.assertNotIn('note: question_events未蓄積', report['message'])
@@ -683,7 +719,7 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('/api/admin/funnel_metrics: TimeoutError', report['message'])
         self.assertIn('result_source: unavailable', report['message'])
         self.assertIn('partial_failures:', report['message'])
-        self.assertIn('/api/admin/share_events?days=1&limit=5000: TimeoutError', report['message'])
+        self.assertIn('/api/admin/share_events?since=2026-05-26&until=2026-05-26&limit=5000: TimeoutError', report['message'])
         self.assertIn('note: share_events未蓄積', report['message'])
 
     def test_daily_report_uses_jst_yesterday_and_latest_active_stats(self):
@@ -729,6 +765,34 @@ class OperationsMonitoringTests(unittest.TestCase):
         }, '2026-05-26')
         self.assertIsNone(stats['completion_rate'])
         self.assertIn('unavailable', daily_analytics_report._completion_line(stats))
+
+    def test_operations_report_surfaces_log_quality_gaps(self):
+        def fake_json(path):
+            if path == '/health':
+                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+            if path == '/api/admin/preflight':
+                return {'checks': []}
+            if path == '/api/admin/works_health':
+                return {'maintenance': {'works_count': 100}}
+            if path.startswith('/api/admin/recent_fetish_ranking'):
+                return {'ranking': []}
+            if path.startswith('/api/admin/question_events'):
+                return {'total': 4, 'total_available': 16, 'quality': {'excluded_suspicious_events': 12}, 'metrics': {}, 'questions': [], 'dropoff_ranking': []}
+            if path == '/api/admin/funnel_metrics':
+                return {'completion': {'recent_7_days': {'starts': 30, 'completions': 15, 'completion_rate': 50}}}
+            if path.startswith('/api/admin/share_events'):
+                return {'total': 1, 'metrics': {'result_page_views': 0, 'share_actions': 1}, 'by_event': {'copy_success': 1}}
+            raise AssertionError(path)
+
+        report = operations_check.build_report(
+            environ={'ADMIN_READ_TOKEN': 'token'},
+            json_getter=fake_json,
+            bytes_getter=lambda path: operations_check.PNG_SIGNATURE + b'abc',
+        )
+
+        self.assertIn('question_events suspicious excluded=12', report['message'])
+        self.assertIn('share_events_breakdown=copy_success=1', report['message'])
+        self.assertIn('share_rate denominator=0', report['message'])
 
     def test_operations_single_5xx_is_warn_not_critical(self):
         def fake_json(path):

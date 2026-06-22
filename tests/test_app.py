@@ -1584,6 +1584,10 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('axis_stats', data)
         self.assertIn('compound_works', data)
         self.assertIn('analysis_logs', data)
+        self.assertIn('question_events_summary', data)
+        self.assertIn('raw_loaded', data['question_events_summary'])
+        self.assertIn('total_available', data['question_events_summary'])
+        self.assertIn('quality', data['question_events_summary'])
         body = res.data.decode('utf-8', errors='replace')
         for forbidden in ('secret-key-sentinel', 'postgres://secret-db-url', 'testpass', 'csrf_token', 'session_id', 'user_agent'):
             self.assertNotIn(forbidden, body)
@@ -2584,6 +2588,32 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('text/csv', questions_csv.content_type)
         self.assertIn('question_id,category,axis,shown', questions_csv.data.decode('utf-8').splitlines()[0])
         self.assertIn('category,shown,shown_share', category_csv.data.decode('utf-8').splitlines()[0])
+
+    def test_admin_question_events_can_include_suspicious_events_for_diffing(self):
+        headers = self._admin_headers()
+
+        def fixed_now(value):
+            return type('Now', (), {
+                'astimezone': lambda self, tz: self,
+                'isoformat': lambda self, timespec='seconds': value,
+            })()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'question_events.jsonl')
+            timestamp = '2026-06-21T00:00:00+00:00'
+            question_events_service.record_event('question_shown', question_id=1, path=path, now_fn=lambda: fixed_now(timestamp))
+            for _ in range(12):
+                question_events_service.record_event('question_answered', question_id=1, answer=1.0, path=path, now_fn=lambda: fixed_now(timestamp))
+            with patch.dict(os.environ, {'QUESTION_EVENT_LOG_PATH': path}):
+                filtered = self.client.get('/api/admin/question_events?exclude_suspicious=1', headers=headers)
+                raw = self.client.get('/api/admin/question_events?exclude_suspicious=0', headers=headers)
+
+        self.assertEqual(filtered.status_code, 200)
+        self.assertEqual(raw.status_code, 200)
+        self.assertEqual(filtered.get_json()['total'], 0)
+        self.assertEqual(filtered.get_json()['quality']['excluded_suspicious_events'], 13)
+        self.assertEqual(raw.get_json()['total'], 13)
+        self.assertEqual(raw.get_json()['quality']['excluded_suspicious_events'], 0)
 
     def test_high_yes_rate_questions_are_reworded_to_tradeoffs(self):
         from app import engine as app_engine

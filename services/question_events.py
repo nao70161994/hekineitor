@@ -220,6 +220,62 @@ def read_events(*, path=None, environ=None, limit=5000):
     return list(rows)
 
 
+def _timestamp_second(event):
+    return str(event.get('timestamp') or '')[:19]
+
+
+def _suspicious_timestamp_keys(events, *, max_events_per_second=30, min_same_answer_events=12, same_answer_ratio=0.95):
+    by_second = defaultdict(list)
+    for event in events:
+        key = _timestamp_second(event)
+        if key:
+            by_second[key].append(event)
+    suspicious = set()
+    details = []
+    max_events = max(1, int(max_events_per_second or 30))
+    min_answers = max(1, int(min_same_answer_events or 12))
+    ratio_threshold = max(0.0, min(float(same_answer_ratio or 0.95), 1.0))
+    for key, rows in by_second.items():
+        reasons = []
+        if len(rows) >= max_events:
+            reasons.append('timestamp_burst')
+        answer_buckets = [row.get('answer_bucket') for row in rows if row.get('event_name') == 'question_answered']
+        if len(answer_buckets) >= min_answers:
+            bucket_counts = Counter(answer_buckets)
+            _bucket, count = bucket_counts.most_common(1)[0]
+            if count / len(answer_buckets) >= ratio_threshold:
+                reasons.append('same_answer_burst')
+        if reasons:
+            suspicious.add(key)
+            details.append({
+                'timestamp': key,
+                'event_count': len(rows),
+                'answered': len(answer_buckets),
+                'reasons': reasons,
+            })
+    details.sort(key=lambda row: (-row['event_count'], row['timestamp']))
+    return suspicious, details
+
+
+def _filter_suspicious_events(events, *, exclude_suspicious=True):
+    suspicious_keys, details = _suspicious_timestamp_keys(events)
+    if not exclude_suspicious or not suspicious_keys:
+        return list(events), {
+            'suspicious_timestamp_count': len(suspicious_keys),
+            'suspicious_event_count': sum(row['event_count'] for row in details),
+            'excluded_suspicious_events': 0,
+            'suspicious_samples': details[:10],
+        }
+    filtered = [event for event in events if _timestamp_second(event) not in suspicious_keys]
+    excluded = len(events) - len(filtered)
+    return filtered, {
+        'suspicious_timestamp_count': len(suspicious_keys),
+        'suspicious_event_count': excluded,
+        'excluded_suspicious_events': excluded,
+        'suspicious_samples': details[:10],
+    }
+
+
 def _question_meta(engine, question_id, event=None):
     event = event or {}
     question = {}
@@ -235,7 +291,7 @@ def _question_meta(engine, question_id, event=None):
     return text, category, axis
 
 
-def event_report(engine, *, path=None, environ=None, limit=5000, date=None, timezone_name='Asia/Tokyo'):
+def event_report(engine, *, path=None, environ=None, limit=5000, date=None, timezone_name='Asia/Tokyo', exclude_suspicious=True):
     effective_limit = max(1, min(int(limit or 5000), 50000))
     if date:
         filtered_events = _filter_events_by_date(
@@ -244,10 +300,11 @@ def event_report(engine, *, path=None, environ=None, limit=5000, date=None, time
             timezone_name=timezone_name,
         )
         total_available = len(filtered_events)
-        events = filtered_events[-effective_limit:]
+        raw_events = filtered_events[-effective_limit:]
     else:
-        events = read_events(path=path, environ=environ, limit=effective_limit)
+        raw_events = read_events(path=path, environ=environ, limit=effective_limit)
         total_available = event_count(path=path, environ=environ)
+    events, quality = _filter_suspicious_events(raw_events, exclude_suspicious=exclude_suspicious)
     rows = {}
     category = defaultdict(lambda: Counter({'shown': 0, 'answered': 0, 'yes': 0, 'no': 0, 'unknown': 0, 'dropoff': 0}))
     contribution = defaultdict(lambda: Counter())
@@ -351,6 +408,11 @@ def event_report(engine, *, path=None, environ=None, limit=5000, date=None, time
     relation_attachment_shown = sum(row['shown'] for row in category_rows if row['category'] in ('relation', 'attachment'))
     relation_attachment_share = round(relation_attachment_shown / total_shown * 100, 1) if total_shown else 0
     warnings = []
+    if quality.get('suspicious_timestamp_count'):
+        warnings.append({
+            'type': 'suspicious_question_event_burst',
+            'message': f"同一秒の大量/固定回答らしき question_events を {quality.get('excluded_suspicious_events', 0)} 件、分析対象から除外しました。",
+        })
     if total_shown >= 10 and relation_attachment_share >= 55:
         warnings.append({
             'type': 'relation_attachment_bias',
@@ -368,8 +430,10 @@ def event_report(engine, *, path=None, environ=None, limit=5000, date=None, time
     return {
         'total': len(events),
         'loaded': len(events),
+        'raw_loaded': len(raw_events),
         'limit': effective_limit,
         'total_available': total_available,
+        'quality': quality,
         'date': str(date)[:10] if date else '',
         'timezone': timezone_name if date else '',
         'metrics': {

@@ -231,6 +231,34 @@ class TestServices(unittest.TestCase):
         self.assertEqual(report['limit'], 2)
         self.assertEqual(report['total_available'], 3)
 
+    def test_question_events_report_excludes_suspicious_same_second_burst(self):
+        class Engine:
+            questions = [{'text': 'Q0', 'category': 'relation', 'axis': 'abstract'}]
+
+        def fixed_now(value):
+            return type('Now', (), {
+                'astimezone': lambda self, tz: self,
+                'isoformat': lambda self, timespec='seconds': value,
+            })()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'question_events.jsonl')
+            timestamp = '2026-06-21T00:00:00+00:00'
+            question_events.record_event('question_shown', question_id=0, category='relation', path=path, now_fn=lambda: fixed_now(timestamp))
+            for _ in range(12):
+                question_events.record_event('question_answered', question_id=0, answer=1.0, category='relation', path=path, now_fn=lambda: fixed_now(timestamp))
+            report = question_events.event_report(Engine(), path=path)
+            unfiltered = question_events.event_report(Engine(), path=path, exclude_suspicious=False)
+
+        self.assertEqual(report['raw_loaded'], 13)
+        self.assertEqual(report['total'], 0)
+        self.assertEqual(report['quality']['suspicious_timestamp_count'], 1)
+        self.assertEqual(report['quality']['excluded_suspicious_events'], 13)
+        self.assertEqual(report['warnings'][0]['type'], 'suspicious_question_event_burst')
+        self.assertEqual(unfiltered['total'], 13)
+        self.assertEqual(unfiltered['quality']['suspicious_event_count'], 13)
+        self.assertEqual(unfiltered['quality']['excluded_suspicious_events'], 0)
+
     def test_question_events_report_filters_by_jst_date(self):
         class Engine:
             questions = [{'text': 'Q0', 'category': 'relation', 'axis': 'abstract'}]

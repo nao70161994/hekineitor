@@ -324,6 +324,10 @@ def build_report(
             relation_share = float(q_metrics.get('relation_attachment_share') or 0)
             question_total = int(question_report.get('total_available', question_report.get('total', 0)) or 0)
             daily.append(f'question_events={question_total}')
+            q_quality = question_report.get('quality') or {}
+            excluded = int(q_quality.get('excluded_suspicious_events') or 0)
+            if excluded:
+                insight.append(f'question_events suspicious excluded={excluded}')
             if question_total == 0:
                 warn.append('question_events=0; 質問分析ログが未蓄積です')
             if relation_share >= _env_float(environ, 'NTFY_RELATION_ATTACHMENT_WARN_RATIO', 55.0):
@@ -387,6 +391,16 @@ def build_report(
             share_total = int(share_report.get('total') or 0)
             daily.append(f'share_events={share_total}')
             daily.append(f'share_rate={_pct(share_rate)}')
+            by_event = share_report.get('by_event') or {}
+            event_parts = [
+                f'{key}={int(by_event.get(key) or 0)}'
+                for key in ('result_page_view', 'share_button_click', 'x_share_click', 'web_share_success', 'copy_success')
+                if int(by_event.get(key) or 0)
+            ]
+            if event_parts:
+                daily.append('share_events_breakdown=' + ','.join(event_parts))
+            if result_views == 0 and share_total > 0:
+                insight.append('share_rate denominator=0; result_page_view events are missing while other share events exist')
             if share_total == 0:
                 warn.append('share_events=0; シェア分析ログが未蓄積です')
             if result_views >= _env_int(environ, 'NTFY_SHARE_MIN_RESULT_VIEWS', 20) and share_rate < _env_float(environ, 'NTFY_SHARE_WARN_RATE', 3.0):
