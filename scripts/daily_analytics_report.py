@@ -161,7 +161,7 @@ def _heavy_line(ranking: list[dict[str, Any]], *, result_source: str = 'result_e
 
 def _fetch_result_ranking(json_getter: Callable[[str], dict[str, Any]], *, target_date: str, top_n: int = 10) -> tuple[list[dict[str, Any]], str]:
     try:
-        exposure = json_getter(f'/api/admin/result_exposures?days=1&date={target_date}&top_n={top_n}')
+        exposure = json_getter(f'/api/admin/result_exposures?days=1&date={target_date}&top_n={top_n}&include_secondary=1')
         ranking = exposure.get('ranking') or []
         if ranking:
             return ranking, str(exposure.get('source') or 'result_exposures')
@@ -253,7 +253,7 @@ def build_daily_report(
     )
     questions = _safe_fetch_json(
         json_getter,
-        f"/api/admin/question_events?limit={_env_int(environ, 'NTFY_QUESTION_EVENT_LIMIT', 500)}",
+        f"/api/admin/question_events?date={target_date}&limit={_env_int(environ, 'NTFY_QUESTION_EVENT_LIMIT', 500)}",
         {'total': 0, 'dropoff_ranking': [], 'questions': []},
         failures,
     )
@@ -274,11 +274,12 @@ def build_daily_report(
         _completion_line(stats),
         _heavy_line(ranking, result_source=result_source),
         f"result_source: {result_source}",
+        'result_scope: displayed_results',
         f"share_rate: {_pct(share_rate)} ({share_actions}/{result_views})",
-        f"question_events: {questions.get('total', 0)}",
+        f"question_events: {questions.get('total_available', questions.get('total', 0))}",
         f"share_events: {share.get('total', 0)}",
     ]
-    if int(questions.get('total') or 0) == 0:
+    if int(questions.get('total_available', questions.get('total', 0)) or 0) == 0:
         lines.append('note: question_events未蓄積')
     if int(share.get('total') or 0) == 0:
         lines.append('note: share_events未蓄積')

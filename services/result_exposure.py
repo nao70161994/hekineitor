@@ -306,7 +306,7 @@ def canonical_event_identity(event, current_names):
     return event_name, event_name
 
 
-def ranking_from_events(events, *, top_n=10, include_backfill=False, fetish_names=None):
+def ranking_from_events(events, *, top_n=10, include_backfill=False, fetish_names=None, include_secondary=False):
     try:
         limit = max(1, min(int(top_n or 10), 100))
     except (TypeError, ValueError):
@@ -315,7 +315,7 @@ def ranking_from_events(events, *, top_n=10, include_backfill=False, fetish_name
     names = {}
     current_names = _fetish_name_map(fetish_names)
     for event in events:
-        if int(event.get('rank') or 1) != 1:
+        if not include_secondary and int(event.get('rank') or 1) != 1:
             continue
         if not include_backfill and event.get('source') == BACKFILL_SOURCE:
             continue
@@ -446,15 +446,16 @@ def recent_events_report(*, path=None, environ=None, limit=20, include_backfill=
     }
 
 
-def ranking_report(*, path=None, environ=None, limit=5000, days=None, date=None, until=None, top_n=10, include_backfill=False, fetish_names=None):
+def ranking_report(*, path=None, environ=None, limit=5000, days=None, date=None, until=None, top_n=10, include_backfill=False, fetish_names=None, include_secondary=False):
     events = read_events(path=path, environ=environ, limit=limit)
     filtered = filter_events(events, days=days, date=date, until=until)
-    report = ranking_from_events(filtered, top_n=top_n, include_backfill=include_backfill, fetish_names=fetish_names)
+    report = ranking_from_events(filtered, top_n=top_n, include_backfill=include_backfill, fetish_names=fetish_names, include_secondary=include_secondary)
     report.update({
         'status': 'ok',
         'source': 'result_exposures',
         'days': days,
         'date': date or until,
+        'include_secondary': bool(include_secondary),
     })
     return report
 
@@ -569,11 +570,11 @@ def event_count(*, path=None, environ=None):
     return len(read_events(path=path, environ=environ, limit=5000))
 
 
-def _counts(events, current_names=None):
+def _counts(events, current_names=None, *, include_secondary=True):
     current_names = current_names or {}
     counter = Counter()
     for event in events:
-        if int(event.get('rank') or 1) != 1:
+        if not include_secondary and int(event.get('rank') or 1) != 1:
             continue
         key, _name = canonical_event_identity(event, current_names)
         if isinstance(key, int):

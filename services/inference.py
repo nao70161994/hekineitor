@@ -158,6 +158,13 @@ def make_guess(ctx, answers):
             result.get('probability'),
             rank=1,
         )
+        for rank, item in enumerate(result.get('compound', []), start=2):
+            record_result_exposure(
+                item.get('fetish_id'),
+                item.get('fetish_name', ''),
+                item.get('probability'),
+                rank=rank,
+            )
     guessed_ids = {result['fetish_id']} | {item['fetish_id'] for item in result.get('compound', [])}
     for fetish_id in guessed_ids:
         ctx.engine.log_guessed(fetish_id)
