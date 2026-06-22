@@ -579,10 +579,14 @@ class OperationsMonitoringTests(unittest.TestCase):
 
         self.assertIn('result_source: result_exposures', report['message'])
         self.assertIn('result_scope: displayed_results', report['message'])
+        self.assertIn('primary_result_source: result_exposures', report['message'])
         self.assertIn('question_events: 1203', report['message'])
         self.assertIn('heavy_result_ratio: 0.0% (参考値) (0/8)', report['message'])
+        self.assertIn('top_results_displayed:', report['message'])
+        self.assertIn('top_results_primary:', report['message'])
         self.assertIn('白衣 8', report['message'])
         self.assertIn('/api/admin/result_exposures?days=1&date=2026-05-26&top_n=10&include_secondary=1', calls)
+        self.assertIn('/api/admin/result_exposures?days=1&date=2026-05-26&top_n=10', calls)
         self.assertIn('/api/admin/question_events?date=2026-05-26&limit=500', calls)
 
     def test_daily_report_summarizes_safe_analytics(self):

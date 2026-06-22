@@ -41,11 +41,11 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
         )
         self.assertAlmostEqual(
             engine_question_selection.question_yes_balance_multiplier({'answered': 20, 'yes_rate': 100}),
-            0.65,
+            0.4,
         )
         self.assertAlmostEqual(
             engine_question_selection.question_yes_balance_multiplier({'answered': 20, 'yes_rate': 90}),
-            0.72,
+            0.52,
         )
 
     def test_best_question_penalizes_high_yes_rate_question_when_alternatives_exist(self):

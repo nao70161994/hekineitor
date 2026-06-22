@@ -159,14 +159,24 @@ def _heavy_line(ranking: list[dict[str, Any]], *, result_source: str = 'result_e
     return f"heavy_result_ratio: {_pct(stats['ratio'])}{suffix} ({stats['heavy']}/{stats['total']})"
 
 
-def _fetch_result_ranking(json_getter: Callable[[str], dict[str, Any]], *, target_date: str, top_n: int = 10) -> tuple[list[dict[str, Any]], str]:
+def _fetch_result_ranking(
+    json_getter: Callable[[str], dict[str, Any]],
+    *,
+    target_date: str,
+    top_n: int = 10,
+    include_secondary: bool = False,
+    allow_fallback: bool = True,
+) -> tuple[list[dict[str, Any]], str]:
+    suffix = '&include_secondary=1' if include_secondary else ''
     try:
-        exposure = json_getter(f'/api/admin/result_exposures?days=1&date={target_date}&top_n={top_n}&include_secondary=1')
+        exposure = json_getter(f'/api/admin/result_exposures?days=1&date={target_date}&top_n={top_n}{suffix}')
         ranking = exposure.get('ranking') or []
         if ranking:
             return ranking, str(exposure.get('source') or 'result_exposures')
     except Exception:
         pass
+    if not allow_fallback:
+        return [], 'unavailable'
     try:
         fallback = json_getter(f'/api/admin/recent_fetish_ranking?days=1&date={target_date}&top_n={top_n}')
         return fallback.get('ranking') or [], 'stats_history_fallback'
@@ -242,7 +252,19 @@ def build_daily_report(
     funnel_failures_before = len(failures)
     funnel = _safe_fetch_json(json_getter, '/api/admin/funnel_metrics', {'stats_history': []}, failures)
     funnel_available = len(failures) == funnel_failures_before
-    ranking, result_source = _fetch_result_ranking(json_getter, target_date=target_date, top_n=10)
+    ranking, result_source = _fetch_result_ranking(
+        json_getter,
+        target_date=target_date,
+        top_n=10,
+        include_secondary=True,
+    )
+    primary_ranking, primary_result_source = _fetch_result_ranking(
+        json_getter,
+        target_date=target_date,
+        top_n=10,
+        include_secondary=False,
+        allow_fallback=False,
+    )
     if result_source == 'unavailable':
         failures.append('/api/admin/result_exposures: unavailable')
     share = _safe_fetch_json(
@@ -264,6 +286,7 @@ def build_daily_report(
     share_actions = int(share_metrics.get('share_actions') or 0)
     share_rate = _ratio(share_actions, result_views)
     top_results = _top_results(ranking)
+    primary_top_results = _top_results(primary_ranking)
     dropoff = _top_dropoff_questions(questions)
     yes_anomaly = _yes_anomaly_questions(questions)
 
@@ -275,6 +298,7 @@ def build_daily_report(
         _heavy_line(ranking, result_source=result_source),
         f"result_source: {result_source}",
         'result_scope: displayed_results',
+        f"primary_result_source: {primary_result_source}",
         f"share_rate: {_pct(share_rate)} ({share_actions}/{result_views})",
         f"question_events: {questions.get('total_available', questions.get('total', 0))}",
         f"share_events: {share.get('total', 0)}",
@@ -289,8 +313,11 @@ def build_daily_report(
     if result_source == 'stats_history_fallback':
         lines.append('note: result stats are legacy fallback; use result_exposures/recent for deploy checks')
     if top_results:
-        lines.append('top_results:')
+        lines.append('top_results_displayed:')
         lines.extend(f'- {item}' for item in top_results)
+    if primary_top_results:
+        lines.append('top_results_primary:')
+        lines.extend(f'- {item}' for item in primary_top_results)
     if dropoff:
         lines.append('dropoff_questions:')
         lines.extend(f'- {item}' for item in dropoff)

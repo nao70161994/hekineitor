@@ -33,7 +33,7 @@ def question_category(engine, question_id):
 
 
 
-def question_yes_balance_multiplier(row, *, min_answers=20, max_penalty=0.35):
+def question_yes_balance_multiplier(row, *, min_answers=20, max_penalty=0.6):
     try:
         answered = int(row.get('answered') or 0)
         yes_rate = float(row.get('yes_rate') or 0)
@@ -55,7 +55,7 @@ def best_question(engine, answers, asked, idk_streak=0, *, question_axes, focus_
     focus_threshold = engine.config.get('focus_threshold', focus_threshold_default)
     ucb_c = engine.config.get('ucb_explore_c', ucb_explore_c)
     balance_min_answers = engine.config.get('question_yes_balance_min_answers', 20)
-    balance_max_penalty = engine.config.get('question_yes_balance_max_penalty', 0.35)
+    balance_max_penalty = engine.config.get('question_yes_balance_max_penalty', 0.6)
     question_balance_stats = question_balance_stats or {}
     top_p = max(probs)
     ranked_by_prob = sorted(range(nf), key=lambda i: probs[i], reverse=True)

@@ -667,6 +667,40 @@ def player_fetishes(ctx):
     return ctx.jsonify({'status': 'ok', 'total': len(rows), 'player_fetishes': rows})
 
 
+def added_fetishes(ctx):
+    seed_rows = ctx.load_json_file('fetishes.json', default=[])
+    seed_ids = {row.get('id') for row in seed_rows if isinstance(row, dict)}
+    seed_names = {str(row.get('name') or '') for row in seed_rows if isinstance(row, dict)}
+    rows = []
+    for fetish in ctx.engine.fetishes:
+        fetish_id = fetish.get('id')
+        name = str(fetish.get('name') or '')
+        if fetish_id in seed_ids and name in seed_names:
+            continue
+        if fetish_id in seed_ids and name:
+            source = 'seed_name_changed'
+        elif isinstance(fetish_id, int) and fetish_id >= ctx.player_fetish_base_id:
+            source = 'player_added'
+        elif fetish_id not in seed_ids:
+            source = 'promoted_or_db_added'
+        else:
+            source = 'unknown_added'
+        rows.append({
+            'id': fetish_id,
+            'name': name,
+            'source': source,
+            'player_id': bool(isinstance(fetish_id, int) and fetish_id >= ctx.player_fetish_base_id),
+            'seed_id_present': fetish_id in seed_ids,
+            'seed_name_present': name in seed_names,
+            'works_count': len(fetish.get('works') or []),
+        })
+    rows.sort(key=lambda row: (0 if row['source'] == 'player_added' else 1, row.get('id') or 0, row.get('name') or ''))
+    counts = {}
+    for row in rows:
+        counts[row['source']] = counts.get(row['source'], 0) + 1
+    return ctx.jsonify({'status': 'ok', 'total': len(rows), 'counts': counts, 'added_fetishes': rows})
+
+
 def promoted_fetish_history(ctx):
     rows = ctx.recent_audit(ctx.bounded_int(ctx.request.args.get('limit'), 100, 1, 500))
     promotions = []
@@ -815,6 +849,7 @@ def admin_read_overview(ctx):
             '/api/admin/matrix_health',
             '/api/admin/funnel_metrics',
             '/api/admin/player_fetishes',
+            '/api/admin/added_fetishes',
             '/api/admin/promoted_fetish_history',
             '/api/admin/fetish_log_rows',
             '/api/admin/low_exposure_fetishes',
@@ -1797,6 +1832,11 @@ def create_blueprint(ctx_factory, require_admin, require_admin_or_read=None):
     @require_admin_or_read
     def player_fetishes_route():
         return player_fetishes(ctx_factory())
+
+    @bp.route('/api/admin/added_fetishes', methods=['GET'])
+    @require_admin_or_read
+    def added_fetishes_route():
+        return added_fetishes(ctx_factory())
 
     @bp.route('/api/admin/promoted_fetish_history', methods=['GET'])
     @require_admin_or_read

@@ -1529,6 +1529,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('/api/admin/operations_snapshot', data['available_endpoints'])
         self.assertIn('/api/admin/compound_works', data['available_endpoints'])
         self.assertIn('/api/admin/low_exposure_fetishes', data['available_endpoints'])
+        self.assertIn('/api/admin/added_fetishes', data['available_endpoints'])
         self.assertIn('/api/admin/result_exposures', data['available_endpoints'])
         self.assertIn('/api/admin/result_exposures/recent', data['available_endpoints'])
         self.assertIn('/api/admin/result_exposure_trend', data['available_endpoints'])
@@ -1541,6 +1542,26 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('result_diversity', data['improvement_candidates'])
         self.assertIn('low_learning_candidates', data)
         self.assertIn('least_exposed', data['low_learning_candidates'])
+
+    def test_admin_added_fetishes_reports_db_only_and_player_rows(self):
+        from app import engine as app_engine
+        original_fetishes = list(app_engine.fetishes)
+        try:
+            app_engine.fetishes = original_fetishes + [
+                {'id': 128, 'name': 'DB追加テスト', 'desc': 'db only', 'works': []},
+                {'id': PLAYER_FETISH_BASE_ID + 9, 'name': 'プレイヤー追加テスト', 'desc': 'player', 'works': [{'title': 'A'}]},
+            ]
+            with patch.dict(os.environ, {'ADMIN_READ_TOKEN': 'read-token', 'ADMIN_PASS': 'testpass'}):
+                res = self.client.get('/api/admin/added_fetishes', headers=self._admin_read_headers())
+        finally:
+            app_engine.fetishes = original_fetishes
+
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        by_name = {row['name']: row for row in data['added_fetishes']}
+        self.assertEqual(by_name['DB追加テスト']['source'], 'promoted_or_db_added')
+        self.assertEqual(by_name['プレイヤー追加テスト']['source'], 'player_added')
+        self.assertEqual(data['counts']['player_added'], 1)
 
     def test_operations_snapshot_exposes_admin_analysis_without_secrets(self):
         env = {

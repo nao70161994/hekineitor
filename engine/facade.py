@@ -453,7 +453,7 @@ class Engine:
         'ucb_explore_c':   0.05,
         'focus_threshold': 0.40,
         'question_yes_balance_min_answers': 20.0,
-        'question_yes_balance_max_penalty': 0.35,
+        'question_yes_balance_max_penalty': 0.6,
     }
     _CONFIG_RANGES = {
         'guess_threshold': (0.0, 1.0),
@@ -578,7 +578,7 @@ class Engine:
         return engine_question_selection.question_category(self, q)
 
     def _question_balance_stats(self):
-        if self.config.get('question_yes_balance_max_penalty', 0.35) <= 0:
+        if self.config.get('question_yes_balance_max_penalty', 0.6) <= 0:
             return {}
         now = time.monotonic()
         if now - self._question_balance_time < 30.0:
