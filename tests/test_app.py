@@ -112,6 +112,25 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             q = data.get('question_id', q)
         return data
 
+    def _adjusted_scores_for(self, top, second):
+        def fake_adjusted_scores(engine, probs, ranked):
+            scores = {}
+            for position, index in enumerate(ranked):
+                raw_probability = float(probs[index])
+                if position == 0:
+                    adjusted_score = top
+                elif position == 1:
+                    adjusted_score = second
+                else:
+                    adjusted_score = min(raw_probability, second) * 0.1
+                scores[index] = {
+                    'raw_probability': raw_probability,
+                    'factor': adjusted_score / raw_probability if raw_probability else 1.0,
+                    'adjusted_score': adjusted_score,
+                }
+            return scores
+        return fake_adjusted_scores
+
     # ── 基本フロー ─────────────────────────────────────────
     def test_start_returns_question(self):
         data = self._start()
@@ -813,7 +832,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             sess['answers'] = {str(i): 1.0 for i in range(19)}
             sess['asked'] = list(range(20))
             sess['idk_streak'] = 0
-        with patch.object(app_module.engine, 'top_guess', return_value=[(0, 0.50), (1, 0.45)]), \
+        with patch('services.game_context.result_exposure.adjusted_scores', side_effect=self._adjusted_scores_for(0.50, 0.45)), \
                 patch.object(app_module.engine, 'best_disambiguating_question', return_value=20) as disambiguating:
             res = self.client.post('/api/answer', json={'question_id': 19, 'answer': 1.0})
         self.assertEqual(res.status_code, 200)
@@ -831,7 +850,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             sess['answers'] = {str(i): 1.0 for i in range(4)}
             sess['asked'] = list(range(5))
             sess['idk_streak'] = 0
-        with patch.object(app_module.engine, 'top_guess', return_value=[(0, 0.36), (1, 0.22)]), \
+        with patch('services.game_context.result_exposure.adjusted_scores', side_effect=self._adjusted_scores_for(0.36, 0.22)), \
                 patch.object(app_module.engine, 'best_question', return_value=5) as best_question, \
                 patch.object(app_module.engine, 'best_disambiguating_question', return_value=6) as disambiguating:
             res = self.client.post('/api/answer', json={'question_id': 4, 'answer': 1.0})
@@ -850,7 +869,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             sess['answers'] = {str(i): 1.0 for i in range(2)}
             sess['asked'] = [0, 1, 2]
             sess['idk_streak'] = 0
-        with patch.object(app_module.engine, 'top_guess', return_value=[(0, 0.42), (1, 0.39)]), \
+        with patch('services.game_context.result_exposure.adjusted_scores', side_effect=self._adjusted_scores_for(0.42, 0.39)), \
                 patch.object(app_module.engine, 'best_question', return_value=3):
             res = self.client.post('/api/answer', json={'question_id': 2, 'answer': 1.0})
         self.assertEqual(res.status_code, 200)
@@ -865,7 +884,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
             sess['answers'] = {str(i): 1.0 for i in range(29)}
             sess['asked'] = list(range(30))
             sess['idk_streak'] = 0
-        with patch.object(app_module.engine, 'top_guess', return_value=[(0, 0.50), (1, 0.45)]):
+        with patch('services.game_context.result_exposure.adjusted_scores', side_effect=self._adjusted_scores_for(0.50, 0.45)):
             res = self.client.post('/api/answer', json={'question_id': 29, 'answer': 1.0})
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.get_json()['action'], 'guess')

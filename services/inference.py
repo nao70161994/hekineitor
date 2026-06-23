@@ -15,16 +15,20 @@ def compute_guess(ctx, answers):
     engine = ctx.engine
     probs = posteriors(engine, answers)
     exclude_ids = set(ctx.session.get('exclude_ids', []))
-    ranked = sorted(range(len(probs)), key=lambda i: probs[i], reverse=True)
-    adjust_result_ranking = getattr(ctx, 'adjust_result_ranking', None)
-    if callable(adjust_result_ranking) and not exclude_ids:
-        ranked = adjust_result_ranking(probs, ranked)
+    raw_ranked = sorted(range(len(probs)), key=lambda i: probs[i], reverse=True)
+    ranked = list(raw_ranked)
+    score_details = {index: {'raw_probability': float(probs[index]), 'factor': 1.0, 'adjusted_score': float(probs[index])} for index in ranked}
+    adjusted_score_provider = getattr(ctx, 'adjusted_score_provider', None)
+    if callable(adjusted_score_provider) and not exclude_ids:
+        score_details = adjusted_score_provider(probs, ranked)
+        ranked = sorted(ranked, key=lambda index: (-score_details.get(index, {}).get('adjusted_score', float(probs[index])), raw_ranked.index(index)))
     if exclude_ids:
         ranked = [i for i in ranked if engine.fetishes[i]['id'] not in exclude_ids] + [
             i for i in ranked if engine.fetishes[i]['id'] in exclude_ids
         ]
     best_i = ranked[0]
-    best_p = probs[best_i]
+    best_scores = score_details.get(best_i, {'raw_probability': float(probs[best_i]), 'factor': 1.0, 'adjusted_score': float(probs[best_i])})
+    best_p = float(best_scores.get('adjusted_score') or 0.0)
     best_f = engine.fetishes[best_i]
     best_db = best_f['id']
 
@@ -32,20 +36,26 @@ def compute_guess(ctx, answers):
     triple_ratio = engine.config.get('triple_ratio', ctx.triple_ratio)
     compound = []
     compound_db_ids = set()
-    if len(ranked) > 1 and probs[ranked[1]] >= best_p * compound_ratio:
+    if len(ranked) > 1 and score_details.get(ranked[1], {}).get('adjusted_score', float(probs[ranked[1]])) >= best_p * compound_ratio:
         candidate = engine.fetishes[ranked[1]]
+        candidate_scores = score_details.get(ranked[1], {'raw_probability': float(probs[ranked[1]]), 'factor': 1.0, 'adjusted_score': float(probs[ranked[1]])})
         compound.append({
             'fetish_id': candidate['id'],
             'fetish_name': candidate['name'],
-            'probability': round(probs[ranked[1]] * 100, 1),
+            'probability': round(float(candidate_scores.get('adjusted_score') or 0.0) * 100, 1),
+            'raw_probability': round(float(candidate_scores.get('raw_probability') or 0.0) * 100, 1),
+            'diversity_factor': round(float(candidate_scores.get('factor') or 1.0), 4),
         })
         compound_db_ids.add(candidate['id'])
-        if len(ranked) > 2 and probs[ranked[2]] >= best_p * triple_ratio:
+        if len(ranked) > 2 and score_details.get(ranked[2], {}).get('adjusted_score', float(probs[ranked[2]])) >= best_p * triple_ratio:
             candidate = engine.fetishes[ranked[2]]
+            candidate_scores = score_details.get(ranked[2], {'raw_probability': float(probs[ranked[2]]), 'factor': 1.0, 'adjusted_score': float(probs[ranked[2]])})
             compound.append({
                 'fetish_id': candidate['id'],
                 'fetish_name': candidate['name'],
-                'probability': round(probs[ranked[2]] * 100, 1),
+                'probability': round(float(candidate_scores.get('adjusted_score') or 0.0) * 100, 1),
+                'raw_probability': round(float(candidate_scores.get('raw_probability') or 0.0) * 100, 1),
+                'diversity_factor': round(float(candidate_scores.get('factor') or 1.0), 4),
             })
             compound_db_ids.add(candidate['id'])
 
@@ -55,11 +65,15 @@ def compute_guess(ctx, answers):
         fetish = engine.fetishes[fetish_index]
         if fetish['id'] == best_db or fetish['id'] in compound_db_ids:
             continue
-        if probs[fetish_index] >= threshold:
+        candidate_scores = score_details.get(fetish_index, {'raw_probability': float(probs[fetish_index]), 'factor': 1.0, 'adjusted_score': float(probs[fetish_index])})
+        adjusted_score = float(candidate_scores.get('adjusted_score') or 0.0)
+        if adjusted_score >= threshold:
             profile.append({
                 'fetish_id': fetish['id'],
                 'fetish_name': fetish['name'],
-                'probability': round(probs[fetish_index] * 100, 1),
+                'probability': round(adjusted_score * 100, 1),
+                'raw_probability': round(float(candidate_scores.get('raw_probability') or 0.0) * 100, 1),
+                'diversity_factor': round(float(candidate_scores.get('factor') or 1.0), 4),
             })
 
     related_seen = {item['fetish_id'] for item in profile} | compound_db_ids | {best_db}
@@ -73,7 +87,14 @@ def compute_guess(ctx, answers):
     top_chart = []
     for fetish_index in ranked[:5]:
         fetish = engine.fetishes[fetish_index]
-        top_chart.append({'fetish_id': fetish['id'], 'fetish_name': fetish['name'], 'probability': round(probs[fetish_index] * 100, 1)})
+        candidate_scores = score_details.get(fetish_index, {'raw_probability': float(probs[fetish_index]), 'factor': 1.0, 'adjusted_score': float(probs[fetish_index])})
+        top_chart.append({
+            'fetish_id': fetish['id'],
+            'fetish_name': fetish['name'],
+            'probability': round(float(candidate_scores.get('adjusted_score') or 0.0) * 100, 1),
+            'raw_probability': round(float(candidate_scores.get('raw_probability') or 0.0) * 100, 1),
+            'diversity_factor': round(float(candidate_scores.get('factor') or 1.0), 4),
+        })
 
     seen_titles = set()
     cross_works = []
@@ -109,6 +130,8 @@ def compute_guess(ctx, answers):
         'fetish_name': best_f['name'],
         'fetish_desc': best_f['desc'],
         'probability': round(best_p * 100, 1),
+        'raw_probability': round(float(best_scores.get('raw_probability') or 0.0) * 100, 1),
+        'diversity_factor': round(float(best_scores.get('factor') or 1.0), 4),
         'compound': compound,
         'profile': profile,
         'related': related,

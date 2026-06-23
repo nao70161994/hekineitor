@@ -40,8 +40,15 @@ def build(
             profile_min_prob=PROFILE_MIN_PROB,
             compound_ratio=COMPOUND_RATIO,
             triple_ratio=TRIPLE_RATIO,
-            adjust_result_ranking=result_exposure.make_rank_adjuster(engine),
+            adjusted_score_provider=lambda probs, ranked: result_exposure.adjusted_scores(engine, probs, ranked),
         )
+
+    def adjusted_top_guess(engine_arg, answers, n=1):
+        probs = inference.posteriors(engine_arg, answers)
+        ranked = sorted(range(len(probs)), key=lambda index: probs[index], reverse=True)
+        scores = result_exposure.adjusted_scores(engine_arg, probs, ranked)
+        ranked = sorted(ranked, key=lambda index: (-scores.get(index, {}).get('adjusted_score', float(probs[index])), ranked.index(index)))
+        return [(index, scores.get(index, {}).get('adjusted_score', float(probs[index]))) for index in ranked[:max(1, int(n or 1))]]
 
     def make_guess(answers):
         guess_context = context.game_guess(
@@ -76,7 +83,7 @@ def build(
     )
     question_flow = context.game_question_flow(
         best_question=question_selection.best_question,
-        top_guess=inference.top_guess,
+        top_guess=adjusted_top_guess,
         make_guess=make_guess,
         question_total_for_count=question_selection.make_question_total_for_count(
             soft_max_questions, hard_max_questions,

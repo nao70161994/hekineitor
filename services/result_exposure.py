@@ -643,17 +643,16 @@ def _is_heavy_fetish(fetish):
     return fetish.get('name') in HEAVY_RESULT_NAMES
 
 
-def adjust_ranked(engine, probs, ranked, *, events=None, path=None, environ=None):
+def adjusted_scores(engine, probs, ranked, *, events=None, path=None, environ=None):
     ranked = list(ranked)
-    if len(ranked) < 2:
-        return ranked
     exposure_events = list(events) if events is not None else read_events(path=path, environ=environ, limit=MAIN_WINDOW)
     factors = exposure_factors(engine.fetishes, events=exposure_events)
+    if not ranked:
+        return {}
     original_top = ranked[0]
     top_score = probs[ranked[0]]
-    second_score = max(probs[ranked[1]], 1e-12)
-    adjusted = []
-    rank_position = {index: position for position, index in enumerate(ranked)}
+    second_score = max(probs[ranked[1]], 1e-12) if len(ranked) > 1 else 1e-12
+    scores = {}
     for index in ranked:
         fetish = engine.fetishes[index]
         fetish_id = fetish.get('id')
@@ -665,7 +664,21 @@ def adjust_ranked(engine, probs, ranked, *, events=None, path=None, environ=None
             and top_score / second_score >= DOMINANT_RATIO
         ):
             factor = max(factor, DOMINANT_MIN_FACTOR)
-        adjusted.append((probs[index] * factor, rank_position[index], index))
+        scores[index] = {
+            'raw_probability': float(probs[index]),
+            'factor': float(factor),
+            'adjusted_score': float(probs[index]) * float(factor),
+        }
+    return scores
+
+
+def adjust_ranked(engine, probs, ranked, *, events=None, path=None, environ=None):
+    ranked = list(ranked)
+    if len(ranked) < 2:
+        return ranked
+    scores = adjusted_scores(engine, probs, ranked, events=events, path=path, environ=environ)
+    rank_position = {index: position for position, index in enumerate(ranked)}
+    adjusted = [(scores[index]['adjusted_score'], rank_position[index], index) for index in ranked]
     adjusted.sort(key=lambda item: (-item[0], item[1]))
     return [index for _score, _position, index in adjusted]
 

@@ -1845,6 +1845,56 @@ class TestServices(unittest.TestCase):
         self.assertIn((2, '激重感情', 50.0, {'rank': 102, 'source': result_exposure.TOP_CHART_SOURCE}), calls)
         self.assertIn((3, '白衣', 40.0, {'rank': 103, 'source': result_exposure.TOP_CHART_SOURCE}), calls)
 
+    def test_inference_uses_adjusted_scores_for_displayed_candidates(self):
+        class Engine:
+            fetishes = [
+                {'id': 1, 'name': '制服', 'desc': 'uniform', 'works': []},
+                {'id': 2, 'name': '白衣', 'desc': 'lab', 'works': []},
+                {'id': 3, 'name': '眼鏡', 'desc': 'glasses', 'works': []},
+            ]
+            questions = []
+            config = {'compound_ratio': 0.8, 'triple_ratio': 0.7}
+
+            def posteriors(self, answers):
+                return [0.80, 0.50, 0.30]
+
+            def get_related(self, source_db_id):
+                return []
+
+            def get_answer_contributions(self, answers, fetish_idx):
+                return []
+
+            def index_of(self, fetish_id):
+                return None
+
+        ctx = type('Ctx', (), {
+            'engine': Engine(),
+            'session': {},
+            'work_title': staticmethod(lambda work: str(work)),
+            'get_compound_works': staticmethod(lambda a, b: []),
+            'profile_min_ratio': 0.25,
+            'profile_min_prob': 0.08,
+            'compound_ratio': 0.8,
+            'triple_ratio': 0.7,
+            'adjusted_score_provider': staticmethod(lambda probs, ranked: {
+                0: {'raw_probability': 0.80, 'factor': 0.2, 'adjusted_score': 0.16},
+                1: {'raw_probability': 0.50, 'factor': 1.0, 'adjusted_score': 0.50},
+                2: {'raw_probability': 0.30, 'factor': 1.5, 'adjusted_score': 0.45},
+            }),
+        })()
+
+        result = inference.compute_guess(ctx, {})
+
+        self.assertEqual(result['fetish_id'], 2)
+        self.assertEqual(result['probability'], 50.0)
+        self.assertEqual(result['raw_probability'], 50.0)
+        self.assertEqual(result['top_chart'][0]['fetish_name'], '白衣')
+        self.assertEqual(result['top_chart'][1]['fetish_name'], '眼鏡')
+        self.assertEqual(result['top_chart'][1]['probability'], 45.0)
+        self.assertEqual(result['top_chart'][1]['raw_probability'], 30.0)
+        self.assertEqual(result['compound'][0]['fetish_name'], '眼鏡')
+        self.assertEqual(result['compound'][0]['probability'], 45.0)
+
     def test_inference_exposure_adjusted_result_drives_side_effects(self):
         calls = []
 
@@ -1893,7 +1943,10 @@ class TestServices(unittest.TestCase):
             'profile_min_prob': 0.08,
             'compound_ratio': 0.95,
             'triple_ratio': 0.9,
-            'adjust_result_ranking': staticmethod(lambda probs, ranked: [1, 0]),
+            'adjusted_score_provider': staticmethod(lambda probs, ranked: {
+                0: {'raw_probability': 0.62, 'factor': 0.9032, 'adjusted_score': 0.56},
+                1: {'raw_probability': 0.58, 'factor': 1.0, 'adjusted_score': 0.58},
+            }),
         })()
         ctx.jsonify = lambda payload: payload
 
@@ -1901,8 +1954,13 @@ class TestServices(unittest.TestCase):
         self.assertEqual(result['fetish_id'], 2)
         self.assertEqual(result['fetish_name'], '白衣')
         self.assertEqual(ctx.session['last_guess_fetish_id'], 2)
+        self.assertEqual(result['probability'], 58.0)
+        self.assertEqual(result['raw_probability'], 58.0)
+        self.assertEqual(result['diversity_factor'], 1.0)
+        self.assertEqual(result['compound'][0]['probability'], 56.0)
+        self.assertEqual(result['compound'][0]['raw_probability'], 62.0)
         self.assertIn(('exposure', 2, '白衣', 58.0, 1), calls)
-        self.assertIn(('exposure', 1, '激重感情', 62.0, 2), calls)
+        self.assertIn(('exposure', 1, '激重感情', 56.0, 2), calls)
         self.assertIn(('guessed', 2), calls)
         self.assertIn(('guessed', 1), calls)
         self.assertIn(('question_result_contribution', '白衣'), calls)
