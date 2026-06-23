@@ -19,7 +19,7 @@ def compute_guess(ctx, answers):
     ranked = list(raw_ranked)
     score_details = {index: {'raw_probability': float(probs[index]), 'factor': 1.0, 'adjusted_score': float(probs[index])} for index in ranked}
     adjusted_score_provider = getattr(ctx, 'adjusted_score_provider', None)
-    if callable(adjusted_score_provider) and not exclude_ids:
+    if callable(adjusted_score_provider):
         score_details = adjusted_score_provider(probs, ranked)
         ranked = sorted(ranked, key=lambda index: (-score_details.get(index, {}).get('adjusted_score', float(probs[index])), raw_ranked.index(index)))
     if exclude_ids:

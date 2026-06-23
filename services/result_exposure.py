@@ -19,8 +19,6 @@ BACKFILL_CONFIRM_TEXT = 'BACKFILL_RESULT_EXPOSURES'
 MAIN_WINDOW = 1000
 SHORT_WINDOW = 300
 MIN_SAMPLES = 50
-CANDIDATE_POOL = 20
-LOW_EXPOSURE_RESCUE_LIMIT = 30
 SMOOTHING = 2.0
 MIN_FACTOR = 0.08
 MAX_FACTOR = 3.0
@@ -618,26 +616,6 @@ def exposure_factors(fetishes, *, events=None, path=None, environ=None):
     return factors
 
 
-def _adjustment_pool(engine, ranked, factors, *, probs=None):
-    primary = list(ranked[:CANDIDATE_POOL])
-    pool = list(primary)
-    seen = set(pool)
-    rescue_candidates = []
-    for index in ranked[CANDIDATE_POOL:]:
-        fetish_id = engine.fetishes[index].get('id')
-        factor = factors.get(fetish_id, 1.0)
-        if factor <= 1.0:
-            continue
-        score = factor * float(probs[index]) if probs is not None else factor
-        rescue_candidates.append((score, factor, index))
-    rank_position = {index: position for position, index in enumerate(ranked)}
-    rescue_candidates.sort(key=lambda item: (-item[0], -item[1], rank_position[item[2]]))
-    for _score, _factor, index in rescue_candidates[:LOW_EXPOSURE_RESCUE_LIMIT]:
-        if index not in seen:
-            pool.append(index)
-            seen.add(index)
-    return pool
-
 
 def _is_heavy_fetish(fetish):
     return fetish.get('name') in HEAVY_RESULT_NAMES
@@ -664,10 +642,11 @@ def adjusted_scores(engine, probs, ranked, *, events=None, path=None, environ=No
             and top_score / second_score >= DOMINANT_RATIO
         ):
             factor = max(factor, DOMINANT_MIN_FACTOR)
+        adjusted_score = max(0.0, min(float(probs[index]) * float(factor), 1.0))
         scores[index] = {
             'raw_probability': float(probs[index]),
             'factor': float(factor),
-            'adjusted_score': float(probs[index]) * float(factor),
+            'adjusted_score': adjusted_score,
         }
     return scores
 
@@ -738,8 +717,6 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
             'min_factor': MIN_FACTOR,
             'max_factor': MAX_FACTOR,
             'diversity_alpha': DIVERSITY_ALPHA,
-            'candidate_pool': CANDIDATE_POOL,
-            'low_exposure_rescue_limit': LOW_EXPOSURE_RESCUE_LIMIT,
             'smoothing': SMOOTHING,
         },
         'most_downweighted': rows_by_factor[:display_limit],

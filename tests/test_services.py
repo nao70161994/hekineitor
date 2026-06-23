@@ -1491,8 +1491,8 @@ class TestServices(unittest.TestCase):
         self.assertEqual(report['status'], 'ok')
         self.assertEqual(report['sample']['main_total'], 85)
         self.assertTrue(report['sample']['active'])
-        self.assertEqual(report['config']['candidate_pool'], 20)
-        self.assertEqual(report['config']['low_exposure_rescue_limit'], 30)
+        self.assertNotIn('candidate_pool', report['config'])
+        self.assertNotIn('low_exposure_rescue_limit', report['config'])
         self.assertEqual(report['config']['diversity_alpha'], 1.2)
         self.assertAlmostEqual(report['sample']['expected_per_result'], 85 / 3, places=4)
         heavy = {row['fetish_name']: row for row in report['heavy_results']}
@@ -1561,6 +1561,21 @@ class TestServices(unittest.TestCase):
         self.assertEqual(ranked[0], 1)
 
 
+    def test_result_exposure_adjusted_scores_are_clamped_to_probability_range(self):
+        class Engine:
+            fetishes = [
+                {'id': 1, 'name': '未露出'},
+                {'id': 2, 'name': '露出済み'},
+            ]
+
+        events = [result_exposure.build_event(2, '露出済み') for _ in range(100)]
+        scores = result_exposure.adjusted_scores(Engine(), [0.50, 0.10], [0, 1], events=events)
+
+        self.assertLessEqual(scores[0]['adjusted_score'], 1.0)
+        self.assertEqual(scores[0]['adjusted_score'], 1.0)
+        self.assertGreater(scores[0]['factor'], 1.0)
+
+
     def test_result_exposure_adjustment_extends_pool_for_low_exposure_candidates(self):
         class Engine:
             fetishes = [{'id': index + 1, 'name': f'F{index + 1}'} for index in range(60)]
@@ -1622,7 +1637,7 @@ class TestServices(unittest.TestCase):
         adjusted = result_exposure.adjust_ranked(Engine(), probs, ranked, events=events)
 
         self.assertLess(adjusted.index(70), adjusted.index(1))
-        self.assertLess(adjusted.index(70), result_exposure.CANDIDATE_POOL)
+        self.assertLess(adjusted.index(70), 20)
 
 
     def test_question_selection_low_confidence_extension_bounds(self):
@@ -1894,6 +1909,52 @@ class TestServices(unittest.TestCase):
         self.assertEqual(result['top_chart'][1]['raw_probability'], 30.0)
         self.assertEqual(result['compound'][0]['fetish_name'], '眼鏡')
         self.assertEqual(result['compound'][0]['probability'], 45.0)
+
+    def test_inference_applies_adjusted_scores_when_excluding_results(self):
+        class Engine:
+            fetishes = [
+                {'id': 1, 'name': '除外候補', 'desc': 'excluded', 'works': []},
+                {'id': 2, 'name': '白衣', 'desc': 'lab', 'works': []},
+                {'id': 3, 'name': '眼鏡', 'desc': 'glasses', 'works': []},
+            ]
+            questions = []
+            config = {'compound_ratio': 0.8, 'triple_ratio': 0.7}
+
+            def posteriors(self, answers):
+                return [0.80, 0.50, 0.30]
+
+            def get_related(self, source_db_id):
+                return []
+
+            def get_answer_contributions(self, answers, fetish_idx):
+                return []
+
+            def index_of(self, fetish_id):
+                return None
+
+        ctx = type('Ctx', (), {
+            'engine': Engine(),
+            'session': {'exclude_ids': [1]},
+            'work_title': staticmethod(lambda work: str(work)),
+            'get_compound_works': staticmethod(lambda a, b: []),
+            'profile_min_ratio': 0.25,
+            'profile_min_prob': 0.08,
+            'compound_ratio': 0.8,
+            'triple_ratio': 0.7,
+            'adjusted_score_provider': staticmethod(lambda probs, ranked: {
+                0: {'raw_probability': 0.80, 'factor': 1.2, 'adjusted_score': 0.96},
+                1: {'raw_probability': 0.50, 'factor': 1.4, 'adjusted_score': 0.70},
+                2: {'raw_probability': 0.30, 'factor': 1.0, 'adjusted_score': 0.30},
+            }),
+        })()
+
+        result = inference.compute_guess(ctx, {})
+
+        self.assertEqual(result['fetish_id'], 2)
+        self.assertEqual(result['probability'], 70.0)
+        self.assertEqual(result['raw_probability'], 50.0)
+        self.assertEqual(result['top_chart'][0]['fetish_id'], 2)
+        self.assertEqual(result['top_chart'][0]['diversity_factor'], 1.4)
 
     def test_inference_exposure_adjusted_result_drives_side_effects(self):
         calls = []

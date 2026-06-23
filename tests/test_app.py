@@ -862,6 +862,44 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         best_question.assert_called_once()
         disambiguating.assert_not_called()
 
+    def test_answer_progress_ignores_excluded_adjusted_top_candidate(self):
+        import app as app_module
+
+        def adjusted_scores(engine, probs, ranked):
+            scores = {}
+            for index in ranked:
+                if index == 0:
+                    adjusted_score = 0.90
+                elif index == 1:
+                    adjusted_score = 0.36
+                elif index == 2:
+                    adjusted_score = 0.22
+                else:
+                    adjusted_score = 0.01
+                scores[index] = {
+                    'raw_probability': float(probs[index]),
+                    'factor': adjusted_score / float(probs[index]) if probs[index] else 1.0,
+                    'adjusted_score': adjusted_score,
+                }
+            return scores
+
+        with self.client.session_transaction() as sess:
+            sess['started'] = True
+            sess['answers'] = {str(i): 1.0 for i in range(4)}
+            sess['asked'] = list(range(5))
+            sess['idk_streak'] = 0
+            sess['exclude_ids'] = [app_module.engine.fetishes[0]['id']]
+        with patch('services.game_context.result_exposure.adjusted_scores', side_effect=adjusted_scores), \
+                patch.object(app_module.engine, 'best_question', return_value=5) as best_question:
+            res = self.client.post('/api/answer', json={'question_id': 4, 'answer': 1.0})
+
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['action'], 'question')
+        self.assertEqual(data['question_id'], 5)
+        self.assertEqual(data.get('progress_message'), 'かなり見えてきました')
+        best_question.assert_called_once()
+
     def test_progress_message_for_close_candidates(self):
         import app as app_module
         with self.client.session_transaction() as sess:

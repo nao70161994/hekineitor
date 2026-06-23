@@ -45,9 +45,14 @@ def build(
 
     def adjusted_top_guess(engine_arg, answers, n=1):
         probs = inference.posteriors(engine_arg, answers)
-        ranked = sorted(range(len(probs)), key=lambda index: probs[index], reverse=True)
-        scores = result_exposure.adjusted_scores(engine_arg, probs, ranked)
-        ranked = sorted(ranked, key=lambda index: (-scores.get(index, {}).get('adjusted_score', float(probs[index])), ranked.index(index)))
+        raw_ranked = sorted(range(len(probs)), key=lambda index: probs[index], reverse=True)
+        scores = result_exposure.adjusted_scores(engine_arg, probs, raw_ranked)
+        ranked = sorted(raw_ranked, key=lambda index: (-scores.get(index, {}).get('adjusted_score', float(probs[index])), raw_ranked.index(index)))
+        exclude_ids = set(session.get('exclude_ids', []))
+        if exclude_ids:
+            ranked = [index for index in ranked if engine_arg.fetishes[index].get('id') not in exclude_ids] + [
+                index for index in ranked if engine_arg.fetishes[index].get('id') in exclude_ids
+            ]
         return [(index, scores.get(index, {}).get('adjusted_score', float(probs[index]))) for index in ranked[:max(1, int(n or 1))]]
 
     def make_guess(answers):
