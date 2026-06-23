@@ -27,6 +27,7 @@ class OperationsMonitoringTests(unittest.TestCase):
             'share': {'total': 2, 'metrics': {'result_page_views': 1, 'share_actions': 0}, 'by_event': {'result_page_view': 1, 'ogp_png_view': 1}},
             'result_displayed': {'total': 3, 'ranking': [{'fetish_name': '制服', 'count': 3, 'total': 3}]},
             'result_primary': {'total': 3, 'ranking': [{'fetish_name': '制服', 'count': 3, 'total': 3}]},
+            'result_candidates': {'total': 4, 'ranking': [{'fetish_name': '制服', 'count': 3, 'total': 3}, {'fetish_name': '激重感情', 'count': 1, 'total': 1}]},
         }
 
         findings = analytics_data_diff._date_findings(
@@ -43,7 +44,7 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('displayed and primary rankings match; observed bias is not from secondary result inflation', findings)
         self.assertIn('result sample is small primary_total=3; treat dominance as reference only', findings)
         self.assertIn('primary result dominated by 制服: 3/3 (100.0%)', findings)
-        self.assertIn('expected observed result missing from result_exposures ranking: 激重感情', findings)
+        self.assertIn('expected observed result appears only in candidate/top_chart exposures: 激重感情', findings)
 
     def test_ntfy_skips_when_topic_is_unset(self):
         result = ntfy_notifier.notify(
@@ -612,8 +613,10 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('白衣 8', report['message'])
         self.assertIn('/api/admin/result_exposures?days=1&date=2026-05-26&top_n=10&include_secondary=1', calls)
         self.assertIn('/api/admin/result_exposures?days=1&date=2026-05-26&top_n=10', calls)
+        self.assertIn('/api/admin/result_exposures?days=7&date=2026-05-26&top_n=10', calls)
         self.assertIn('/api/admin/question_events?date=2026-05-26&limit=500', calls)
         self.assertIn('/api/admin/share_events?since=2026-05-26&until=2026-05-26&limit=5000', calls)
+        self.assertIn('/api/admin/share_events?since=2026-05-20&until=2026-05-26&limit=5000', calls)
 
     def test_daily_report_summarizes_safe_analytics(self):
         def fake_json(path):
@@ -652,6 +655,9 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('heavy_result_ratio: unavailable (stats_history_fallback)', report['message'])
         self.assertIn('note: result stats are legacy fallback', report['message'])
         self.assertIn('share_rate: 10.0%', report['message'])
+        self.assertIn('share_views: result_page=50, ogp=0, work=0', report['message'])
+        self.assertIn('share_actions: actions=5, button_clicks=0', report['message'])
+        self.assertIn('share_7d_events: 12', report['message'])
         self.assertIn('share_events_breakdown: result_page_view=50, share_button_click=4, copy_success=1', report['message'])
         self.assertIn('question_events: 30 analyzed (38 raw, 8 excluded)', report['message'])
         self.assertIn('question_events_excluded: 8 suspicious events (1 timestamp buckets)', report['message'])
@@ -781,7 +787,7 @@ class OperationsMonitoringTests(unittest.TestCase):
             if path == '/api/admin/funnel_metrics':
                 return {'completion': {'recent_7_days': {'starts': 30, 'completions': 15, 'completion_rate': 50}}}
             if path.startswith('/api/admin/share_events'):
-                return {'total': 1, 'metrics': {'result_page_views': 0, 'share_actions': 1}, 'by_event': {'copy_success': 1}}
+                return {'total': 1, 'metrics': {'result_page_views': 0, 'ogp_views': 1, 'work_clicks': 0, 'share_actions': 1, 'share_button_clicks': 0}, 'by_event': {'copy_success': 1}}
             raise AssertionError(path)
 
         report = operations_check.build_report(
@@ -791,6 +797,8 @@ class OperationsMonitoringTests(unittest.TestCase):
         )
 
         self.assertIn('question_events suspicious excluded=12', report['message'])
+        self.assertIn('share_views=result_page:0,ogp:1,work:0', report['message'])
+        self.assertIn('share_actions=1,button_clicks=0', report['message'])
         self.assertIn('share_events_breakdown=copy_success=1', report['message'])
         self.assertIn('share_rate denominator=0', report['message'])
 

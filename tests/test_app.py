@@ -1982,6 +1982,25 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(data['ranking'][0]['fetish_name'], primary['name'])
         self.assertEqual(data['ranking'][0]['count'], 2)
 
+    def test_result_exposures_endpoint_can_include_top_chart_candidates(self):
+        from app import engine as app_engine
+        headers = self._admin_headers()
+        primary = app_engine.fetishes[0]
+        candidate = app_engine.fetishes[1]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'result_exposures.jsonl')
+            with patch.dict(os.environ, {'RESULT_EXPOSURE_LOG_PATH': path}, clear=False):
+                result_exposure_service.record_result(primary['id'], primary['name'], 91, path=path)
+                result_exposure_service.record_result(candidate['id'], candidate['name'], 75, rank=102, source=result_exposure_service.TOP_CHART_SOURCE, path=path)
+                default = self.client.get('/api/admin/result_exposures?include_secondary=1&top_n=5', headers=headers)
+                with_candidates = self.client.get('/api/admin/result_exposures?include_secondary=1&include_candidates=1&top_n=5', headers=headers)
+
+        self.assertEqual(default.status_code, 200)
+        self.assertEqual(with_candidates.status_code, 200)
+        self.assertEqual(default.get_json()['total'], 1)
+        self.assertEqual(with_candidates.get_json()['total'], 2)
+        self.assertTrue(with_candidates.get_json()['include_candidates'])
+
     def test_result_exposure_trend_endpoint_reports_daily_heavy_ratio(self):
         from app import engine as app_engine
         headers = self._admin_headers()

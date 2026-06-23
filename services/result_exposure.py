@@ -14,6 +14,7 @@ _LOCK = threading.Lock()
 _MAX_LOG_BYTES = 5 * 1024 * 1024
 HEAVY_RESULT_NAMES = {'共依存', '激重感情', '共生関係', '執着'}
 BACKFILL_SOURCE = 'stats_history_backfill'
+TOP_CHART_SOURCE = 'top_chart'
 BACKFILL_CONFIRM_TEXT = 'BACKFILL_RESULT_EXPOSURES'
 MAIN_WINDOW = 1000
 SHORT_WINDOW = 300
@@ -306,7 +307,7 @@ def canonical_event_identity(event, current_names):
     return event_name, event_name
 
 
-def ranking_from_events(events, *, top_n=10, include_backfill=False, fetish_names=None, include_secondary=False):
+def ranking_from_events(events, *, top_n=10, include_backfill=False, fetish_names=None, include_secondary=False, include_candidates=False):
     try:
         limit = max(1, min(int(top_n or 10), 100))
     except (TypeError, ValueError):
@@ -315,6 +316,8 @@ def ranking_from_events(events, *, top_n=10, include_backfill=False, fetish_name
     names = {}
     current_names = _fetish_name_map(fetish_names)
     for event in events:
+        if not include_candidates and event.get('source') == TOP_CHART_SOURCE:
+            continue
         if not include_secondary and int(event.get('rank') or 1) != 1:
             continue
         if not include_backfill and event.get('source') == BACKFILL_SOURCE:
@@ -446,16 +449,17 @@ def recent_events_report(*, path=None, environ=None, limit=20, include_backfill=
     }
 
 
-def ranking_report(*, path=None, environ=None, limit=5000, days=None, date=None, until=None, top_n=10, include_backfill=False, fetish_names=None, include_secondary=False):
+def ranking_report(*, path=None, environ=None, limit=5000, days=None, date=None, until=None, top_n=10, include_backfill=False, fetish_names=None, include_secondary=False, include_candidates=False):
     events = read_events(path=path, environ=environ, limit=limit)
     filtered = filter_events(events, days=days, date=date, until=until)
-    report = ranking_from_events(filtered, top_n=top_n, include_backfill=include_backfill, fetish_names=fetish_names, include_secondary=include_secondary)
+    report = ranking_from_events(filtered, top_n=top_n, include_backfill=include_backfill, fetish_names=fetish_names, include_secondary=include_secondary, include_candidates=include_candidates)
     report.update({
         'status': 'ok',
         'source': 'result_exposures',
         'days': days,
         'date': date or until,
         'include_secondary': bool(include_secondary),
+        'include_candidates': bool(include_candidates),
     })
     return report
 
@@ -574,6 +578,8 @@ def _counts(events, current_names=None, *, include_secondary=True):
     current_names = current_names or {}
     counter = Counter()
     for event in events:
+        if event.get('source') == TOP_CHART_SOURCE:
+            continue
         if not include_secondary and int(event.get('rank') or 1) != 1:
             continue
         key, _name = canonical_event_identity(event, current_names)
@@ -586,9 +592,14 @@ def _factor_floor(fetish):
     return MIN_FACTOR
 
 
+def _factor_events(events):
+    return [event for event in events if event.get('source') != TOP_CHART_SOURCE]
+
+
 def exposure_factors(fetishes, *, events=None, path=None, environ=None):
     events = list(events) if events is not None else read_events(path=path, environ=environ, limit=MAIN_WINDOW)
-    main_events = events[-MAIN_WINDOW:]
+    factor_events = _factor_events(events)
+    main_events = factor_events[-MAIN_WINDOW:]
     main_total = len(main_events)
     ids = [fetish.get('id') for fetish in fetishes if fetish.get('id') is not None]
     if not ids:
@@ -641,11 +652,9 @@ def adjust_ranked(engine, probs, ranked, *, events=None, path=None, environ=None
     original_top = ranked[0]
     top_score = probs[ranked[0]]
     second_score = max(probs[ranked[1]], 1e-12)
-    pool = _adjustment_pool(engine, ranked, factors, probs=probs)
-    pool_set = set(pool)
-    rest = [index for index in ranked if index not in pool_set]
     adjusted = []
-    for index in pool:
+    rank_position = {index: position for position, index in enumerate(ranked)}
+    for index in ranked:
         fetish = engine.fetishes[index]
         fetish_id = fetish.get('id')
         factor = factors.get(fetish_id, 1.0)
@@ -656,9 +665,9 @@ def adjust_ranked(engine, probs, ranked, *, events=None, path=None, environ=None
             and top_score / second_score >= DOMINANT_RATIO
         ):
             factor = max(factor, DOMINANT_MIN_FACTOR)
-        adjusted.append((probs[index] * factor, index))
-    adjusted.sort(key=lambda item: item[0], reverse=True)
-    return [index for _score, index in adjusted] + rest
+        adjusted.append((probs[index] * factor, rank_position[index], index))
+    adjusted.sort(key=lambda item: (-item[0], item[1]))
+    return [index for _score, _position, index in adjusted]
 
 
 
@@ -672,7 +681,8 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
     except (TypeError, ValueError):
         display_limit = 30
     events = list(events) if events is not None else read_events(path=path, environ=environ, limit=row_limit)
-    main_events = events[-MAIN_WINDOW:]
+    factor_events = _factor_events(events)
+    main_events = factor_events[-MAIN_WINDOW:]
     short_events = main_events[-SHORT_WINDOW:]
     current_names = {fetish.get('id'): fetish.get('name', '') for fetish in fetishes if fetish.get('id') is not None}
     main_counts = _counts(main_events, current_names)

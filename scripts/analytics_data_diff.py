@@ -133,6 +133,7 @@ def _local_reports(date: str, limit: int) -> dict[str, Any]:
         'share': share_events.event_report(path=str(s_path), limit=limit, since=date, until=date),
         'result_displayed': result_exposure.ranking_report(path=str(r_path), limit=limit, date=date, top_n=10, include_secondary=True),
         'result_primary': result_exposure.ranking_report(path=str(r_path), limit=limit, date=date, top_n=10, include_secondary=False),
+        'result_candidates': result_exposure.ranking_report(path=str(r_path), limit=limit, date=date, top_n=10, include_secondary=True, include_candidates=True),
     }
 
 
@@ -143,6 +144,7 @@ def _api_reports(date: str, limit: int, environ: dict[str, str], timeout: int) -
         'share': _fetch_json(_query('/api/admin/share_events', since=date, until=date, limit=limit), environ, timeout),
         'result_displayed': _fetch_json(_query('/api/admin/result_exposures', days=1, date=date, top_n=10, include_secondary=1), environ, timeout),
         'result_primary': _fetch_json(_query('/api/admin/result_exposures', days=1, date=date, top_n=10), environ, timeout),
+        'result_candidates': _fetch_json(_query('/api/admin/result_exposures', days=1, date=date, top_n=10, include_secondary=1, include_candidates=1), environ, timeout),
     }
 
 
@@ -164,6 +166,7 @@ def _date_findings(
     share = reports['share']
     displayed = reports['result_displayed']
     primary = reports['result_primary']
+    candidates = reports.get('result_candidates') or {'ranking': []}
     findings: list[str] = []
 
     analyzed = int(qf.get('total') or 0)
@@ -199,9 +202,12 @@ def _date_findings(
 
     displayed_names = _ranking_names(displayed)
     primary_names = _ranking_names(primary)
+    candidate_names = _ranking_names(candidates)
     for expected in expected_results:
-        if expected not in displayed_names and expected not in primary_names:
+        if expected not in displayed_names and expected not in primary_names and expected not in candidate_names:
             findings.append(f'expected observed result missing from result_exposures ranking: {expected}')
+        elif expected in candidate_names and expected not in displayed_names and expected not in primary_names:
+            findings.append(f'expected observed result appears only in candidate/top_chart exposures: {expected}')
     return findings
 
 
@@ -228,10 +234,12 @@ def _print_date_report(date: str, reports: dict[str, Any], findings: list[str] |
 
     displayed = reports['result_displayed']
     primary = reports['result_primary']
+    candidates = reports.get('result_candidates') or {'ranking': []}
     displayed_total = int(displayed.get('total') or 0)
     primary_total = int(primary.get('total') or 0)
     print(f'result_displayed: total={displayed_total} top={_ranking_summary(displayed.get("ranking") or [])}')
     print(f'result_primary: total={primary_total} top={_ranking_summary(primary.get("ranking") or [])}')
+    print(f'result_candidates: total={int(candidates.get("total") or 0)} top={_ranking_summary(candidates.get("ranking") or [])}')
     print(f'result_secondary_extra: {max(0, displayed_total - primary_total)}')
     print(f'heavy_result_ratio_displayed: {_heavy_ratio(displayed)}')
     print(f'heavy_result_ratio_primary: {_heavy_ratio(primary)}')

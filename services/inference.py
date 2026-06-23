@@ -73,7 +73,7 @@ def compute_guess(ctx, answers):
     top_chart = []
     for fetish_index in ranked[:5]:
         fetish = engine.fetishes[fetish_index]
-        top_chart.append({'fetish_name': fetish['name'], 'probability': round(probs[fetish_index] * 100, 1)})
+        top_chart.append({'fetish_id': fetish['id'], 'fetish_name': fetish['name'], 'probability': round(probs[fetish_index] * 100, 1)})
 
     seen_titles = set()
     cross_works = []
@@ -158,12 +158,23 @@ def make_guess(ctx, answers):
             result.get('probability'),
             rank=1,
         )
+        guessed_ids = {result['fetish_id']} | {item['fetish_id'] for item in result.get('compound', [])}
         for rank, item in enumerate(result.get('compound', []), start=2):
             record_result_exposure(
                 item.get('fetish_id'),
                 item.get('fetish_name', ''),
                 item.get('probability'),
                 rank=rank,
+            )
+        for chart_rank, item in enumerate(result.get('top_chart', []), start=1):
+            if item.get('fetish_id') in guessed_ids:
+                continue
+            record_result_exposure(
+                item.get('fetish_id'),
+                item.get('fetish_name', ''),
+                item.get('probability'),
+                rank=100 + chart_rank,
+                source='top_chart',
             )
     guessed_ids = {result['fetish_id']} | {item['fetish_id'] for item in result.get('compound', [])}
     for fetish_id in guessed_ids:

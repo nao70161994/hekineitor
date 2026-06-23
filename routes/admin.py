@@ -366,6 +366,7 @@ def result_exposures_report(ctx):
     end_date = (ctx.request.args.get('date') or ctx.request.args.get('until') or '').strip()[:10] or None
     include_backfill = str(ctx.request.args.get('include_backfill') or '').lower() in ('1', 'true', 'yes')
     include_secondary = str(ctx.request.args.get('include_secondary') or '').lower() in ('1', 'true', 'yes')
+    include_candidates = str(ctx.request.args.get('include_candidates') or '').lower() in ('1', 'true', 'yes')
     fetish_names = _current_fetish_names(ctx)
     report = result_exposure_service.ranking_report(
         environ=ctx.environ,
@@ -376,9 +377,11 @@ def result_exposures_report(ctx):
         include_backfill=include_backfill,
         fetish_names=fetish_names,
         include_secondary=include_secondary,
+        include_candidates=include_candidates,
     )
     report['include_backfill'] = include_backfill
     report['include_secondary'] = include_secondary
+    report['include_candidates'] = include_candidates
     return ctx.jsonify(report)
 
 

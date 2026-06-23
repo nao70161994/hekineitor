@@ -55,6 +55,14 @@ def _yesterday() -> str:
     return (datetime.now(ZoneInfo('Asia/Tokyo')).date() - timedelta(days=1)).isoformat()
 
 
+def _since_for_window(end_date: str, days: int) -> str:
+    try:
+        end = datetime.fromisoformat(str(end_date)[:10]).date()
+    except ValueError:
+        return str(end_date)[:10]
+    return (end - timedelta(days=max(1, int(days or 1)) - 1)).isoformat()
+
+
 def _metric(row: dict[str, Any], *keys: str) -> int:
     for key in keys:
         value = row.get(key)
@@ -164,12 +172,16 @@ def _fetch_result_ranking(
     *,
     target_date: str,
     top_n: int = 10,
+    days: int = 1,
     include_secondary: bool = False,
+    include_candidates: bool = False,
     allow_fallback: bool = True,
 ) -> tuple[list[dict[str, Any]], str]:
     suffix = '&include_secondary=1' if include_secondary else ''
+    if include_candidates:
+        suffix += '&include_candidates=1'
     try:
-        exposure = json_getter(f'/api/admin/result_exposures?days=1&date={target_date}&top_n={top_n}{suffix}')
+        exposure = json_getter(f'/api/admin/result_exposures?days={days}&date={target_date}&top_n={top_n}{suffix}')
         ranking = exposure.get('ranking') or []
         if ranking:
             return ranking, str(exposure.get('source') or 'result_exposures')
@@ -178,7 +190,7 @@ def _fetch_result_ranking(
     if not allow_fallback:
         return [], 'unavailable'
     try:
-        fallback = json_getter(f'/api/admin/recent_fetish_ranking?days=1&date={target_date}&top_n={top_n}')
+        fallback = json_getter(f'/api/admin/recent_fetish_ranking?days={days}&date={target_date}&top_n={top_n}')
         return fallback.get('ranking') or [], 'stats_history_fallback'
     except Exception:
         return [], 'unavailable'
@@ -232,6 +244,41 @@ def _share_breakdown_line(share_report: dict[str, Any]) -> str:
         if value:
             parts.append(f'{key}={value}')
     return 'share_events_breakdown: ' + ', '.join(parts) if parts else ''
+
+
+def _share_activity_lines(share_report: dict[str, Any], *, prefix: str = 'share') -> list[str]:
+    metrics = share_report.get('metrics') or {}
+    result_views = int(metrics.get('result_page_views') or 0)
+    ogp_views = int(metrics.get('ogp_views') or 0)
+    work_clicks = int(metrics.get('work_clicks') or 0)
+    share_actions = int(metrics.get('share_actions') or 0)
+    share_button_clicks = int(metrics.get('share_button_clicks') or 0)
+    return [
+        f'{prefix}_views: result_page={result_views}, ogp={ogp_views}, work={work_clicks}',
+        f'{prefix}_actions: actions={share_actions}, button_clicks={share_button_clicks}',
+    ]
+
+
+def _dominant_result_line(ranking: list[dict[str, Any]], *, label: str, min_samples: int = 20, threshold: float = 65.0) -> str:
+    total = sum(_result_count(row) for row in ranking)
+    if total <= 0 or not ranking:
+        return ''
+    top = ranking[0]
+    count = _result_count(top)
+    ratio = _ratio(count, total)
+    if ratio < threshold:
+        return ''
+    suffix = ' (参考値)' if total < min_samples else ''
+    return f'{label}: {_result_name(top)} {_pct(ratio)}{suffix} ({count}/{total})'
+
+
+def _result_window_line(ranking: list[dict[str, Any]], *, label: str, min_samples: int = 20) -> str:
+    total = sum(_result_count(row) for row in ranking)
+    if total <= 0 or not ranking:
+        return ''
+    top = ranking[0]
+    suffix = ' (参考値)' if total < min_samples else ''
+    return f'{label}: total={total}{suffix}, top={_result_name(top)} {_result_count(top)} ({_pct(_ratio(_result_count(top), total))})'
 
 
 def _question_quality_lines(question_report: dict[str, Any]) -> list[str]:
@@ -295,11 +342,26 @@ def build_daily_report(
         include_secondary=False,
         allow_fallback=False,
     )
+    weekly_primary_ranking, weekly_primary_source = _fetch_result_ranking(
+        json_getter,
+        target_date=target_date,
+        top_n=10,
+        days=7,
+        include_secondary=False,
+        allow_fallback=False,
+    )
     if result_source == 'unavailable':
         failures.append('/api/admin/result_exposures: unavailable')
     share = _safe_fetch_json(
         json_getter,
         f'/api/admin/share_events?since={target_date}&until={target_date}&limit=5000',
+        {'total': 0, 'metrics': {'result_page_views': 0, 'share_actions': 0}},
+        failures,
+    )
+    weekly_share_since = _since_for_window(target_date, 7)
+    weekly_share = _safe_fetch_json(
+        json_getter,
+        f'/api/admin/share_events?since={weekly_share_since}&until={target_date}&limit=5000',
         {'total': 0, 'metrics': {'result_page_views': 0, 'share_actions': 0}},
         failures,
     )
@@ -317,6 +379,9 @@ def build_daily_report(
     share_rate = _ratio(share_actions, result_views)
     top_results = _top_results(ranking)
     primary_top_results = _top_results(primary_ranking)
+    weekly_result_line = _result_window_line(weekly_primary_ranking, label='result_7d_primary') if weekly_primary_source == 'result_exposures' else ''
+    dominant_daily = _dominant_result_line(primary_ranking, label='dominant_result_daily')
+    dominant_weekly = _dominant_result_line(weekly_primary_ranking, label='dominant_result_7d') if weekly_primary_source == 'result_exposures' else ''
     dropoff = _top_dropoff_questions(questions)
     yes_anomaly = _yes_anomaly_questions(questions)
 
@@ -333,6 +398,9 @@ def build_daily_report(
         f"share_rate: {_pct(share_rate)} ({share_actions}/{result_views})",
         _question_events_line(questions),
         f"share_events: {share.get('total', 0)}",
+        *_share_activity_lines(share),
+        f"share_7d_events: {weekly_share.get('total', 0)}",
+        *_share_activity_lines(weekly_share, prefix='share_7d'),
     ]
     if int(questions.get('total_available', questions.get('total', 0)) or 0) == 0:
         lines.append('note: question_events未蓄積')
@@ -344,6 +412,9 @@ def build_daily_report(
     if int(share.get('total') or 0) == 0:
         lines.append('note: share_events未蓄積')
     lines.extend(_question_quality_lines(questions))
+    for line in (weekly_result_line, dominant_daily, dominant_weekly):
+        if line:
+            lines.append(line)
     if failures:
         lines.append('partial_failures:')
         lines.extend(f'- {failure}' for failure in failures[:4])

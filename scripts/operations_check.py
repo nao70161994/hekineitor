@@ -144,6 +144,15 @@ def _top_heavy_ratio(ranking: list[dict[str, Any]]) -> tuple[float, list[str]]:
     return _ratio(heavy_total, total), top
 
 
+def _dominant_result(ranking: list[dict[str, Any]]) -> tuple[str, int, int, float]:
+    total = _total_results(ranking)
+    if total <= 0 or not ranking:
+        return '', 0, total, 0.0
+    top = ranking[0]
+    count = _result_count(top)
+    return _result_name(top), count, total, _ratio(count, total)
+
+
 def _fetch_result_ranking(json_getter: Callable[[str], dict[str, Any]], *, days: int = 7, top_n: int = 20) -> tuple[list[dict[str, Any]], str]:
     try:
         exposure = json_getter(f'/api/admin/result_exposures?days={days}&top_n={top_n}')
@@ -311,6 +320,13 @@ def build_report(
                 min_heavy_samples = _env_int(environ, 'NTFY_HEAVY_RESULT_MIN_SAMPLES', 30)
                 if ranking_total >= min_heavy_samples and heavy_ratio >= _env_float(environ, 'NTFY_HEAVY_RESULT_WARN_RATIO', 65.0):
                     warn.append(f'heavy_result_ratio={_pct(heavy_ratio)} TOP: {", ".join(heavy_top[:4])}')
+                dominant_name, dominant_count, dominant_total, dominant_ratio = _dominant_result(ranking)
+                if dominant_total:
+                    daily.append(f'dominant_result_7d={dominant_name}:{_pct(dominant_ratio)}({dominant_count}/{dominant_total})')
+                if dominant_total >= _env_int(environ, 'NTFY_RESULT_DOMINANCE_MIN_SAMPLES', 20) and dominant_ratio >= _env_float(environ, 'NTFY_RESULT_DOMINANCE_WARN_RATIO', 65.0):
+                    insight.append(f'dominant result 7d={dominant_name} {_pct(dominant_ratio)} ({dominant_count}/{dominant_total})')
+                elif 0 < dominant_total < _env_int(environ, 'NTFY_RESULT_DOMINANCE_MIN_SAMPLES', 20) and dominant_ratio >= _env_float(environ, 'NTFY_RESULT_DOMINANCE_WARN_RATIO', 65.0):
+                    insight.append(f'dominant result 7d reference={dominant_name} {_pct(dominant_ratio)} ({dominant_count}/{dominant_total})')
             else:
                 daily.append(f'heavy_result_ratio=unavailable ({result_source})')
             daily.append(f'result_source={result_source}')
@@ -389,7 +405,12 @@ def build_report(
             share_actions = int(share_metrics.get('share_actions') or 0)
             share_rate = _ratio(share_actions, result_views)
             share_total = int(share_report.get('total') or 0)
+            ogp_views = int(share_metrics.get('ogp_views') or 0)
+            work_clicks = int(share_metrics.get('work_clicks') or 0)
+            share_button_clicks = int(share_metrics.get('share_button_clicks') or 0)
             daily.append(f'share_events={share_total}')
+            daily.append(f'share_views=result_page:{result_views},ogp:{ogp_views},work:{work_clicks}')
+            daily.append(f'share_actions={share_actions},button_clicks={share_button_clicks}')
             daily.append(f'share_rate={_pct(share_rate)}')
             by_event = share_report.get('by_event') or {}
             event_parts = [

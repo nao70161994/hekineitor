@@ -1287,6 +1287,35 @@ class TestServices(unittest.TestCase):
         self.assertEqual(report['ranking'][0]['source'], 'result_exposures')
         self.assertEqual(report['ranking'][1]['fetish_name'], '白衣')
 
+    def test_result_exposure_factors_ignore_top_chart_candidates(self):
+        class Engine:
+            fetishes = [
+                {'id': 1, 'name': '制服'},
+                {'id': 2, 'name': '激重感情'},
+            ]
+
+        events = [result_exposure.build_event(2, '激重感情', 80, rank=101, source=result_exposure.TOP_CHART_SOURCE) for _ in range(20)]
+        events.append(result_exposure.build_event(1, '制服', 90, rank=1))
+
+        factors = result_exposure.exposure_factors(Engine.fetishes, events=events)
+
+        self.assertLess(factors[1], 1.0)
+        self.assertGreater(factors[2], 1.0)
+
+    def test_result_exposure_ranking_excludes_top_chart_candidates_by_default(self):
+        events = [
+            result_exposure.build_event(133, '制服', 91, rank=1),
+            result_exposure.build_event(1, '激重感情', 88, rank=101, source=result_exposure.TOP_CHART_SOURCE),
+        ]
+
+        default_report = result_exposure.ranking_from_events(events, top_n=5, include_secondary=True)
+        candidate_report = result_exposure.ranking_from_events(events, top_n=5, include_secondary=True, include_candidates=True)
+
+        self.assertEqual(default_report['total'], 1)
+        self.assertEqual(default_report['ranking'][0]['fetish_name'], '制服')
+        self.assertEqual(candidate_report['total'], 2)
+        self.assertEqual({row['fetish_name']: row['count'] for row in candidate_report['ranking']}, {'制服': 1, '激重感情': 1})
+
     def test_result_exposure_ranking_can_count_secondary_displayed_results(self):
         events = [
             result_exposure.build_event(133, '制服', 91, rank=1),
@@ -1579,18 +1608,21 @@ class TestServices(unittest.TestCase):
 
         self.assertEqual(adjusted[0], 80)
 
-    def test_result_exposure_caps_global_low_exposure_rescue_pool(self):
+    def test_result_exposure_adjustment_scores_every_ranked_candidate(self):
         class Engine:
             fetishes = [{'id': index + 1, 'name': f'F{index + 1}'} for index in range(80)]
 
-        events = [result_exposure.build_event(1, 'F1') for _ in range(80)]
-        probs = [0.80] + [0.20 - index * 0.001 for index in range(1, 80)]
+        events = []
+        for fetish_id in range(1, 50):
+            events.extend(result_exposure.build_event(fetish_id, f'F{fetish_id}') for _ in range(3))
+        probs = [0.60] + [0.30 - index * 0.001 for index in range(1, 80)]
+        probs[70] = 0.28
         ranked = list(range(80))
 
         adjusted = result_exposure.adjust_ranked(Engine(), probs, ranked, events=events)
 
-        rescued = [index for index in adjusted[:50] if index >= result_exposure.CANDIDATE_POOL]
-        self.assertLessEqual(len(rescued), result_exposure.LOW_EXPOSURE_RESCUE_LIMIT)
+        self.assertLess(adjusted.index(70), adjusted.index(1))
+        self.assertLess(adjusted.index(70), result_exposure.CANDIDATE_POOL)
 
 
     def test_question_selection_low_confidence_extension_bounds(self):
@@ -1754,6 +1786,64 @@ class TestServices(unittest.TestCase):
         self.assertEqual(status['storage'], 'postgres')
         self.assertEqual(status['count'], 2)
         self.assertNotIn('DATABASE_URL', status['path'])
+
+    def test_inference_make_guess_records_visible_top_chart_candidates(self):
+        calls = []
+
+        class Engine:
+            fetishes = [
+                {'id': 1, 'name': '制服', 'desc': 'uniform', 'works': []},
+                {'id': 2, 'name': '激重感情', 'desc': 'heavy', 'works': []},
+                {'id': 3, 'name': '白衣', 'desc': 'lab', 'works': []},
+            ]
+            questions = []
+            config = {'compound_ratio': 0.95, 'triple_ratio': 0.9}
+
+            def increment_play_count(self):
+                pass
+
+            def posteriors(self, answers):
+                return [0.80, 0.50, 0.40]
+
+            def get_related(self, source_db_id):
+                return []
+
+            def get_answer_contributions(self, answers, fetish_idx):
+                return []
+
+            def log_guessed(self, fetish_id):
+                pass
+
+            def index_of(self, fetish_id):
+                for index, fetish in enumerate(self.fetishes):
+                    if fetish['id'] == fetish_id:
+                        return index
+                return None
+
+        ctx = type('Ctx', (), {})()
+        ctx.engine = Engine()
+        ctx.session = {}
+        ctx.soft_max_questions = 20
+        ctx.mark_guess_quality = lambda engine, session, answers, soft: None
+        ctx.record_result_exposure = lambda fetish_id, name, probability, **kwargs: calls.append((fetish_id, name, probability, kwargs))
+        ctx.inference_context = lambda: type('InferenceCtx', (), {
+            'engine': ctx.engine,
+            'session': ctx.session,
+            'work_title': staticmethod(lambda work: str(work)),
+            'get_compound_works': staticmethod(lambda a, b: []),
+            'profile_min_ratio': 0.25,
+            'profile_min_prob': 0.08,
+            'compound_ratio': 0.95,
+            'triple_ratio': 0.9,
+        })()
+        ctx.jsonify = lambda payload: payload
+
+        result = inference.make_guess(ctx, {})
+
+        self.assertEqual(result['top_chart'][1]['fetish_id'], 2)
+        self.assertIn((1, '制服', 80.0, {'rank': 1}), calls)
+        self.assertIn((2, '激重感情', 50.0, {'rank': 102, 'source': result_exposure.TOP_CHART_SOURCE}), calls)
+        self.assertIn((3, '白衣', 40.0, {'rank': 103, 'source': result_exposure.TOP_CHART_SOURCE}), calls)
 
     def test_inference_exposure_adjusted_result_drives_side_effects(self):
         calls = []
