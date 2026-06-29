@@ -2695,7 +2695,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         from app import engine as app_engine
         self.assertEqual(
             app_engine.questions[35]['text'],
-            '感情をはっきり言葉にする人より、沈黙や間で伝わる人の方が気になる？',
+            '言葉が少ないのに、気持ちが伝わる人が気になる？',
         )
         self.assertEqual(app_engine.questions[35].get('category'), 'tone')
         self.assertEqual(
