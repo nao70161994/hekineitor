@@ -1473,7 +1473,22 @@ class TestServices(unittest.TestCase):
         events.append(result_exposure.build_event(2, '白衣', 80))
         factors = result_exposure.exposure_factors(Engine.fetishes, events=events)
 
-        self.assertLessEqual(factors[133], 0.18)
+        self.assertLessEqual(factors[133], 0.03)
+        self.assertGreater(factors[3], 1.0)
+
+    def test_result_exposure_dominance_cap_nearly_blocks_extreme_dominance(self):
+        class Engine:
+            fetishes = [
+                {'id': 133, 'name': '制服'},
+                {'id': 2, 'name': '白衣'},
+                {'id': 3, 'name': '眼鏡'},
+            ]
+
+        events = [result_exposure.build_event(133, '制服', 90) for _ in range(8)]
+        events.extend(result_exposure.build_event(2, '白衣', 80) for _ in range(2))
+        factors = result_exposure.exposure_factors(Engine.fetishes, events=events)
+
+        self.assertLessEqual(factors[133], 0.01)
         self.assertGreater(factors[3], 1.0)
 
     def test_result_exposure_dominance_cap_is_reported(self):
@@ -1489,7 +1504,7 @@ class TestServices(unittest.TestCase):
         downweighted = {row['fetish_name']: row for row in report['most_downweighted']}
 
         self.assertEqual(report['sample']['dominance_total'], 2)
-        self.assertEqual(downweighted['制服']['dominance_cap'], 0.12)
+        self.assertEqual(downweighted['制服']['dominance_cap'], 0.01)
         self.assertEqual(downweighted['制服']['dominance_share'], 100.0)
 
 

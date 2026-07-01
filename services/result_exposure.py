@@ -22,9 +22,10 @@ MIN_SAMPLES = 50
 DOMINANCE_WINDOW = 50
 DOMINANCE_MIN_COUNT = 2
 DOMINANCE_CAPS = (
-    (0.85, 0.12),
-    (0.65, 0.18),
-    (0.50, 0.25),
+    (0.80, 0.01),
+    (0.50, 0.03),
+    (0.30, 0.08),
+    (0.20, 0.15),
 )
 SMOOTHING = 2.0
 MIN_FACTOR = 0.08
@@ -638,9 +639,12 @@ def exposure_factors(fetishes, *, events=None, path=None, environ=None):
         actual = counts.get(fetish_id, 0)
         ratio = (actual + SMOOTHING) / (expected + SMOOTHING) if expected else 1.0
         factor = ratio ** (-DIVERSITY_ALPHA)
+        factor_floor = MIN_FACTOR
         if fetish_id in dominance_caps:
-            factor = min(factor, dominance_caps[fetish_id])
-        factors[fetish_id] = max(MIN_FACTOR, min(MAX_FACTOR, factor))
+            dominance_cap = dominance_caps[fetish_id]
+            factor = min(factor, dominance_cap)
+            factor_floor = min(factor_floor, dominance_cap)
+        factors[fetish_id] = max(factor_floor, min(MAX_FACTOR, factor))
     return factors
 
 
