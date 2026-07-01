@@ -2,6 +2,9 @@ from datetime import date, timedelta
 import urllib.parse
 
 from flask import Blueprint
+from services import context as context_service
+from services import inference as inference_service
+from services import result_exposure as result_exposure_service
 from services.works_links import collect_work_link_queue
 from services import share_events as share_events_service
 from services import share_links as share_links_service
@@ -35,6 +38,64 @@ def _previous_period(since, until):
     previous_since = previous_until - span
     return previous_since.isoformat(), previous_until.isoformat()
 
+
+
+def _parse_dry_run_answers(raw):
+    answers = {}
+    errors = []
+    for item in str(raw or '').replace(';', ',').split(','):
+        item = item.strip()
+        if not item:
+            continue
+        if ':' in item:
+            q_text, answer_text = item.split(':', 1)
+        elif '=' in item:
+            q_text, answer_text = item.split('=', 1)
+        else:
+            errors.append(f'invalid_pair:{item}')
+            continue
+        try:
+            question_id = int(q_text.strip())
+            answer_value = float(answer_text.strip())
+        except (TypeError, ValueError):
+            errors.append(f'invalid_value:{item}')
+            continue
+        if answer_value not in (1, 0.5, 0, -0.5, -1):
+            errors.append(f'invalid_answer:{item}')
+            continue
+        answers[str(question_id)] = answer_value
+    return answers, errors
+
+
+def dry_run_guess(ctx):
+    answers, errors = _parse_dry_run_answers(ctx.request.args.get('answers', ''))
+    if errors:
+        return ctx.jsonify({'status': 'error', 'message': 'answers は q:answer のカンマ区切りで指定してください', 'errors': errors}), 400
+    if not answers:
+        return ctx.jsonify({'status': 'error', 'message': 'answers が空です'}), 400
+    invalid_ids = [int(question_id) for question_id in answers if not (0 <= int(question_id) < len(ctx.engine.questions))]
+    if invalid_ids:
+        return ctx.jsonify({'status': 'error', 'message': '不正な質問IDです', 'invalid_question_ids': invalid_ids[:20]}), 400
+    inference_ctx = context_service.build_inference_context(
+        engine=ctx.engine,
+        session={},
+        work_title=ctx.work_title,
+        get_compound_works=ctx.get_compound_works,
+        profile_min_ratio=0.25,
+        profile_min_prob=0.08,
+        compound_ratio=ctx.engine.config.get('compound_ratio', 0.55),
+        triple_ratio=ctx.engine.config.get('triple_ratio', 0.45),
+        adjusted_score_provider=lambda probs, ranked: result_exposure_service.adjusted_scores(ctx.engine, probs, ranked),
+    )
+    result = inference_service.compute_guess(inference_ctx, answers)
+    return ctx.jsonify({
+        'status': 'ok',
+        'mode': 'dry_run_no_record',
+        'recorded': False,
+        'answer_count': len(answers),
+        'answers': answers,
+        'result': result,
+    })
 
 def share_event_query(ctx, *, default_limit=500):
     filters = {
@@ -862,6 +923,7 @@ def admin_read_overview(ctx):
             '/api/admin/fetish_log_rows',
             '/api/admin/low_exposure_fetishes',
             '/api/admin/recent_fetish_ranking',
+            '/api/admin/dry_run_guess',
             '/api/admin/result_exposures',
             '/api/admin/result_exposures/recent',
             '/api/admin/result_exposure_trend',
@@ -1720,6 +1782,12 @@ def create_blueprint(ctx_factory, require_admin, require_admin_or_read=None):
     @require_admin_or_read
     def recent_fetish_ranking_route():
         return recent_fetish_ranking(ctx_factory())
+
+
+    @bp.route('/api/admin/dry_run_guess', methods=['GET'])
+    @require_admin_or_read
+    def dry_run_guess_route():
+        return dry_run_guess(ctx_factory())
 
     @bp.route('/api/admin/result_exposures', methods=['GET'])
     @require_admin_or_read

@@ -815,6 +815,7 @@ class TestServices(unittest.TestCase):
             perf_counter=lambda: 0,
             work_title=lambda work: str(work),
             safe_work_url=lambda url: url,
+            get_compound_works=lambda a, b: [],
             use_db=lambda: False,
             matrix_ops=MatrixOps(),
             cleanup_sessions=lambda: 0,

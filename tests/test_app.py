@@ -1539,6 +1539,7 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
                 '/api/admin/share_events',
                 '/api/admin/fetish_log_rows',
                 '/api/admin/recent_fetish_ranking',
+                '/api/admin/dry_run_guess?answers=0:1,1:-1',
                 '/api/admin/result_exposures',
                 '/api/admin/result_exposure_trend',
                 '/api/admin/result_exposure_factors',
@@ -1559,6 +1560,32 @@ class TestAPI(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(res.status_code, 401)
         self.assertEqual(share_note.status_code, 401)
 
+
+
+    def test_admin_dry_run_guess_is_read_only_and_no_record(self):
+        import app as app_module
+        with patch.dict(os.environ, {'ADMIN_READ_TOKEN': 'read-token', 'ADMIN_PASS': 'testpass'}):
+            with patch('services.result_exposure.safe_record_result') as record_result, \
+                 patch('services.question_events.safe_record_event') as record_question:
+                before_play = app_module.engine.get_stats().get('play_count')
+                res = self.client.get('/api/admin/dry_run_guess?answers=0:1,1:-1,136:1', headers=self._admin_read_headers())
+                after_play = app_module.engine.get_stats().get('play_count')
+
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(data['mode'], 'dry_run_no_record')
+        self.assertFalse(data['recorded'])
+        self.assertIn('result', data)
+        self.assertIn('fetish_name', data['result'])
+        self.assertEqual(before_play, after_play)
+        record_result.assert_not_called()
+        record_question.assert_not_called()
+
+    def test_admin_dry_run_guess_rejects_bad_answers(self):
+        with patch.dict(os.environ, {'ADMIN_READ_TOKEN': 'read-token', 'ADMIN_PASS': 'testpass'}):
+            res = self.client.get('/api/admin/dry_run_guess?answers=0:2', headers=self._admin_read_headers())
+        self.assertEqual(res.status_code, 400)
 
     def test_admin_result_exposure_factors_is_read_only_and_aggregate(self):
         with patch.dict(os.environ, {'ADMIN_READ_TOKEN': 'read-token', 'ADMIN_PASS': 'testpass'}):

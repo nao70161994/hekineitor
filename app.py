@@ -173,6 +173,7 @@ def _admin_context():
         perf_counter=_time.perf_counter,
         work_title=work_title,
         safe_work_url=safe_work_url,
+        get_compound_works=get_compound_works,
         amazon_associate_id=BOOTSTRAP.amazon_associate_id,
         use_db=_use_db,
         matrix_ops=_matrix_operations(),
