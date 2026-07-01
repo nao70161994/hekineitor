@@ -1412,7 +1412,7 @@ class TestServices(unittest.TestCase):
 
         self.assertLess(factors[1], 0.35)
         self.assertGreater(factors[2], 1.0)
-        self.assertEqual(factors[3], result_exposure.MAX_FACTOR)
+        self.assertGreater(factors[3], factors[2])
 
 
 
@@ -1460,54 +1460,6 @@ class TestServices(unittest.TestCase):
         self.assertGreater(factors[2], 1.0)
 
 
-    def test_result_exposure_dominance_cap_penalizes_small_sample_repeat(self):
-        class Engine:
-            fetishes = [
-                {'id': 133, 'name': '制服'},
-                {'id': 2, 'name': '白衣'},
-                {'id': 3, 'name': '眼鏡'},
-                {'id': 4, 'name': '眼鏡男子'},
-            ]
-
-        events = [result_exposure.build_event(133, '制服', 90) for _ in range(2)]
-        events.append(result_exposure.build_event(2, '白衣', 80))
-        factors = result_exposure.exposure_factors(Engine.fetishes, events=events)
-
-        self.assertLessEqual(factors[133], 0.03)
-        self.assertGreater(factors[3], 1.0)
-
-    def test_result_exposure_dominance_cap_nearly_blocks_extreme_dominance(self):
-        class Engine:
-            fetishes = [
-                {'id': 133, 'name': '制服'},
-                {'id': 2, 'name': '白衣'},
-                {'id': 3, 'name': '眼鏡'},
-            ]
-
-        events = [result_exposure.build_event(133, '制服', 90) for _ in range(8)]
-        events.extend(result_exposure.build_event(2, '白衣', 80) for _ in range(2))
-        factors = result_exposure.exposure_factors(Engine.fetishes, events=events)
-
-        self.assertLessEqual(factors[133], 0.01)
-        self.assertGreater(factors[3], 1.0)
-
-    def test_result_exposure_dominance_cap_is_reported(self):
-        class Engine:
-            fetishes = [
-                {'id': 133, 'name': '制服'},
-                {'id': 2, 'name': '白衣'},
-                {'id': 3, 'name': '眼鏡'},
-            ]
-
-        events = [result_exposure.build_event(133, '制服', 90) for _ in range(2)]
-        report = result_exposure.factor_report(Engine.fetishes, events=events, top_n=3)
-        downweighted = {row['fetish_name']: row for row in report['most_downweighted']}
-
-        self.assertEqual(report['sample']['dominance_total'], 2)
-        self.assertEqual(downweighted['制服']['dominance_cap'], 0.01)
-        self.assertEqual(downweighted['制服']['dominance_share'], 100.0)
-
-
     def test_result_exposure_reassign_fetish_id_updates_jsonl_events(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'result_exposures.jsonl')
@@ -1541,7 +1493,9 @@ class TestServices(unittest.TestCase):
         self.assertTrue(report['sample']['active'])
         self.assertNotIn('candidate_pool', report['config'])
         self.assertNotIn('low_exposure_rescue_limit', report['config'])
-        self.assertEqual(report['config']['diversity_alpha'], 1.2)
+        self.assertEqual(report['config']['diversity_alpha'], 3.0)
+        self.assertNotIn('min_factor', report['config'])
+        self.assertNotIn('max_factor', report['config'])
         self.assertAlmostEqual(report['sample']['expected_per_result'], 85 / 3, places=4)
         heavy = {row['fetish_name']: row for row in report['heavy_results']}
         self.assertLess(heavy['激重感情']['factor'], 0.35)
@@ -1685,7 +1639,7 @@ class TestServices(unittest.TestCase):
         adjusted = result_exposure.adjust_ranked(Engine(), probs, ranked, events=events)
 
         self.assertLess(adjusted.index(70), adjusted.index(1))
-        self.assertLess(adjusted.index(70), 20)
+        self.assertLess(adjusted.index(70), 25)
 
 
     def test_question_selection_low_confidence_extension_bounds(self):

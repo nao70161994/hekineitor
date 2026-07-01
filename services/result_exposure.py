@@ -19,20 +19,8 @@ BACKFILL_CONFIRM_TEXT = 'BACKFILL_RESULT_EXPOSURES'
 MAIN_WINDOW = 1000
 SHORT_WINDOW = 300
 MIN_SAMPLES = 50
-DOMINANCE_WINDOW = 50
-DOMINANCE_MIN_COUNT = 2
-DOMINANCE_CAPS = (
-    (0.80, 0.01),
-    (0.50, 0.03),
-    (0.30, 0.08),
-    (0.20, 0.15),
-)
 SMOOTHING = 2.0
-MIN_FACTOR = 0.08
-MAX_FACTOR = 3.0
-DIVERSITY_ALPHA = 1.2
-DOMINANT_RATIO = None
-DOMINANT_MIN_FACTOR = None
+DIVERSITY_ALPHA = 3.0
 
 
 def event_log_path(environ=None):
@@ -594,30 +582,8 @@ def _counts(events, current_names=None, *, include_secondary=True):
     return counter
 
 
-def _factor_floor(fetish):
-    return MIN_FACTOR
-
-
 def _factor_events(events):
     return [event for event in events if event.get('source') != TOP_CHART_SOURCE]
-
-
-def _dominance_caps(events, current_names):
-    recent_events = list(events)[-DOMINANCE_WINDOW:]
-    total = len(recent_events)
-    if total <= 0:
-        return {}
-    counts = _counts(recent_events, current_names)
-    caps = {}
-    for fetish_id, count in counts.items():
-        if count < DOMINANCE_MIN_COUNT:
-            continue
-        share = count / total
-        for threshold, cap in DOMINANCE_CAPS:
-            if share >= threshold:
-                caps[fetish_id] = cap
-                break
-    return caps
 
 
 def exposure_factors(fetishes, *, events=None, path=None, environ=None):
@@ -631,20 +597,13 @@ def exposure_factors(fetishes, *, events=None, path=None, environ=None):
 
     current_names = {fetish.get('id'): fetish.get('name', '') for fetish in fetishes if fetish.get('id') is not None}
     counts = _counts(main_events, current_names)
-    dominance_caps = _dominance_caps(main_events, current_names)
     expected = main_total / max(len(ids), 1)
     factors = {}
     for fetish in fetishes:
         fetish_id = fetish.get('id')
         actual = counts.get(fetish_id, 0)
         ratio = (actual + SMOOTHING) / (expected + SMOOTHING) if expected else 1.0
-        factor = ratio ** (-DIVERSITY_ALPHA)
-        factor_floor = MIN_FACTOR
-        if fetish_id in dominance_caps:
-            dominance_cap = dominance_caps[fetish_id]
-            factor = min(factor, dominance_cap)
-            factor_floor = min(factor_floor, dominance_cap)
-        factors[fetish_id] = max(factor_floor, min(MAX_FACTOR, factor))
+        factors[fetish_id] = ratio ** (-DIVERSITY_ALPHA)
     return factors
 
 
@@ -659,21 +618,11 @@ def adjusted_scores(engine, probs, ranked, *, events=None, path=None, environ=No
     factors = exposure_factors(engine.fetishes, events=exposure_events)
     if not ranked:
         return {}
-    original_top = ranked[0]
-    top_score = probs[ranked[0]]
-    second_score = max(probs[ranked[1]], 1e-12) if len(ranked) > 1 else 1e-12
     scores = {}
     for index in ranked:
         fetish = engine.fetishes[index]
         fetish_id = fetish.get('id')
         factor = factors.get(fetish_id, 1.0)
-        if (
-            DOMINANT_RATIO is not None
-            and DOMINANT_MIN_FACTOR is not None
-            and index == original_top
-            and top_score / second_score >= DOMINANT_RATIO
-        ):
-            factor = max(factor, DOMINANT_MIN_FACTOR)
         adjusted_score = max(0.0, min(float(probs[index]) * float(factor), 1.0))
         scores[index] = {
             'raw_probability': float(probs[index]),
@@ -711,9 +660,6 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
     current_names = {fetish.get('id'): fetish.get('name', '') for fetish in fetishes if fetish.get('id') is not None}
     main_counts = _counts(main_events, current_names)
     short_counts = _counts(short_events, current_names)
-    dominance_events = main_events[-DOMINANCE_WINDOW:]
-    dominance_counts = _counts(dominance_events, current_names)
-    dominance_caps = _dominance_caps(main_events, current_names)
     expected = len(main_events) / max(len(current_names), 1) if current_names else 0.0
     factors = exposure_factors(fetishes, events=events)
     rows = []
@@ -723,7 +669,6 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
             continue
         main_count = main_counts.get(fetish_id, 0)
         short_count = short_counts.get(fetish_id, 0)
-        dominance_count = dominance_counts.get(fetish_id, 0)
         rows.append({
             'fetish_id': fetish_id,
             'fetish_name': fetish.get('name', ''),
@@ -732,9 +677,6 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
             'main_share': round(main_count / len(main_events) * 100, 1) if main_events else 0.0,
             'short_count': short_count,
             'short_share': round(short_count / len(short_events) * 100, 1) if short_events else 0.0,
-            'dominance_count': dominance_count,
-            'dominance_share': round(dominance_count / len(dominance_events) * 100, 1) if dominance_events else 0.0,
-            'dominance_cap': dominance_caps.get(fetish_id),
             'heavy_result': fetish.get('name') in HEAVY_RESULT_NAMES,
         })
     rows_by_factor = sorted(rows, key=lambda row: (row['factor'], -row['main_count'], row['fetish_id']))
@@ -748,19 +690,13 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
             'main_total': len(main_events),
             'short_window': SHORT_WINDOW,
             'short_total': len(short_events),
-            'dominance_window': DOMINANCE_WINDOW,
-            'dominance_total': len(dominance_events),
             'expected_per_result': round(expected, 4),
             'min_samples': MIN_SAMPLES,
             'active': len(main_events) > 0,
         },
         'config': {
-            'min_factor': MIN_FACTOR,
-            'max_factor': MAX_FACTOR,
             'diversity_alpha': DIVERSITY_ALPHA,
             'smoothing': SMOOTHING,
-            'dominance_min_count': DOMINANCE_MIN_COUNT,
-            'dominance_caps': [{'share': share, 'cap': cap} for share, cap in DOMINANCE_CAPS],
         },
         'most_downweighted': rows_by_factor[:display_limit],
         'most_boosted': rows_by_boost[:display_limit],
