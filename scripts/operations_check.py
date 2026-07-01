@@ -323,9 +323,11 @@ def build_report(
                 dominant_name, dominant_count, dominant_total, dominant_ratio = _dominant_result(ranking)
                 if dominant_total:
                     daily.append(f'dominant_result_7d={dominant_name}:{_pct(dominant_ratio)}({dominant_count}/{dominant_total})')
-                if dominant_total >= _env_int(environ, 'NTFY_RESULT_DOMINANCE_MIN_SAMPLES', 20) and dominant_ratio >= _env_float(environ, 'NTFY_RESULT_DOMINANCE_WARN_RATIO', 65.0):
-                    insight.append(f'dominant result 7d={dominant_name} {_pct(dominant_ratio)} ({dominant_count}/{dominant_total})')
-                elif 0 < dominant_total < _env_int(environ, 'NTFY_RESULT_DOMINANCE_MIN_SAMPLES', 20) and dominant_ratio >= _env_float(environ, 'NTFY_RESULT_DOMINANCE_WARN_RATIO', 65.0):
+                min_dominance_samples = _env_int(environ, 'NTFY_RESULT_DOMINANCE_MIN_SAMPLES', 3)
+                dominance_warn_ratio = _env_float(environ, 'NTFY_RESULT_DOMINANCE_WARN_RATIO', 65.0)
+                if dominant_total >= min_dominance_samples and dominant_ratio >= dominance_warn_ratio:
+                    warn.append(f'dominant result 7d={dominant_name} {_pct(dominant_ratio)} ({dominant_count}/{dominant_total})')
+                elif 0 < dominant_total < min_dominance_samples and dominant_ratio >= dominance_warn_ratio:
                     insight.append(f'dominant result 7d reference={dominant_name} {_pct(dominant_ratio)} ({dominant_count}/{dominant_total})')
             else:
                 daily.append(f'heavy_result_ratio=unavailable ({result_source})')

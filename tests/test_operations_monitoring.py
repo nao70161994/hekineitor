@@ -175,7 +175,7 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertNotIn(secret, report['message'])
         self.assertNotIn('ADMIN_READ_TOKEN', report['message'])
 
-    def test_operations_report_keeps_repeated_insights_out_of_warn_severity(self):
+    def test_operations_report_warns_on_repeated_dominant_result(self):
         def fake_json(path):
             if path == '/health':
                 return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
@@ -204,8 +204,8 @@ class OperationsMonitoringTests(unittest.TestCase):
             bytes_getter=lambda path: operations_check.PNG_SIGNATURE + b'abc',
         )
 
-        self.assertEqual(report['severity'], 'OK')
-        self.assertEqual(report['warn'], [])
+        self.assertEqual(report['severity'], 'WARN')
+        self.assertEqual(report['warn'], ['dominant result 7d=制服 100.0% (10/10)'])
         self.assertIn('YES率90%以上質問', report['message'])
         self.assertIn('share rate low=0.0%', report['message'])
         self.assertIn('insights:', report['message'])

@@ -19,6 +19,13 @@ BACKFILL_CONFIRM_TEXT = 'BACKFILL_RESULT_EXPOSURES'
 MAIN_WINDOW = 1000
 SHORT_WINDOW = 300
 MIN_SAMPLES = 50
+DOMINANCE_WINDOW = 50
+DOMINANCE_MIN_COUNT = 2
+DOMINANCE_CAPS = (
+    (0.85, 0.12),
+    (0.65, 0.18),
+    (0.50, 0.25),
+)
 SMOOTHING = 2.0
 MIN_FACTOR = 0.08
 MAX_FACTOR = 3.0
@@ -594,6 +601,24 @@ def _factor_events(events):
     return [event for event in events if event.get('source') != TOP_CHART_SOURCE]
 
 
+def _dominance_caps(events, current_names):
+    recent_events = list(events)[-DOMINANCE_WINDOW:]
+    total = len(recent_events)
+    if total <= 0:
+        return {}
+    counts = _counts(recent_events, current_names)
+    caps = {}
+    for fetish_id, count in counts.items():
+        if count < DOMINANCE_MIN_COUNT:
+            continue
+        share = count / total
+        for threshold, cap in DOMINANCE_CAPS:
+            if share >= threshold:
+                caps[fetish_id] = cap
+                break
+    return caps
+
+
 def exposure_factors(fetishes, *, events=None, path=None, environ=None):
     events = list(events) if events is not None else read_events(path=path, environ=environ, limit=MAIN_WINDOW)
     factor_events = _factor_events(events)
@@ -605,6 +630,7 @@ def exposure_factors(fetishes, *, events=None, path=None, environ=None):
 
     current_names = {fetish.get('id'): fetish.get('name', '') for fetish in fetishes if fetish.get('id') is not None}
     counts = _counts(main_events, current_names)
+    dominance_caps = _dominance_caps(main_events, current_names)
     expected = main_total / max(len(ids), 1)
     factors = {}
     for fetish in fetishes:
@@ -612,6 +638,8 @@ def exposure_factors(fetishes, *, events=None, path=None, environ=None):
         actual = counts.get(fetish_id, 0)
         ratio = (actual + SMOOTHING) / (expected + SMOOTHING) if expected else 1.0
         factor = ratio ** (-DIVERSITY_ALPHA)
+        if fetish_id in dominance_caps:
+            factor = min(factor, dominance_caps[fetish_id])
         factors[fetish_id] = max(MIN_FACTOR, min(MAX_FACTOR, factor))
     return factors
 
@@ -679,6 +707,9 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
     current_names = {fetish.get('id'): fetish.get('name', '') for fetish in fetishes if fetish.get('id') is not None}
     main_counts = _counts(main_events, current_names)
     short_counts = _counts(short_events, current_names)
+    dominance_events = main_events[-DOMINANCE_WINDOW:]
+    dominance_counts = _counts(dominance_events, current_names)
+    dominance_caps = _dominance_caps(main_events, current_names)
     expected = len(main_events) / max(len(current_names), 1) if current_names else 0.0
     factors = exposure_factors(fetishes, events=events)
     rows = []
@@ -688,6 +719,7 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
             continue
         main_count = main_counts.get(fetish_id, 0)
         short_count = short_counts.get(fetish_id, 0)
+        dominance_count = dominance_counts.get(fetish_id, 0)
         rows.append({
             'fetish_id': fetish_id,
             'fetish_name': fetish.get('name', ''),
@@ -696,6 +728,9 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
             'main_share': round(main_count / len(main_events) * 100, 1) if main_events else 0.0,
             'short_count': short_count,
             'short_share': round(short_count / len(short_events) * 100, 1) if short_events else 0.0,
+            'dominance_count': dominance_count,
+            'dominance_share': round(dominance_count / len(dominance_events) * 100, 1) if dominance_events else 0.0,
+            'dominance_cap': dominance_caps.get(fetish_id),
             'heavy_result': fetish.get('name') in HEAVY_RESULT_NAMES,
         })
     rows_by_factor = sorted(rows, key=lambda row: (row['factor'], -row['main_count'], row['fetish_id']))
@@ -709,6 +744,8 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
             'main_total': len(main_events),
             'short_window': SHORT_WINDOW,
             'short_total': len(short_events),
+            'dominance_window': DOMINANCE_WINDOW,
+            'dominance_total': len(dominance_events),
             'expected_per_result': round(expected, 4),
             'min_samples': MIN_SAMPLES,
             'active': len(main_events) > 0,
@@ -718,6 +755,8 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
             'max_factor': MAX_FACTOR,
             'diversity_alpha': DIVERSITY_ALPHA,
             'smoothing': SMOOTHING,
+            'dominance_min_count': DOMINANCE_MIN_COUNT,
+            'dominance_caps': [{'share': share, 'cap': cap} for share, cap in DOMINANCE_CAPS],
         },
         'most_downweighted': rows_by_factor[:display_limit],
         'most_boosted': rows_by_boost[:display_limit],

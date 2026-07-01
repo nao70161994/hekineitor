@@ -1460,6 +1460,39 @@ class TestServices(unittest.TestCase):
         self.assertGreater(factors[2], 1.0)
 
 
+    def test_result_exposure_dominance_cap_penalizes_small_sample_repeat(self):
+        class Engine:
+            fetishes = [
+                {'id': 133, 'name': '制服'},
+                {'id': 2, 'name': '白衣'},
+                {'id': 3, 'name': '眼鏡'},
+                {'id': 4, 'name': '眼鏡男子'},
+            ]
+
+        events = [result_exposure.build_event(133, '制服', 90) for _ in range(2)]
+        events.append(result_exposure.build_event(2, '白衣', 80))
+        factors = result_exposure.exposure_factors(Engine.fetishes, events=events)
+
+        self.assertLessEqual(factors[133], 0.18)
+        self.assertGreater(factors[3], 1.0)
+
+    def test_result_exposure_dominance_cap_is_reported(self):
+        class Engine:
+            fetishes = [
+                {'id': 133, 'name': '制服'},
+                {'id': 2, 'name': '白衣'},
+                {'id': 3, 'name': '眼鏡'},
+            ]
+
+        events = [result_exposure.build_event(133, '制服', 90) for _ in range(2)]
+        report = result_exposure.factor_report(Engine.fetishes, events=events, top_n=3)
+        downweighted = {row['fetish_name']: row for row in report['most_downweighted']}
+
+        self.assertEqual(report['sample']['dominance_total'], 2)
+        self.assertEqual(downweighted['制服']['dominance_cap'], 0.12)
+        self.assertEqual(downweighted['制服']['dominance_share'], 100.0)
+
+
     def test_result_exposure_reassign_fetish_id_updates_jsonl_events(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'result_exposures.jsonl')
