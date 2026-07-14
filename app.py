@@ -36,7 +36,17 @@ from services import filesystem_context as filesystem_context_service
 # ─────────────────────────────────────────────────────────
 app = Flask(__name__)
 app.secret_key = app_meta_service.secret_key(os.environ)
+app.config['MAX_CONTENT_LENGTH'] = app_meta_service.max_content_length(os.environ)
 app.session_interface = server_session_service.ServerSessionInterface()
+
+
+@app.before_request
+def _require_json_object_body():
+    if (request.path.startswith('/api/') and request.method in {'POST', 'PUT', 'PATCH', 'DELETE'}
+            and request.is_json and request.get_data(cache=True)):
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'status': 'error', 'message': 'JSON body must be an object.'}), 400
 
 
 @app.after_request
@@ -54,6 +64,11 @@ def _flask_runtime():
         environ=os.environ,
         buckets=_RATE_LIMIT_BUCKETS,
         time_fn=_time.time,
+        use_db=_use_db,
+        get_conn=_get_conn,
+        put_conn=_put_conn,
+        shared_rate_limit_path=None if app.config.get('TESTING') else data_path('rate_limits.sqlite3'),
+        logger=app.logger,
     )
 
 BOOTSTRAP = bootstrap_service.app_bootstrap(
@@ -164,6 +179,7 @@ def _admin_share_event_report(**kwargs):
 
 
 def _admin_context():
+    engine._refresh_settings()
     return admin_context_service.build(
         engine=engine,
         flask_runtime=_flask_runtime(),
@@ -177,7 +193,7 @@ def _admin_context():
         amazon_associate_id=BOOTSTRAP.amazon_associate_id,
         use_db=_use_db,
         matrix_ops=_matrix_operations(),
-        cleanup_sessions=server_session_service.cleanup_sessions,
+        cleanup_sessions=lambda: server_session_service.cleanup_sessions(use_sqlite=not app.config.get('TESTING') and server_session_service._use_sqlite_sessions()),
         player_fetish_base_id=PLAYER_FETISH_BASE_ID,
         strftime=_time.strftime,
         gmtime=_time.gmtime,
@@ -214,7 +230,7 @@ def _system_context():
         adsense_client=BOOTSTRAP.adsense_client,
         app_started_at=APP_STARTED_AT,
         time_fn=_time.time,
-        local_session_count=server_session_service.local_session_count,
+        local_session_count=lambda: server_session_service.local_session_count(use_sqlite=not app.config.get('TESTING') and server_session_service._use_sqlite_sessions()),
         recent_audit=recent_audit,
         use_db=_use_db,
         get_conn=_get_conn,
@@ -239,6 +255,9 @@ def _register_blueprints(application):
 
 
 def _register_error_handlers(application):
+    application.register_error_handler(413, lambda e: (
+        jsonify({'status': 'error', 'message': 'リクエスト本文が大きすぎます。'}), 413
+    ))
     application.register_error_handler(404, lambda e: system_routes.not_found())
     application.register_error_handler(500, lambda e: system_routes.server_error())
     application.register_error_handler(503, lambda e: system_routes.service_unavailable())
@@ -249,4 +268,4 @@ _register_error_handlers(app)
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(**app_meta_service.development_server_options(os.environ))

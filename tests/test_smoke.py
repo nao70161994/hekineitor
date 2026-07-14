@@ -267,7 +267,9 @@ class TestSmoke(unittest.TestCase):
         self.assertIn('この性癖を追加する'.encode('utf-8'), index)
         self.assertIn('候補にない場合'.encode('utf-8'), index)
         self.assertIn('おすすめ作品'.encode('utf-8'), index)
-        self.assertIn('この組み合わせが刺さる人へ'.encode('utf-8'), open(os.path.join(root, 'static', 'renderers.js'), 'rb').read())
+        with open(os.path.join(root, 'static', 'renderers.js'), 'rb') as f:
+            renderers = f.read()
+        self.assertIn('この組み合わせが刺さる人へ'.encode('utf-8'), renderers)
         self.assertIn('保存せず確認しました'.encode('utf-8'), teach)
 
     def test_admin_promote_player_fetish_updates_row_to_terminal_state(self):

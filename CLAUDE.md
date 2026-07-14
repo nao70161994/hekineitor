@@ -106,8 +106,9 @@
 ## セッション管理
 
 - サーバーサイドセッション（`_ServerSessionInterface`）を使用。クッキーにはUUIDのみ保存
-- DB使用時：`sessions` テーブルに JSON として保存（TTL 24時間）
-- ローカル時：`_LOCAL_SESSIONS` インメモリdict（最大2000件、古いものは自動削除）
+- DB使用時：`sessions` テーブルに JSON として保存（TTL 24時間）。SID単位のPostgreSQL advisory lockでreplica間の更新も直列化
+- ローカル時：`data/sessions.sqlite3` に保存（TTL 24時間）。セッション層自体はfile lockでworker共有可能だが、JSON engine storageが単一process限定のためアプリ全体は1 workerで運用する。テスト時または `SESSION_STORAGE=memory` 指定時のみインメモリdictを使用
+- 非DBのEngineは`data/engine_file_mode.lock`を取得し、別processをfail-closedで拒否する。複数worker運用には`DATABASE_URL`が必須
 - セッション切れ（サーバー再起動後等）は HTTP 440 を返し、フロントが自動リスタートを促す
 - `answer()` の推論処理全体を try/except で囲み、予期しないエラーでも 440+`restart:true` を返してセッション破損を検知
 
@@ -204,13 +205,11 @@
 # ローカル
 python app.py
 
-# テスト（89テスト）
-python tests/test_app.py
-
-# カバレッジ計測（app.py 75% / engine.py 57% / 合計 65%）
-python run_coverage.py
+# コンパイル・静的チェック・全ユニット/E2E smoke
+sh scripts/check.sh
 
 # 本番（Render）。複数workerも可（DBの5秒TTLリロードで整合性を確保）
+# DATABASE_URLなしのJSON保存モードは単一processのみ（複数threadは可）
 gunicorn app:app --workers 2 --threads 4
 ```
 
@@ -233,8 +232,8 @@ gunicorn app:app --workers 2 --threads 4
 
 | ファイル | トリガー | 内容 |
 |---|---|---|
-| `matrix_backup.yml` | 毎日JST11時 / 手動 | matrixバックアップ・DB期限チェック・プッシュ通知 |
-| `restore_matrix.yml` | 手動（`restore`入力必須） | `matrix_backup.json` を本番DBに復元 |
+| `matrix_backup.yml` | 毎日JST11時 / 手動 | v2 matrixバックアップのschema・完全性・鮮度検証、artifact保存、DB期限チェック、通知 |
+| `restore_matrix.yml` | 手動（`restore`とrun ID入力必須） | 30日以内のartifactを検証して本番DBへ復元。削除済み質問行の無視はboolean入力で明示許可 |
 
 ### DB期限切れ対応フロー（Render無料PostgreSQL・90日で削除）
 

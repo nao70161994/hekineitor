@@ -1,7 +1,10 @@
+import copy
+import fcntl
 import math
 import os
 import threading
 import time
+from contextlib import contextmanager
 from analytics import build_quality_report
 from config import get_fetish_log_path
 from matrix_service import collect_matrix_updates, matrix_validation_report
@@ -112,10 +115,71 @@ def _build_initial_matrix(nf, nq):
 _MATRIX_RELOAD_INTERVAL  = 5.0   # 複数worker対応: DBからmatrixをリロードする間隔(秒)
 _DYNAMIC_PRIOR_INTERVAL  = 60.0  # 動的事前確率キャッシュの更新間隔(秒)
 
+_SETTINGS_LOCK_GUARD = threading.Lock()
+_SETTINGS_THREAD_LOCKS = {}
+_FILE_ENGINE_PROCESS_GUARD = threading.Lock()
+_FILE_ENGINE_PROCESS_LOCK = None
+_FILE_ENGINE_PROCESS_PID = None
+
+
+def _acquire_file_engine_process_lock():
+    """Reject multiple processes when the mutable engine uses JSON files."""
+    global _FILE_ENGINE_PROCESS_LOCK, _FILE_ENGINE_PROCESS_PID
+    if _use_db():
+        return
+    pid = os.getpid()
+    with _FILE_ENGINE_PROCESS_GUARD:
+        if _FILE_ENGINE_PROCESS_LOCK is not None and _FILE_ENGINE_PROCESS_PID == pid:
+            return
+        if _FILE_ENGINE_PROCESS_LOCK is not None:
+            # A pre-fork child must not treat the master's inherited descriptor
+            # as permission to use a stale in-memory Engine snapshot.
+            _FILE_ENGINE_PROCESS_LOCK.close()
+            _FILE_ENGINE_PROCESS_LOCK = None
+            _FILE_ENGINE_PROCESS_PID = None
+        lock_path = os.path.join(DATA_DIR, 'engine_file_mode.lock')
+        os.makedirs(os.path.dirname(lock_path), exist_ok=True)
+        lock_file = open(lock_path, 'a', encoding='utf-8')
+        try:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            lock_file.close()
+            raise RuntimeError(
+                'JSON engine storage supports one process only; configure DATABASE_URL for multiple workers'
+            ) from exc
+        _FILE_ENGINE_PROCESS_LOCK = lock_file
+        _FILE_ENGINE_PROCESS_PID = pid
+
+
+@contextmanager
+def _settings_file_lock(path):
+    absolute = os.path.abspath(path)
+    with _SETTINGS_LOCK_GUARD:
+        thread_lock = _SETTINGS_THREAD_LOCKS.setdefault(absolute, threading.RLock())
+    with thread_lock:
+        os.makedirs(os.path.dirname(absolute), exist_ok=True)
+        with open(f'{absolute}.lock', 'a', encoding='utf-8') as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
 class Engine:
     def __init__(self):
+        _acquire_file_engine_process_lock()
         self._lock = threading.RLock()
         self.questions = self._load_json('questions.json')
+        if not _use_db():
+            journal_path = os.path.join(DATA_DIR, 'matrix_restore_journal.json')
+            with _settings_file_lock(journal_path):
+                engine_persistence.recover_matrix_restore(
+                    journal_path,
+                    os.path.join(DATA_DIR, 'fetishes.json'),
+                    os.path.join(DATA_DIR, 'matrix.json'),
+                    len(self.questions), atomic_write=self._atomic_write,
+                )
         if _use_db():
             self._ensure_db()
             self.fetishes = self._load_fetishes_from_db()
@@ -125,6 +189,7 @@ class Engine:
             self.matrix   = self._load_matrix_file()
         self.disabled_questions    = self._load_disabled_questions()
         self._matrix_last_loaded   = time.monotonic()
+        self._settings_last_loaded = self._matrix_last_loaded
         self._dynamic_prior_cache  = {}
         self._dynamic_prior_time   = 0.0
         self._disc_cache           = []   # [disc_value per question]
@@ -134,6 +199,7 @@ class Engine:
         self._question_balance_cache = {}
         self._question_balance_time = 0.0
         self.config                = self._load_config()
+        self._settings_config_snapshot = copy.deepcopy(self.config)
 
     # ── JSON ローカル ──────────────────────────────────────
     def _load_json(self, fname):
@@ -173,6 +239,7 @@ class Engine:
             }
 
     def _save_matrix_file(self):
+        _acquire_file_engine_process_lock()
         engine_persistence.save_matrix_file(
             os.path.join(DATA_DIR, 'matrix.json'),
             self._matrix_snapshot(),
@@ -187,11 +254,22 @@ class Engine:
         not race with worker shutdown or stale reloads.
         """
         if _use_db():
-            self._save_to_db(all_updates, idx_to_db_id)
+            try:
+                self._save_to_db(all_updates, idx_to_db_id)
+            except BaseException:
+                # DB writes are transactional. Undo only this call's deltas so
+                # concurrent successful learning retained in memory is preserved.
+                with self._lock:
+                    for fetish_idx, rows in all_updates.items():
+                        for question_idx, delta_yes, delta_total in rows:
+                            self.matrix['yes'][fetish_idx][question_idx] -= delta_yes
+                            self.matrix['total'][fetish_idx][question_idx] -= delta_total
+                raise
         else:
             self._save_matrix_file()
 
     def _save_fetishes_file(self):
+        _acquire_file_engine_process_lock()
         engine_persistence.save_fetishes_file(
             os.path.join(DATA_DIR, 'fetishes.json'),
             self.fetishes,
@@ -387,14 +465,25 @@ class Engine:
 
     def toggle_question_disabled(self, q_id):
         """無効化/有効化を切り替え。True=無効化後の状態を返す。"""
-        with self._lock:
-            if q_id in self.disabled_questions:
-                self.disabled_questions.discard(q_id)
+        if _use_db():
+            result = engine_db.toggle_question_disabled(q_id, get_conn=_get_conn, put_conn=_put_conn)
+            with self._lock:
+                self.disabled_questions = self._load_disabled_questions()
+                self._settings_last_loaded = time.monotonic()
+            return result
+        path = os.path.join(DATA_DIR, 'question_flags.json')
+        with _settings_file_lock(path):
+            disabled = engine_stats.load_disabled_questions_file(path)
+            if q_id in disabled:
+                disabled.discard(q_id)
                 result = False
             else:
-                self.disabled_questions.add(q_id)
+                disabled.add(q_id)
                 result = True
-        self._save_disabled_questions()
+            engine_stats.save_disabled_questions_file(path, disabled, atomic_write=self._atomic_write)
+        with self._lock:
+            self.disabled_questions = engine_stats.load_disabled_questions_file(path)
+            self._settings_last_loaded = time.monotonic()
         return result
 
     # ── 診断ログ ──────────────────────────────────────────
@@ -484,17 +573,16 @@ class Engine:
         min_value, max_value = self._CONFIG_RANGES[key]
         if fval < min_value or fval > max_value:
             raise ValueError(f'{key} は {min_value}〜{max_value} の範囲で指定してください')
-        self.config[key] = fval
+        config_path = os.path.join(DATA_DIR, 'config.json')
         engine_db.save_config_value(
-            key,
-            fval,
-            use_db=_use_db,
-            get_conn=_get_conn,
-            put_conn=_put_conn,
-            config_path=os.path.join(DATA_DIR, 'config.json'),
-            read_json=engine_stats.read_json_path,
-            atomic_write=self._atomic_write,
+            key, fval, use_db=_use_db, get_conn=_get_conn, put_conn=_put_conn,
+            config_path=config_path, read_json=engine_stats.read_json_path,
+            atomic_write=self._atomic_write, file_lock=_settings_file_lock,
         )
+        with self._lock:
+            self.config[key] = fval
+            self._settings_config_snapshot = copy.deepcopy(self.config)
+            self._settings_last_loaded = time.monotonic()
 
     # ── disc キャッシュ（学習重みスケーリング用） ──────────
     _DISC_CACHE_TTL = 120.0  # 2分ごとに再計算
@@ -528,12 +616,42 @@ class Engine:
             if time.monotonic() - self._matrix_last_loaded < _MATRIX_RELOAD_INTERVAL:
                 return
             fresh_fetishes = self._load_fetishes_from_db()
-            if [fetish['id'] for fetish in fresh_fetishes] != [fetish['id'] for fetish in self.fetishes]:
-                self.fetishes = fresh_fetishes
+            ids_changed = (
+                [fetish['id'] for fetish in fresh_fetishes]
+                != [fetish['id'] for fetish in self.fetishes]
+            )
+            self.fetishes = fresh_fetishes
+            if ids_changed:
                 self._disc_cache = None
                 self._dynamic_prior_time = 0.0
             self.matrix = self._load_from_db()
             self._matrix_last_loaded = time.monotonic()
+
+    def _reload_settings_if_stale(self, force=False):
+        _acquire_file_engine_process_lock()
+        now = time.monotonic()
+        if not force and now - self._settings_last_loaded < _MATRIX_RELOAD_INTERVAL:
+            return
+        with self._lock:
+            if not force and time.monotonic() - self._settings_last_loaded < _MATRIX_RELOAD_INTERVAL:
+                return
+            try:
+                disabled_questions = self._load_disabled_questions()
+                config = self._load_config()
+            except Exception:
+                self._settings_last_loaded = time.monotonic()
+                return
+            self.disabled_questions = disabled_questions
+            # Preserve an intentional in-process override until its owner
+            # restores the last persisted snapshot (used by diagnostics and
+            # callers that temporarily tune inference parameters).
+            if self.config == self._settings_config_snapshot:
+                self.config = config
+                self._settings_config_snapshot = copy.deepcopy(config)
+            self._settings_last_loaded = time.monotonic()
+
+    def _refresh_settings(self):
+        self._reload_settings_if_stale(force=True)
 
     # ── 動的事前確率（診断ログから自動更新） ──────────────
     def _get_dynamic_prior_weights(self):
@@ -569,6 +687,7 @@ class Engine:
         return engine_inference.probability(self, f, q)
 
     def posteriors(self, answers):
+        self._reload_settings_if_stale()
         return engine_inference.posteriors(self, answers, fetish_prior_weights=FETISH_PRIOR_WEIGHTS)
 
     def _question_axis(self, q):
@@ -604,6 +723,7 @@ class Engine:
         return stats
 
     def best_question(self, answers, asked, idk_streak=0):
+        self._reload_settings_if_stale()
         return engine_question_selection.best_question(
             self,
             answers,
@@ -620,6 +740,7 @@ class Engine:
         )
 
     def best_disambiguating_question(self, answers, asked, candidate_count=3, idk_streak=0):
+        self._reload_settings_if_stale()
         return engine_question_selection.best_disambiguating_question(
             self,
             answers,
@@ -660,6 +781,7 @@ class Engine:
         return build_quality_report(self)
 
     def top_guess(self, answers, n=1):
+        self._reload_settings_if_stale()
         return engine_inference.top_guess(self, answers, n=n)
 
     def get_answer_contributions(self, answers, fetish_idx, top_n=3):
@@ -797,6 +919,82 @@ class Engine:
             self._dynamic_prior_time = 0.0
         return missing
 
+    def restore_matrix_snapshot(self, exported_fetishes, matrix_rows):
+        """Restore player fetishes and matrix values as one logical operation."""
+        _acquire_file_engine_process_lock()
+        with self._lock:
+            missing = self._sanitize_restored_player_fetishes(exported_fetishes)
+            prospective = self.fetishes + missing
+            updates, _meta = collect_matrix_updates(prospective, self.questions, matrix_rows)
+            old_fetishes = copy.deepcopy(self.fetishes)
+            old_matrix = copy.deepcopy(self.matrix)
+            new_fetishes = copy.deepcopy(self.fetishes)
+            new_matrix = copy.deepcopy(self.matrix)
+            nq = len(self.questions)
+            for fetish in missing:
+                engine_mutations.append_fetish(
+                    new_fetishes,
+                    new_matrix,
+                    db_id=fetish['id'],
+                    name=fetish['name'],
+                    desc=fetish['desc'],
+                    yes_row=[2.0] * nq,
+                    total_row=[4.0] * nq,
+                )
+                new_fetishes[-1]['works'] = fetish.get('works', [])
+            for fetish_index, question_rows in updates.items():
+                for question_index, yes, total in question_rows:
+                    new_matrix['yes'][fetish_index][question_index] = yes
+                    new_matrix['total'][fetish_index][question_index] = total
+
+            if _use_db():
+                engine_db.restore_matrix_snapshot(
+                    missing,
+                    matrix_rows,
+                    get_conn=_get_conn,
+                    put_conn=_put_conn,
+                    execute_values=psycopg2.extras.execute_values,
+                )
+            else:
+                journal_path = os.path.join(DATA_DIR, 'matrix_restore_journal.json')
+                fetishes_path = os.path.join(DATA_DIR, 'fetishes.json')
+                matrix_path = os.path.join(DATA_DIR, 'matrix.json')
+                journal = {
+                    'format_version': 1,
+                    'before': {'fetishes': old_fetishes, 'matrix': old_matrix},
+                    'after': {'fetishes': new_fetishes, 'matrix': new_matrix},
+                }
+                with _settings_file_lock(journal_path):
+                    journal_written = False
+                    try:
+                        self._atomic_write(journal_path, journal, ensure_ascii=False)
+                        journal_written = True
+                        engine_persistence.save_fetishes_file(
+                            fetishes_path, new_fetishes, atomic_write=self._atomic_write,
+                        )
+                        engine_persistence.save_matrix_file(
+                            matrix_path, new_matrix, atomic_write=self._atomic_write,
+                        )
+                        engine_persistence.durable_unlink(journal_path)
+                    except BaseException:
+                        if journal_written:
+                            try:
+                                engine_persistence.save_fetishes_file(
+                                    fetishes_path, old_fetishes, atomic_write=self._atomic_write,
+                                )
+                                engine_persistence.save_matrix_file(
+                                    matrix_path, old_matrix, atomic_write=self._atomic_write,
+                                )
+                                engine_persistence.durable_unlink(journal_path)
+                            except BaseException as rollback_error:
+                                raise RuntimeError('matrix restore rollback failed; recovery journal retained') from rollback_error
+                        raise
+            self.fetishes = new_fetishes
+            self.matrix = new_matrix
+            self._disc_cache = None
+            self._dynamic_prior_time = 0.0
+            return sum(len(value) for value in updates.values()), missing
+
     def boost_learn_new(self, fetish_idx, answers):
         """新規追加時の初期ブースト：cold_start で _learn_silent × 5 + learn × 1。
         cold_start=True により蓄積データの減衰を無視し、回答済みの質問の値を確実に動かす。"""
@@ -815,20 +1013,28 @@ class Engine:
             idx_rm   = self.index_of(id_remove)
             if idx_keep is None or idx_rm is None or id_keep == id_remove:
                 return False
+            db_mode = _use_db()
+            old_fetishes = copy.deepcopy(self.fetishes) if db_mode else None
+            old_matrix = copy.deepcopy(self.matrix) if db_mode else None
             keep_name, keep_desc = engine_mutations.merge_fetish_rows(
                 self.fetishes, self.matrix, idx_keep, idx_rm, new_name=new_name, new_desc=new_desc
             )
-            if _use_db():
-                engine_db.merge_fetish_rows_db(
-                    id_keep,
-                    id_remove,
-                    new_name=new_name,
-                    new_desc=new_desc,
-                    keep_name=keep_name,
-                    keep_desc=keep_desc,
-                    get_conn=_get_conn,
-                    put_conn=_put_conn,
-                )
+            if db_mode:
+                try:
+                    engine_db.merge_fetish_rows_db(
+                        id_keep,
+                        id_remove,
+                        new_name=new_name,
+                        new_desc=new_desc,
+                        keep_name=keep_name,
+                        keep_desc=keep_desc,
+                        get_conn=_get_conn,
+                        put_conn=_put_conn,
+                    )
+                except BaseException:
+                    self.fetishes = old_fetishes
+                    self.matrix = old_matrix
+                    raise
             else:
                 self._save_fetishes_file()
                 self._save_matrix_file()
@@ -864,15 +1070,15 @@ class Engine:
     def import_matrix(self, matrix_rows: list) -> int:
         """matrix_rows（export_matrixと同形式）でmatrixを上書き復元する。返り値は反映行数。"""
         updates, _meta = self._collect_matrix_updates(matrix_rows)
+        if _use_db() and updates:
+            idx_map = {f['id']: i for i, f in enumerate(self.fetishes)}
+            self._import_to_db(updates, idx_map)
         with self._lock:
             for fi, qs in updates.items():
                 for qi, y, t in qs:
                     self.matrix['yes'][fi][qi]   = y
                     self.matrix['total'][fi][qi] = t
-        if _use_db() and updates:
-            idx_map = {f['id']: i for i, f in enumerate(self.fetishes)}
-            self._import_to_db(updates, idx_map)
-        elif not _use_db():
+        if not _use_db():
             self._save_matrix_file()
         return sum(len(v) for v in updates.values())
 
@@ -892,7 +1098,6 @@ class Engine:
             idx = self.index_of(fetish_id)
             if idx is None:
                 return False
-            engine_mutations.apply_fetish_edits(self.fetishes[idx], name=name, desc=desc, works=works)
             if _use_db():
                 engine_db.update_fetish_fields(
                     fetish_id,
@@ -902,7 +1107,8 @@ class Engine:
                     get_conn=_get_conn,
                     put_conn=_put_conn,
                 )
-            else:
+            engine_mutations.apply_fetish_edits(self.fetishes[idx], name=name, desc=desc, works=works)
+            if not _use_db():
                 self._save_fetishes_file()
         return True
 
@@ -912,10 +1118,10 @@ class Engine:
             idx = next((i for i, f in enumerate(self.fetishes) if f['id'] == fetish_id), None)
             if idx is None or self.fetishes[idx]['id'] < PLAYER_FETISH_BASE_ID:
                 return False
-            engine_mutations.delete_fetish_at(self.fetishes, self.matrix, idx)
             if _use_db():
                 engine_db.delete_fetish_rows(fetish_id, get_conn=_get_conn, put_conn=_put_conn)
-            else:
+            engine_mutations.delete_fetish_at(self.fetishes, self.matrix, idx)
+            if not _use_db():
                 self._save_fetishes_file()
                 self._save_matrix_file()
         return True

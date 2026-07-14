@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import os
 import shutil
 
@@ -17,6 +18,68 @@ def valid_matrix_shape(matrix, nf, nq):
         and all(isinstance(row, list) and len(row) == nq for row in yes)
         and all(isinstance(row, list) and len(row) == nq for row in total)
     )
+
+
+def _valid_restore_snapshot(snapshot, question_count):
+    if not isinstance(snapshot, dict):
+        return False
+    fetishes = snapshot.get('fetishes')
+    matrix = snapshot.get('matrix')
+    if not isinstance(fetishes, list) or not fetishes:
+        return False
+    fetish_ids = set()
+    for fetish in fetishes:
+        if not isinstance(fetish, dict):
+            return False
+        fetish_id = fetish.get('id')
+        name = fetish.get('name')
+        if type(fetish_id) is not int or fetish_id < 0 or fetish_id in fetish_ids:
+            return False
+        if not isinstance(name, str) or not name.strip():
+            return False
+        fetish_ids.add(fetish_id)
+    if not valid_matrix_shape(matrix, len(fetishes), question_count):
+        return False
+    for yes_row, total_row in zip(matrix['yes'], matrix['total']):
+        for yes, total in zip(yes_row, total_row):
+            try:
+                yes = float(yes)
+                total = float(total)
+            except (TypeError, ValueError):
+                return False
+            if not math.isfinite(yes) or not math.isfinite(total) or yes < 0 or total < 0 or yes > total:
+                return False
+    return True
+
+
+def durable_unlink(path):
+    os.remove(path)
+    directory = os.path.dirname(os.path.abspath(path)) or '.'
+    dir_fd = os.open(directory, os.O_RDONLY)
+    try:
+        os.fsync(dir_fd)
+    finally:
+        os.close(dir_fd)
+
+
+def recover_matrix_restore(journal_path, fetishes_path, matrix_path, question_count, *, atomic_write):
+    if not os.path.exists(journal_path):
+        return False
+    try:
+        with open(journal_path, encoding='utf-8') as source:
+            journal = json.load(source)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError('matrix restore journal is unreadable') from exc
+    if not isinstance(journal, dict) or journal.get('format_version') != 1:
+        raise RuntimeError('matrix restore journal has an unsupported format')
+    before = journal.get('before')
+    after = journal.get('after')
+    if not _valid_restore_snapshot(before, question_count) or not _valid_restore_snapshot(after, question_count):
+        raise RuntimeError('matrix restore journal is invalid')
+    atomic_write(fetishes_path, after['fetishes'], ensure_ascii=False, indent=2)
+    atomic_write(matrix_path, after['matrix'])
+    durable_unlink(journal_path)
+    return True
 
 
 def apply_learned_priors(yes, total, fetishes, questions, learned, *, pseudo):

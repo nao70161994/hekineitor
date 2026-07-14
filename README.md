@@ -22,11 +22,17 @@ SECRET_KEY=dev_secret_key_for_local flask --app app run
 - `OGP_FONT_PATH`: `/ogp.png` 生成で使う TrueType/OpenType フォントのパス。未指定時は Noto Sans CJK、DejaVuSans、Pillow 既定フォントの順でフォールバックします。
 - `APP_ENV`: 実行環境。`development` / `production` / `testing` で診断ログの既定保存先が変わります。
 - `FETISH_LOG_PATH`: PostgreSQL を使わない場合の診断ログ JSON 保存先。指定時は `APP_ENV` より優先されます。
+- `MAX_CONTENT_LENGTH`: HTTP本文の最大バイト数。未指定時は16MiB。
 - `RATE_LIMIT_API_START_LIMIT` / `RATE_LIMIT_API_START_WINDOW`: `/api/start` のレート制限。
 - `RATE_LIMIT_API_ANSWER_LIMIT` / `RATE_LIMIT_API_ANSWER_WINDOW`: `/api/answer` のレート制限。
 - `RATE_LIMIT_ADMIN_API_LIMIT` / `RATE_LIMIT_ADMIN_API_WINDOW`: 管理 API のレート制限。
 - `MATRIX_IMPORT_BACKUP_KEEP`: import/restore 前バックアップの保持件数。未指定時は20件。
 - `ADMIN_CSRF_TTL_SECONDS`: 管理画面 CSRF トークンの有効期限。未指定時は7200秒。
+- `SESSION_STORAGE`: `memory` 指定時のみローカルセッションをインメモリ化。通常はSQLiteでworker間共有します。
+- `SESSION_SQLITE_PATH`: 非DB環境のセッションSQLite保存先。未指定時は `data/sessions.sqlite3`。
+- `RATE_LIMIT_MAX_BUCKETS`: scopeごとの共有レート制限キー総上限。未指定時は10000。非DB環境では固定16 shardへ分散します。
+
+PostgreSQLを使わないJSON engine storageは単一process専用です。複数workerを使う場合は`DATABASE_URL`を設定してください（同一process内の複数threadは利用可能です）。起動時にprocess lockを取得できない場合は、古いメモリ状態によるmatrix上書きを防ぐためfail-closedで停止します。
 
 ## テスト
 
@@ -52,11 +58,11 @@ sh scripts/check.sh
 
 - `/health`: ストレージ種別、DB 接続状態、matrix サイズ整合性、バックアップ mtime、起動時刻、エラー件数、保存時刻を返します。
 - `/admin`: 管理画面。`ADMIN_PASS` が未設定の場合は利用できません。
-- `/api/admin/export_matrix`: matrix backup JSON を出力します。
-- `/api/admin/import_matrix`: backup JSON を復元します。実行前に現在のmatrixを自動バックアップし、`0 <= yes <= total` を満たさない行は拒否されます。
-- `/api/admin/import_matrix/dry_run`: matrix backup JSON を保存せず検証し、反映対象件数を返します。
+- `/api/admin/export_matrix`: stable question ID、`matrix_index`、format versionを含むv2 matrix backup JSONを出力します。
+- `/api/admin/import_matrix`: backup JSONをatomicに復元します。実行前に現在のmatrixを自動バックアップし、不完全な直積、重複・小数ID、`0 <= yes <= total`を満たさない行を拒否します。
+- `/api/admin/import_matrix/dry_run`: matrix backup JSONを保存せず検証し、変換・無視・保持される行数を返します。
 - `/api/admin/matrix_backups`: import/restore 前バックアップ一覧を返します。
-- `/api/admin/matrix_backups/<name>/restore`: 指定バックアップを復元します。
+- `/api/admin/matrix_backups/<name>/restore`: 指定バックアップを復元します。削除済み質問の行を無視する場合は`allow_ignored_source_rows: true`を明示します。
 - `/api/admin/audit_log`: 管理操作ログを JSON/CSV で出力します。
 - `/api/admin/preflight`: 本番起動前に確認したい設定・保存状態を返します。
 - `/api/admin/performance`: 代表的な管理集計・推論処理の実行時間を返します。
@@ -69,8 +75,8 @@ sh scripts/check.sh
 GitHub Actions:
 
 - `CI`: push / pull request でコンパイルとユニットテストを実行します。
-- `Matrix Backup & DB Expiry Check`: Render から matrix を定期バックアップし、DB 期限を確認します。
-- `Restore Matrix`: `data/matrix_backup.json` を Render へ復元します。
+- `Matrix Backup & DB Expiry Check`: Renderからmatrixを定期取得し、schema・完全性・鮮度を検証してからartifactへ保存し、DB期限も確認します。
+- `Restore Matrix`: 指定run IDのartifactを30日以内に限って検証・復元します。質問削除後に復元する場合だけ`allow_ignored_source_rows`を明示的に有効化します。
 
 ## コード構成
 

@@ -28,6 +28,9 @@ jobs:
           fi
           echo "Backup size: $(wc -c < data/matrix_backup.json) bytes"
 
+      - name: Validate backup payload
+        run: python scripts/validate_matrix_backup.py data/matrix_backup.json --max-age-days 1
+
       - name: Upload backup artifact
         uses: actions/upload-artifact@v4
         with:
@@ -43,7 +46,7 @@ jobs:
           if [ -z "$NTFY_TOPIC" ]; then
             echo "NTFY_TOPIC 未設定のためスキップ"
           else
-            curl -s -o /dev/null -w "%{http_code}" \
+            curl --fail-with-body -s -o /dev/null -w "%{http_code}" \
               -H "Title: へきネイター テスト通知" \
               -H "Priority: default" \
               -H "Tags: white_check_mark" \
@@ -87,7 +90,7 @@ jobs:
 
           if days_left <= 10:
               repo  = os.environ['REPO']
-              title = f'⚠️ RenderのDBが{days_left}日後に期限切れになります'
+              title = '⚠️ Render PostgreSQL 期限切れ警告'
               body  = (
                   f'## Render PostgreSQL 期限切れ警告\n\n'
                   f'- **作成日**: {created.date()}\n'
@@ -100,10 +103,10 @@ jobs:
               )
               # GitHub Issue（重複防止）
               result = subprocess.run(
-                  ['gh', 'issue', 'list', '--repo', repo, '--state', 'open', '--search', title, '--json', 'number'],
-                  capture_output=True, text=True
+                  ['gh', 'issue', 'list', '--repo', repo, '--state', 'open', '--search', f'{title} in:title', '--json', 'number,title'],
+                  capture_output=True, text=True, check=True
               )
-              existing = json.loads(result.stdout or '[]')
+              existing = [item for item in json.loads(result.stdout or '[]') if item.get('title') == title]
               if not existing:
                   subprocess.run(
                       ['gh', 'issue', 'create', '--repo', repo, '--title', title, '--body', body],
@@ -111,7 +114,12 @@ jobs:
                   )
                   print('GitHub Issueを作成しました')
               else:
-                  print('既存のIssueあり。スキップ')
+                  issue_number = str(existing[0]['number'])
+                  subprocess.run(
+                      ['gh', 'issue', 'edit', issue_number, '--repo', repo, '--body', body],
+                      check=True,
+                  )
+                  print('既存のIssue本文を更新しました')
 
               # ntfy.sh プッシュ通知
               ntfy_topic = os.environ.get('NTFY_TOPIC', '')

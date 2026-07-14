@@ -7,7 +7,26 @@ import warnings
 SECRET_KEY_REQUIRED_MESSAGE = '本番環境では SECRET_KEY 環境変数の設定が必須です'
 SECRET_KEY_MISSING_WARNING = 'SECRET_KEY が未設定です。本番環境では環境変数に設定してください。'
 SECRET_KEY_SHORT_WARNING = 'SECRET_KEY が短すぎます（16文字以上推奨）。'
+SECRET_KEY_SHORT_MESSAGE = '本番環境の SECRET_KEY は16文字以上で設定してください。'
 DEV_SECRET_KEY = 'hekineitor_dev_secret_2024'
+DEFAULT_MAX_CONTENT_LENGTH = 16 * 1024 * 1024
+
+
+def max_content_length(environ):
+    try:
+        value = int(environ.get('MAX_CONTENT_LENGTH', DEFAULT_MAX_CONTENT_LENGTH))
+    except (TypeError, ValueError):
+        return DEFAULT_MAX_CONTENT_LENGTH
+    return value if value > 0 else DEFAULT_MAX_CONTENT_LENGTH
+
+
+def development_server_options(environ):
+    debug = str(environ.get('FLASK_DEBUG', '')).strip().lower() in ('1', 'true', 'yes', 'on')
+    try:
+        port = int(environ.get('FLASK_PORT', 5000))
+    except (TypeError, ValueError):
+        port = 5000
+    return {'debug': debug, 'host': environ.get('FLASK_HOST') or '127.0.0.1', 'port': port}
 
 
 def is_production_env(environ):
@@ -25,6 +44,8 @@ def secret_key(environ, stderr=None, warn_fn=None):
         (warn_fn or warnings.warn)(SECRET_KEY_MISSING_WARNING, stacklevel=1)
         return DEV_SECRET_KEY
     if len(secret) < 16:
+        if environ.get('DATABASE_URL') or is_production_env(environ):
+            raise RuntimeError(SECRET_KEY_SHORT_MESSAGE)
         print(f'WARNING: {SECRET_KEY_SHORT_WARNING}', file=stderr)
     return secret
 

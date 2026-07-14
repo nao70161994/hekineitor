@@ -2,6 +2,9 @@ import json
 import os
 import re
 import secrets
+from contextlib import contextmanager
+
+import fcntl
 from datetime import datetime, timezone
 
 from storage import atomic_write_json, data_path, get_conn, put_conn, use_db
@@ -13,6 +16,19 @@ MIN_SHARE_ID_LENGTH = 4
 GENERATED_SHARE_ID_LENGTH = 8
 MAX_SHARE_ID_LENGTH = 12
 SHARE_ID_RE = re.compile(rf'^[0-9A-Za-z]{{{MIN_SHARE_ID_LENGTH},{MAX_SHARE_ID_LENGTH}}}$')
+
+
+@contextmanager
+def _json_write_lock(path):
+    """Serialize JSON read-modify-write cycles across worker processes."""
+    lock_path = f'{path}.lock'
+    os.makedirs(os.path.dirname(os.path.abspath(lock_path)), exist_ok=True)
+    with open(lock_path, 'a', encoding='utf-8') as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def links_path(environ=None):
@@ -168,15 +184,16 @@ def create_link(payload, *, path=None, environ=None, now_fn=None, token_fn=None)
     if _use_db(environ, path):
         return _create_db_link(payload, environ=environ, now_fn=now_fn, token_fn=token_fn)
     target = path or links_path(environ)
-    links = load_links(path=target)
     cleaned = clean_payload(payload)
     if not cleaned['name']:
         raise ValueError('name is required')
     now = now_fn() if now_fn else datetime.now(timezone.utc)
     cleaned['created_at'] = now.astimezone(timezone.utc).isoformat(timespec='seconds')
-    share_id = _new_share_id(links, token_fn=token_fn)
-    links[share_id] = cleaned
-    atomic_write_json(target, links, ensure_ascii=False, indent=2, sort_keys=True)
+    with _json_write_lock(target):
+        links = load_links(path=target)
+        share_id = _new_share_id(links, token_fn=token_fn)
+        links[share_id] = cleaned
+        atomic_write_json(target, links, ensure_ascii=False, indent=2, sort_keys=True)
     return share_id, cleaned
 
 

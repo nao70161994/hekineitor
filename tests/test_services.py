@@ -699,7 +699,7 @@ class TestServices(unittest.TestCase):
         req = DummyRequest(headers={'X-Forwarded-For': '203.0.113.9, 10.0.0.1'})
         req.remote_addr = '127.0.0.1'
         self.assertEqual(
-            rate_limit.client_ip(req, {'TRUSTED_PROXY_IPS': '127.0.0.1'}),
+            rate_limit.client_ip(req, {'TRUSTED_PROXY_IPS': '127.0.0.1,10.0.0.0/8'}),
             '203.0.113.9',
         )
         self.assertEqual(rate_limit.client_ip(req, {'TRUSTED_PROXY_IPS': ''}), '127.0.0.1')

@@ -2,6 +2,7 @@ import json
 import re
 import time
 import unicodedata
+from contextlib import nullcontext
 
 
 SAVE_MATRIX_SQL = """
@@ -75,6 +76,40 @@ def import_matrix_rows(updates, idx_map, *, get_conn, put_conn, execute_values):
         put_conn(conn)
 
 
+def restore_matrix_snapshot(fetishes, matrix_rows, *, get_conn, put_conn, execute_values):
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            if fetishes:
+                execute_values(
+                    cur,
+                    'INSERT INTO fetishes (id, name, "desc", works) VALUES %s',
+                    [
+                        (
+                            fetish['id'],
+                            fetish['name'],
+                            fetish.get('desc', fetish['name']),
+                            json.dumps(fetish.get('works', []), ensure_ascii=False),
+                        )
+                        for fetish in fetishes
+                    ],
+                )
+            rows = [
+                (
+                    int(row['fetish_id']),
+                    int(row['question_id']),
+                    float(row['yes']),
+                    float(row['total']),
+                )
+                for row in matrix_rows
+            ]
+            if rows:
+                execute_values(cur, IMPORT_MATRIX_SQL, rows)
+    finally:
+        put_conn(conn)
+
+
 def parse_fetish_rows(rows):
     parsed = []
     for row in rows:
@@ -144,7 +179,7 @@ def load_config(defaults, *, use_db, get_conn, put_conn, config_path, read_json)
     return values
 
 
-def save_config_value(key, value, *, use_db, get_conn, put_conn, config_path, read_json, atomic_write):
+def save_config_value(key, value, *, use_db, get_conn, put_conn, config_path, read_json, atomic_write, file_lock=None):
     if use_db():
         conn = get_conn()
         try:
@@ -158,9 +193,10 @@ def save_config_value(key, value, *, use_db, get_conn, put_conn, config_path, re
         finally:
             put_conn(conn)
     else:
-        stored = read_json(config_path, {})
-        stored[key] = value
-        atomic_write(config_path, stored)
+        with (file_lock(config_path) if file_lock else nullcontext()):
+            stored = read_json(config_path, {})
+            stored[key] = value
+            atomic_write(config_path, stored)
 
 
 
@@ -443,6 +479,18 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                     updated_at REAL NOT NULL
                 )
             ''')
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS rate_limits (
+                    scope TEXT NOT NULL,
+                    client_ip TEXT NOT NULL,
+                    timestamps JSONB NOT NULL,
+                    updated_at DOUBLE PRECISION NOT NULL,
+                    window_seconds INTEGER NOT NULL DEFAULT 60,
+                    PRIMARY KEY (scope, client_ip)
+                )
+            ''')
+            cur.execute('ALTER TABLE rate_limits ADD COLUMN IF NOT EXISTS window_seconds INTEGER NOT NULL DEFAULT 60')
+            cur.execute('CREATE INDEX IF NOT EXISTS rate_limits_updated_at_idx ON rate_limits(updated_at)')
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS config (
                     key   TEXT PRIMARY KEY,
@@ -954,6 +1002,25 @@ def save_disabled_questions(disabled_questions, *, get_conn, put_conn):
                     "INSERT INTO stats (key, value) VALUES (%s, 1) ON CONFLICT (key) DO UPDATE SET value=1",
                     (f'disabled_q_{question_id}',),
                 )
+    finally:
+        put_conn(conn)
+
+
+def toggle_question_disabled(question_id, *, get_conn, put_conn):
+    key = f'disabled_q_{int(question_id)}'
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute('SELECT pg_advisory_xact_lock(hashtext(%s))', (key,))
+            cur.execute('DELETE FROM stats WHERE key = %s RETURNING key', (key,))
+            if cur.fetchone():
+                return False
+            cur.execute(
+                'INSERT INTO stats (key, value) VALUES (%s, 1) ON CONFLICT (key) DO UPDATE SET value=1',
+                (key,),
+            )
+            return True
     finally:
         put_conn(conn)
 
