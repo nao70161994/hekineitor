@@ -2,7 +2,6 @@ import json
 
 from storage import get_conn, put_conn, use_db
 
-
 TABLE_NAME = 'analytics_events'
 
 
@@ -15,14 +14,14 @@ def enabled(environ=None):
 
 def ensure_schema(conn):
     cur = conn.cursor()
-    cur.execute('''
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS analytics_events (
             id BIGSERIAL PRIMARY KEY,
             event_type TEXT NOT NULL,
             timestamp TEXT NOT NULL,
             payload TEXT NOT NULL
         )
-    ''')
+    """)
     cur.execute('CREATE INDEX IF NOT EXISTS idx_analytics_events_type_id ON analytics_events (event_type, id)')
 
 
@@ -34,7 +33,11 @@ def record_event(event_type, event, *, get_conn_fn=get_conn, put_conn_fn=put_con
             cur = conn.cursor()
             cur.execute(
                 'INSERT INTO analytics_events (event_type, timestamp, payload) VALUES (%s, %s, %s)',
-                (str(event_type), str(event.get('timestamp') or ''), json.dumps(event, ensure_ascii=False, separators=(',', ':'))),
+                (
+                    str(event_type),
+                    str(event.get('timestamp') or ''),
+                    json.dumps(event, ensure_ascii=False, separators=(',', ':')),
+                ),
             )
     finally:
         put_conn_fn(conn)

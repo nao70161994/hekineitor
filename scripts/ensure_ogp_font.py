@@ -11,8 +11,7 @@ import sys
 import urllib.request
 
 DEFAULT_FONT_URL = (
-    'https://raw.githubusercontent.com/googlefonts/noto-cjk/main/'
-    'Sans/OTF/Japanese/NotoSansCJKjp-Regular.otf'
+    'https://raw.githubusercontent.com/googlefonts/noto-cjk/main/Sans/OTF/Japanese/NotoSansCJKjp-Regular.otf'
 )
 DEFAULT_TARGET = os.path.join('data', 'fonts', 'NotoSansCJKjp-Regular.otf')
 COMMON_CJK_FONTS = (

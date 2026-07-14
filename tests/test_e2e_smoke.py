@@ -14,6 +14,7 @@ class TestE2ESmoke(unittest.TestCase):
     def setUp(self):
         app.config['TESTING'] = True
         from app import engine as app_engine
+
         self._patches = [
             patch.object(app_engine, '_save_async', return_value=None),
             patch.object(app_engine, '_save_matrix_file', return_value=None),
@@ -78,6 +79,7 @@ class TestE2ESmoke(unittest.TestCase):
 
     def test_feedback_share_and_pwa_browser_paths(self):
         from app import engine as app_engine
+
         res = self.client.get('/')
         self.assertEqual(res.status_code, 200)
         body = res.data.decode('utf-8')
@@ -98,12 +100,15 @@ class TestE2ESmoke(unittest.TestCase):
                 break
             qid = data['question_id']
         self.assertIsNotNone(guess)
-        feedback = self.client.post('/api/confirm', json={
-            'correct': False,
-            'fetish_id': guess['fetish_id'],
-            'compound_ids': [c['fetish_id'] for c in guess.get('compound', [])],
-            'add_only': True,
-        })
+        feedback = self.client.post(
+            '/api/confirm',
+            json={
+                'correct': False,
+                'fetish_id': guess['fetish_id'],
+                'compound_ids': [c['fetish_id'] for c in guess.get('compound', [])],
+                'add_only': True,
+            },
+        )
         self.assertEqual(feedback.status_code, 200)
         self.assertEqual(feedback.get_json().get('status'), 'wrong')
 

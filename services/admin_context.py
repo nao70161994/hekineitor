@@ -63,7 +63,9 @@ def build(
         perf_counter=perf_counter,
         best_question=question_selection.best_question,
         build_admin_maintenance_checklist=admin_helpers.make_admin_maintenance_checklist(
-            engine, work_title, safe_work_url,
+            engine,
+            work_title,
+            safe_work_url,
         ),
         use_db=use_db,
         list_matrix_import_backups=matrix_ops.list_backups,

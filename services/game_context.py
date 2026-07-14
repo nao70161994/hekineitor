@@ -1,5 +1,13 @@
-from services import context, ids, inference, learning, name_matching, quality_stats, question_selection, result_exposure
-
+from services import (
+    context,
+    ids,
+    inference,
+    learning,
+    name_matching,
+    quality_stats,
+    question_selection,
+    result_exposure,
+)
 
 PROFILE_MIN_RATIO = 0.25
 PROFILE_MIN_PROB = 0.08
@@ -30,6 +38,7 @@ def build(
     request = flask_runtime.request
     session = flask_runtime.session
     jsonify = flask_runtime.jsonify
+
     def inference_context():
         return context.build_inference_context(
             engine=engine,
@@ -47,13 +56,22 @@ def build(
         probs = inference.posteriors(engine_arg, answers)
         raw_ranked = sorted(range(len(probs)), key=lambda index: probs[index], reverse=True)
         scores = result_exposure.adjusted_scores(engine_arg, probs, raw_ranked)
-        ranked = sorted(raw_ranked, key=lambda index: (-scores.get(index, {}).get('adjusted_score', float(probs[index])), raw_ranked.index(index)))
+        ranked = sorted(
+            raw_ranked,
+            key=lambda index: (
+                -scores.get(index, {}).get('adjusted_score', float(probs[index])),
+                raw_ranked.index(index),
+            ),
+        )
         exclude_ids = set(session.get('exclude_ids', []))
         if exclude_ids:
             ranked = [index for index in ranked if engine_arg.fetishes[index].get('id') not in exclude_ids] + [
                 index for index in ranked if engine_arg.fetishes[index].get('id') in exclude_ids
             ]
-        return [(index, scores.get(index, {}).get('adjusted_score', float(probs[index]))) for index in ranked[:max(1, int(n or 1))]]
+        return [
+            (index, scores.get(index, {}).get('adjusted_score', float(probs[index])))
+            for index in ranked[: max(1, int(n or 1))]
+        ]
 
     def make_guess(answers):
         guess_context = context.game_guess(
@@ -64,7 +82,8 @@ def build(
             inference_context=inference_context,
             mark_guess_quality=(
                 (lambda engine, session, answers, soft_max: None)
-                if learning_disabled() else quality_stats.mark_guess_quality
+                if learning_disabled()
+                else quality_stats.mark_guess_quality
             ),
             record_question_event=record_question_event,
             record_result_exposure=result_exposure.safe_record_result,
@@ -91,14 +110,16 @@ def build(
         top_guess=adjusted_top_guess,
         make_guess=make_guess,
         question_total_for_count=question_selection.make_question_total_for_count(
-            soft_max_questions, hard_max_questions,
+            soft_max_questions,
+            hard_max_questions,
         ),
         soft_max_questions=soft_max_questions,
         hard_max_questions=hard_max_questions,
         guess_threshold=guess_threshold,
         focus_threshold=focus_threshold,
         should_extend_low_confidence=question_selection.make_low_confidence_extender(
-            soft_max_questions, hard_max_questions,
+            soft_max_questions,
+            hard_max_questions,
         ),
         select_next_question=question_selection.make_next_question_selector(engine),
         select_low_exposure_axis_question=question_selection.make_low_exposure_axis_probe(engine, hard_max_questions),

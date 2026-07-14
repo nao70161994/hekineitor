@@ -47,14 +47,21 @@ def best_low_exposure_axis_question(engine, answers, asked, *, preferred_categor
         category = engine._question_category(question_id)
         if category not in preferred_categories:
             continue
-        p_yes = sum(probs[fetish_idx] * engine._prob(fetish_idx, question_id) for fetish_idx in range(len(engine.fetishes)))
+        p_yes = sum(
+            probs[fetish_idx] * engine._prob(fetish_idx, question_id) for fetish_idx in range(len(engine.fetishes))
+        )
         p_no = 1.0 - p_yes
         if p_yes < 0.05 or p_no < 0.05:
             continue
-        yes_probs = [probs[fetish_idx] * engine._prob(fetish_idx, question_id) for fetish_idx in range(len(engine.fetishes))]
+        yes_probs = [
+            probs[fetish_idx] * engine._prob(fetish_idx, question_id) for fetish_idx in range(len(engine.fetishes))
+        ]
         yes_total = sum(yes_probs) or 1e-9
         yes_probs = [value / yes_total for value in yes_probs]
-        no_probs = [probs[fetish_idx] * (1 - engine._prob(fetish_idx, question_id)) for fetish_idx in range(len(engine.fetishes))]
+        no_probs = [
+            probs[fetish_idx] * (1 - engine._prob(fetish_idx, question_id))
+            for fetish_idx in range(len(engine.fetishes))
+        ]
         no_total = sum(no_probs) or 1e-9
         no_probs = [value / no_total for value in no_probs]
         score = h0 - (p_yes * engine._entropy(yes_probs) + p_no * engine._entropy(no_probs))
@@ -63,7 +70,6 @@ def best_low_exposure_axis_question(engine, answers, asked, *, preferred_categor
         if score > best_score:
             best_q, best_score = question_id, score
     return best_q
-
 
 
 def question_total_for_count(count, soft_max_questions, hard_max_questions):
@@ -93,14 +99,18 @@ def should_extend_low_confidence(count, top_p, second_p, guess_threshold, soft_m
     return top_p < guess_threshold or gap_points < 0.20
 
 
-
 def make_question_total_for_count(soft_max_questions, hard_max_questions):
     return lambda count: question_total_for_count(count, soft_max_questions, hard_max_questions)
 
 
 def make_low_confidence_extender(soft_max_questions, hard_max_questions):
     return lambda count, top_p, second_p, guess_threshold: should_extend_low_confidence(
-        count, top_p, second_p, guess_threshold, soft_max_questions, hard_max_questions,
+        count,
+        top_p,
+        second_p,
+        guess_threshold,
+        soft_max_questions,
+        hard_max_questions,
     )
 
 
@@ -113,16 +123,26 @@ def select_next_question(engine, answers, asked, *, idk_streak=0, disambiguate=F
 
 def make_next_question_selector(engine):
     return lambda answers, asked, idk_streak=0, disambiguate=False: select_next_question(
-        engine, answers, asked, idk_streak=idk_streak, disambiguate=disambiguate,
+        engine,
+        answers,
+        asked,
+        idk_streak=idk_streak,
+        disambiguate=disambiguate,
     )
 
 
 def make_low_exposure_axis_probe(engine, hard_max_questions):
     def probe(answers, asked, *, count, top_p, second_p):
         if not should_probe_low_exposure_axis(
-            engine, answers, set(asked), count=count, top_p=top_p, second_p=second_p,
+            engine,
+            answers,
+            set(asked),
+            count=count,
+            top_p=top_p,
+            second_p=second_p,
             hard_max_questions=hard_max_questions,
         ):
             return None
         return best_low_exposure_axis_question(engine, answers, set(asked))
+
     return probe

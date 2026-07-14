@@ -28,6 +28,5 @@ def mark_guess_quality(engine, session, answers, soft_max_questions):
         record_quality_stat(engine, 'q_additional_question', additional_questions)
 
 
-
 def make_guess_quality_feedback_recorder(engine, session):
     return lambda correct: record_guess_quality_feedback(engine, session, correct)

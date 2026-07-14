@@ -1,14 +1,12 @@
 import json
-import math
 import os
 import random
 import threading
 from collections import Counter, deque
 from datetime import datetime, timedelta, timezone
 
-from storage import data_path, get_conn, put_conn
 from services import event_store
-
+from storage import data_path, get_conn, put_conn
 
 _LOCK = threading.Lock()
 _MAX_LOG_BYTES = 5 * 1024 * 1024
@@ -89,7 +87,9 @@ def build_event(fetish_id, fetish_name='', probability=None, *, rank=1, source=N
     return event
 
 
-def record_result(fetish_id, fetish_name='', probability=None, *, rank=1, source=None, path=None, environ=None, now_fn=None):
+def record_result(
+    fetish_id, fetish_name='', probability=None, *, rank=1, source=None, path=None, environ=None, now_fn=None
+):
     event = build_event(fetish_id, fetish_name, probability, rank=rank, source=source, now_fn=now_fn)
     if path is None and event_store.enabled(environ):
         try:
@@ -212,7 +212,11 @@ def safe_reassign_fetish_id(*args, **kwargs):
 def read_events(*, path=None, environ=None, limit=MAIN_WINDOW):
     if path is None and event_store.enabled(environ):
         try:
-            return [event for event in event_store.read_events('result_exposure', limit=limit) if event.get('event_name') == 'result_exposed']
+            return [
+                event
+                for event in event_store.read_events('result_exposure', limit=limit)
+                if event.get('event_name') == 'result_exposed'
+            ]
         except Exception:
             return []
     target = path or event_log_path(environ)
@@ -234,7 +238,6 @@ def read_events(*, path=None, environ=None, limit=MAIN_WINDOW):
         if isinstance(event, dict) and event.get('event_name') == 'result_exposed':
             events.append(event)
     return events
-
 
 
 def _event_date(event):
@@ -301,7 +304,9 @@ def canonical_event_identity(event, current_names):
     return event_name, event_name
 
 
-def ranking_from_events(events, *, top_n=10, include_backfill=False, fetish_names=None, include_secondary=False, include_candidates=False):
+def ranking_from_events(
+    events, *, top_n=10, include_backfill=False, fetish_names=None, include_secondary=False, include_candidates=False
+):
     try:
         limit = max(1, min(int(top_n or 10), 100))
     except (TypeError, ValueError):
@@ -357,13 +362,14 @@ def _safe_recent_event(event):
     return row
 
 
-
 def _normalized_event_name(event, current_names):
     _key, name = canonical_event_identity(event, current_names)
     return name
 
 
-def heavy_result_trend_from_events(events, *, days=14, date=None, until=None, include_backfill=False, fetish_names=None, top_n=5):
+def heavy_result_trend_from_events(
+    events, *, days=14, date=None, until=None, include_backfill=False, fetish_names=None, top_n=5
+):
     filtered = filter_events(events, days=days, date=date, until=until)
     current_names = _fetish_name_map(fetish_names)
     try:
@@ -389,22 +395,37 @@ def heavy_result_trend_from_events(events, *, days=14, date=None, until=None, in
         total = row['total']
         top_results = []
         for name, count in row['_counts'].most_common(result_limit):
-            top_results.append({
-                'fetish_name': name,
-                'count': count,
-                'percent': round(count / total * 100, 1) if total else 0.0,
-            })
-        rows.append({
-            'date': row['date'],
-            'total': total,
-            'heavy_total': row['heavy_total'],
-            'heavy_result_ratio': round(row['heavy_total'] / total * 100, 1) if total else 0.0,
-            'top_results': top_results,
-        })
+            top_results.append(
+                {
+                    'fetish_name': name,
+                    'count': count,
+                    'percent': round(count / total * 100, 1) if total else 0.0,
+                }
+            )
+        rows.append(
+            {
+                'date': row['date'],
+                'total': total,
+                'heavy_total': row['heavy_total'],
+                'heavy_result_ratio': round(row['heavy_total'] / total * 100, 1) if total else 0.0,
+                'top_results': top_results,
+            }
+        )
     return rows
 
 
-def heavy_result_trend_report(*, path=None, environ=None, limit=5000, days=14, date=None, until=None, include_backfill=False, fetish_names=None, top_n=5):
+def heavy_result_trend_report(
+    *,
+    path=None,
+    environ=None,
+    limit=5000,
+    days=14,
+    date=None,
+    until=None,
+    include_backfill=False,
+    fetish_names=None,
+    top_n=5,
+):
     events = read_events(path=path, environ=environ, limit=limit)
     rows = heavy_result_trend_from_events(
         events,
@@ -443,21 +464,41 @@ def recent_events_report(*, path=None, environ=None, limit=20, include_backfill=
     }
 
 
-def ranking_report(*, path=None, environ=None, limit=5000, days=None, date=None, until=None, top_n=10, include_backfill=False, fetish_names=None, include_secondary=False, include_candidates=False):
+def ranking_report(
+    *,
+    path=None,
+    environ=None,
+    limit=5000,
+    days=None,
+    date=None,
+    until=None,
+    top_n=10,
+    include_backfill=False,
+    fetish_names=None,
+    include_secondary=False,
+    include_candidates=False,
+):
     events = read_events(path=path, environ=environ, limit=limit)
     filtered = filter_events(events, days=days, date=date, until=until)
-    report = ranking_from_events(filtered, top_n=top_n, include_backfill=include_backfill, fetish_names=fetish_names, include_secondary=include_secondary, include_candidates=include_candidates)
-    report.update({
-        'status': 'ok',
-        'source': 'result_exposures',
-        'days': days,
-        'date': date or until,
-        'include_secondary': bool(include_secondary),
-        'include_candidates': bool(include_candidates),
-    })
+    report = ranking_from_events(
+        filtered,
+        top_n=top_n,
+        include_backfill=include_backfill,
+        fetish_names=fetish_names,
+        include_secondary=include_secondary,
+        include_candidates=include_candidates,
+    )
+    report.update(
+        {
+            'status': 'ok',
+            'source': 'result_exposures',
+            'days': days,
+            'date': date or until,
+            'include_secondary': bool(include_secondary),
+            'include_candidates': bool(include_candidates),
+        }
+    )
     return report
-
-
 
 
 def _backfill_rows(fetishes, fetish_log, *, max_events=1000):
@@ -496,7 +537,10 @@ def _backfill_rows(fetishes, fetish_log, *, max_events=1000):
         row['backfill_count'] += 1
     for row in allocated:
         row.pop('_remainder', None)
-    return sorted([row for row in allocated if row['backfill_count'] > 0], key=lambda row: (-row['backfill_count'], row['fetish_id'])), raw_total
+    return sorted(
+        [row for row in allocated if row['backfill_count'] > 0],
+        key=lambda row: (-row['backfill_count'], row['fetish_id']),
+    ), raw_total
 
 
 def backfill_from_fetish_log(
@@ -543,6 +587,7 @@ def backfill_from_fetish_log(
     report['inserted_count'] = len(events)
     report['skipped'] = False
     return report
+
 
 def storage_status(*, path=None, environ=None):
     if path is None and event_store.enabled(environ):
@@ -607,7 +652,6 @@ def exposure_factors(fetishes, *, events=None, path=None, environ=None):
     return factors
 
 
-
 def _is_heavy_fetish(fetish):
     return fetish.get('name') in HEAVY_RESULT_NAMES
 
@@ -643,7 +687,6 @@ def adjust_ranked(engine, probs, ranked, *, events=None, path=None, environ=None
     return [index for _score, _position, index in adjusted]
 
 
-
 def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000, top_n=30):
     try:
         row_limit = max(1, min(int(limit or 5000), 50000))
@@ -669,16 +712,18 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
             continue
         main_count = main_counts.get(fetish_id, 0)
         short_count = short_counts.get(fetish_id, 0)
-        rows.append({
-            'fetish_id': fetish_id,
-            'fetish_name': fetish.get('name', ''),
-            'factor': round(float(factors.get(fetish_id, 1.0)), 4),
-            'main_count': main_count,
-            'main_share': round(main_count / len(main_events) * 100, 1) if main_events else 0.0,
-            'short_count': short_count,
-            'short_share': round(short_count / len(short_events) * 100, 1) if short_events else 0.0,
-            'heavy_result': fetish.get('name') in HEAVY_RESULT_NAMES,
-        })
+        rows.append(
+            {
+                'fetish_id': fetish_id,
+                'fetish_name': fetish.get('name', ''),
+                'factor': round(float(factors.get(fetish_id, 1.0)), 4),
+                'main_count': main_count,
+                'main_share': round(main_count / len(main_events) * 100, 1) if main_events else 0.0,
+                'short_count': short_count,
+                'short_share': round(short_count / len(short_events) * 100, 1) if short_events else 0.0,
+                'heavy_result': fetish.get('name') in HEAVY_RESULT_NAMES,
+            }
+        )
     rows_by_factor = sorted(rows, key=lambda row: (row['factor'], -row['main_count'], row['fetish_id']))
     rows_by_boost = sorted(rows, key=lambda row: (-row['factor'], row['main_count'], row['fetish_id']))
     return {
@@ -702,6 +747,7 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
         'most_boosted': rows_by_boost[:display_limit],
         'heavy_results': [row for row in rows if row['heavy_result']],
     }
+
 
 def make_rank_adjuster(engine):
     return lambda probs, ranked: adjust_ranked(engine, probs, ranked)

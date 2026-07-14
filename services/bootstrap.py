@@ -10,7 +10,7 @@ class AppBootstrap:
     def _to_publisher_id(raw_adsense_client):
         adsense_client = (raw_adsense_client or '').strip()
         if adsense_client.startswith('ca-pub-'):
-            return 'pub-' + adsense_client[len('ca-pub-'):]
+            return 'pub-' + adsense_client[len('ca-pub-') :]
         return adsense_client
 
     def __init__(

@@ -3,14 +3,16 @@ def snapshot_current_matrix(engine, reason, *, data_path, atomic_write_json, tim
     fetishes = [{'id': fetish['id'], 'name': fetish['name']} for fetish in engine.fetishes]
     for fetish_index, fetish in enumerate(engine.fetishes):
         for question_index, question in enumerate(engine.questions):
-            rows.append({
-                'fetish_id': fetish['id'],
-                'fetish_name': fetish['name'],
-                'question_id': question_index,
-                'question_text': question['text'],
-                'yes': round(engine.matrix['yes'][fetish_index][question_index], 4),
-                'total': round(engine.matrix['total'][fetish_index][question_index], 4),
-            })
+            rows.append(
+                {
+                    'fetish_id': fetish['id'],
+                    'fetish_name': fetish['name'],
+                    'question_id': question_index,
+                    'question_text': question['text'],
+                    'yes': round(engine.matrix['yes'][fetish_index][question_index], 4),
+                    'total': round(engine.matrix['total'][fetish_index][question_index], 4),
+                }
+            )
     snapshot = {
         'created_at': int(time_module.time()),
         'reason': reason,
@@ -31,12 +33,14 @@ def expected_rows(engine):
 
 def completeness_error(report, expected_row_count, jsonify):
     if report.get('skipped_rows') != 0 or report.get('valid_rows') != expected_row_count:
-        return jsonify({
-            'status': 'error',
-            'message': 'matrix_rows は現在の全 fetish/question 組み合わせを含む必要があります',
-            **report,
-            'expected_rows': expected_row_count,
-        }), 400
+        return jsonify(
+            {
+                'status': 'error',
+                'message': 'matrix_rows は現在の全 fetish/question 組み合わせを含む必要があります',
+                **report,
+                'expected_rows': expected_row_count,
+            }
+        ), 400
     return None
 
 
@@ -69,7 +73,6 @@ def prune_backups(*, environ, data_path, os_module, list_fn):
             os_module.remove(os_module.path.join(data_path('matrix_import_backups'), row['name']))
         except OSError:
             pass
-
 
 
 class MatrixBackupOperations:
@@ -113,7 +116,6 @@ class MatrixBackupOperations:
 
 def operations(**kwargs):
     return MatrixBackupOperations(**kwargs)
-
 
 
 def operations_for_filesystem(*, engine, filesystem, time_module, jsonify, environ):

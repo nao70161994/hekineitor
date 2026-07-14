@@ -6,7 +6,6 @@ def bounded_int(value, default, min_value=1, max_value=100):
     return max(min_value, min(max_value, number))
 
 
-
 def _as_int(value):
     try:
         return int(value or 0)
@@ -79,18 +78,20 @@ def build_fetish_log_rows(engine):
         guess_confirm_rate = round(correct / guessed * 100) if guessed else None
         unfeedback = max(0, guessed - feedback_total)
         unfeedback_rate = round(unfeedback / guessed * 100) if guessed else None
-        rows.append({
-            'id': fetish['id'],
-            'name': fetish['name'],
-            'guessed': guessed,
-            'correct': correct,
-            'wrong': wrong,
-            'feedback_total': feedback_total,
-            'unfeedback': unfeedback,
-            'unfeedback_rate': unfeedback_rate,
-            'guess_confirm_rate': guess_confirm_rate,
-            'acc': feedback_accuracy,
-        })
+        rows.append(
+            {
+                'id': fetish['id'],
+                'name': fetish['name'],
+                'guessed': guessed,
+                'correct': correct,
+                'wrong': wrong,
+                'feedback_total': feedback_total,
+                'unfeedback': unfeedback,
+                'unfeedback_rate': unfeedback_rate,
+                'guess_confirm_rate': guess_confirm_rate,
+                'acc': feedback_accuracy,
+            }
+        )
     rows.sort(key=lambda row: -row['guessed'])
     return rows
 
@@ -129,7 +130,7 @@ def paged_fetish_log_rows(rows, args):
     total = len(filtered)
     start = (page - 1) * per_page
     return {
-        'rows': filtered[start:start + per_page],
+        'rows': filtered[start : start + per_page],
         'page': page,
         'per_page': per_page,
         'total': total,
@@ -137,10 +138,10 @@ def paged_fetish_log_rows(rows, args):
     }
 
 
-
 def most_similar_fetishes(engine, fetish_ids, limit=1):
     """Return nearest matrix neighbors for a small set of fetish ids."""
     import math
+
     question_count = len(engine.questions)
     vectors = []
     for idx, fetish in enumerate(engine.fetishes):
@@ -163,11 +164,13 @@ def most_similar_fetishes(engine, fetish_ids, limit=1):
                 cosine = 0.0
             else:
                 cosine = sum(a * b for a, b in zip(base_vector, other_vector)) / (base_norm * other_norm)
-            matches.append({
-                'fetish_id': other_id,
-                'fetish_name': other_name,
-                'cosine': round(cosine, 3),
-            })
+            matches.append(
+                {
+                    'fetish_id': other_id,
+                    'fetish_name': other_name,
+                    'cosine': round(cosine, 3),
+                }
+            )
         matches.sort(key=lambda row: -abs(row['cosine']))
         result[fetish_id] = matches[:limit]
     return result
@@ -182,29 +185,36 @@ def build_admin_maintenance_checklist(engine, works_summary_fn):
     weak_fetishes = []
     for row in report.get('weak_fetishes', []):
         fetish_id = int(row['fetish_id'])
-        weak_fetishes.append({
-            **row,
-            'nearest_similar': (nearest.get(fetish_id) or [None])[0],
-            'edit_anchor': '#seed-edit-section',
-            'similarity_anchor': '#similarity-section',
-            'hint': '説明・作品・特徴質問を見直し、近い性癖との判別差を確認',
-        })
+        weak_fetishes.append(
+            {
+                **row,
+                'nearest_similar': (nearest.get(fetish_id) or [None])[0],
+                'edit_anchor': '#seed-edit-section',
+                'similarity_anchor': '#similarity-section',
+                'hint': '説明・作品・特徴質問を見直し、近い性癖との判別差を確認',
+            }
+        )
 
     duplicate_questions = []
     for pair in report.get('high_correlation_questions', []):
         q1 = questions_by_id.get(pair['q1_id'], {})
         q2 = questions_by_id.get(pair['q2_id'], {})
         weaker = q1 if q1.get('disc', 0) <= q2.get('disc', 0) else q2
-        duplicate_questions.append({
-            **pair,
-            'suggested_action': f"Q{weaker.get('id')} の無効化または文言差し替えを検討",
-            'weaker_question_id': weaker.get('id'),
-        })
+        duplicate_questions.append(
+            {
+                **pair,
+                'suggested_action': f'Q{weaker.get("id")} の無効化または文言差し替えを検討',
+                'weaker_question_id': weaker.get('id'),
+            }
+        )
 
-    low_questions = [{
-        **question,
-        'suggested_action': '文言を具体化するか、類似質問と統合/無効化を検討',
-    } for question in report.get('low_questions', [])]
+    low_questions = [
+        {
+            **question,
+            'suggested_action': '文言を具体化するか、類似質問と統合/無効化を検討',
+        }
+        for question in report.get('low_questions', [])
+    ]
 
     works = works_summary_fn()
     checklist = [
@@ -240,14 +250,16 @@ def build_admin_maintenance_checklist(engine, works_summary_fn):
                 + works.get('missing_asin_work_count', 0)
                 + works.get('duplicate_work_title_count', 0)
             ),
-            'severity': 'warn' if (
+            'severity': 'warn'
+            if (
                 works['missing_work_fetish_count']
                 or works['missing_url_work_count']
                 or works['unsafe_url_work_count']
                 or works.get('search_url_work_count', 0)
                 or works.get('missing_asin_work_count', 0)
                 or works.get('duplicate_work_title_count', 0)
-            ) else 'ok',
+            )
+            else 'ok',
             'next_action': '作品リンク確認からURLなし・不正URL・作品なしの性癖を補修する',
         },
     ]
@@ -277,4 +289,5 @@ def make_admin_maintenance_checklist(engine, work_title_fn, safe_work_url_fn):
             engine,
             lambda: build_work_maintenance_summary(engine, work_title_fn, safe_work_url_fn),
         )
+
     return checklist

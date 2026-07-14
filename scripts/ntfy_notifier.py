@@ -16,7 +16,6 @@ from typing import Mapping, MutableMapping
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
-
 DEFAULT_SERVER = 'https://ntfy.sh'
 
 
@@ -43,7 +42,7 @@ def build_ntfy_url(environ: Mapping[str, str] | None = None) -> str | None:
     server = str(environ.get('NTFY_SERVER') or DEFAULT_SERVER).strip().rstrip('/')
     if not server:
         server = DEFAULT_SERVER
-    return f"{server}/{quote(topic, safe='')}"
+    return f'{server}/{quote(topic, safe="")}'
 
 
 def notify(
@@ -61,7 +60,11 @@ def notify(
     if not url:
         return {'sent': False, 'skipped': True, 'reason': 'NTFY_TOPIC is not set'}
     if not send_allowed(environ):
-        return {'sent': False, 'skipped': True, 'reason': 'local ntfy send blocked; set NTFY_ALLOW_LOCAL_SEND=1 to override'}
+        return {
+            'sent': False,
+            'skipped': True,
+            'reason': 'local ntfy send blocked; set NTFY_ALLOW_LOCAL_SEND=1 to override',
+        }
     body = str(message or '').encode('utf-8')
     headers: MutableMapping[str, str] = {
         'Title': _clean_header(title, 120),

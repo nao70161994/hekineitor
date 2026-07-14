@@ -1,37 +1,49 @@
-import os
-import re
 import html as _html
 import json as _json
-import time as _time
+import os
 import random as _random
-from flask import Flask, render_template, request, jsonify, session, Response
-from engine import (Engine, PLAYER_FETISH_BASE_ID, _get_conn, _put_conn, _use_db,
-                    FOCUS_THRESHOLD, FETISH_RELATIONS, get_compound_works,
-                    list_compound_works, set_compound_works, delete_compound_works,
-                    parse_works_list)
+import re
+import time as _time
+
+from flask import Flask, Response, jsonify, render_template, request, session
+
 from audit import recent_audit, write_audit
-from storage import atomic_write_json, data_path, load_json_file
-from work_utils import safe_work_url, work_title
+from engine import (
+    FETISH_RELATIONS,
+    FOCUS_THRESHOLD,
+    PLAYER_FETISH_BASE_ID,
+    Engine,
+    _get_conn,
+    _put_conn,
+    _use_db,
+    delete_compound_works,
+    get_compound_works,
+    list_compound_works,
+    parse_works_list,
+    set_compound_works,
+)
 from routes import admin as admin_routes
 from routes import game as game_routes
 from routes import seo as seo_routes
 from routes import system as system_routes
-from services import share as share_service
-from services import share_events as share_events_service
-from services import question_events as question_events_service
-from services import share_notes as share_notes_service
-from services import test_play as test_play_service
-from services import game_context as game_context_service
-from services import seo_context as seo_context_service
 from services import admin_context as admin_context_service
-from services import system_context as system_context_service
-from services import server_session as server_session_service
 from services import app_meta as app_meta_service
 from services import bootstrap as bootstrap_service
-from services import response_hooks as response_hooks_service
-from services import matrix_backups as matrix_backup_service
-from services import runtime as runtime_service
 from services import filesystem_context as filesystem_context_service
+from services import game_context as game_context_service
+from services import matrix_backups as matrix_backup_service
+from services import question_events as question_events_service
+from services import response_hooks as response_hooks_service
+from services import runtime as runtime_service
+from services import seo_context as seo_context_service
+from services import server_session as server_session_service
+from services import share as share_service
+from services import share_events as share_events_service
+from services import share_notes as share_notes_service
+from services import system_context as system_context_service
+from services import test_play as test_play_service
+from storage import atomic_write_json, data_path, load_json_file
+from work_utils import safe_work_url, work_title
 
 # ─────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -42,8 +54,12 @@ app.session_interface = server_session_service.ServerSessionInterface()
 
 @app.before_request
 def _require_json_object_body():
-    if (request.path.startswith('/api/') and request.method in {'POST', 'PUT', 'PATCH', 'DELETE'}
-            and request.is_json and request.get_data(cache=True)):
+    if (
+        request.path.startswith('/api/')
+        and request.method in {'POST', 'PUT', 'PATCH', 'DELETE'}
+        and request.is_json
+        and request.get_data(cache=True)
+    ):
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
             return jsonify({'status': 'error', 'message': 'JSON body must be an object.'}), 400
@@ -71,6 +87,7 @@ def _flask_runtime():
         logger=app.logger,
     )
 
+
 BOOTSTRAP = bootstrap_service.app_bootstrap(
     base_dir=os.path.dirname(__file__),
     environ=os.environ,
@@ -81,6 +98,8 @@ engine = Engine()
 
 def public_base_url():
     return share_service.public_base_url(os.environ, request)
+
+
 APP_STARTED_AT = int(_time.time())
 _ERROR_COUNTS = {'4xx': 0, '5xx': 0}
 _RATE_LIMIT_BUCKETS = {}
@@ -154,7 +173,9 @@ def _game_context():
         work_title=work_title,
         get_compound_works=get_compound_works,
         record_share_event=_record_valid_share_event,
-        record_question_event=lambda *args, **kwargs: question_events_service.safe_record_event(*args, environ=os.environ, **kwargs),
+        record_question_event=lambda *args, **kwargs: question_events_service.safe_record_event(
+            *args, environ=os.environ, **kwargs
+        ),
         preserve_test_play_flag=lambda: test_play_service.preserve_flag(session),
         restore_test_play_flag=lambda enabled: test_play_service.restore_flag(session, enabled),
         learning_disabled=lambda: test_play_service.is_learning_disabled(session),
@@ -193,7 +214,9 @@ def _admin_context():
         amazon_associate_id=BOOTSTRAP.amazon_associate_id,
         use_db=_use_db,
         matrix_ops=_matrix_operations(),
-        cleanup_sessions=lambda: server_session_service.cleanup_sessions(use_sqlite=not app.config.get('TESTING') and server_session_service._use_sqlite_sessions()),
+        cleanup_sessions=lambda: server_session_service.cleanup_sessions(
+            use_sqlite=not app.config.get('TESTING') and server_session_service._use_sqlite_sessions()
+        ),
         player_fetish_base_id=PLAYER_FETISH_BASE_ID,
         strftime=_time.strftime,
         gmtime=_time.gmtime,
@@ -204,7 +227,9 @@ def _admin_context():
         write_audit=write_audit,
         filesystem=_filesystem_context(),
         share_event_report=_admin_share_event_report,
-        question_event_report=lambda **kwargs: question_events_service.event_report(engine, environ=os.environ, **kwargs),
+        question_event_report=lambda **kwargs: question_events_service.event_report(
+            engine, environ=os.environ, **kwargs
+        ),
         share_event_count=lambda: share_events_service.event_count(environ=os.environ),
         question_event_count=lambda: question_events_service.event_count(environ=os.environ),
         share_event_storage_status=lambda: share_events_service.storage_status(environ=os.environ),
@@ -230,7 +255,9 @@ def _system_context():
         adsense_client=BOOTSTRAP.adsense_client,
         app_started_at=APP_STARTED_AT,
         time_fn=_time.time,
-        local_session_count=lambda: server_session_service.local_session_count(use_sqlite=not app.config.get('TESTING') and server_session_service._use_sqlite_sessions()),
+        local_session_count=lambda: server_session_service.local_session_count(
+            use_sqlite=not app.config.get('TESTING') and server_session_service._use_sqlite_sessions()
+        ),
         recent_audit=recent_audit,
         use_db=_use_db,
         get_conn=_get_conn,
@@ -242,22 +269,24 @@ def _system_context():
 def _register_blueprints(application):
     application.register_blueprint(seo_routes.create_blueprint(_seo_context))
     application.register_blueprint(game_routes.create_blueprint(_game_context))
-    application.register_blueprint(admin_routes.create_blueprint(
-        _admin_context,
-        runtime_service.require_admin_decorator(lambda: _flask_runtime().admin_guard_response()),
-        runtime_service.require_admin_or_read_decorator(
-            lambda: _flask_runtime().admin_guard_response(),
-            lambda: _flask_runtime().admin_read_guard_response(),
-        ),
-    ))
+    application.register_blueprint(
+        admin_routes.create_blueprint(
+            _admin_context,
+            runtime_service.require_admin_decorator(lambda: _flask_runtime().admin_guard_response()),
+            runtime_service.require_admin_or_read_decorator(
+                lambda: _flask_runtime().admin_guard_response(),
+                lambda: _flask_runtime().admin_read_guard_response(),
+            ),
+        )
+    )
     application.register_blueprint(system_routes.create_public_blueprint(_system_context))
     application.register_blueprint(system_routes.create_health_blueprint(_system_context))
 
 
 def _register_error_handlers(application):
-    application.register_error_handler(413, lambda e: (
-        jsonify({'status': 'error', 'message': 'リクエスト本文が大きすぎます。'}), 413
-    ))
+    application.register_error_handler(
+        413, lambda e: (jsonify({'status': 'error', 'message': 'リクエスト本文が大きすぎます。'}), 413)
+    )
     application.register_error_handler(404, lambda e: system_routes.not_found())
     application.register_error_handler(500, lambda e: system_routes.server_error())
     application.register_error_handler(503, lambda e: system_routes.service_unavailable())

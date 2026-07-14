@@ -5,8 +5,8 @@ import json
 import os
 import random
 import sqlite3
-import time
 import threading
+import time
 import uuid
 
 from flask.sessions import SessionInterface, SessionMixin
@@ -15,7 +15,6 @@ from werkzeug.datastructures import CallbackDict
 from engine import _get_conn, _put_conn, _use_db
 from services.app_meta import is_production_env
 from storage import data_path
-
 
 SESSION_TTL = 86400
 LOCAL_SESSIONS = {}
@@ -28,7 +27,11 @@ _SESSION_SQLITE_READY = set()
 
 
 def _use_sqlite_sessions():
-    return not _use_db() and os.environ.get('SESSION_STORAGE', '').lower() != 'memory' and os.environ.get('APP_ENV', '').lower() != 'testing'
+    return (
+        not _use_db()
+        and os.environ.get('SESSION_STORAGE', '').lower() != 'memory'
+        and os.environ.get('APP_ENV', '').lower() != 'testing'
+    )
 
 
 def _sqlite_session_path():
@@ -42,7 +45,9 @@ def _sqlite_session_conn():
         if path not in _SESSION_SQLITE_READY:
             setup = sqlite3.connect(path, timeout=10)
             try:
-                setup.execute('CREATE TABLE IF NOT EXISTS sessions (session_id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at REAL NOT NULL)')
+                setup.execute(
+                    'CREATE TABLE IF NOT EXISTS sessions (session_id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at REAL NOT NULL)'
+                )
                 setup.execute('CREATE INDEX IF NOT EXISTS sessions_updated_at_idx ON sessions(updated_at)')
                 setup.commit()
                 _SESSION_SQLITE_READY.add(path)
@@ -253,11 +258,14 @@ def session_save(sid, data, original=None, use_sqlite=None, conn=None):
                 row = cur.fetchone()
                 current = json.loads(row[0]) if row else {}
                 stored = _merge_session_data(current, data, original)
-                cur.execute('''
+                cur.execute(
+                    """
                     INSERT INTO sessions (session_id, data, updated_at) VALUES (%s, %s, %s)
                     ON CONFLICT (session_id) DO UPDATE
                     SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at
-                ''', (sid, json.dumps(stored, ensure_ascii=False), now))
+                """,
+                    (sid, json.dumps(stored, ensure_ascii=False), now),
+                )
                 if random.random() < 0.01:
                     cur.execute('DELETE FROM sessions WHERE updated_at < %s', (now - SESSION_TTL,))
         finally:
@@ -267,7 +275,10 @@ def session_save(sid, data, original=None, use_sqlite=None, conn=None):
         conn = _sqlite_session_conn()
         try:
             with conn:
-                conn.execute('INSERT INTO sessions(session_id,data,updated_at) VALUES(?,?,?) ON CONFLICT(session_id) DO UPDATE SET data=excluded.data,updated_at=excluded.updated_at', (sid, json.dumps(data, ensure_ascii=False), now))
+                conn.execute(
+                    'INSERT INTO sessions(session_id,data,updated_at) VALUES(?,?,?) ON CONFLICT(session_id) DO UPDATE SET data=excluded.data,updated_at=excluded.updated_at',
+                    (sid, json.dumps(data, ensure_ascii=False), now),
+                )
                 if random.random() < 0.01:
                     conn.execute('DELETE FROM sessions WHERE updated_at < ?', (now - SESSION_TTL,))
         finally:
@@ -327,6 +338,7 @@ class ServerSession(CallbackDict, SessionMixin):
     def __init__(self, initial=None, sid=None, is_new=False, request_lock=None, use_sqlite=False):
         def on_update(self):
             self.modified = True
+
         super().__init__(initial or {}, on_update)
         self.sid = sid
         self.is_new = is_new
@@ -348,7 +360,9 @@ class ServerSessionInterface(SessionInterface):
             sid = None
         if sid:
             request_lock = _acquire_request_lock(
-                sid, distributed_db=_use_db(), reuse_existing=bool(app.config.get('TESTING')),
+                sid,
+                distributed_db=_use_db(),
+                reuse_existing=bool(app.config.get('TESTING')),
             )
             try:
                 data = session_load(sid, use_sqlite=use_sqlite, conn=request_lock.get('db_conn'))
@@ -360,7 +374,9 @@ class ServerSessionInterface(SessionInterface):
             _release_request_lock(request_lock)
         sid = str(uuid.uuid4())
         request_lock = _acquire_request_lock(
-            sid, distributed_db=_use_db(), reuse_existing=bool(app.config.get('TESTING')),
+            sid,
+            distributed_db=_use_db(),
+            reuse_existing=bool(app.config.get('TESTING')),
         )
         return ServerSession(sid=sid, is_new=True, request_lock=request_lock, use_sqlite=use_sqlite)
 
@@ -372,8 +388,11 @@ class ServerSessionInterface(SessionInterface):
             # be replaced atomically without attempting to merge incompatible flows.
             request_lock = getattr(session, 'request_lock', None) or {}
             session_save(
-                session.sid, dict(session), original=session.original,
-                use_sqlite=getattr(session, 'use_sqlite', False), conn=request_lock.get('db_conn'),
+                session.sid,
+                dict(session),
+                original=session.original,
+                use_sqlite=getattr(session, 'use_sqlite', False),
+                conn=request_lock.get('db_conn'),
             )
             secure = (
                 os.environ.get('COOKIE_SECURE') == '1'
@@ -381,8 +400,11 @@ class ServerSessionInterface(SessionInterface):
                 or is_production_env(os.environ)
             )
             response.set_cookie(
-                self._cookie, session.sid,
-                httponly=True, secure=secure, samesite='Lax',
+                self._cookie,
+                session.sid,
+                httponly=True,
+                secure=secure,
+                samesite='Lax',
                 max_age=SESSION_TTL,
             )
         finally:
