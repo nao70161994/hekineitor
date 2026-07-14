@@ -28,3 +28,9 @@ check_works_links.py
 verify_asins.py
 data/question_events.jsonl
 data/result_exposures.jsonl
+data/rate_limits.sqlite3*
+data/*.lock
+data/matrix_restore_journal.json
+data/sessions.sqlite3*
+data/config.json
+data/question_flags.json

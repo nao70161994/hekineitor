@@ -61,6 +61,10 @@ These behaviors are already safe to live outside `engine.py` as long as facade t
 - Memory-only mutation helpers: `engine/mutations.py` with a legacy top-level shim.
 
 ## Public Method Contract
+- `restore_matrix_snapshot(exported_fetishes, matrix_rows)` -> atomically restores missing player fetishes and the complete matrix snapshot.
+  - PostgreSQL mode commits fetish insertion and matrix replacement in one transaction before publishing the new in-memory snapshot.
+  - JSON mode writes a durable before/after journal and recovers it on startup; directory fsync errors are fatal.
+  - JSON mode is single-process only. Use PostgreSQL for multiple workers.
 
 The following public `Engine` methods are route/script contract. Their names, call signatures, and return shapes must remain stable unless a migration PR updates all callers and tests:
 

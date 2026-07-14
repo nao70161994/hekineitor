@@ -13,6 +13,11 @@ class FlaskRuntime:
         environ,
         buckets,
         time_fn,
+        use_db=lambda: False,
+        get_conn=None,
+        put_conn=None,
+        shared_rate_limit_path=None,
+        logger=None,
     ):
         self.request = request
         self.session = session
@@ -22,6 +27,11 @@ class FlaskRuntime:
         self.environ = environ
         self.buckets = buckets
         self.time_fn = time_fn
+        self.use_db = use_db
+        self.get_conn = get_conn
+        self.put_conn = put_conn
+        self.shared_rate_limit_path = shared_rate_limit_path
+        self.logger = logger
 
     def should_enforce_runtime_guard(self, name):
         return runtime_guards.should_enforce(self.app_config, name)
@@ -38,6 +48,11 @@ class FlaskRuntime:
             window_seconds=window_seconds,
             environ=self.environ,
             time_fn=self.time_fn,
+            use_db=self.use_db,
+            get_conn=self.get_conn,
+            put_conn=self.put_conn,
+            shared_path=self.shared_rate_limit_path,
+            logger=self.logger,
         )
 
     def require_confirm(self, expected):

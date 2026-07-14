@@ -12,13 +12,15 @@ def collect_matrix_updates(fetishes, questions, matrix_rows):
     for row in matrix_rows:
         if not isinstance(row, dict):
             raise ValueError('matrix_rows の各要素はオブジェクトで指定してください')
+        if 'yes' not in row or 'total' not in row:
+            raise ValueError('matrix_rows の各要素に yes と total が必要です')
         fid = row.get('fetish_id')
         qi = row.get('question_id')
         try:
             fid = int(fid)
             qi = int(qi)
-            y = float(row.get('yes', 0.0))
-            t = float(row.get('total', 0.0))
+            y = float(row['yes'])
+            t = float(row['total'])
         except (TypeError, ValueError):
             raise ValueError('matrix_rows に不正な数値があります')
         if not (math.isfinite(y) and math.isfinite(t)):

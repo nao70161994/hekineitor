@@ -455,7 +455,7 @@ def main(argv: list[str] | None = None) -> int:
             print('ntfy skipped: ' + str(result.get('reason', 'notification disabled')))
     except Exception as exc:
         print(f'ntfy failed: {exc.__class__.__name__}', file=sys.stderr)
-        return 0
+        return 1
     return 0
 
 

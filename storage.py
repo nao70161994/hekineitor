@@ -61,7 +61,14 @@ def atomic_write_json(path, data, **kwargs):
         os.chmod(tmp, 0o600)
         with os.fdopen(fd, 'w', encoding='utf-8') as f:
             json.dump(data, f, **kwargs)
+            f.flush()
+            os.fsync(f.fileno())
         os.replace(tmp, path)
+        dir_fd = os.open(target_dir, os.O_RDONLY)
+        try:
+            os.fsync(dir_fd)
+        finally:
+            os.close(dir_fd)
     except Exception:
         try:
             os.unlink(tmp)

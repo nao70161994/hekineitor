@@ -251,7 +251,7 @@ class RestoreMatrixWorkflowTests(unittest.TestCase):
         workflow = (ROOT / '.github' / 'workflows' / 'restore_matrix.yml').read_text(encoding='utf-8')
 
         self.assertIn("with open('/tmp/restore_result.json'", workflow)
-        self.assertIn("expected = len(payload.get('matrix_rows', []))", workflow)
+        self.assertIn("expected = result.get('expected_rows')", workflow)
         self.assertIn('imported_rows mismatch', workflow)
         self.assertIn('Restore skipped rows', workflow)
 
@@ -271,12 +271,12 @@ class RestoreMatrixWorkflowTests(unittest.TestCase):
 
     def test_workflow_requires_backup_freshness_metadata(self):
         workflow = (ROOT / '.github' / 'workflows' / 'restore_matrix.yml').read_text(encoding='utf-8')
+        validator = (ROOT / 'scripts' / 'validate_matrix_backup.py').read_text(encoding='utf-8')
 
-        self.assertIn('exported_at', workflow)
-        self.assertIn('MATRIX_BACKUP_MAX_AGE_HOURS', workflow)
-        self.assertIn('must include exported_at metadata', workflow)
-        self.assertIn('row count mismatch', workflow)
-        self.assertIn('matrix_backup.json is stale', workflow)
+        self.assertIn('validate_matrix_backup.py data/matrix_backup.json --max-age-days 30', workflow)
+        self.assertIn('exported_at', validator)
+        self.assertIn('backup is outside the allowed age', validator)
+        self.assertIn('matrix_rows is not the complete fetish/question product', validator)
 
 
 if __name__ == '__main__':

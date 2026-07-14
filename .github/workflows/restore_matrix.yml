@@ -9,6 +9,11 @@ on:
       backup_run_id:
         description: '復元する Matrix Backup workflow の run_id'
         required: true
+      allow_ignored_source_rows:
+        description: '削除済み質問の行を明示的に無視して復元する'
+        required: true
+        type: boolean
+        default: false
 
 jobs:
   restore:
@@ -50,64 +55,23 @@ jobs:
           echo "バックアップサイズ: $(wc -c < data/matrix_backup.json) bytes"
 
       - name: Validate backup payload
+        run: python scripts/validate_matrix_backup.py data/matrix_backup.json --max-age-days 30
+
+      - name: Import matrix to Render
         env:
-          MATRIX_BACKUP_MAX_AGE_HOURS: 48
+          ALLOW_IGNORED_SOURCE_ROWS: ${{ inputs.allow_ignored_source_rows }}
         run: |
           python - <<'PY'
           import json
           import os
-          from datetime import datetime, timezone
-
-          with open('data/matrix_backup.json', encoding='utf-8') as f:
-              payload = json.load(f)
-          if not isinstance(payload, dict):
-              raise SystemExit('matrix_backup.json must be a JSON object')
-          matrix_rows = payload.get('matrix_rows')
-          if not isinstance(matrix_rows, list) or not matrix_rows:
-              raise SystemExit('matrix_backup.json must include non-empty matrix_rows')
-          fetishes = payload.get('fetishes')
-          if not isinstance(fetishes, list) or not fetishes:
-              raise SystemExit('matrix_backup.json must include non-empty fetishes')
-          with open('data/questions.json', encoding='utf-8') as f:
-              questions = json.load(f)
-          if not isinstance(questions, list) or not questions:
-              raise SystemExit('data/questions.json must include non-empty questions')
-          expected_rows = len(fetishes) * len(questions)
-          if len(matrix_rows) != expected_rows:
-              raise SystemExit(
-                  f'matrix_backup.json row count mismatch: expected {expected_rows}, got {len(matrix_rows)}'
-              )
-
-          metadata = payload.get('metadata') if isinstance(payload.get('metadata'), dict) else {}
-          exported_at = payload.get('exported_at') or metadata.get('exported_at')
-          if not exported_at:
-              raise SystemExit('matrix_backup.json must include exported_at metadata')
-          try:
-              exported = datetime.fromisoformat(exported_at.replace('Z', '+00:00'))
-          except ValueError as exc:
-              raise SystemExit(f'exported_at must be ISO 8601: {exc}') from exc
-          if exported.tzinfo is None:
-              exported = exported.replace(tzinfo=timezone.utc)
-          age_seconds = (datetime.now(timezone.utc) - exported.astimezone(timezone.utc)).total_seconds()
-          max_age_seconds = int(os.environ.get('MATRIX_BACKUP_MAX_AGE_HOURS', '48')) * 60 * 60
-          if age_seconds < 0:
-              raise SystemExit('matrix_backup.json exported_at is in the future')
-          if age_seconds > max_age_seconds:
-              raise SystemExit(f'matrix_backup.json is stale: exported_at={exported.isoformat()}')
-
-          print(f"matrix_rows: {len(matrix_rows)}")
-          PY
-
-      - name: Import matrix to Render
-        run: |
-          python - <<'PY'
-          import json
 
           with open('data/matrix_backup.json', encoding='utf-8') as f:
               payload = json.load(f)
           if not isinstance(payload, dict):
               raise SystemExit('matrix_backup.json must be a JSON object')
           payload['confirm_text'] = 'IMPORT'
+          if os.environ.get('ALLOW_IGNORED_SOURCE_ROWS', '').lower() == 'true':
+              payload['allow_ignored_source_rows'] = True
           with open('/tmp/restore_payload.json', 'w', encoding='utf-8') as f:
               json.dump(payload, f, ensure_ascii=False)
           PY
@@ -146,12 +110,23 @@ jobs:
           with open('/tmp/restore_result.json', encoding='utf-8') as f:
               result = json.load(f)
 
-          expected = len(payload.get('matrix_rows', []))
+          expected = result.get('expected_rows')
           imported = result.get('imported_rows')
           skipped = result.get('skipped_rows', 0)
+          restored_source = result.get('restored_source_rows')
+          ignored_source = result.get('ignored_source_rows')
+          if not isinstance(expected, int) or expected <= 0:
+              raise SystemExit(f"restore response missing expected_rows: {expected}")
           if imported != expected:
               raise SystemExit(f"imported_rows mismatch: expected {expected}, got {imported}")
           if skipped > 0:
               raise SystemExit(f"Restore skipped rows: {skipped}")
+          if not isinstance(restored_source, int) or restored_source <= 0:
+              raise SystemExit(f"Restore did not apply source rows: {restored_source}")
+          allow_ignored = payload.get('allow_ignored_source_rows') is True
+          if not isinstance(ignored_source, int) or ignored_source < 0:
+              raise SystemExit(f"Restore returned invalid ignored source count: {ignored_source}")
+          if ignored_source != 0 and not allow_ignored:
+              raise SystemExit(f"Restore ignored source rows: {ignored_source}")
           PY
           echo "復元完了"
