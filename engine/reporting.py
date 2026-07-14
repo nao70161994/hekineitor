@@ -3,13 +3,13 @@ def fetish_feedback_totals_from_history(raw, date_range):
     for day in date_range:
         for key, value in raw.get(day, {}).items():
             if key.startswith('f_guessed_'):
-                fetish_id = int(key[len('f_guessed_'):])
+                fetish_id = int(key[len('f_guessed_') :])
                 totals.setdefault(fetish_id, {'guessed': 0, 'correct': 0, 'wrong': 0})['guessed'] += int(value or 0)
             elif key.startswith('f_correct_'):
-                fetish_id = int(key[len('f_correct_'):])
+                fetish_id = int(key[len('f_correct_') :])
                 totals.setdefault(fetish_id, {'guessed': 0, 'correct': 0, 'wrong': 0})['correct'] += int(value or 0)
             elif key.startswith('f_wrong_'):
-                fetish_id = int(key[len('f_wrong_'):])
+                fetish_id = int(key[len('f_wrong_') :])
                 totals.setdefault(fetish_id, {'guessed': 0, 'correct': 0, 'wrong': 0})['wrong'] += int(value or 0)
     return totals
 
@@ -32,17 +32,19 @@ def format_recent_fetish_ranking(totals, id_to_name, top_n, source='recent'):
         total = guessed if guessed > 0 else feedback_total
         if total == 0:
             continue
-        results.append({
-            'fetish_id': fetish_id,
-            'fetish_name': id_to_name.get(fetish_id, f'ID {fetish_id}'),
-            'guessed': guessed,
-            'correct': correct,
-            'wrong': wrong,
-            'feedback_total': feedback_total,
-            'total': total,
-            'acc': round(correct / feedback_total * 100) if feedback_total > 0 else None,
-            'source': source,
-        })
+        results.append(
+            {
+                'fetish_id': fetish_id,
+                'fetish_name': id_to_name.get(fetish_id, f'ID {fetish_id}'),
+                'guessed': guessed,
+                'correct': correct,
+                'wrong': wrong,
+                'feedback_total': feedback_total,
+                'total': total,
+                'acc': round(correct / feedback_total * 100) if feedback_total > 0 else None,
+                'source': source,
+            }
+        )
     results.sort(key=lambda item: (item['total'], item['feedback_total']), reverse=True)
     return results[:top_n]
 
@@ -94,7 +96,7 @@ def dropoff_totals_from_history(raw, date_range):
                 total += value
             elif key.startswith('dropoff_q_'):
                 try:
-                    answered_count = int(key[len('dropoff_q_'):])
+                    answered_count = int(key[len('dropoff_q_') :])
                 except ValueError:
                     continue
                 by_answered[answered_count] = by_answered.get(answered_count, 0) + value

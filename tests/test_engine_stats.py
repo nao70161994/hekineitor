@@ -34,9 +34,7 @@ class TestEngineStatsHelpers(unittest.TestCase):
                 writes.append((path, data))
 
             engine_stats.increment_counter_file(stats_path, 'play', lock=lock, atomic_write=write)
-            engine_stats.record_daily_counter_file(
-                history_path, 'learn', '2026-05-23', lock=lock, atomic_write=write
-            )
+            engine_stats.record_daily_counter_file(history_path, 'learn', '2026-05-23', lock=lock, atomic_write=write)
 
         self.assertEqual(writes[0][1], {'play': 3})
         self.assertEqual(writes[1][1], {'2026-05-23': {'learn': 1}})
@@ -57,8 +55,26 @@ class TestEngineStatsHelpers(unittest.TestCase):
             self.assertEqual(
                 engine_stats.history_rows_from_file(history_path, ['2026-05-22', '2026-05-23']),
                 [
-                    {'date': '2026-05-22', 'start': 0, 'play': 0, 'completion': 0, 'learn': 0, 'correct': 0, 'wrong': 0, 'dropoff': 0},
-                    {'date': '2026-05-23', 'start': 4, 'play': 2, 'completion': 2, 'learn': 0, 'correct': 0, 'wrong': 1, 'dropoff': 1},
+                    {
+                        'date': '2026-05-22',
+                        'start': 0,
+                        'play': 0,
+                        'completion': 0,
+                        'learn': 0,
+                        'correct': 0,
+                        'wrong': 0,
+                        'dropoff': 0,
+                    },
+                    {
+                        'date': '2026-05-23',
+                        'start': 4,
+                        'play': 2,
+                        'completion': 2,
+                        'learn': 0,
+                        'correct': 0,
+                        'wrong': 1,
+                        'dropoff': 1,
+                    },
                 ],
             )
 

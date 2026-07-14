@@ -6,8 +6,7 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import engine as engine_module
-from engine import Engine, PLAYER_FETISH_BASE_ID
-
+from engine import PLAYER_FETISH_BASE_ID, Engine
 
 
 class TestEngineMutations(unittest.TestCase):
@@ -31,8 +30,10 @@ class TestEngineMutations(unittest.TestCase):
         target_before_total = self.engine.matrix['total'][0][8]
         other_before_yes = self.engine.matrix['yes'][1][8]
         other_before_total = self.engine.matrix['total'][1][8]
-        with patch.object(self.engine, '_save_async', return_value=None) as save_async, \
-                patch.object(self.engine, '_increment_learn_count', return_value=None) as increment:
+        with (
+            patch.object(self.engine, '_save_async', return_value=None) as save_async,
+            patch.object(self.engine, '_increment_learn_count', return_value=None) as increment,
+        ):
             self.engine._learn_silent({'8': 1.0}, 0, cold_start=True)
         self.assertEqual(self.engine.matrix['yes'][0][8], target_before_yes + 1.0)
         self.assertEqual(self.engine.matrix['total'][0][8], target_before_total + 1.0)
@@ -42,8 +43,10 @@ class TestEngineMutations(unittest.TestCase):
         increment.assert_not_called()
 
     def test_add_fetish_local_assigns_next_player_id_and_copies_template_row(self):
-        with patch.object(engine_module, '_use_db', return_value=False), \
-                patch.object(self.engine, '_save_fetishes_file', return_value=None) as save_fetishes:
+        with (
+            patch.object(engine_module, '_use_db', return_value=False),
+            patch.object(self.engine, '_save_fetishes_file', return_value=None) as save_fetishes,
+        ):
             idx, db_id = self.engine.add_fetish('追加テスト', 'desc', {'8': 1})
         self.assertEqual(idx, len(self.engine.fetishes) - 1)
         self.assertGreaterEqual(db_id, PLAYER_FETISH_BASE_ID)
@@ -54,8 +57,10 @@ class TestEngineMutations(unittest.TestCase):
 
     def test_edit_fetish_local_updates_only_provided_fields(self):
         original_desc = self.engine.fetishes[0]['desc']
-        with patch.object(engine_module, '_use_db', return_value=False), \
-                patch.object(self.engine, '_save_fetishes_file', return_value=None) as save_fetishes:
+        with (
+            patch.object(engine_module, '_use_db', return_value=False),
+            patch.object(self.engine, '_save_fetishes_file', return_value=None) as save_fetishes,
+        ):
             ok = self.engine.edit_fetish(self.engine.fetishes[0]['id'], name='編集名', works=['W'])
         self.assertTrue(ok)
         self.assertEqual(self.engine.fetishes[0]['name'], '編集名')
@@ -66,9 +71,11 @@ class TestEngineMutations(unittest.TestCase):
     def test_delete_fetish_local_rejects_seed_and_removes_player_rows(self):
         seed_id = self.engine.fetishes[0]['id']
         self.assertFalse(self.engine.delete_fetish(seed_id))
-        with patch.object(engine_module, '_use_db', return_value=False), \
-                patch.object(self.engine, '_save_fetishes_file', return_value=None) as save_fetishes, \
-                patch.object(self.engine, '_save_matrix_file', return_value=None) as save_matrix:
+        with (
+            patch.object(engine_module, '_use_db', return_value=False),
+            patch.object(self.engine, '_save_fetishes_file', return_value=None) as save_fetishes,
+            patch.object(self.engine, '_save_matrix_file', return_value=None) as save_matrix,
+        ):
             idx, db_id = self.engine.add_fetish('削除テスト', 'desc', {})
             ok = self.engine.delete_fetish(db_id)
         self.assertTrue(ok)
@@ -86,11 +93,13 @@ class TestEngineMutations(unittest.TestCase):
         total_keep = list(self.engine.matrix['total'][0])
         total_remove = list(self.engine.matrix['total'][1])
         writes = []
-        with patch.object(engine_module, '_use_db', return_value=False), \
-                patch.object(self.engine, '_save_fetishes_file', return_value=None), \
-                patch.object(self.engine, '_save_matrix_file', return_value=None), \
-                patch.object(engine_module, 'get_fetish_log_path', return_value='/missing/fetish_log.json'), \
-                patch.object(self.engine, '_atomic_write', side_effect=lambda path, data: writes.append((path, data))):
+        with (
+            patch.object(engine_module, '_use_db', return_value=False),
+            patch.object(self.engine, '_save_fetishes_file', return_value=None),
+            patch.object(self.engine, '_save_matrix_file', return_value=None),
+            patch.object(engine_module, 'get_fetish_log_path', return_value='/missing/fetish_log.json'),
+            patch.object(self.engine, '_atomic_write', side_effect=lambda path, data: writes.append((path, data))),
+        ):
             ok = self.engine.merge_fetishes(id_keep, id_remove, new_name='統合名')
         self.assertTrue(ok)
         self.assertIsNone(self.engine.index_of(id_remove))
@@ -101,8 +110,10 @@ class TestEngineMutations(unittest.TestCase):
         self.assertEqual(writes[0][1][str(id_keep)], {'guessed': 0, 'correct': 0, 'wrong': 0})
 
     def test_promote_fetish_local_moves_player_id_to_first_free_seed_id(self):
-        with patch.object(engine_module, '_use_db', return_value=False), \
-                patch.object(self.engine, '_save_fetishes_file', return_value=None):
+        with (
+            patch.object(engine_module, '_use_db', return_value=False),
+            patch.object(self.engine, '_save_fetishes_file', return_value=None),
+        ):
             idx, player_id = self.engine.add_fetish('昇格テスト', 'desc', {})
             old_seed_id = self.engine.fetishes[0]['id']
             self.engine.fetishes[0]['id'] = 9999
@@ -114,8 +125,10 @@ class TestEngineMutations(unittest.TestCase):
     def test_promote_fetish_db_uses_authoritative_db_id_selection(self):
         with patch.object(engine_module, '_use_db', return_value=False):
             idx, player_id = self.engine.add_fetish('DB昇格テスト', 'desc', {})
-        with patch.object(engine_module, '_use_db', return_value=True), \
-                patch.object(engine_module.engine_db, 'promote_player_fetish_to_seed', return_value=7) as helper:
+        with (
+            patch.object(engine_module, '_use_db', return_value=True),
+            patch.object(engine_module.engine_db, 'promote_player_fetish_to_seed', return_value=7) as helper,
+        ):
             new_id = self.engine.promote_fetish(player_id)
 
         self.assertEqual(new_id, 7)
@@ -128,8 +141,10 @@ class TestEngineMutations(unittest.TestCase):
     def test_promote_fetish_db_keeps_memory_id_when_db_rejects(self):
         with patch.object(engine_module, '_use_db', return_value=False):
             idx, player_id = self.engine.add_fetish('DB昇格失敗テスト', 'desc', {})
-        with patch.object(engine_module, '_use_db', return_value=True), \
-                patch.object(engine_module.engine_db, 'promote_player_fetish_to_seed', return_value=None):
+        with (
+            patch.object(engine_module, '_use_db', return_value=True),
+            patch.object(engine_module.engine_db, 'promote_player_fetish_to_seed', return_value=None),
+        ):
             new_id = self.engine.promote_fetish(player_id)
 
         self.assertIsNone(new_id)

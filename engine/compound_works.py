@@ -1,5 +1,5 @@
 def pair_key(id_a: int, id_b: int) -> str:
-    return f"{min(id_a, id_b)},{max(id_a, id_b)}"
+    return f'{min(id_a, id_b)},{max(id_a, id_b)}'
 
 
 def load_cache(*, loaded: bool, load_fn):

@@ -82,8 +82,14 @@ class TestEnginePersistenceHelpers(unittest.TestCase):
 
     def test_save_matrix_and_fetishes_file_preserve_atomic_write_arguments(self):
         writes = []
-        engine_persistence.save_matrix_file('matrix.json', {'yes': [[1]], 'total': [[2]]}, atomic_write=lambda *args, **kwargs: writes.append((args, kwargs)))
-        engine_persistence.save_fetishes_file('fetishes.json', [{'id': 1}], atomic_write=lambda *args, **kwargs: writes.append((args, kwargs)))
+        engine_persistence.save_matrix_file(
+            'matrix.json',
+            {'yes': [[1]], 'total': [[2]]},
+            atomic_write=lambda *args, **kwargs: writes.append((args, kwargs)),
+        )
+        engine_persistence.save_fetishes_file(
+            'fetishes.json', [{'id': 1}], atomic_write=lambda *args, **kwargs: writes.append((args, kwargs))
+        )
 
         self.assertEqual(writes[0], ((('matrix.json', {'yes': [[1]], 'total': [[2]]})), {}))
         self.assertEqual(writes[1], ((('fetishes.json', [{'id': 1}])), {'ensure_ascii': False, 'indent': 2}))
@@ -115,5 +121,7 @@ class TestEnginePersistenceHelpers(unittest.TestCase):
 
     def test_save_questions_file_preserves_atomic_write_arguments(self):
         writes = []
-        engine_persistence.save_questions_file('questions.json', [{'text': 'Q'}], atomic_write=lambda *args, **kwargs: writes.append((args, kwargs)))
+        engine_persistence.save_questions_file(
+            'questions.json', [{'text': 'Q'}], atomic_write=lambda *args, **kwargs: writes.append((args, kwargs))
+        )
         self.assertEqual(writes, [(('questions.json', [{'text': 'Q'}]), {})])

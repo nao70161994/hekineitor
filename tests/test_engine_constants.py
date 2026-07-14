@@ -5,9 +5,10 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-import engine
 import engine_constants
 import engine_data
+
+import engine
 
 
 class TestEngineConstantsCompatibility(unittest.TestCase):

@@ -50,9 +50,6 @@ def merge_log_entries(log, id_keep, id_remove):
     remove_key = str(id_remove)
     keep_entry = log.get(keep_key, {'guessed': 0, 'correct': 0, 'wrong': 0})
     remove_entry = log.get(remove_key, {'guessed': 0, 'correct': 0, 'wrong': 0})
-    log[keep_key] = {
-        key: keep_entry.get(key, 0) + remove_entry.get(key, 0)
-        for key in ('guessed', 'correct', 'wrong')
-    }
+    log[keep_key] = {key: keep_entry.get(key, 0) + remove_entry.get(key, 0) for key in ('guessed', 'correct', 'wrong')}
     log.pop(remove_key, None)
     return log

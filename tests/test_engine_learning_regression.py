@@ -8,7 +8,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from engine import Engine
 
 
-
 class TestEngineLearningRegression(unittest.TestCase):
     def setUp(self):
         self._patches = [
@@ -36,31 +35,43 @@ class TestEngineLearningRegression(unittest.TestCase):
     def test_positive_learning_matrix_delta_snapshot(self):
         engine = Engine()
         engine.learn({'8': 1, '9': -1, '10': 0}, 0, strength_factor=0.5)
-        self.assert_cells(engine, {
-            0: {8: (19.765263926052054, 20.765263926052054), 9: (2.0, 4.921795183653612), 10: (2.0, 4.0)},
-            1: {8: (2.0, 4.229579177815617), 9: (19.276538555096085, 20.276538555096085), 10: (2.0, 4.0)},
-        })
+        self.assert_cells(
+            engine,
+            {
+                0: {8: (19.765263926052054, 20.765263926052054), 9: (2.0, 4.921795183653612), 10: (2.0, 4.0)},
+                1: {8: (2.0, 4.229579177815617), 9: (19.276538555096085, 20.276538555096085), 10: (2.0, 4.0)},
+            },
+        )
 
     def test_near_miss_learning_matrix_delta_snapshot(self):
         engine = Engine()
         engine.learn_near_miss({'8': 1, '9': -1, '10': 0}, 0, strength_factor=0.5)
-        self.assert_cells(engine, {
-            0: {8: (19.26784237411822, 20.26784237411822), 9: (2.0, 4.322628314278764), 10: (2.0, 4.0)},
-            1: {8: (2.0, 4.0), 9: (19.0, 20.0), 10: (2.0, 4.0)},
-        })
+        self.assert_cells(
+            engine,
+            {
+                0: {8: (19.26784237411822, 20.26784237411822), 9: (2.0, 4.322628314278764), 10: (2.0, 4.0)},
+                1: {8: (2.0, 4.0), 9: (19.0, 20.0), 10: (2.0, 4.0)},
+            },
+        )
 
     def test_negative_learning_matrix_delta_snapshot(self):
         engine = Engine()
         engine.learn_negative({'8': 1, '9': -1, '10': 0}, 0, strength_factor=0.5)
-        self.assert_cells(engine, {
-            0: {8: (19.0, 20.1), 9: (2.1, 4.1), 10: (2.0, 4.0)},
-            1: {8: (2.0, 4.0), 9: (19.0, 20.0), 10: (2.0, 4.0)},
-        })
+        self.assert_cells(
+            engine,
+            {
+                0: {8: (19.0, 20.1), 9: (2.1, 4.1), 10: (2.0, 4.0)},
+                1: {8: (2.0, 4.0), 9: (19.0, 20.0), 10: (2.0, 4.0)},
+            },
+        )
 
     def test_cooccurrence_learning_matrix_delta_snapshot(self):
         engine = Engine()
         engine.learn_cooccurrence({'8': 1, '9': -1, '10': 0}, 0, 1, factor=0.25)
-        self.assert_cells(engine, {
-            0: {8: (19.0, 20.0), 9: (2.0, 4.0), 10: (2.0, 4.0)},
-            1: {8: (2.1125, 4.1125), 9: (19.0, 20.0), 10: (2.0, 4.0)},
-        })
+        self.assert_cells(
+            engine,
+            {
+                0: {8: (19.0, 20.0), 9: (2.0, 4.0), 10: (2.0, 4.0)},
+                1: {8: (2.1125, 4.1125), 9: (19.0, 20.0), 10: (2.0, 4.0)},
+            },
+        )

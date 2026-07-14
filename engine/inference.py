@@ -15,10 +15,15 @@ def posteriors(engine, answers, *, fetish_prior_weights):
     nq = len(engine.questions)
     dyn = engine._get_dynamic_prior_weights()
     log_p = [
-        math.log(max(dyn.get(
-            engine.fetishes[f]['id'],
-            fetish_prior_weights.get(engine.fetishes[f]['id'], 1.0),
-        ), 1e-9))
+        math.log(
+            max(
+                dyn.get(
+                    engine.fetishes[f]['id'],
+                    fetish_prior_weights.get(engine.fetishes[f]['id'], 1.0),
+                ),
+                1e-9,
+            )
+        )
         for f in range(nf)
     ]
     for q_str, ans in answers.items():

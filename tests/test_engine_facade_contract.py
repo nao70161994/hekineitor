@@ -8,11 +8,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import engine_inference
 import engine_learning
 import engine_question_selection
+
 from engine import (
     AXIS_INDIRECT_BONUS,
     EARLY_RANDOM_DEPTH,
     EARLY_RANDOM_TOP_K,
-    Engine,
     FETISH_PRIOR_WEIGHTS,
     FOCUS_THRESHOLD,
     FOCUS_TOP_N,
@@ -20,8 +20,8 @@ from engine import (
     PSEUDO,
     QUESTION_AXES,
     UCB_EXPLORE_C,
+    Engine,
 )
-
 
 
 class TestEngineFacadeContract(unittest.TestCase):
@@ -103,7 +103,6 @@ class TestEngineFacadeContract(unittest.TestCase):
         self.assertEqual(facade_engine.matrix['yes'][1], helper_engine.matrix['yes'][1])
         self.assertEqual(facade_engine.matrix['total'][1], helper_engine.matrix['total'][1])
 
-
     def test_learning_facade_matches_helper_module_for_near_miss_and_negative(self):
         answers = {'8': 1, '9': -1, '10': 0}
 
@@ -134,7 +133,6 @@ class TestEngineFacadeContract(unittest.TestCase):
         self.assertEqual(facade_engine.matrix['yes'][1], helper_engine.matrix['yes'][1])
         self.assertEqual(facade_engine.matrix['total'][1], helper_engine.matrix['total'][1])
 
-
     def test_learn_silent_facade_matches_helper_module(self):
         answers = {'8': 1, '9': -1, '10': 0}
         facade_engine = self.engine
@@ -149,8 +147,10 @@ class TestEngineFacadeContract(unittest.TestCase):
         self.assertEqual(facade_engine.matrix['total'][1], helper_engine.matrix['total'][1])
 
     def test_db_schema_facade_delegates_to_db_helper(self):
-        with patch('engine.engine_db.ensure_schema', return_value=None) as helper, \
-                patch('engine.psycopg2', create=True) as psycopg2_module:
+        with (
+            patch('engine.engine_db.ensure_schema', return_value=None) as helper,
+            patch('engine.psycopg2', create=True) as psycopg2_module,
+        ):
             psycopg2_module.extras.execute_values = object()
             self.engine._ensure_db()
 
@@ -193,7 +193,6 @@ class TestEngineFacadeContract(unittest.TestCase):
         helper.assert_called_once()
         self.assertEqual(helper.call_args.args[:2], ('guess_threshold', 0.66))
         self.assertIn('atomic_write', helper.call_args.kwargs)
-
 
     def test_private_math_facades_delegate_without_changing_results(self):
         for fetish_idx, question_idx in [(0, 0), (0, 8), (1, 9), (min(5, len(self.engine.fetishes) - 1), 3)]:
@@ -248,8 +247,10 @@ class TestEngineRuntimeCacheContract(unittest.TestCase):
             calls.append((fetish_idx, question_idx))
             return 0.9 if question_idx == 0 else 0.5
 
-        with patch.object(self.engine, '_prob', side_effect=fake_probability), \
-                patch('engine.time.monotonic', side_effect=[100.0, 101.0]):
+        with (
+            patch.object(self.engine, '_prob', side_effect=fake_probability),
+            patch('engine.time.monotonic', side_effect=[100.0, 101.0]),
+        ):
             first = self.engine._get_disc_scales()
             second = self.engine._get_disc_scales()
 
@@ -259,8 +260,10 @@ class TestEngineRuntimeCacheContract(unittest.TestCase):
         self.assertEqual(len(calls), len(self.engine.fetishes) * len(self.engine.questions))
 
     def test_dynamic_prior_facade_owns_cache_and_empty_log_timestamp(self):
-        with patch.object(self.engine, 'get_fetish_log', return_value={}) as get_log, \
-                patch('engine.time.monotonic', side_effect=[200.0, 201.0]):
+        with (
+            patch.object(self.engine, 'get_fetish_log', return_value={}) as get_log,
+            patch('engine.time.monotonic', side_effect=[200.0, 201.0]),
+        ):
             first = self.engine._get_dynamic_prior_weights()
             second = self.engine._get_dynamic_prior_weights()
 
@@ -271,8 +274,10 @@ class TestEngineRuntimeCacheContract(unittest.TestCase):
 
     def test_dynamic_prior_facade_updates_cache_from_log(self):
         target_id = self.engine.fetishes[0]['id']
-        with patch.object(self.engine, 'get_fetish_log', return_value={target_id: {'guessed': 10, 'correct': 8}}), \
-                patch('engine.time.monotonic', return_value=300.0):
+        with (
+            patch.object(self.engine, 'get_fetish_log', return_value={target_id: {'guessed': 10, 'correct': 8}}),
+            patch('engine.time.monotonic', return_value=300.0),
+        ):
             weights = self.engine._get_dynamic_prior_weights()
 
         self.assertIs(self.engine._dynamic_prior_cache, weights)
@@ -298,18 +303,22 @@ class TestEnginePersistenceFacadeContract(unittest.TestCase):
             patcher.stop()
 
     def test_save_async_uses_local_save_without_thread_when_db_disabled(self):
-        with patch('engine._use_db', return_value=False), \
-                patch.object(self.engine, '_save_matrix_file', return_value=None) as save_matrix, \
-                patch('engine.threading.Thread') as thread_cls:
+        with (
+            patch('engine._use_db', return_value=False),
+            patch.object(self.engine, '_save_matrix_file', return_value=None) as save_matrix,
+            patch('engine.threading.Thread') as thread_cls,
+        ):
             self.engine._save_async({0: [(1, 1.0, 1.0)]}, {0: 10})
 
         save_matrix.assert_called_once_with()
         thread_cls.assert_not_called()
 
     def test_save_async_persists_db_updates_synchronously(self):
-        with patch('engine._use_db', return_value=True), \
-                patch.object(self.engine, '_save_to_db', return_value=None) as save_to_db, \
-                patch('engine.threading.Thread') as thread_cls:
+        with (
+            patch('engine._use_db', return_value=True),
+            patch.object(self.engine, '_save_to_db', return_value=None) as save_to_db,
+            patch('engine.threading.Thread') as thread_cls,
+        ):
             self.engine._save_async({0: [(1, 1.0, 1.0)]}, {0: 10})
 
         save_to_db.assert_called_once_with({0: [(1, 1.0, 1.0)]}, {0: 10})
@@ -319,10 +328,12 @@ class TestEnginePersistenceFacadeContract(unittest.TestCase):
         new_id = max(f['id'] for f in self.engine.fetishes) + 1000
         if new_id < PLAYER_FETISH_BASE_ID:
             new_id = PLAYER_FETISH_BASE_ID + 1000
-        restored = self.engine.restore_player_fetishes([
-            {'id': 1, 'name': 'seed ignored', 'desc': 'seed'},
-            {'id': new_id, 'name': '復元テスト', 'desc': '説明', 'works': [{'title': '作品'}]},
-        ])
+        restored = self.engine.restore_player_fetishes(
+            [
+                {'id': 1, 'name': 'seed ignored', 'desc': 'seed'},
+                {'id': new_id, 'name': '復元テスト', 'desc': '説明', 'works': [{'title': '作品'}]},
+            ]
+        )
         self.assertEqual([fetish['id'] for fetish in restored], [new_id])
         idx = self.engine.index_of(new_id)
         self.assertIsNotNone(idx)
@@ -334,9 +345,11 @@ class TestEnginePersistenceFacadeContract(unittest.TestCase):
     def test_reload_matrix_if_stale_keeps_timestamp_when_db_disabled(self):
         self.engine._matrix_last_loaded = 50.0
         self.engine.matrix = {'yes': [[1.0]], 'total': [[2.0]]}
-        with patch('engine._use_db', return_value=False), \
-                patch.object(self.engine, '_load_from_db') as load_db, \
-                patch.object(self.engine, '_load_fetishes_from_db') as load_fetishes:
+        with (
+            patch('engine._use_db', return_value=False),
+            patch.object(self.engine, '_load_from_db') as load_db,
+            patch.object(self.engine, '_load_fetishes_from_db') as load_fetishes,
+        ):
             self.engine._reload_matrix_if_stale()
         load_db.assert_not_called()
         load_fetishes.assert_not_called()
@@ -346,10 +359,12 @@ class TestEnginePersistenceFacadeContract(unittest.TestCase):
     def test_reload_matrix_if_stale_updates_matrix_and_timestamp_after_ttl(self):
         self.engine._matrix_last_loaded = 10.0
         fresh = {'yes': [[3.0]], 'total': [[4.0]]}
-        with patch('engine._use_db', return_value=True), \
-                patch('engine.time.monotonic', side_effect=[20.0, 20.0, 21.0]), \
-                patch.object(self.engine, '_load_fetishes_from_db', return_value=self.engine.fetishes) as load_fetishes, \
-                patch.object(self.engine, '_load_from_db', return_value=fresh) as load_db:
+        with (
+            patch('engine._use_db', return_value=True),
+            patch('engine.time.monotonic', side_effect=[20.0, 20.0, 21.0]),
+            patch.object(self.engine, '_load_fetishes_from_db', return_value=self.engine.fetishes) as load_fetishes,
+            patch.object(self.engine, '_load_from_db', return_value=fresh) as load_db,
+        ):
             self.engine._reload_matrix_if_stale()
 
         load_fetishes.assert_called_once_with()
@@ -359,10 +374,12 @@ class TestEnginePersistenceFacadeContract(unittest.TestCase):
 
     def test_reload_matrix_if_stale_skips_when_outer_ttl_is_fresh(self):
         self.engine._matrix_last_loaded = 18.0
-        with patch('engine._use_db', return_value=True), \
-                patch('engine.time.monotonic', return_value=20.0), \
-                patch.object(self.engine, '_load_fetishes_from_db') as load_fetishes, \
-                patch.object(self.engine, '_load_from_db') as load_db:
+        with (
+            patch('engine._use_db', return_value=True),
+            patch('engine.time.monotonic', return_value=20.0),
+            patch.object(self.engine, '_load_fetishes_from_db') as load_fetishes,
+            patch.object(self.engine, '_load_from_db') as load_db,
+        ):
             self.engine._reload_matrix_if_stale()
 
         load_fetishes.assert_not_called()
@@ -373,10 +390,12 @@ class TestEnginePersistenceFacadeContract(unittest.TestCase):
         self.engine._matrix_last_loaded = 10.0
         fresh_fetishes = [dict(self.engine.fetishes[0]), {'id': 9999, 'name': '追加', 'desc': '追加', 'works': []}]
         fresh = {'yes': [[3.0], [4.0]], 'total': [[5.0], [6.0]]}
-        with patch('engine._use_db', return_value=True), \
-                patch('engine.time.monotonic', side_effect=[20.0, 20.0, 21.0]), \
-                patch.object(self.engine, '_load_fetishes_from_db', return_value=fresh_fetishes), \
-                patch.object(self.engine, '_load_from_db', return_value=fresh):
+        with (
+            patch('engine._use_db', return_value=True),
+            patch('engine.time.monotonic', side_effect=[20.0, 20.0, 21.0]),
+            patch.object(self.engine, '_load_fetishes_from_db', return_value=fresh_fetishes),
+            patch.object(self.engine, '_load_from_db', return_value=fresh),
+        ):
             self.engine._reload_matrix_if_stale()
 
         self.assertEqual([fetish['id'] for fetish in self.engine.fetishes], [fresh_fetishes[0]['id'], 9999])
