@@ -3,7 +3,9 @@ from flask import Blueprint
 from services import share, share_links
 
 
-def question_payload(engine, question_id, question_text, count, total, *, hint=None, progress_message=None, contradictions=None):
+def question_payload(
+    engine, question_id, question_text, count, total, *, hint=None, progress_message=None, contradictions=None
+):
     q_data = engine.questions[question_id]
     payload = {
         'action': 'question',
@@ -108,10 +110,12 @@ def _finish_feedback(ctx):
 
 def _require_feedback_open(ctx):
     if ctx.session.get('feedback_status') in ('pending_correction', 'done'):
-        return ctx.jsonify({
-            'status': 'error',
-            'message': 'この診断結果へのフィードバックは処理済みです',
-        }), 409
+        return ctx.jsonify(
+            {
+                'status': 'error',
+                'message': 'この診断結果へのフィードバックは処理済みです',
+            }
+        ), 409
     return None
 
 
@@ -187,14 +191,16 @@ def start(ctx):
     ctx.session['asked'].append(question_id)
     q_data, q_text = _question_text(ctx, question_id)
     _record_question_shown(ctx, question_id, q_text)
-    return ctx.jsonify({
-        'question_id': question_id,
-        'question': q_text,
-        'count': 0,
-        'total': ctx.soft_max_questions,
-        'axis': ctx.engine._question_axis(question_id),
-        'q_hint': q_data.get('hint', ''),
-    })
+    return ctx.jsonify(
+        {
+            'question_id': question_id,
+            'question': q_text,
+            'count': 0,
+            'total': ctx.soft_max_questions,
+            'axis': ctx.engine._question_axis(question_id),
+            'q_hint': q_data.get('hint', ''),
+        }
+    )
 
 
 def resume(ctx):
@@ -255,13 +261,15 @@ def resume(ctx):
     ctx.session['asked'] = asked
     _, q_text = _question_text(ctx, next_q)
     _record_question_shown(ctx, next_q, q_text)
-    return ctx.jsonify(question_payload(
-        ctx.engine,
-        next_q,
-        q_text,
-        len(asked) - 1,
-        ctx.question_total_for_count(len(asked) - 1),
-    ))
+    return ctx.jsonify(
+        question_payload(
+            ctx.engine,
+            next_q,
+            q_text,
+            len(asked) - 1,
+            ctx.question_total_for_count(len(asked) - 1),
+        )
+    )
 
 
 def continue_game(ctx):
@@ -302,12 +310,14 @@ def back(ctx):
     ctx.session['answers'] = answers
     ctx.session['idk_streak'] = 0
     count = max(0, len(asked) - 1)
-    return ctx.jsonify({
-        'question_id': previous_q,
-        'question': ctx.engine.questions[previous_q]['text'],
-        'count': count,
-        'total': ctx.question_total_for_count(count),
-    })
+    return ctx.jsonify(
+        {
+            'question_id': previous_q,
+            'question': ctx.engine.questions[previous_q]['text'],
+            'count': count,
+            'total': ctx.question_total_for_count(count),
+        }
+    )
 
 
 def answer(ctx):
@@ -355,8 +365,12 @@ def answer(ctx):
         if ctx.session.get('continued'):
             guess_threshold = ctx.session.get('continue_thr', min(guess_threshold + 0.20, 0.95))
         gap_ratio = top_p / max(second_p, 0.001)
-        early_stop = (count >= 4 and top_p >= 0.70 and gap_ratio >= 3.0) or (count >= 8 and top_p >= 0.55 and gap_ratio >= 2.5)
-        effective_threshold = guess_threshold if (gap_ratio >= 1.8 or count >= 10) else min(guess_threshold + 0.10, 0.90)
+        early_stop = (count >= 4 and top_p >= 0.70 and gap_ratio >= 3.0) or (
+            count >= 8 and top_p >= 0.55 and gap_ratio >= 2.5
+        )
+        effective_threshold = (
+            guess_threshold if (gap_ratio >= 1.8 or count >= 10) else min(guess_threshold + 0.10, 0.90)
+        )
         extend_low_confidence = ctx.should_extend_low_confidence(count, top_p, second_p, guess_threshold)
         should_guess = (
             idk_streak >= 4
@@ -384,16 +398,18 @@ def answer(ctx):
             _, question_text = _question_text(ctx, next_q)
             _record_question_shown(ctx, next_q, question_text)
             contradictions = ctx.engine.detect_contradictions(answers)
-            return ctx.jsonify(question_payload(
-                ctx.engine,
-                next_q,
-                question_text,
-                count,
-                ctx.question_total_for_count(count),
-                hint='候補の質感をもう少し確認します',
-                progress_message='AIが別の軸も観測しています',
-                contradictions=contradictions,
-            ))
+            return ctx.jsonify(
+                question_payload(
+                    ctx.engine,
+                    next_q,
+                    question_text,
+                    count,
+                    ctx.question_total_for_count(count),
+                    hint='候補の質感をもう少し確認します',
+                    progress_message='AIが別の軸も観測しています',
+                    contradictions=contradictions,
+                )
+            )
 
         next_q = ctx.select_next_question(
             answers,
@@ -418,16 +434,18 @@ def answer(ctx):
         _, question_text = _question_text(ctx, next_q)
         _record_question_shown(ctx, next_q, question_text)
         contradictions = ctx.engine.detect_contradictions(answers)
-        return ctx.jsonify(question_payload(
-            ctx.engine,
-            next_q,
-            question_text,
-            count,
-            ctx.question_total_for_count(count),
-            hint=hint,
-            progress_message=progress_message,
-            contradictions=contradictions,
-        ))
+        return ctx.jsonify(
+            question_payload(
+                ctx.engine,
+                next_q,
+                question_text,
+                count,
+                ctx.question_total_for_count(count),
+                hint=hint,
+                progress_message=progress_message,
+                contradictions=contradictions,
+            )
+        )
     except Exception:
         ctx.logger.exception('answer() 推論エラー')
         return ctx.jsonify({'status': 'session_expired', 'restart': True}), 440
@@ -460,11 +478,13 @@ def teach(ctx):
         return ctx.jsonify({'status': 'error', 'message': '不正な total_n です'}), 400
     if _learning_skipped(ctx):
         _finish_feedback(ctx)
-        return ctx.jsonify({
-            'status': 'learned',
-            'fetish_name': ctx.engine.fetishes[fetish_idx]['name'],
-            'learning_disabled': True,
-        })
+        return ctx.jsonify(
+            {
+                'status': 'learned',
+                'fetish_name': ctx.engine.fetishes[fetish_idx]['name'],
+                'learning_disabled': True,
+            }
+        )
     factor = ctx.learn_factor(answers, total_n) * ctx.positive_feedback_factor(ctx.engine, fetish_idx)
     ctx.learn_positive(ctx.engine, answers, fetish_idx, strength_factor=factor)
     ctx.engine.log_correct(ctx.engine.fetishes[fetish_idx]['id'])
@@ -517,7 +537,9 @@ def confirm(ctx):
             ctx.engine.log_correct(ctx.engine.fetishes[idx]['id'])
         for i in range(len(learn_idxs)):
             for j in range(i + 1, len(learn_idxs)):
-                pair_factor = (learned_factors.get(learn_idxs[i], base_factor) + learned_factors.get(learn_idxs[j], base_factor)) / 2
+                pair_factor = (
+                    learned_factors.get(learn_idxs[i], base_factor) + learned_factors.get(learn_idxs[j], base_factor)
+                ) / 2
                 ctx.learn_cooccurrence(ctx.engine, answers, learn_idxs[i], learn_idxs[j], pair_factor * 0.3)
         ctx.record_guess_quality_feedback(True)
         _finish_feedback(ctx)
@@ -608,21 +630,25 @@ def add_fetish(ctx):
         return active_guess_error
     existing = next((fetish for fetish in ctx.engine.fetishes if fetish['name'] == name), None)
     if existing:
-        return ctx.jsonify({
-            'status': 'learned',
-            'fetish_name': existing['name'],
-            'fetish_id': existing['id'],
-            'is_new': False,
-        })
+        return ctx.jsonify(
+            {
+                'status': 'learned',
+                'fetish_name': existing['name'],
+                'fetish_id': existing['id'],
+                'is_new': False,
+            }
+        )
     if confirmed:
         if _learning_skipped(ctx):
-            return ctx.jsonify({
-                'status': 'learned',
-                'fetish_name': name,
-                'fetish_id': 'test-play',
-                'is_new': False,
-                'learning_disabled': True,
-            })
+            return ctx.jsonify(
+                {
+                    'status': 'learned',
+                    'fetish_name': name,
+                    'fetish_id': 'test-play',
+                    'is_new': False,
+                    'learning_disabled': True,
+                }
+            )
         if not desc:
             desc = name
         _, db_id = ctx.engine.add_fetish(name, desc, answers)
@@ -683,8 +709,7 @@ def finalize_added(ctx):
             scaled_factor = factor * ctx.positive_feedback_factor(ctx.engine, idx)
             ctx.learn_positive(ctx.engine, answers, idx, strength_factor=scaled_factor)
 
-    correct_idxs = [ctx.engine.index_of(db_id) for db_id in correct_db_ids
-                    if ctx.engine.index_of(db_id) is not None]
+    correct_idxs = [ctx.engine.index_of(db_id) for db_id in correct_db_ids if ctx.engine.index_of(db_id) is not None]
     for i in range(len(correct_idxs)):
         for j in range(i + 1, len(correct_idxs)):
             pair_factor = (
@@ -723,7 +748,7 @@ def finalize_added(ctx):
                     factor
                     * candidate_negative_factor
                     * ctx.negative_feedback_factor(ctx.engine, candidate_idx)
-                    / (n_unsel ** 0.5)
+                    / (n_unsel**0.5)
                 ),
             )
     _finish_feedback(ctx)
@@ -761,21 +786,26 @@ def create_share_link(ctx):
     if not name:
         return ctx.jsonify({'status': 'error', 'message': 'name is required'}), 400
     try:
-        share_id, payload = share_links.create_link({
-            'name': name,
-            'probability': probability,
-            'desc': desc,
-            'title': share.result_title(probability),
-            'rank': share.result_rarity(probability),
-        }, environ=ctx.environ)
+        share_id, payload = share_links.create_link(
+            {
+                'name': name,
+                'probability': probability,
+                'desc': desc,
+                'title': share.result_title(probability),
+                'rank': share.result_rarity(probability),
+            },
+            environ=ctx.environ,
+        )
     except (OSError, RuntimeError, ValueError):
         return ctx.jsonify({'status': 'error', 'message': 'share link could not be created'}), 500
-    return ctx.jsonify({
-        'status': 'ok',
-        'share_id': share_id,
-        'share_url': f'/r/{share_id}',
-        'result': payload,
-    })
+    return ctx.jsonify(
+        {
+            'status': 'ok',
+            'share_id': share_id,
+            'share_url': f'/r/{share_id}',
+            'result': payload,
+        }
+    )
 
 
 def share_event(ctx):
@@ -792,7 +822,6 @@ def share_event(ctx):
         page=data.get('page', ''),
     )
     return ctx.jsonify({'status': 'ok', 'recorded': bool(event)})
-
 
 
 def dropoff(ctx):

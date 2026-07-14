@@ -48,26 +48,28 @@ def health(ctx):
     if ctx.use_db() and not db_ok:
         degraded_reasons.append('db_unavailable')
     status_code = 503 if degraded_reasons and ctx.environ.get('HEALTH_STRICT_STATUS') == '1' else 200
-    return ctx.jsonify({
-        'status': 'ok' if not degraded_reasons else 'degraded',
-        'degraded_reasons': degraded_reasons,
-        'db': db_ok,
-        'storage': 'postgres' if ctx.use_db() else 'local_json',
-        'fetishes': len(ctx.engine.fetishes),
-        'questions': len(ctx.engine.questions),
-        'matrix': {'rows': matrix_rows, 'cols': matrix_cols, 'ok': matrix_ok},
-        'backup': {'matrix_backup_mtime': backup_mtime},
-        'runtime': {
-            'started_at': ctx.app_started_at,
-            'uptime_seconds': int(ctx.time()) - ctx.app_started_at,
-            'local_sessions': ctx.local_session_count(),
-            'error_counts': dict(ctx.error_counts),
-        },
-        'persistence': {
-            'matrix_saved_mtime': matrix_mtime,
-            'audit_entries': len(ctx.recent_audit(500)),
-        },
-    }), status_code
+    return ctx.jsonify(
+        {
+            'status': 'ok' if not degraded_reasons else 'degraded',
+            'degraded_reasons': degraded_reasons,
+            'db': db_ok,
+            'storage': 'postgres' if ctx.use_db() else 'local_json',
+            'fetishes': len(ctx.engine.fetishes),
+            'questions': len(ctx.engine.questions),
+            'matrix': {'rows': matrix_rows, 'cols': matrix_cols, 'ok': matrix_ok},
+            'backup': {'matrix_backup_mtime': backup_mtime},
+            'runtime': {
+                'started_at': ctx.app_started_at,
+                'uptime_seconds': int(ctx.time()) - ctx.app_started_at,
+                'local_sessions': ctx.local_session_count(),
+                'error_counts': dict(ctx.error_counts),
+            },
+            'persistence': {
+                'matrix_saved_mtime': matrix_mtime,
+                'audit_entries': len(ctx.recent_audit(500)),
+            },
+        }
+    ), status_code
 
 
 def manifest(ctx):
@@ -78,10 +80,14 @@ def manifest(ctx):
 
 
 def service_worker(ctx):
-    return ctx.render_template('sw.js', version=ctx.app_version), 200, {
-        'Content-Type': 'application/javascript',
-        'Cache-Control': 'no-cache',
-    }
+    return (
+        ctx.render_template('sw.js', version=ctx.app_version),
+        200,
+        {
+            'Content-Type': 'application/javascript',
+            'Cache-Control': 'no-cache',
+        },
+    )
 
 
 def offline(ctx):
@@ -91,7 +97,7 @@ def offline(ctx):
 def _ads_txt_pub_from_client(client):
     client = (client or '').strip()
     if client.startswith('ca-pub-'):
-        return 'pub-' + client[len('ca-pub-'):]
+        return 'pub-' + client[len('ca-pub-') :]
     if client.startswith('pub-'):
         return client
     return ''
@@ -109,7 +115,7 @@ def ads_txt(ctx):
     return ctx.Response(body, mimetype='text/plain', headers={'Cache-Control': 'public, max-age=3600'})
 
 
-ERROR_PAGE = '''<!DOCTYPE html>
+ERROR_PAGE = """<!DOCTYPE html>
 <html lang="ja"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>へきネイター - {title}</title>
@@ -125,7 +131,7 @@ a:hover{{background:#7af0a0;color:#0a0a1a;}}
 <h1>{code}</h1>
 <p>{message}</p>
 <a href="/">トップに戻る</a>
-</div></body></html>'''
+</div></body></html>"""
 
 
 def error_page(title, emoji, code, message):
@@ -137,12 +143,13 @@ def not_found():
 
 
 def server_error():
-    return error_page('エラーが発生しました', '💀', '500', 'サーバーエラーが発生しました。しばらくしてからお試しください。'), 500
+    return error_page(
+        'エラーが発生しました', '💀', '500', 'サーバーエラーが発生しました。しばらくしてからお試しください。'
+    ), 500
 
 
 def service_unavailable():
     return error_page('サービス停止中', '🛠️', '503', 'ただいまメンテナンス中です。しばらくしてからお試しください。'), 503
-
 
 
 def create_health_blueprint(ctx_factory):
@@ -153,7 +160,6 @@ def create_health_blueprint(ctx_factory):
         return health(ctx_factory())
 
     return bp
-
 
 
 def create_public_blueprint(ctx_factory):

@@ -1,20 +1,25 @@
-from datetime import date, timedelta
-import math
 import urllib.parse
+from datetime import date, timedelta
 
 from flask import Blueprint
+
+from routes.admin_sections import analytics as analytics_routes
+from routes.admin_sections import matrix as matrix_routes
+from routes.admin_sections import matrix_handlers
+from routes.admin_sections import mutations as mutation_routes
+from routes.admin_sections import operations as operations_routes
+from routes.admin_sections import page as page_routes
+from routes.admin_sections import works as works_routes
 from services import context as context_service
+from services import improvement_candidates as improvement_candidates_service
 from services import inference as inference_service
+from services import ogp as ogp_service
+from services import question_events as question_events_service
 from services import result_exposure as result_exposure_service
-from services.works_links import collect_work_link_queue
 from services import share_events as share_events_service
 from services import share_links as share_links_service
-from services import question_events as question_events_service
-from services import ogp as ogp_service
-from services import improvement_candidates as improvement_candidates_service
-from services import result_exposure as result_exposure_service
-from matrix_service import matrix_validation_report
 from services.csv_safety import csv_text
+from services.works_links import collect_work_link_queue
 
 
 def _date_arg(value):
@@ -38,7 +43,6 @@ def _previous_period(since, until):
     previous_until = start - timedelta(days=1)
     previous_since = previous_until - span
     return previous_since.isoformat(), previous_until.isoformat()
-
 
 
 def _parse_dry_run_answers(raw):
@@ -71,12 +75,18 @@ def _parse_dry_run_answers(raw):
 def dry_run_guess(ctx):
     answers, errors = _parse_dry_run_answers(ctx.request.args.get('answers', ''))
     if errors:
-        return ctx.jsonify({'status': 'error', 'message': 'answers は q:answer のカンマ区切りで指定してください', 'errors': errors}), 400
+        return ctx.jsonify(
+            {'status': 'error', 'message': 'answers は q:answer のカンマ区切りで指定してください', 'errors': errors}
+        ), 400
     if not answers:
         return ctx.jsonify({'status': 'error', 'message': 'answers が空です'}), 400
-    invalid_ids = [int(question_id) for question_id in answers if not (0 <= int(question_id) < len(ctx.engine.questions))]
+    invalid_ids = [
+        int(question_id) for question_id in answers if not (0 <= int(question_id) < len(ctx.engine.questions))
+    ]
     if invalid_ids:
-        return ctx.jsonify({'status': 'error', 'message': '不正な質問IDです', 'invalid_question_ids': invalid_ids[:20]}), 400
+        return ctx.jsonify(
+            {'status': 'error', 'message': '不正な質問IDです', 'invalid_question_ids': invalid_ids[:20]}
+        ), 400
     inference_ctx = context_service.build_inference_context(
         engine=ctx.engine,
         session={},
@@ -86,17 +96,22 @@ def dry_run_guess(ctx):
         profile_min_prob=0.08,
         compound_ratio=ctx.engine.config.get('compound_ratio', 0.55),
         triple_ratio=ctx.engine.config.get('triple_ratio', 0.45),
-        adjusted_score_provider=lambda probs, ranked: result_exposure_service.adjusted_scores(ctx.engine, probs, ranked),
+        adjusted_score_provider=lambda probs, ranked: result_exposure_service.adjusted_scores(
+            ctx.engine, probs, ranked
+        ),
     )
     result = inference_service.compute_guess(inference_ctx, answers)
-    return ctx.jsonify({
-        'status': 'ok',
-        'mode': 'dry_run_no_record',
-        'recorded': False,
-        'answer_count': len(answers),
-        'answers': answers,
-        'result': result,
-    })
+    return ctx.jsonify(
+        {
+            'status': 'ok',
+            'mode': 'dry_run_no_record',
+            'recorded': False,
+            'answer_count': len(answers),
+            'answers': answers,
+            'result': result,
+        }
+    )
+
 
 def share_event_query(ctx, *, default_limit=500):
     filters = {
@@ -123,8 +138,6 @@ def share_event_query_string(filters):
     return '&'.join(parts)
 
 
-
-
 def analysis_log_status(ctx, *, stats_history=None, share_events=None, question_events=None):
     stats_history = stats_history if stats_history is not None else ctx.engine.get_stats_history(days=30)
     share_events = share_events if share_events is not None else ctx.share_event_report(limit=1000)
@@ -133,7 +146,13 @@ def analysis_log_status(ctx, *, stats_history=None, share_events=None, question_
     question_count = ctx.question_event_count()
     share_storage = ctx.share_event_storage_status() if hasattr(ctx, 'share_event_storage_status') else {}
     question_storage = ctx.question_event_storage_status() if hasattr(ctx, 'question_event_storage_status') else {}
-    stats_history_count = len([row for row in stats_history if any(row.get(key, 0) for key in ('start', 'play', 'completion', 'learn', 'correct', 'wrong', 'dropoff'))])
+    stats_history_count = len(
+        [
+            row
+            for row in stats_history
+            if any(row.get(key, 0) for key in ('start', 'play', 'completion', 'learn', 'correct', 'wrong', 'dropoff'))
+        ]
+    )
     return {
         'stats_history_count': stats_history_count,
         'share_event_count': share_count,
@@ -149,10 +168,15 @@ def analysis_log_status(ctx, *, stats_history=None, share_events=None, question_
         'sources': {
             'result_distribution': 'Engine stats_history / fetish_log',
             'feedback': 'Engine fetish_log / stats_history',
-            'share_analytics': 'Postgres analytics_events' if share_storage.get('storage') == 'postgres' else 'JSONL share_events',
-            'question_analytics': 'Postgres analytics_events' if question_storage.get('storage') == 'postgres' else 'JSONL question_events',
+            'share_analytics': 'Postgres analytics_events'
+            if share_storage.get('storage') == 'postgres'
+            else 'JSONL share_events',
+            'question_analytics': 'Postgres analytics_events'
+            if question_storage.get('storage') == 'postgres'
+            else 'JSONL question_events',
         },
     }
+
 
 def test_play_audit_rows(rows, *, limit=8):
     items = []
@@ -161,11 +185,13 @@ def test_play_audit_rows(rows, *, limit=8):
         if action not in ('test_play_start', 'test_play_stop'):
             continue
         detail = row.get('detail') if isinstance(row.get('detail'), dict) else {}
-        items.append({
-            'event_name': detail.get('event_name') or action,
-            'timestamp': row.get('ts', ''),
-            'mode': detail.get('mode') or ('learning_off' if action == 'test_play_start' else 'normal'),
-        })
+        items.append(
+            {
+                'event_name': detail.get('event_name') or action,
+                'timestamp': row.get('ts', ''),
+                'mode': detail.get('mode') or ('learning_off' if action == 'test_play_start' else 'normal'),
+            }
+        )
     return items[:limit]
 
 
@@ -188,7 +214,9 @@ def admin_page(ctx):
     share_event_filters = share_event_query(ctx, default_limit=1000)
     share_events = ctx.share_event_report(**share_event_filters)
     question_events = ctx.question_event_report(limit=1000)
-    analysis_logs = analysis_log_status(ctx, stats_history=stats_history, share_events=share_events, question_events=question_events)
+    analysis_logs = analysis_log_status(
+        ctx, stats_history=stats_history, share_events=share_events, question_events=question_events
+    )
     share_notes = ctx.load_share_notes()
     audit_rows = ctx.recent_audit(50)
     return ctx.render_template(
@@ -219,14 +247,14 @@ def admin_page(ctx):
         share_event_filters=share_event_filters,
         share_event_query=share_event_query_string(share_event_filters),
         csrf_token=ctx.csrf_token(),
-        csrf_expires_at=int(ctx.session.get('admin_csrf_issued_at', 0) + int(ctx.environ.get('ADMIN_CSRF_TTL_SECONDS', '7200'))),
+        csrf_expires_at=int(
+            ctx.session.get('admin_csrf_issued_at', 0) + int(ctx.environ.get('ADMIN_CSRF_TTL_SECONDS', '7200'))
+        ),
         audit_rows=audit_rows[:20],
         test_play_audit_rows=test_play_audit_rows(audit_rows),
         matrix_backups=ctx.list_matrix_import_backups(),
         test_play_active=ctx.is_test_play(),
     )
-
-
 
 
 def start_test_play(ctx):
@@ -251,10 +279,10 @@ def _admin_work_url(ctx, work, title):
     if raw_url and not url:
         return ''
     if not url and getattr(ctx, 'amazon_associate_id', '') and title:
-        url = f"https://www.amazon.co.jp/s?k={urllib.parse.quote(str(title))}&tag={urllib.parse.quote(ctx.amazon_associate_id)}"
+        url = f'https://www.amazon.co.jp/s?k={urllib.parse.quote(str(title))}&tag={urllib.parse.quote(ctx.amazon_associate_id)}'
     elif url and getattr(ctx, 'amazon_associate_id', '') and 'tag=' not in url:
         separator = '&' if '?' in url else '?'
-        url = url + f"{separator}tag={urllib.parse.quote(ctx.amazon_associate_id)}"
+        url = url + f'{separator}tag={urllib.parse.quote(ctx.amazon_associate_id)}'
     return url
 
 
@@ -277,12 +305,14 @@ def seed_works_backfill_payload(ctx, *, sample_limit=50, apply=False):
         normalized = ctx.parse_works_list(replacement)
         if not normalized:
             continue
-        candidates.append({
-            'id': fetish_id,
-            'name': fetish.get('name', ''),
-            'seed_work_count': len(normalized),
-            'seed_titles': [ctx.work_title(work) for work in normalized[:5]],
-        })
+        candidates.append(
+            {
+                'id': fetish_id,
+                'name': fetish.get('name', ''),
+                'seed_work_count': len(normalized),
+                'seed_titles': [ctx.work_title(work) for work in normalized[:5]],
+            }
+        )
 
     updated = 0
     if apply:
@@ -294,20 +324,32 @@ def seed_works_backfill_payload(ctx, *, sample_limit=50, apply=False):
                 updated += 1
         ctx.write_audit('works_seed_backfill', 'ok', {'updated_count': updated})
 
-    return ctx.jsonify({
-        'status': 'ok',
-        'mode': 'applied' if apply else 'dry_run',
-        'candidate_count': len(candidates),
-        'updated_count': updated,
-        'required_confirm_text': 'BACKFILL_WORKS',
-        'candidates': candidates[:sample_limit],
-    })
+    return ctx.jsonify(
+        {
+            'status': 'ok',
+            'mode': 'applied' if apply else 'dry_run',
+            'candidate_count': len(candidates),
+            'updated_count': updated,
+            'required_confirm_text': 'BACKFILL_WORKS',
+            'candidates': candidates[:sample_limit],
+        }
+    )
 
 
 def export_log(ctx):
     log = ctx.engine.get_fetish_log()
     fetish_map = {fetish['id']: fetish['name'] for fetish in ctx.engine.fetishes}
-    fieldnames = ['id', 'name', 'guessed', 'correct', 'wrong', 'feedback_total', 'feedback_accuracy', 'unfeedback', 'guess_confirm_rate']
+    fieldnames = [
+        'id',
+        'name',
+        'guessed',
+        'correct',
+        'wrong',
+        'feedback_total',
+        'feedback_accuracy',
+        'unfeedback',
+        'guess_confirm_rate',
+    ]
     rows = []
     for fid, entry in sorted(log.items(), key=lambda item: -item[1].get('guessed', 0)):
         name = fetish_map.get(fid, str(fid))
@@ -315,20 +357,22 @@ def export_log(ctx):
         correct = entry.get('correct', 0)
         wrong = entry.get('wrong', 0)
         feedback_total = correct + wrong
-        feedback_acc = f"{round(correct / feedback_total * 100, 1)}" if feedback_total else ''
+        feedback_acc = f'{round(correct / feedback_total * 100, 1)}' if feedback_total else ''
         unfeedback = max(0, guessed - feedback_total)
-        guess_confirm_rate = f"{round(correct / guessed * 100, 1)}" if guessed else ''
-        rows.append({
-            'id': fid,
-            'name': name,
-            'guessed': guessed,
-            'correct': correct,
-            'wrong': wrong,
-            'feedback_total': feedback_total,
-            'feedback_accuracy': feedback_acc,
-            'unfeedback': unfeedback,
-            'guess_confirm_rate': guess_confirm_rate,
-        })
+        guess_confirm_rate = f'{round(correct / guessed * 100, 1)}' if guessed else ''
+        rows.append(
+            {
+                'id': fid,
+                'name': name,
+                'guessed': guessed,
+                'correct': correct,
+                'wrong': wrong,
+                'feedback_total': feedback_total,
+                'feedback_accuracy': feedback_acc,
+                'unfeedback': unfeedback,
+                'guess_confirm_rate': guess_confirm_rate,
+            }
+        )
     return ctx.Response(
         csv_text(rows, fieldnames),
         mimetype='text/csv; charset=utf-8',
@@ -342,10 +386,12 @@ def fetish_history(ctx, fetish_id):
 
 
 def fetish_log_rows(ctx):
-    return ctx.jsonify({
-        'status': 'ok',
-        **ctx.paged_fetish_log_rows(ctx.build_fetish_log_rows(), ctx.request.args),
-    })
+    return ctx.jsonify(
+        {
+            'status': 'ok',
+            **ctx.paged_fetish_log_rows(ctx.build_fetish_log_rows(), ctx.request.args),
+        }
+    )
 
 
 def low_exposure_fetishes(ctx):
@@ -369,7 +415,7 @@ def low_exposure_fetishes(ctx):
             'works_count': len(works),
             'has_works': bool(works),
             'is_player_fetish': row['id'] >= ctx.player_fetish_base_id,
-            'detail_url': f"/fetish/{row['id']}",
+            'detail_url': f'/fetish/{row["id"]}',
         }
         enriched.append(item)
     low_rows = sorted(
@@ -378,22 +424,24 @@ def low_exposure_fetishes(ctx):
     )
     zero_rows = [row for row in enriched if row['guessed'] == 0]
     no_work_low_rows = [row for row in low_rows if not row['has_works']]
-    return ctx.jsonify({
-        'status': 'ok',
-        'threshold': threshold,
-        'total_fetishes': len(enriched),
-        'zero_count': len(zero_rows),
-        'low_count': len(low_rows),
-        'no_work_low_count': len(no_work_low_rows),
-        'summary': {
-            'zero_share': round(len(zero_rows) / len(enriched) * 100, 1) if enriched else 0,
-            'low_share': round(len(low_rows) / len(enriched) * 100, 1) if enriched else 0,
-            'no_work_low_share': round(len(no_work_low_rows) / len(low_rows) * 100, 1) if low_rows else 0,
-        },
-        'rows': low_rows[:limit],
-        'zero_rows': zero_rows[:limit],
-        'no_work_low_rows': no_work_low_rows[:limit],
-    })
+    return ctx.jsonify(
+        {
+            'status': 'ok',
+            'threshold': threshold,
+            'total_fetishes': len(enriched),
+            'zero_count': len(zero_rows),
+            'low_count': len(low_rows),
+            'no_work_low_count': len(no_work_low_rows),
+            'summary': {
+                'zero_share': round(len(zero_rows) / len(enriched) * 100, 1) if enriched else 0,
+                'low_share': round(len(low_rows) / len(enriched) * 100, 1) if enriched else 0,
+                'no_work_low_share': round(len(no_work_low_rows) / len(low_rows) * 100, 1) if low_rows else 0,
+            },
+            'rows': low_rows[:limit],
+            'zero_rows': zero_rows[:limit],
+            'no_work_low_rows': no_work_low_rows[:limit],
+        }
+    )
 
 
 def performance(ctx):
@@ -447,7 +495,6 @@ def result_exposures_report(ctx):
     return ctx.jsonify(report)
 
 
-
 def _current_fetish_names(ctx):
     return {
         fetish.get('id'): fetish.get('name', '')
@@ -461,36 +508,42 @@ def result_exposure_trend(ctx):
     top_n = ctx.bounded_int(ctx.request.args.get('top_n'), 5, 1, 20)
     end_date = (ctx.request.args.get('date') or ctx.request.args.get('until') or '').strip()[:10] or None
     include_backfill = str(ctx.request.args.get('include_backfill') or '').lower() in ('1', 'true', 'yes')
-    return ctx.jsonify(result_exposure_service.heavy_result_trend_report(
-        environ=ctx.environ,
-        limit=5000,
-        days=days,
-        date=end_date,
-        top_n=top_n,
-        include_backfill=include_backfill,
-        fetish_names=_current_fetish_names(ctx),
-    ))
+    return ctx.jsonify(
+        result_exposure_service.heavy_result_trend_report(
+            environ=ctx.environ,
+            limit=5000,
+            days=days,
+            date=end_date,
+            top_n=top_n,
+            include_backfill=include_backfill,
+            fetish_names=_current_fetish_names(ctx),
+        )
+    )
 
 
 def result_exposures_recent(ctx):
     limit = ctx.bounded_int(ctx.request.args.get('limit'), 20, 1, 100)
     include_backfill = str(ctx.request.args.get('include_backfill') or '').lower() in ('1', 'true', 'yes')
-    return ctx.jsonify(result_exposure_service.recent_events_report(
-        environ=ctx.environ,
-        limit=limit,
-        include_backfill=include_backfill,
-    ))
+    return ctx.jsonify(
+        result_exposure_service.recent_events_report(
+            environ=ctx.environ,
+            limit=limit,
+            include_backfill=include_backfill,
+        )
+    )
 
 
 def result_exposure_factors(ctx):
     top_n = ctx.bounded_int(ctx.request.args.get('top_n'), 30, 1, 200)
     limit = ctx.bounded_int(ctx.request.args.get('limit'), 5000, 1, 50000)
-    return ctx.jsonify(result_exposure_service.factor_report(
-        ctx.engine.fetishes,
-        environ=ctx.environ,
-        limit=limit,
-        top_n=top_n,
-    ))
+    return ctx.jsonify(
+        result_exposure_service.factor_report(
+            ctx.engine.fetishes,
+            environ=ctx.environ,
+            limit=limit,
+            top_n=top_n,
+        )
+    )
 
 
 def result_exposures_backfill(ctx, *, apply=False):
@@ -515,11 +568,15 @@ def result_exposures_backfill(ctx, *, apply=False):
         force=force,
     )
     if apply and report.get('inserted_count'):
-        ctx.write_audit('backfill_result_exposures', 'ok', {
-            'inserted_count': report.get('inserted_count'),
-            'raw_total': report.get('raw_total'),
-            'force': force,
-        })
+        ctx.write_audit(
+            'backfill_result_exposures',
+            'ok',
+            {
+                'inserted_count': report.get('inserted_count'),
+                'raw_total': report.get('raw_total'),
+                'force': force,
+            },
+        )
     return ctx.jsonify(report)
 
 
@@ -557,14 +614,29 @@ def share_events_report(ctx):
 def question_events_report(ctx):
     limit = ctx.bounded_int(ctx.request.args.get('limit'), 1000, 1, 50000)
     target_date = (ctx.request.args.get('date') or '').strip()[:10]
-    exclude_suspicious = str(ctx.request.args.get('exclude_suspicious') or '1').strip().lower() not in ('0', 'false', 'no', 'off')
-    return ctx.jsonify({'status': 'ok', **ctx.question_event_report(limit=limit, date=target_date or None, exclude_suspicious=exclude_suspicious)})
+    exclude_suspicious = str(ctx.request.args.get('exclude_suspicious') or '1').strip().lower() not in (
+        '0',
+        'false',
+        'no',
+        'off',
+    )
+    return ctx.jsonify(
+        {
+            'status': 'ok',
+            **ctx.question_event_report(limit=limit, date=target_date or None, exclude_suspicious=exclude_suspicious),
+        }
+    )
 
 
 def question_events_csv(ctx, kind):
     limit = ctx.bounded_int(ctx.request.args.get('limit'), 5000, 1, 50000)
     target_date = (ctx.request.args.get('date') or '').strip()[:10]
-    exclude_suspicious = str(ctx.request.args.get('exclude_suspicious') or '1').strip().lower() not in ('0', 'false', 'no', 'off')
+    exclude_suspicious = str(ctx.request.args.get('exclude_suspicious') or '1').strip().lower() not in (
+        '0',
+        'false',
+        'no',
+        'off',
+    )
     report = ctx.question_event_report(limit=limit, date=target_date or None, exclude_suspicious=exclude_suspicious)
     if kind == 'category':
         body = question_events_service.category_csv(report)
@@ -620,22 +692,26 @@ def fetishes_snapshot(ctx):
     rows = []
     for fetish in ctx.engine.fetishes:
         works = fetish.get('works') or []
-        rows.append({
-            'id': fetish.get('id'),
-            'name': fetish.get('name', ''),
-            'desc': fetish.get('desc', ''),
-            'works_count': len(works),
-            'works_titles': [ctx.work_title(work) for work in works[:5]],
-            'is_player_fetish': fetish.get('id', 0) >= ctx.player_fetish_base_id,
-            'detail_url': f"/fetish/{fetish.get('id')}",
-        })
-    return ctx.jsonify({
-        'status': 'ok',
-        'total': len(rows),
-        'seed_count': len([row for row in rows if not row['is_player_fetish']]),
-        'player_count': len([row for row in rows if row['is_player_fetish']]),
-        'fetishes': rows,
-    })
+        rows.append(
+            {
+                'id': fetish.get('id'),
+                'name': fetish.get('name', ''),
+                'desc': fetish.get('desc', ''),
+                'works_count': len(works),
+                'works_titles': [ctx.work_title(work) for work in works[:5]],
+                'is_player_fetish': fetish.get('id', 0) >= ctx.player_fetish_base_id,
+                'detail_url': f'/fetish/{fetish.get("id")}',
+            }
+        )
+    return ctx.jsonify(
+        {
+            'status': 'ok',
+            'total': len(rows),
+            'seed_count': len([row for row in rows if not row['is_player_fetish']]),
+            'player_count': len([row for row in rows if row['is_player_fetish']]),
+            'fetishes': rows,
+        }
+    )
 
 
 def learning_stats(ctx):
@@ -663,12 +739,14 @@ def works_health(ctx):
     maintenance = ctx.build_admin_maintenance_checklist().get('works', {})
     queue = works_link_queue_payload(ctx, sample_limit=50)
     seed_backfill = seed_works_backfill_payload(ctx, sample_limit=50, apply=False).get_json()
-    return ctx.jsonify({
-        'status': 'ok',
-        'maintenance': maintenance,
-        'link_queue': queue,
-        'seed_backfill': seed_backfill,
-    })
+    return ctx.jsonify(
+        {
+            'status': 'ok',
+            'maintenance': maintenance,
+            'link_queue': queue,
+            'seed_backfill': seed_backfill,
+        }
+    )
 
 
 def matrix_health(ctx):
@@ -683,18 +761,20 @@ def matrix_health(ctx):
         and all(len(row) == expected_cols for row in yes_rows)
         and all(len(row) == expected_cols for row in total_rows)
     )
-    return ctx.jsonify({
-        'status': 'ok' if ok else 'warning',
-        'storage': 'postgres' if ctx.use_db() else 'local_json',
-        'fetish_count': expected_rows,
-        'question_count': expected_cols,
-        'yes_rows': len(yes_rows),
-        'total_rows': len(total_rows),
-        'min_cols': min(row_lengths) if row_lengths else 0,
-        'max_cols': max(row_lengths) if row_lengths else 0,
-        'matrix_shape_ok': ok,
-        'backups': ctx.list_matrix_import_backups(),
-    })
+    return ctx.jsonify(
+        {
+            'status': 'ok' if ok else 'warning',
+            'storage': 'postgres' if ctx.use_db() else 'local_json',
+            'fetish_count': expected_rows,
+            'question_count': expected_cols,
+            'yes_rows': len(yes_rows),
+            'total_rows': len(total_rows),
+            'min_cols': min(row_lengths) if row_lengths else 0,
+            'max_cols': max(row_lengths) if row_lengths else 0,
+            'matrix_shape_ok': ok,
+            'backups': ctx.list_matrix_import_backups(),
+        }
+    )
 
 
 def funnel_metrics(ctx):
@@ -713,10 +793,12 @@ def funnel_metrics(ctx):
     if include_details:
         share_report = ctx.share_event_report(limit=1000)
         question_report = ctx.question_event_report(limit=1000)
-        payload.update({
-            'share_metrics': share_report.get('metrics', {}),
-            'question_summary': question_report.get('summary', {}),
-        })
+        payload.update(
+            {
+                'share_metrics': share_report.get('metrics', {}),
+                'question_summary': question_report.get('summary', {}),
+            }
+        )
     return ctx.jsonify(payload)
 
 
@@ -752,15 +834,17 @@ def added_fetishes(ctx):
             source = 'promoted_or_db_added'
         else:
             source = 'unknown_added'
-        rows.append({
-            'id': fetish_id,
-            'name': name,
-            'source': source,
-            'player_id': bool(isinstance(fetish_id, int) and fetish_id >= ctx.player_fetish_base_id),
-            'seed_id_present': fetish_id in seed_ids,
-            'seed_name_present': name in seed_names,
-            'works_count': len(fetish.get('works') or []),
-        })
+        rows.append(
+            {
+                'id': fetish_id,
+                'name': name,
+                'source': source,
+                'player_id': bool(isinstance(fetish_id, int) and fetish_id >= ctx.player_fetish_base_id),
+                'seed_id_present': fetish_id in seed_ids,
+                'seed_name_present': name in seed_names,
+                'works_count': len(fetish.get('works') or []),
+            }
+        )
     rows.sort(key=lambda row: (0 if row['source'] == 'player_added' else 1, row.get('id') or 0, row.get('name') or ''))
     counts = {}
     for row in rows:
@@ -776,21 +860,24 @@ def promoted_fetish_history(ctx):
         action = row.get('action')
         detail = row.get('detail') if isinstance(row.get('detail'), dict) else {}
         if action == 'promote_fetish':
-            promotions.append({
-                'timestamp': row.get('ts', ''),
-                'old_id': detail.get('old_id'),
-                'new_id': detail.get('new_id'),
-                'status': row.get('status', ''),
-            })
+            promotions.append(
+                {
+                    'timestamp': row.get('ts', ''),
+                    'old_id': detail.get('old_id'),
+                    'new_id': detail.get('new_id'),
+                    'status': row.get('status', ''),
+                }
+            )
         elif action in ('repair_promoted_stats_history', 'move_stats_history'):
-            repairs.append({
-                'timestamp': row.get('ts', ''),
-                'action': action,
-                'status': row.get('status', ''),
-                'detail': detail,
-            })
+            repairs.append(
+                {
+                    'timestamp': row.get('ts', ''),
+                    'action': action,
+                    'status': row.get('status', ''),
+                    'detail': detail,
+                }
+            )
     return ctx.jsonify({'status': 'ok', 'promotions': promotions, 'repairs': repairs})
-
 
 
 def _safe_engine_config(ctx):
@@ -799,12 +886,14 @@ def _safe_engine_config(ctx):
     keys = sorted(set(defaults) | set(config))
     rows = []
     for key in keys:
-        rows.append({
-            'key': str(key),
-            'value': config.get(key),
-            'default': defaults.get(key),
-            'overridden': config.get(key) != defaults.get(key),
-        })
+        rows.append(
+            {
+                'key': str(key),
+                'value': config.get(key),
+                'default': defaults.get(key),
+                'overridden': config.get(key) != defaults.get(key),
+            }
+        )
     return rows
 
 
@@ -813,32 +902,36 @@ def _question_admin_rows(ctx):
     rows = []
     for question_id, question in enumerate(ctx.engine.questions):
         stats = stats_by_id.get(question_id, {})
-        rows.append({
-            'id': question_id,
-            'text': question.get('text', ''),
-            'category': question.get('category') or 'unknown',
-            'axis': question.get('axis') or '',
-            'disabled': bool(question.get('disabled')),
-            'disc': stats.get('disc'),
-            'ask_count': stats.get('ask_count', 0),
-            'variant_count': stats.get('variant_count', 0),
-        })
+        rows.append(
+            {
+                'id': question_id,
+                'text': question.get('text', ''),
+                'category': question.get('category') or 'unknown',
+                'axis': question.get('axis') or '',
+                'disabled': bool(question.get('disabled')),
+                'disc': stats.get('disc'),
+                'ask_count': stats.get('ask_count', 0),
+                'variant_count': stats.get('variant_count', 0),
+            }
+        )
     return rows
 
 
 def _compound_works_rows(ctx, *, limit=200):
-    items = ctx.list_compound_works()[:max(1, int(limit or 200))]
+    items = ctx.list_compound_works()[: max(1, int(limit or 200))]
     rows = []
     for item in items:
         idx_a = ctx.engine.index_of(item['id_a'])
         idx_b = ctx.engine.index_of(item['id_b'])
-        rows.append({
-            **item,
-            'name_a': ctx.engine.fetishes[idx_a]['name'] if idx_a is not None else f"id={item['id_a']}",
-            'name_b': ctx.engine.fetishes[idx_b]['name'] if idx_b is not None else f"id={item['id_b']}",
-            'works_count': len(item.get('works') or []),
-            'works_titles': [ctx.work_title(work) for work in (item.get('works') or [])[:5]],
-        })
+        rows.append(
+            {
+                **item,
+                'name_a': ctx.engine.fetishes[idx_a]['name'] if idx_a is not None else f'id={item["id_a"]}',
+                'name_b': ctx.engine.fetishes[idx_b]['name'] if idx_b is not None else f'id={item["id_b"]}',
+                'works_count': len(item.get('works') or []),
+                'works_titles': [ctx.work_title(work) for work in (item.get('works') or [])[:5]],
+            }
+        )
     return rows
 
 
@@ -850,43 +943,47 @@ def operations_snapshot(ctx):
     question_events = ctx.question_event_report(limit=1000)
     share_events = ctx.share_event_report(**share_event_query(ctx, default_limit=1000))
     audit_rows = ctx.recent_audit(ctx.bounded_int(ctx.request.args.get('audit_limit'), 50, 1, 200))
-    return ctx.jsonify({
-        'status': 'ok',
-        'scope': 'read_only_operations_snapshot',
-        'counts': {
-            'fetishes': len(ctx.engine.fetishes),
-            'questions': len(ctx.engine.questions),
-            'player_fetishes': len([f for f in ctx.engine.fetishes if f.get('id', 0) >= ctx.player_fetish_base_id]),
-            'compound_works': len(ctx.list_compound_works()),
-        },
-        'engine_config': _safe_engine_config(ctx),
-        'questions': _question_admin_rows(ctx),
-        'question_categories': question_stats(ctx).get_json().get('categories', {}),
-        'correlation_stats': ctx.engine.get_correlation_stats(top_n=30),
-        'domain_suggestions': ctx.engine.get_top_questions_per_fetish(top_n=5),
-        'matrix_heatmap': ctx.engine.get_matrix_heatmap(n_fetishes=20, n_questions=20),
-        'axis_stats': ctx.engine.get_axis_stats(),
-        'quality_report': ctx.engine.get_quality_report(),
-        'completion': ctx.build_completion_metrics(app_stats, stats_history, dropoff_summary),
-        'analysis_logs': analysis_log_status(ctx, stats_history=stats_history, share_events=share_events, question_events=question_events),
-        'share_events_summary': {
-            'total': share_events.get('total', 0),
-            'invalid_result_events': share_events.get('invalid_result_events', 0),
-            'metrics': share_events.get('metrics', {}),
-            'work_ranking': share_events.get('work_ranking', [])[:20],
-        },
-        'question_events_summary': {
-            'total': question_events.get('total', 0),
-            'raw_loaded': question_events.get('raw_loaded', question_events.get('total', 0)),
-            'total_available': question_events.get('total_available', question_events.get('total', 0)),
-            'quality': question_events.get('quality', {}),
-            'summary': question_events.get('summary', {}),
-            'warnings': question_events.get('warnings', []),
-        },
-        'compound_works': _compound_works_rows(ctx, limit=200),
-        'test_play_audit_rows': test_play_audit_rows(audit_rows, limit=20),
-        'audit_recent': [_safe_audit_row(ctx, row) for row in audit_rows[:50]],
-    })
+    return ctx.jsonify(
+        {
+            'status': 'ok',
+            'scope': 'read_only_operations_snapshot',
+            'counts': {
+                'fetishes': len(ctx.engine.fetishes),
+                'questions': len(ctx.engine.questions),
+                'player_fetishes': len([f for f in ctx.engine.fetishes if f.get('id', 0) >= ctx.player_fetish_base_id]),
+                'compound_works': len(ctx.list_compound_works()),
+            },
+            'engine_config': _safe_engine_config(ctx),
+            'questions': _question_admin_rows(ctx),
+            'question_categories': question_stats(ctx).get_json().get('categories', {}),
+            'correlation_stats': ctx.engine.get_correlation_stats(top_n=30),
+            'domain_suggestions': ctx.engine.get_top_questions_per_fetish(top_n=5),
+            'matrix_heatmap': ctx.engine.get_matrix_heatmap(n_fetishes=20, n_questions=20),
+            'axis_stats': ctx.engine.get_axis_stats(),
+            'quality_report': ctx.engine.get_quality_report(),
+            'completion': ctx.build_completion_metrics(app_stats, stats_history, dropoff_summary),
+            'analysis_logs': analysis_log_status(
+                ctx, stats_history=stats_history, share_events=share_events, question_events=question_events
+            ),
+            'share_events_summary': {
+                'total': share_events.get('total', 0),
+                'invalid_result_events': share_events.get('invalid_result_events', 0),
+                'metrics': share_events.get('metrics', {}),
+                'work_ranking': share_events.get('work_ranking', [])[:20],
+            },
+            'question_events_summary': {
+                'total': question_events.get('total', 0),
+                'raw_loaded': question_events.get('raw_loaded', question_events.get('total', 0)),
+                'total_available': question_events.get('total_available', question_events.get('total', 0)),
+                'quality': question_events.get('quality', {}),
+                'summary': question_events.get('summary', {}),
+                'warnings': question_events.get('warnings', []),
+            },
+            'compound_works': _compound_works_rows(ctx, limit=200),
+            'test_play_audit_rows': test_play_audit_rows(audit_rows, limit=20),
+            'audit_recent': [_safe_audit_row(ctx, row) for row in audit_rows[:50]],
+        }
+    )
 
 
 def admin_read_overview(ctx):
@@ -894,52 +991,54 @@ def admin_read_overview(ctx):
     question_report = ctx.question_event_report(limit=5000)
     exposure_events = result_exposure_service.read_events(environ=ctx.environ, limit=300)
     fetish_rows = ctx.build_fetish_log_rows()
-    return ctx.jsonify({
-        'status': 'ok',
-        'share_links_count': share_links_service.count_links(environ=ctx.environ),
-        'improvement_candidates': improvement_candidates_service.build_candidates(
-            question_report,
-            exposure_events=exposure_events,
-            fetish_rows=fetish_rows,
-        ),
-        'low_learning_candidates': improvement_candidates_service.low_learning_candidates(
-            fetish_rows,
-            exposure_events=exposure_events,
-        ),
-        'available_endpoints': [
-            '/api/admin/preflight',
-            '/api/admin/fetishes_snapshot',
-            '/api/admin/learning_stats',
-            '/api/admin/question_stats',
-            '/api/admin/operations_snapshot',
-            '/api/admin/quality_report',
-            '/api/admin/works_health',
-            '/api/admin/audit_log',
-            '/api/admin/maintenance_checklist',
-            '/api/admin/matrix_health',
-            '/api/admin/funnel_metrics',
-            '/api/admin/player_fetishes',
-            '/api/admin/added_fetishes',
-            '/api/admin/promoted_fetish_history',
-            '/api/admin/fetish_log_rows',
-            '/api/admin/low_exposure_fetishes',
-            '/api/admin/recent_fetish_ranking',
-            '/api/admin/dry_run_guess',
-            '/api/admin/result_exposures',
-            '/api/admin/result_exposures/recent',
-            '/api/admin/result_exposure_trend',
-            '/api/admin/result_exposure_factors',
-            '/api/admin/result_exposures/backfill',
-            '/api/admin/question_events',
-            '/api/admin/share_events',
-            '/api/admin/share_notes',
-            '/api/admin/export_stats_history',
-            '/api/admin/matrix_backups',
-            '/api/admin/works_link_queue',
-            '/api/admin/compound_works',
-        ],
-        'analysis_log_status': logs,
-    })
+    return ctx.jsonify(
+        {
+            'status': 'ok',
+            'share_links_count': share_links_service.count_links(environ=ctx.environ),
+            'improvement_candidates': improvement_candidates_service.build_candidates(
+                question_report,
+                exposure_events=exposure_events,
+                fetish_rows=fetish_rows,
+            ),
+            'low_learning_candidates': improvement_candidates_service.low_learning_candidates(
+                fetish_rows,
+                exposure_events=exposure_events,
+            ),
+            'available_endpoints': [
+                '/api/admin/preflight',
+                '/api/admin/fetishes_snapshot',
+                '/api/admin/learning_stats',
+                '/api/admin/question_stats',
+                '/api/admin/operations_snapshot',
+                '/api/admin/quality_report',
+                '/api/admin/works_health',
+                '/api/admin/audit_log',
+                '/api/admin/maintenance_checklist',
+                '/api/admin/matrix_health',
+                '/api/admin/funnel_metrics',
+                '/api/admin/player_fetishes',
+                '/api/admin/added_fetishes',
+                '/api/admin/promoted_fetish_history',
+                '/api/admin/fetish_log_rows',
+                '/api/admin/low_exposure_fetishes',
+                '/api/admin/recent_fetish_ranking',
+                '/api/admin/dry_run_guess',
+                '/api/admin/result_exposures',
+                '/api/admin/result_exposures/recent',
+                '/api/admin/result_exposure_trend',
+                '/api/admin/result_exposure_factors',
+                '/api/admin/result_exposures/backfill',
+                '/api/admin/question_events',
+                '/api/admin/share_events',
+                '/api/admin/share_notes',
+                '/api/admin/export_stats_history',
+                '/api/admin/matrix_backups',
+                '/api/admin/works_link_queue',
+                '/api/admin/compound_works',
+            ],
+            'analysis_log_status': logs,
+        }
+    )
 
 
 def _safe_audit_row(ctx, row):
@@ -957,19 +1056,24 @@ def _safe_audit_row(ctx, row):
 
 
 def audit_log(ctx):
-    rows = [_safe_audit_row(ctx, row) for row in ctx.recent_audit(ctx.bounded_int(ctx.request.args.get('limit'), 500, 1, 500))]
+    rows = [
+        _safe_audit_row(ctx, row)
+        for row in ctx.recent_audit(ctx.bounded_int(ctx.request.args.get('limit'), 500, 1, 500))
+    ]
     if ctx.request.args.get('format') == 'csv':
         fieldnames = ['ts', 'action', 'status', 'method', 'path', 'detail']
         csv_rows = []
         for row in rows:
-            csv_rows.append({
-                'ts': row['ts'],
-                'action': row['action'],
-                'status': row['status'],
-                'method': row.get('method', ''),
-                'path': row.get('path', ''),
-                'detail': ctx.json_dumps(row.get('detail', {}), ensure_ascii=False),
-            })
+            csv_rows.append(
+                {
+                    'ts': row['ts'],
+                    'action': row['action'],
+                    'status': row['status'],
+                    'method': row.get('method', ''),
+                    'path': row.get('path', ''),
+                    'detail': ctx.json_dumps(row.get('detail', {}), ensure_ascii=False),
+                }
+            )
         return ctx.Response(
             csv_text(csv_rows, fieldnames),
             mimetype='text/csv; charset=utf-8',
@@ -1008,7 +1112,7 @@ def preflight(ctx):
     add_check(
         'matrix_shape',
         matrix_ok,
-        f"yes={len(yes_rows)} total={len(total_rows)} / fetishes={expected_rows} questions={expected_cols}",
+        f'yes={len(yes_rows)} total={len(total_rows)} / fetishes={expected_rows} questions={expected_cols}',
     )
     backups = ctx.list_matrix_import_backups()
     backup_keep = ctx.bounded_int(ctx.environ.get('MATRIX_IMPORT_BACKUP_KEEP'), 20, 1, 1000)
@@ -1021,7 +1125,7 @@ def preflight(ctx):
     add_check('ogp_cjk_font_available', ogp_font['available'], ogp_font['detail'])
     add_check('csrf_enabled', ctx.should_enforce_runtime_guard('csrf'), 'enabled for non-test runtime')
     logs = analysis_log_status(ctx, stats_history=ctx.engine.get_stats_history(days=90))
-    add_check('analysis_stats_history_rows', True, f"{logs['stats_history_count']} active stats_history days")
+    add_check('analysis_stats_history_rows', True, f'{logs["stats_history_count"]} active stats_history days')
     share_storage = logs.get('share_event_storage') or {}
     question_storage = logs.get('question_event_storage') or {}
     share_storage_ok = bool(share_storage.get('parent_writable') and share_storage.get('file_writable'))
@@ -1029,12 +1133,12 @@ def preflight(ctx):
     add_check(
         'analysis_share_events_rows',
         share_storage_ok,
-        f"{logs['share_event_count']} share_events rows / {'ready' if logs['share_ready'] else 'insufficient for analysis'} / path={share_storage.get('path', 'unknown')} / writable={share_storage_ok}",
+        f'{logs["share_event_count"]} share_events rows / {"ready" if logs["share_ready"] else "insufficient for analysis"} / path={share_storage.get("path", "unknown")} / writable={share_storage_ok}',
     )
     add_check(
         'analysis_question_events_rows',
         question_storage_ok,
-        f"{logs['question_event_count']} question_events rows / {'ready' if logs['question_ready'] else 'insufficient for analysis'} / path={question_storage.get('path', 'unknown')} / writable={question_storage_ok}",
+        f'{logs["question_event_count"]} question_events rows / {"ready" if logs["question_ready"] else "insufficient for analysis"} / path={question_storage.get("path", "unknown")} / writable={question_storage_ok}',
     )
     add_check('rate_limit_enabled', ctx.should_enforce_runtime_guard('rate_limit'), 'enabled for non-test runtime')
     ok = all(check['ok'] for check in checks)
@@ -1047,8 +1151,8 @@ def list_compound_works(ctx):
     for item in items:
         idx_a = ctx.engine.index_of(item['id_a'])
         idx_b = ctx.engine.index_of(item['id_b'])
-        name_a = ctx.engine.fetishes[idx_a]['name'] if idx_a is not None else f"id={item['id_a']}"
-        name_b = ctx.engine.fetishes[idx_b]['name'] if idx_b is not None else f"id={item['id_b']}"
+        name_a = ctx.engine.fetishes[idx_a]['name'] if idx_a is not None else f'id={item["id_a"]}'
+        name_b = ctx.engine.fetishes[idx_b]['name'] if idx_b is not None else f'id={item["id_b"]}'
         result.append({**item, 'name_a': name_a, 'name_b': name_b})
     return ctx.jsonify(result)
 
@@ -1140,12 +1244,14 @@ def capture_priors(ctx):
 def lookup_fetish(ctx, fetish_id):
     for fetish in ctx.engine.fetishes:
         if fetish.get('id') == fetish_id:
-            return ctx.jsonify({
-                'status': 'ok',
-                'id': fetish_id,
-                'name': fetish.get('name', ''),
-                'is_player_fetish': fetish_id >= ctx.player_fetish_base_id,
-            })
+            return ctx.jsonify(
+                {
+                    'status': 'ok',
+                    'id': fetish_id,
+                    'name': fetish.get('name', ''),
+                    'is_player_fetish': fetish_id >= ctx.player_fetish_base_id,
+                }
+            )
     return ctx.jsonify({'status': 'error', 'message': '性癖が見つかりません'}), 404
 
 
@@ -1162,17 +1268,24 @@ def promote_fetish(ctx, fetish_id):
         fetish_name=promoted.get('name', ''),
         environ=ctx.environ,
     )
-    ctx.write_audit('promote_fetish', 'ok', {
-        'old_id': fetish_id,
-        'new_id': new_id,
-        'result_exposure_reassign': reassign_report,
-    }, ctx.request)
-    return ctx.jsonify({
-        'status': 'promoted',
-        'old_id': fetish_id,
-        'new_id': new_id,
-        'result_exposure_reassign': reassign_report,
-    })
+    ctx.write_audit(
+        'promote_fetish',
+        'ok',
+        {
+            'old_id': fetish_id,
+            'new_id': new_id,
+            'result_exposure_reassign': reassign_report,
+        },
+        ctx.request,
+    )
+    return ctx.jsonify(
+        {
+            'status': 'promoted',
+            'old_id': fetish_id,
+            'new_id': new_id,
+            'result_exposure_reassign': reassign_report,
+        }
+    )
 
 
 def _repair_mappings_from_request(ctx):
@@ -1221,11 +1334,13 @@ def move_stats_history(ctx):
     data = ctx.request.get_json(silent=True) or {}
     mappings = _manual_stats_history_mappings_from_request(ctx)
     if not mappings:
-        return ctx.jsonify({
-            'status': 'error',
-            'message': 'mappings に正式ID同士の old_id/new_id を指定してください',
-            'required_confirm_text': 'MOVE_STATS_HISTORY',
-        }), 400
+        return ctx.jsonify(
+            {
+                'status': 'error',
+                'message': 'mappings に正式ID同士の old_id/new_id を指定してください',
+                'required_confirm_text': 'MOVE_STATS_HISTORY',
+            }
+        ), 400
     if data.get('dry_run') is True:
         report = ctx.engine.promoted_stats_history_repair_report(mappings)
         return ctx.jsonify({'status': 'ok', 'mode': 'dry_run', 'required_confirm_text': 'MOVE_STATS_HISTORY', **report})
@@ -1233,11 +1348,16 @@ def move_stats_history(ctx):
     if confirm_error:
         return confirm_error
     report = ctx.engine.repair_promoted_stats_history(mappings)
-    ctx.write_audit('move_stats_history', 'ok', {
-        'mapping_count': report.get('mapping_count', 0),
-        'total_value': report.get('total_value', 0),
-        'mappings': [{'old_id': old_id, 'new_id': new_id} for old_id, new_id in mappings],
-    }, ctx.request)
+    ctx.write_audit(
+        'move_stats_history',
+        'ok',
+        {
+            'mapping_count': report.get('mapping_count', 0),
+            'total_value': report.get('total_value', 0),
+            'mappings': [{'old_id': old_id, 'new_id': new_id} for old_id, new_id in mappings],
+        },
+        ctx.request,
+    )
     return ctx.jsonify({'status': 'ok', 'mode': 'applied', 'required_confirm_text': 'MOVE_STATS_HISTORY', **report})
 
 
@@ -1245,23 +1365,32 @@ def repair_promoted_stats_history(ctx):
     data = ctx.request.get_json(silent=True) or {}
     mappings = _repair_mappings_from_request(ctx)
     if not mappings:
-        return ctx.jsonify({
-            'status': 'error',
-            'message': 'mappings に old_id/new_id を指定してください',
-            'required_confirm_text': 'REPAIR_PROMOTED_STATS',
-        }), 400
+        return ctx.jsonify(
+            {
+                'status': 'error',
+                'message': 'mappings に old_id/new_id を指定してください',
+                'required_confirm_text': 'REPAIR_PROMOTED_STATS',
+            }
+        ), 400
     if ctx.request.method == 'GET' or data.get('dry_run') is True:
         report = ctx.engine.promoted_stats_history_repair_report(mappings)
-        return ctx.jsonify({'status': 'ok', 'mode': 'dry_run', 'required_confirm_text': 'REPAIR_PROMOTED_STATS', **report})
+        return ctx.jsonify(
+            {'status': 'ok', 'mode': 'dry_run', 'required_confirm_text': 'REPAIR_PROMOTED_STATS', **report}
+        )
     confirm_error = ctx.require_confirm('REPAIR_PROMOTED_STATS')
     if confirm_error:
         return confirm_error
     report = ctx.engine.repair_promoted_stats_history(mappings)
-    ctx.write_audit('repair_promoted_stats_history', 'ok', {
-        'mapping_count': report.get('mapping_count', 0),
-        'total_value': report.get('total_value', 0),
-        'mappings': [{'old_id': old_id, 'new_id': new_id} for old_id, new_id in mappings],
-    }, ctx.request)
+    ctx.write_audit(
+        'repair_promoted_stats_history',
+        'ok',
+        {
+            'mapping_count': report.get('mapping_count', 0),
+            'total_value': report.get('total_value', 0),
+            'mappings': [{'old_id': old_id, 'new_id': new_id} for old_id, new_id in mappings],
+        },
+        ctx.request,
+    )
     return ctx.jsonify({'status': 'ok', 'mode': 'applied', 'required_confirm_text': 'REPAIR_PROMOTED_STATS', **report})
 
 
@@ -1299,426 +1428,59 @@ def edit_fetish(ctx, fetish_id):
         return ctx.jsonify({'status': 'error', 'message': '見つかりません'}), 404
     idx = ctx.engine.index_of(fetish_id)
     fetish = ctx.engine.fetishes[idx]
-    return ctx.jsonify({'status': 'ok', 'name': fetish['name'], 'desc': fetish['desc'], 'works': fetish.get('works', [])})
-
-
-def _export_player_fetishes_to_restore(ctx, exported_fetishes):
-    if not isinstance(exported_fetishes, list):
-        return []
-    current_ids = {fetish['id'] for fetish in ctx.engine.fetishes}
-    missing = []
-    seen = set()
-    for fetish in exported_fetishes:
-        if not isinstance(fetish, dict):
-            continue
-        try:
-            fetish_id = int(fetish.get('id'))
-        except (TypeError, ValueError):
-            continue
-        if fetish_id < ctx.player_fetish_base_id or fetish_id in current_ids or fetish_id in seen:
-            continue
-        name = str(fetish.get('name') or '').strip()[:100]
-        if not name:
-            continue
-        missing.append({
-            'id': fetish_id,
-            'name': name,
-            'desc': str(fetish.get('desc') or name).strip()[:500] or name,
-            'works': fetish.get('works') if isinstance(fetish.get('works'), list) else [],
-        })
-        seen.add(fetish_id)
-    return missing
-
-
-def _missing_export_player_fetishes(ctx, exported_fetishes):
-    return [
-        {'id': fetish['id'], 'name': fetish['name']}
-        for fetish in _export_player_fetishes_to_restore(ctx, exported_fetishes)
-    ]
-
-
-def _backup_integer(value, label):
-    if isinstance(value, bool):
-        raise ValueError(f'{label} に不正な整数があります')
-    if isinstance(value, float) and (not math.isfinite(value) or not value.is_integer()):
-        raise ValueError(f'{label} に不正な整数があります')
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        raise ValueError(f'{label} に不正な整数があります')
-    if parsed < 0:
-        raise ValueError(f'{label} に不正な整数があります')
-    return parsed
-
-
-def _matrix_backup_format_version(payload):
-    if not isinstance(payload, dict):
-        raise ValueError('バックアップはオブジェクトで指定してください')
-    metadata = payload.get('metadata')
-    if 'metadata' in payload and not isinstance(metadata, dict):
-        raise ValueError('metadata はオブジェクトで指定してください')
-    version = metadata.get('backup_format_version') if isinstance(metadata, dict) else None
-    if version is not None and type(version) is not int:
-        raise ValueError('backup_format_version が不正です')
-    if 'questions' in payload:
-        questions = payload['questions']
-        if not isinstance(questions, list) or not questions:
-            raise ValueError('questions は空でないリストで指定してください')
-        if version != 2:
-            raise ValueError('questions を含むバックアップは backup_format_version=2 が必要です')
-        if 'fetishes' not in payload:
-            raise ValueError('v2バックアップには fetishes が必要です')
-        result = 2
-    else:
-        if version not in (None, 1):
-            raise ValueError('未対応の backup_format_version です')
-        result = 1
-    if 'fetishes' in payload:
-        fetishes = payload['fetishes']
-        if not isinstance(fetishes, list) or not fetishes:
-            raise ValueError('fetishes は空でないリストで指定してください')
-        seen = set()
-        for fetish in fetishes:
-            if not isinstance(fetish, dict) or 'id' not in fetish:
-                raise ValueError('fetishes の各要素に id と name が必要です')
-            try:
-                if isinstance(fetish['id'], bool):
-                    raise ValueError
-                fetish_id = _backup_integer(fetish['id'], 'fetishes')
-            except (TypeError, ValueError):
-                raise ValueError('fetishes に不正なIDがあります')
-            if fetish_id in seen:
-                raise ValueError('fetishes に重複したIDがあります')
-            name = fetish.get('name')
-            if not isinstance(name, str) or not name.strip():
-                raise ValueError('fetishes の各要素に空でない name が必要です')
-            seen.add(fetish_id)
-    return result
-
-
-def _adapt_matrix_rows_to_current_questions(ctx, rows, exported_questions, exported_fetishes, fetishes_to_restore):
-    if not isinstance(rows, list):
-        raise ValueError('matrix_rows はリストで指定してください')
-    if not (isinstance(exported_questions, list) and exported_questions) and not isinstance(exported_fetishes, list):
-        return rows, {
-            'source_rows': len(rows),
-            'restored_source_rows': len(rows),
-            'ignored_source_rows': 0,
-            'preserved_current_rows': 0,
-        }
-    exported_ids = []
-    if isinstance(exported_fetishes, list):
-        for fetish in exported_fetishes:
-            try:
-                exported_ids.append(_backup_integer(fetish.get('id'), 'fetishes'))
-            except (AttributeError, TypeError, ValueError):
-                raise ValueError('fetishes に不正なIDがあります')
-    if len(set(exported_ids)) != len(exported_ids):
-        raise ValueError('fetishes に重複したIDがあります')
-    source_pairs = set()
-    for row in rows:
-        if not isinstance(row, dict):
-            raise ValueError('matrix_rows の各要素はオブジェクトで指定してください')
-        if 'yes' not in row or 'total' not in row:
-            raise ValueError('matrix_rows の各要素に yes と total が必要です')
-        try:
-            pair = (
-                _backup_integer(row.get('fetish_id'), 'matrix_rows'),
-                _backup_integer(row.get('question_id'), 'matrix_rows'),
-            )
-        except (TypeError, ValueError):
-            raise ValueError('matrix_rows に不正なIDがあります')
-        if pair in source_pairs:
-            raise ValueError('matrix_rows に重複した fetish_id/question_id があります')
-        try:
-            yes = float(row['yes'])
-            total = float(row['total'])
-        except (TypeError, ValueError):
-            raise ValueError('matrix_rows に不正な数値があります')
-        if not (math.isfinite(yes) and math.isfinite(total)) or yes < 0 or total < 0 or yes > total:
-            raise ValueError('matrix_rows は 0 <= yes <= total を満たす必要があります')
-        source_pairs.add(pair)
-    current_ids = [int(question.get('id', index)) for index, question in enumerate(ctx.engine.questions)]
-    if len(set(current_ids)) != len(current_ids):
-        raise ValueError('現在のquestionsに重複したIDがあります')
-    current_id_to_index = {question_id: index for index, question_id in enumerate(current_ids)}
-    current_text_to_indexes = {}
-    for index, question in enumerate(ctx.engine.questions):
-        current_text_to_indexes.setdefault(str(question.get('text') or ''), []).append(index)
-    source_to_current = {}
-    if isinstance(exported_questions, list) and exported_questions:
-        source_indexes = set()
-        source_stable_ids = set()
-        for question in exported_questions:
-            if not isinstance(question, dict):
-                raise ValueError('questions の各要素はオブジェクトで指定してください')
-            if 'matrix_index' not in question or 'id' not in question:
-                raise ValueError('questions の各要素に id と matrix_index が必要です')
-            try:
-                if isinstance(question['matrix_index'], bool) or isinstance(question['id'], bool):
-                    raise ValueError
-                source_index = _backup_integer(question['matrix_index'], 'questions')
-                stable_id = _backup_integer(question['id'], 'questions')
-            except (TypeError, ValueError):
-                raise ValueError('questions に不正なIDがあります')
-            if source_index < 0 or stable_id < 0:
-                raise ValueError('questions に不正なIDがあります')
-            if source_index in source_indexes or stable_id in source_stable_ids:
-                raise ValueError('questions に重複したIDがあります')
-            source_indexes.add(source_index)
-            source_stable_ids.add(stable_id)
-            source_to_current[source_index] = current_id_to_index.get(stable_id)
-        if exported_ids:
-            expected_source = {(fetish_id, question_index) for fetish_id in exported_ids for question_index in source_indexes}
-            if source_pairs != expected_source:
-                raise ValueError('matrix_rows はバックアップ時点の全 fetish/question 組み合わせを含む必要があります')
-    else:
-        source_texts = {}
-        for row in rows:
-            source_index = int(row['question_id'])
-            text = str(row.get('question_text') or '')
-            if source_index in source_texts and source_texts[source_index] != text:
-                raise ValueError('旧バックアップの同じquestion_idに異なる質問文があります')
-            source_texts[source_index] = text
-            matches = current_text_to_indexes.get(text, [])
-            if len(matches) > 1:
-                raise ValueError('旧バックアップの質問文が現在の複数質問に一致します')
-            source_to_current[source_index] = matches[0] if matches else None
-        if exported_ids:
-            expected_source = {(fetish_id, question_index) for fetish_id in exported_ids for question_index in source_texts}
-            if source_pairs != expected_source:
-                raise ValueError('matrix_rows は旧バックアップ時点の全 fetish/question 組み合わせを含む必要があります')
-    prospective = ctx.engine.fetishes + fetishes_to_restore
-    prospective_ids = {int(fetish['id']) for fetish in prospective}
-    if not any(current_index is not None for current_index in source_to_current.values()):
-        raise ValueError('バックアップの質問を現在の質問に対応付けできません')
-    transformed = {}
-    restored_source_rows = 0
-    ignored_source_rows = 0
-    for row in rows:
-        fetish_id = int(row['fetish_id'])
-        current_index = source_to_current.get(int(row['question_id']))
-        if fetish_id not in prospective_ids or current_index is None:
-            ignored_source_rows += 1
-            continue
-        converted = dict(row)
-        converted['question_id'] = current_index
-        converted['question_text'] = ctx.engine.questions[current_index]['text']
-        key = (fetish_id, current_index)
-        if key in transformed:
-            raise ValueError('質問スキーマ変換後に重複行が発生しました')
-        transformed[key] = converted
-        restored_source_rows += 1
-    if restored_source_rows == 0:
-        raise ValueError('バックアップのmatrix_rowsを現在のデータに対応付けできません')
-    current_fetish_index = {int(fetish['id']): index for index, fetish in enumerate(ctx.engine.fetishes)}
-    preserved_current_rows = 0
-    for fetish in prospective:
-        fetish_id = int(fetish['id'])
-        for question_index, question in enumerate(ctx.engine.questions):
-            key = (fetish_id, question_index)
-            if key in transformed:
-                continue
-            preserved_current_rows += 1
-            existing_index = current_fetish_index.get(fetish_id)
-            if existing_index is None:
-                yes, total = 2.0, 4.0
-            else:
-                yes = ctx.engine.matrix['yes'][existing_index][question_index]
-                total = ctx.engine.matrix['total'][existing_index][question_index]
-            transformed[key] = {'fetish_id': fetish_id, 'fetish_name': fetish.get('name', ''), 'question_id': question_index, 'question_text': question.get('text', ''), 'yes': yes, 'total': total}
-    return list(transformed.values()), {
-        'source_rows': len(rows),
-        'restored_source_rows': restored_source_rows,
-        'ignored_source_rows': ignored_source_rows,
-        'preserved_current_rows': preserved_current_rows,
-    }
-
-
-def _import_validation_report(ctx, rows, fetishes_to_restore):
-    if not fetishes_to_restore:
-        report = ctx.engine.validate_matrix_rows(rows)
-        expected_rows = ctx.matrix_import_expected_rows()
-    else:
-        prospective_fetishes = ctx.engine.fetishes + fetishes_to_restore
-        report = matrix_validation_report(prospective_fetishes, ctx.engine.questions, rows)
-        expected_rows = len(prospective_fetishes) * len(ctx.engine.questions)
-    return report, expected_rows
-
-
-def _matrix_import_completeness_error(ctx, report, expected_rows):
-    if report.get('skipped_rows') != 0 or report.get('valid_rows') != expected_rows:
-        return ctx.jsonify({
-            'status': 'error',
-            'message': 'matrix_rows は現在の全 fetish/question 組み合わせを含む必要があります',
-            **report,
-            'expected_rows': expected_rows,
-        }), 400
-    return None
-
-
-def export_matrix(ctx):
-    fetishes = ctx.engine.fetishes
-    questions = ctx.engine.questions
-    rows = []
-    for fetish_idx, fetish in enumerate(fetishes):
-        for question_idx, question in enumerate(questions):
-            yes = ctx.engine.matrix['yes'][fetish_idx][question_idx]
-            total = ctx.engine.matrix['total'][fetish_idx][question_idx]
-            rows.append({
-                'fetish_id': fetish['id'],
-                'fetish_name': fetish['name'],
-                'question_id': question_idx,
-                'question_text': question['text'],
-                'yes': round(yes, 4),
-                'total': round(total, 4),
-            })
-    exported_at = ctx.strftime('%Y-%m-%dT%H:%M:%SZ', ctx.gmtime())
-    payload = ctx.json_dumps({
-        'exported_at': exported_at,
-        'metadata': {
-            'exported_at': exported_at,
-            'fetish_count': len(fetishes),
-            'question_count': len(questions),
-            'matrix_row_count': len(rows),
-            'backup_format_version': 2,
-        },
-        'fetishes': fetishes,
-        'questions': [dict(question, matrix_index=index) for index, question in enumerate(questions)],
-        'matrix_rows': rows,
-    }, ensure_ascii=False, indent=2)
-    return ctx.Response(
-        payload,
-        mimetype='application/json',
-        headers={'Content-Disposition': 'attachment; filename="matrix_export.json"'},
+    return ctx.jsonify(
+        {'status': 'ok', 'name': fetish['name'], 'desc': fetish['desc'], 'works': fetish.get('works', [])}
     )
 
 
+def _export_player_fetishes_to_restore(ctx, exported_fetishes):
+    return matrix_handlers._export_player_fetishes_to_restore(ctx, exported_fetishes)
+
+
+def _missing_export_player_fetishes(ctx, exported_fetishes):
+    return matrix_handlers._missing_export_player_fetishes(ctx, exported_fetishes)
+
+
+def _backup_integer(value, label):
+    return matrix_handlers._backup_integer(value, label)
+
+
+def _matrix_backup_format_version(payload):
+    return matrix_handlers._matrix_backup_format_version(payload)
+
+
+def _adapt_matrix_rows_to_current_questions(ctx, rows, exported_questions, exported_fetishes, fetishes_to_restore):
+    return matrix_handlers._adapt_matrix_rows_to_current_questions(
+        ctx, rows, exported_questions, exported_fetishes, fetishes_to_restore
+    )
+
+
+def _import_validation_report(ctx, rows, fetishes_to_restore):
+    return matrix_handlers._import_validation_report(ctx, rows, fetishes_to_restore)
+
+
+def _matrix_import_completeness_error(ctx, report, expected_rows):
+    return matrix_handlers._matrix_import_completeness_error(ctx, report, expected_rows)
+
+
+def export_matrix(ctx):
+    return matrix_handlers.export_matrix(ctx)
+
+
 def import_matrix(ctx):
-    data = ctx.request.get_json(silent=True) or {}
-    rows = data.get('matrix_rows', [])
-    if not rows:
-        return ctx.jsonify({'status': 'error', 'message': 'matrix_rows が空です'}), 400
-    fetishes_to_restore = _export_player_fetishes_to_restore(ctx, data.get('fetishes'))
-    try:
-        _matrix_backup_format_version(data)
-        rows, adaptation = _adapt_matrix_rows_to_current_questions(ctx, rows, data.get('questions'), data.get('fetishes'), fetishes_to_restore)
-        report, expected_rows = _import_validation_report(ctx, rows, fetishes_to_restore)
-        complete_error = _matrix_import_completeness_error(ctx, report, expected_rows)
-        if adaptation['ignored_source_rows'] and data.get('allow_ignored_source_rows') is not True:
-            raise ValueError('対応できないバックアップ行があります。明示的な許可なしでは復元できません')
-        if complete_error:
-            return complete_error
-        confirm_error = ctx.require_confirm('IMPORT')
-        if confirm_error:
-            return confirm_error
-        backup_path = ctx.snapshot_current_matrix('before_import_matrix')
-        count, restored_fetishes = ctx.engine.restore_matrix_snapshot(fetishes_to_restore, rows)
-    except ValueError as exc:
-        ctx.write_audit('import_matrix', 'error', {'message': str(exc)}, ctx.request)
-        return ctx.jsonify({'status': 'error', 'message': str(exc)}), 400
-    backup_relpath = ctx.relpath(backup_path, ctx.app_dir)
-    ctx.write_audit('import_matrix', 'ok', {
-        'imported_rows': count,
-        'input_rows': report['input_rows'],
-        'skipped_rows': report['skipped_rows'],
-        'backup_path': backup_relpath,
-        **adaptation,
-        'restored_player_fetish_count': len(restored_fetishes),
-    }, ctx.request)
-    return ctx.jsonify({
-        'status': 'ok',
-        'imported_rows': count,
-        'expected_rows': expected_rows,
-        **adaptation,
-        'backup_path': backup_relpath,
-        'restored_player_fetishes': [{'id': fetish['id'], 'name': fetish['name']} for fetish in restored_fetishes],
-        'restored_player_fetish_count': len(restored_fetishes),
-    })
+    return matrix_handlers.import_matrix(ctx)
 
 
 def import_matrix_dry_run(ctx):
-    data = ctx.request.get_json(silent=True) or {}
-    rows = data.get('matrix_rows', [])
-    if not rows:
-        return ctx.jsonify({'status': 'error', 'message': 'matrix_rows が空です'}), 400
-    fetishes_to_restore = _export_player_fetishes_to_restore(ctx, data.get('fetishes'))
-    missing = [{'id': fetish['id'], 'name': fetish['name']} for fetish in fetishes_to_restore]
-    try:
-        _matrix_backup_format_version(data)
-        rows, adaptation = _adapt_matrix_rows_to_current_questions(ctx, rows, data.get('questions'), data.get('fetishes'), fetishes_to_restore)
-        report, expected_rows = _import_validation_report(ctx, rows, fetishes_to_restore)
-    except ValueError as exc:
-        ctx.write_audit('import_matrix_dry_run', 'error', {'message': str(exc)}, ctx.request)
-        return ctx.jsonify({'status': 'error', 'message': str(exc)}), 400
-    ctx.write_audit('import_matrix_dry_run', 'ok', report, ctx.request)
-    return ctx.jsonify({
-        'status': 'ok',
-        **report,
-        **adaptation,
-        'expected_rows': expected_rows,
-        'complete': report['skipped_rows'] == 0 and report['valid_rows'] == expected_rows and adaptation['ignored_source_rows'] == 0,
-        'missing_player_fetishes': missing,
-        'missing_player_fetish_count': len(missing),
-        'restorable_player_fetish_count': len(fetishes_to_restore),
-    })
+    return matrix_handlers.import_matrix_dry_run(ctx)
 
 
 def matrix_backups(ctx):
-    return ctx.jsonify({'status': 'ok', 'backups': ctx.list_matrix_import_backups()})
+    return matrix_handlers.matrix_backups(ctx)
 
 
 def restore_matrix_backup(ctx, name):
-    safe_name = ctx.basename(name)
-    if safe_name != name or not safe_name.endswith('.json'):
-        return ctx.jsonify({'status': 'error', 'message': '不正なバックアップ名です'}), 400
-    path = ctx.join_path(ctx.data_path('matrix_import_backups'), safe_name)
-    if not ctx.path_exists(path):
-        return ctx.jsonify({'status': 'error', 'message': 'バックアップが見つかりません'}), 404
-    payload = ctx.load_json_file(ctx.join_path('matrix_import_backups', safe_name), default={})
-    rows = payload.get('matrix_rows', []) if isinstance(payload, dict) else []
-    if not rows:
-        return ctx.jsonify({'status': 'error', 'message': 'matrix_rows が見つかりません'}), 400
-    request_data = ctx.request.get_json(silent=True) or {}
-    allow_ignored = request_data.get('allow_ignored_source_rows') is True or payload.get('allow_ignored_source_rows') is True
-    fetishes_to_restore = _export_player_fetishes_to_restore(ctx, payload.get('fetishes') if isinstance(payload, dict) else [])
-    try:
-        _matrix_backup_format_version(payload)
-        rows, adaptation = _adapt_matrix_rows_to_current_questions(
-            ctx, rows, payload.get('questions'), payload.get('fetishes'), fetishes_to_restore,
-        )
-        if adaptation['ignored_source_rows'] and not allow_ignored:
-            raise ValueError('対応できないバックアップ行があります。明示的な許可なしでは復元できません')
-        report, expected_rows = _import_validation_report(ctx, rows, fetishes_to_restore)
-        complete_error = _matrix_import_completeness_error(ctx, report, expected_rows)
-        if complete_error:
-            return complete_error
-        confirm_error = ctx.require_confirm('RESTORE')
-        if confirm_error:
-            return confirm_error
-        snapshot = ctx.snapshot_current_matrix('before_restore_matrix_backup')
-        count, restored_fetishes = ctx.engine.restore_matrix_snapshot(fetishes_to_restore, rows)
-    except ValueError as exc:
-        ctx.write_audit('restore_matrix_backup', 'error', {'name': safe_name, 'message': str(exc)}, ctx.request)
-        return ctx.jsonify({'status': 'error', 'message': str(exc)}), 400
-    snapshot_relpath = ctx.relpath(snapshot, ctx.app_dir)
-    ctx.write_audit('restore_matrix_backup', 'ok', {
-        'name': safe_name,
-        'restored_rows': count,
-        'input_rows': report['input_rows'],
-        'skipped_rows': report['skipped_rows'],
-        'pre_restore_backup': snapshot_relpath,
-        **adaptation,
-        'restored_player_fetish_count': len(restored_fetishes),
-    }, ctx.request)
-    return ctx.jsonify({
-        'status': 'ok',
-        'restored_rows': count,
-        **adaptation,
-        'pre_restore_backup': snapshot_relpath,
-        'restored_player_fetishes': [{'id': fetish['id'], 'name': fetish['name']} for fetish in restored_fetishes],
-        'restored_player_fetish_count': len(restored_fetishes),
-    })
+    return matrix_handlers.restore_matrix_backup(ctx, name)
 
 
 def merge_fetishes(ctx):
@@ -1757,7 +1519,8 @@ def works_review(ctx):
                 match = ctx.re_search(r'/dp/([A-Z0-9]{10})', url)
                 asin = match.group(1) if match else ''
             rows.append((fetish['name'], title, asin, url))
-    html = """<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
+    html = (
+        """<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
 <title>作品リンク確認</title>
 <style>
 body{font-family:sans-serif;font-size:13px;background:#111;color:#ddd;padding:16px;}
@@ -1769,10 +1532,13 @@ a{color:#7af0a0;}
 .no-url{color:#e94560;}
 input{background:#222;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:4px;margin-bottom:10px;width:300px;}
 </style></head><body>
-<h2>作品リンク確認（""" + str(len(rows)) + """件）</h2>
+<h2>作品リンク確認（"""
+        + str(len(rows))
+        + """件）</h2>
 <input type="text" id="q" placeholder="性癖名や作品名で絞り込み...">
 <table id="tbl">
 <tr><th>性癖</th><th>作品タイトル</th><th>ASIN</th><th>リンク</th></tr>"""
+    )
     for fetish_name, title, asin, url in rows:
         fetish_name_e = ctx.html_escape(str(fetish_name))
         title_e = ctx.html_escape(str(title))
@@ -1813,334 +1579,63 @@ def fetish_similarity(ctx):
     return ctx.jsonify({'status': 'ok', **result})
 
 
-
 def create_blueprint(ctx_factory, require_admin, require_admin_or_read=None):
     bp = Blueprint('admin_routes', __name__)
     require_admin_or_read = require_admin_or_read or require_admin
 
-    @bp.route('/admin')
-    @require_admin
-    def admin_page_route():
-        return admin_page(ctx_factory())
+    matrix_routes.register_routes(
+        bp,
+        ctx_factory=ctx_factory,
+        require_admin=require_admin,
+        require_admin_or_read=require_admin_or_read,
+        export_matrix=lambda ctx: export_matrix(ctx),
+        import_matrix=lambda ctx: import_matrix(ctx),
+        import_matrix_dry_run=lambda ctx: import_matrix_dry_run(ctx),
+        matrix_backups=lambda ctx: matrix_backups(ctx),
+        restore_matrix_backup=lambda ctx, name: restore_matrix_backup(ctx, name),
+    )
 
-    @bp.route('/admin/test_play/start', methods=['POST'])
-    @require_admin
-    def start_test_play_route():
-        return start_test_play(ctx_factory())
+    works_routes.register_routes(
+        bp,
+        ctx_factory=ctx_factory,
+        require_admin=require_admin,
+        require_admin_or_read=require_admin_or_read,
+        list_compound_works=lambda ctx: list_compound_works(ctx),
+        set_compound_works=lambda ctx: set_compound_works(ctx),
+        delete_compound_works=lambda ctx, key: delete_compound_works(ctx, key),
+        works_review=lambda ctx: works_review(ctx),
+        works_link_queue_payload=lambda ctx, **kwargs: works_link_queue_payload(ctx, **kwargs),
+        seed_works_backfill_payload=lambda ctx, **kwargs: seed_works_backfill_payload(ctx, **kwargs),
+    )
 
-    @bp.route('/admin/test_play/stop', methods=['POST'])
-    @require_admin
-    def stop_test_play_route():
-        return stop_test_play(ctx_factory())
+    analytics_routes.register_routes(
+        bp,
+        ctx_factory=ctx_factory,
+        require_admin=require_admin,
+        require_admin_or_read=require_admin_or_read,
+        resolve_handler=lambda name: globals()[name],
+    )
 
-    @bp.route('/api/admin/toggle_question/<int:q_id>', methods=['POST'])
-    @require_admin
-    def toggle_question_route(q_id):
-        return toggle_question(ctx_factory(), q_id)
+    operations_routes.register_routes(
+        bp,
+        ctx_factory=ctx_factory,
+        require_admin_or_read=require_admin_or_read,
+        resolve_handler=lambda name: globals()[name],
+    )
 
-    @bp.route('/api/admin/params', methods=['POST'])
-    @require_admin
-    def update_params_route():
-        return update_params(ctx_factory())
+    page_routes.register_routes(
+        bp,
+        ctx_factory=ctx_factory,
+        require_admin=require_admin,
+        resolve_handler=lambda name: globals()[name],
+    )
 
-    @bp.route('/api/admin/cleanup_sessions', methods=['POST'])
-    @require_admin
-    def cleanup_sessions_route():
-        return cleanup_sessions(ctx_factory())
-
-    @bp.route('/api/admin/add_fetish', methods=['POST'])
-    @require_admin
-    def add_fetish_route():
-        return add_fetish(ctx_factory())
-
-    @bp.route('/api/admin/capture_priors', methods=['POST'])
-    @require_admin
-    def capture_priors_route():
-        return capture_priors(ctx_factory())
-
-    @bp.route('/api/admin/fetish_lookup/<int:fetish_id>', methods=['GET'])
-    @require_admin_or_read
-    def fetish_lookup_route(fetish_id):
-        return lookup_fetish(ctx_factory(), fetish_id)
-
-    @bp.route('/api/admin/promote_fetish/<int:fetish_id>', methods=['POST'])
-    @require_admin
-    def promote_fetish_route(fetish_id):
-        return promote_fetish(ctx_factory(), fetish_id)
-
-    @bp.route('/api/admin/repair_promoted_stats_history', methods=['GET', 'POST'])
-    @require_admin
-    def repair_promoted_stats_history_route():
-        return repair_promoted_stats_history(ctx_factory())
-
-    @bp.route('/api/admin/move_stats_history', methods=['POST'])
-    @require_admin
-    def move_stats_history_route():
-        return move_stats_history(ctx_factory())
-
-    @bp.route('/api/admin/edit_question/<int:q_idx>', methods=['POST'])
-    @require_admin
-    def edit_question_route(q_idx):
-        return edit_question(ctx_factory(), q_idx)
-
-    @bp.route('/api/admin/edit_fetish/<int:fetish_id>', methods=['POST'])
-    @require_admin
-    def edit_fetish_route(fetish_id):
-        return edit_fetish(ctx_factory(), fetish_id)
-
-    @bp.route('/api/admin/compound_works', methods=['GET'])
-    @require_admin_or_read
-    def list_compound_works_route():
-        return list_compound_works(ctx_factory())
-
-    @bp.route('/api/admin/compound_works', methods=['POST'])
-    @require_admin
-    def set_compound_works_route():
-        return set_compound_works(ctx_factory())
-
-    @bp.route('/api/admin/compound_works/<path:key>', methods=['DELETE'])
-    @require_admin
-    def delete_compound_works_route(key):
-        return delete_compound_works(ctx_factory(), key)
-
-    @bp.route('/api/admin/merge_fetishes', methods=['POST'])
-    @require_admin
-    def merge_fetishes_route():
-        return merge_fetishes(ctx_factory())
-
-    @bp.route('/api/admin/works_review', methods=['GET'])
-    @require_admin_or_read
-    def works_review_route():
-        return works_review(ctx_factory())
-
-    @bp.route('/api/admin/works_link_queue', methods=['GET'])
-    @require_admin_or_read
-    def works_link_queue_route():
-        ctx = ctx_factory()
-        try:
-            sample_limit = max(1, min(int(ctx.request.args.get('sample_limit', 20)), 100))
-        except ValueError:
-            sample_limit = 20
-        return ctx.jsonify(works_link_queue_payload(ctx, sample_limit=sample_limit))
-
-    @bp.route('/api/admin/works_seed_backfill', methods=['GET', 'POST'])
-    @require_admin
-    def works_seed_backfill_route():
-        ctx = ctx_factory()
-        try:
-            sample_limit = max(1, min(int(ctx.request.args.get('sample_limit', 50)), 200))
-        except ValueError:
-            sample_limit = 50
-        return seed_works_backfill_payload(
-            ctx,
-            sample_limit=sample_limit,
-            apply=ctx.request.method == 'POST',
-        )
-
-    @bp.route('/api/admin/export_matrix', methods=['GET'])
-    @require_admin
-    def export_matrix_route():
-        return export_matrix(ctx_factory())
-
-    @bp.route('/api/admin/import_matrix', methods=['POST'])
-    @require_admin
-    def import_matrix_route():
-        return import_matrix(ctx_factory())
-
-    @bp.route('/api/admin/import_matrix/dry_run', methods=['POST'])
-    @require_admin
-    def import_matrix_dry_run_route():
-        return import_matrix_dry_run(ctx_factory())
-
-    @bp.route('/api/admin/matrix_backups', methods=['GET'])
-    @require_admin_or_read
-    def matrix_backups_route():
-        return matrix_backups(ctx_factory())
-
-    @bp.route('/api/admin/matrix_backups/<path:name>/restore', methods=['POST'])
-    @require_admin
-    def restore_matrix_backup_route(name):
-        return restore_matrix_backup(ctx_factory(), name)
-
-    @bp.route('/api/admin/export_log', methods=['GET'])
-    @require_admin_or_read
-    def export_log_route():
-        return export_log(ctx_factory())
-
-    @bp.route('/api/admin/audit_log', methods=['GET'])
-    @require_admin_or_read
-    def audit_log_route():
-        return audit_log(ctx_factory())
-
-    @bp.route('/api/admin/preflight', methods=['GET'])
-    @require_admin_or_read
-    def preflight_route():
-        return preflight(ctx_factory())
-
-    @bp.route('/api/admin/fetish_history/<int:fetish_id>', methods=['GET'])
-    @require_admin_or_read
-    def fetish_history_route(fetish_id):
-        return fetish_history(ctx_factory(), fetish_id)
-
-    @bp.route('/api/admin/fetish_log_rows', methods=['GET'])
-    @require_admin_or_read
-    def fetish_log_rows_route():
-        return fetish_log_rows(ctx_factory())
-
-    @bp.route('/api/admin/low_exposure_fetishes', methods=['GET'])
-    @require_admin_or_read
-    def low_exposure_fetishes_route():
-        return low_exposure_fetishes(ctx_factory())
-
-    @bp.route('/api/admin/performance', methods=['GET'])
-    @require_admin_or_read
-    def performance_route():
-        return performance(ctx_factory())
-
-    @bp.route('/api/admin/recent_fetish_ranking', methods=['GET'])
-    @require_admin_or_read
-    def recent_fetish_ranking_route():
-        return recent_fetish_ranking(ctx_factory())
-
-
-    @bp.route('/api/admin/dry_run_guess', methods=['GET'])
-    @require_admin_or_read
-    def dry_run_guess_route():
-        return dry_run_guess(ctx_factory())
-
-    @bp.route('/api/admin/result_exposures', methods=['GET'])
-    @require_admin_or_read
-    def result_exposures_route():
-        return result_exposures_report(ctx_factory())
-
-    @bp.route('/api/admin/result_exposures/recent', methods=['GET'])
-    @require_admin_or_read
-    def result_exposures_recent_route():
-        return result_exposures_recent(ctx_factory())
-
-    @bp.route('/api/admin/result_exposure_trend', methods=['GET'])
-    @require_admin_or_read
-    def result_exposure_trend_route():
-        return result_exposure_trend(ctx_factory())
-
-    @bp.route('/api/admin/result_exposure_factors', methods=['GET'])
-    @require_admin_or_read
-    def result_exposure_factors_route():
-        return result_exposure_factors(ctx_factory())
-
-    @bp.route('/api/admin/result_exposures/backfill', methods=['GET'])
-    @require_admin_or_read
-    def result_exposures_backfill_preview_route():
-        return result_exposures_backfill(ctx_factory(), apply=False)
-
-    @bp.route('/api/admin/result_exposures/backfill', methods=['POST'])
-    @require_admin
-    def result_exposures_backfill_apply_route():
-        return result_exposures_backfill(ctx_factory(), apply=True)
-
-    @bp.route('/api/admin/export_stats_history', methods=['GET'])
-    @require_admin_or_read
-    def export_stats_history_route():
-        return export_stats_history(ctx_factory())
-
-    @bp.route('/api/admin/fetish_similarity', methods=['POST'])
-    @require_admin
-    def fetish_similarity_route():
-        return fetish_similarity(ctx_factory())
-
-    @bp.route('/api/admin/quality_report', methods=['GET'])
-    @require_admin_or_read
-    def quality_report_route():
-        return quality_report(ctx_factory())
-
-    @bp.route('/api/admin/share_events', methods=['GET'])
-    @require_admin_or_read
-    def share_events_report_route():
-        return share_events_report(ctx_factory())
-
-    @bp.route('/api/admin/question_events', methods=['GET'])
-    @require_admin_or_read
-    def question_events_report_route():
-        return question_events_report(ctx_factory())
-
-    @bp.route('/api/admin/question_events/<kind>.csv', methods=['GET'])
-    @require_admin_or_read
-    def question_events_csv_route(kind):
-        return question_events_csv(ctx_factory(), kind)
-
-    @bp.route('/api/admin/share_events/<kind>.csv', methods=['GET'])
-    @require_admin_or_read
-    def share_events_csv_route(kind):
-        return share_events_csv(ctx_factory(), kind)
-
-    @bp.route('/api/admin/share_notes', methods=['GET'])
-    @require_admin_or_read
-    def get_share_notes_route():
-        return share_notes(ctx_factory())
-
-    @bp.route('/api/admin/share_notes', methods=['POST'])
-    @require_admin
-    def update_share_notes_route():
-        return share_notes(ctx_factory())
-
-    @bp.route('/api/admin/read_overview', methods=['GET'])
-    @require_admin_or_read
-    def admin_read_overview_route():
-        return admin_read_overview(ctx_factory())
-
-    @bp.route('/api/admin/fetishes_snapshot', methods=['GET'])
-    @require_admin_or_read
-    def fetishes_snapshot_route():
-        return fetishes_snapshot(ctx_factory())
-
-    @bp.route('/api/admin/learning_stats', methods=['GET'])
-    @require_admin_or_read
-    def learning_stats_route():
-        return learning_stats(ctx_factory())
-
-    @bp.route('/api/admin/question_stats', methods=['GET'])
-    @require_admin_or_read
-    def question_stats_route():
-        return question_stats(ctx_factory())
-
-    @bp.route('/api/admin/operations_snapshot', methods=['GET'])
-    @require_admin_or_read
-    def operations_snapshot_route():
-        return operations_snapshot(ctx_factory())
-
-    @bp.route('/api/admin/works_health', methods=['GET'])
-    @require_admin_or_read
-    def works_health_route():
-        return works_health(ctx_factory())
-
-    @bp.route('/api/admin/matrix_health', methods=['GET'])
-    @require_admin_or_read
-    def matrix_health_route():
-        return matrix_health(ctx_factory())
-
-    @bp.route('/api/admin/funnel_metrics', methods=['GET'])
-    @require_admin_or_read
-    def funnel_metrics_route():
-        return funnel_metrics(ctx_factory())
-
-    @bp.route('/api/admin/player_fetishes', methods=['GET'])
-    @require_admin_or_read
-    def player_fetishes_route():
-        return player_fetishes(ctx_factory())
-
-    @bp.route('/api/admin/added_fetishes', methods=['GET'])
-    @require_admin_or_read
-    def added_fetishes_route():
-        return added_fetishes(ctx_factory())
-
-    @bp.route('/api/admin/promoted_fetish_history', methods=['GET'])
-    @require_admin_or_read
-    def promoted_fetish_history_route():
-        return promoted_fetish_history(ctx_factory())
-
-    @bp.route('/api/admin/maintenance_checklist', methods=['GET'])
-    @require_admin_or_read
-    def maintenance_checklist_route():
-        return maintenance_checklist(ctx_factory())
+    mutation_routes.register_routes(
+        bp,
+        ctx_factory=ctx_factory,
+        require_admin=require_admin,
+        require_admin_or_read=require_admin_or_read,
+        resolve_handler=lambda name: globals()[name],
+    )
 
     return bp
