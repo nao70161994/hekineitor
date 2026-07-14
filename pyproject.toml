@@ -1,0 +1,68 @@
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+extend-exclude = ["data", "docs/archive", "engine/data.py"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+  "analytics",
+  "app",
+  "audit",
+  "engine",
+  "matrix_service",
+  "routes",
+  "services",
+  "storage",
+  "work_utils",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"engine/__init__.py" = ["F821"]
+"engine/db.py" = ["F401"]
+"engine/facade.py" = ["F401"]
+"scripts/analytics_data_diff.py" = ["E402"]
+"storage.py" = ["F401"]
+"tests/*.py" = ["E701", "E702", "E731", "F401", "F841"]
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.mypy]
+python_version = "3.13"
+check_untyped_defs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+no_implicit_optional = true
+show_error_codes = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
+[tool.coverage.run]
+branch = true
+source = [
+  "app",
+  "engine",
+  "routes",
+  "services",
+  "analytics",
+  "audit",
+  "matrix_service",
+  "storage",
+  "work_utils",
+]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+fail_under = 45
+show_missing = true
+skip_covered = true
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+]

@@ -3,9 +3,14 @@ set -eu
 
 python -m compileall -q app.py engine routes services analytics.py audit.py matrix_service.py storage.py work_utils.py tests
 python scripts/static_check.py
+python scripts/check_docs.py
+python -m ruff check app.py engine routes services scripts tests analytics.py audit.py matrix_service.py storage.py work_utils.py
+python -m ruff format --check app.py engine routes services scripts tests analytics.py audit.py matrix_service.py storage.py work_utils.py
+python -m mypy matrix_service.py work_utils.py services/ids.py services/csv_safety.py services/name_matching.py
 if command -v node >/dev/null 2>&1; then
   for js in static/*.js; do
     node --check "$js"
   done
+  npm run test:js
 fi
-python -m unittest discover -s tests -q
+python run_coverage.py

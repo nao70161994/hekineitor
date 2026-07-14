@@ -1,6 +1,20 @@
 {
+  "private": true,
+  "type": "module",
   "scripts": {
+    "lint": "eslint static tests/js tests/browser eslint.config.js vitest.config.js playwright.config.js",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "test:js": "npm run lint && npm run test:unit",
     "test:static": "python -m pytest tests/test_smoke.py::TestSmoke::test_index_loads_static_app_js tests/test_smoke.py::TestSmoke::test_client_module_scripts_are_loaded_in_dependency_order tests/test_smoke.py::TestSmoke::test_index_contains_adsense_slots_when_client_configured -q",
     "test:pwa": "python -m pytest tests/test_smoke.py::TestSmoke::test_service_worker_keeps_static_and_offline_cache_paths tests/test_smoke.py::TestSmoke::test_share_ogp_and_pwa_static_contracts tests/test_e2e_smoke.py::TestE2ESmoke::test_feedback_share_and_pwa_browser_paths -q"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.61.1",
+    "eslint": "10.7.0",
+    "globals": "17.7.0",
+    "jsdom": "29.1.1",
+    "vitest": "4.1.10"
   }
 }

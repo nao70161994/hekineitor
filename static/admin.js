@@ -286,7 +286,7 @@ async function renderMoveStatsHistoryPreview() {
 
 function parseStatsHistoryMappings(text) {
   return String(text || '').split(/\n+/).map(line => {
-    const parts = line.trim().split(/[\s,>\-]+/).filter(Boolean);
+    const parts = line.trim().split(/[\s,>-]+/).filter(Boolean);
     if (parts.length < 2) return null;
     const oldId = Number.parseInt(parts[0], 10);
     const newId = Number.parseInt(parts[1], 10);
