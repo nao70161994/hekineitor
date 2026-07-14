@@ -5,13 +5,16 @@
 ## アーキテクチャ
 
 - `app.py` — Flask APIサーバー。サーバーサイドセッションで回答履歴を管理
-- `engine.py` — ベイズ推論エンジン。情報利得で次の質問を選択
+- `engine/` — `__init__.py`を公開入口とするベイズ推論package。`facade.py`が公開互換性を保ち、推論・学習・永続化・DB処理を責務別moduleへ委譲
 - `templates/index.html` — シングルページUI（PWA対応）
 - `templates/admin.html` — 管理画面（学習データ量・質問無効化・診断ログ・相関分析・ヒートマップ・統合）
 - `templates/result_share.html` — OGPシェアカード（/r ルート）
 - `data/` — questions.json（105問）/ fetishes.json（123件シード）/ compound_works.json（複合作品54ペア）/ matrix.json・learned_priors.json（ローカル用・gitignore済み）
 - `templates/offline.html` — PWAオフラインフォールバックページ（/offline ルート）
-- `run_coverage.py` — `python run_coverage.py` でカバレッジ計測（coverage.py必須）
+- `pyproject.toml` — Ruff、段階導入mypy、主要Python packageのcoverage対象と最低基準
+- `requirements.in` / `requirements-dev.in` — 直接依存の入力、対応する`.txt`は完全pinしたinstall用lock
+- `package.json` / `package-lock.json` — ESLint、Vitest、Playwrightのcommandと固定dependency tree
+- `docs/README.md` — 現行文書、ADR、完了済み計画のarchive索引
 
 ## データ永続化
 
@@ -20,7 +23,7 @@
 - DBテーブル: `fetishes`, `matrix`, `stats`, `fetish_log`, `sessions`, `config`, `stats_history`
 - 起動時に fetishes.json・questions.json との差分を自動マイグレーション（新規追加のみ）
 
-## 推論ロジック（engine.py）
+## 推論ロジック（engine package）
 
 - ナイーブベイズで事後確率を計算。`FETISH_PRIOR_WEIGHTS` をベースに診断ログから動的更新（60s TTL）
 - 情報利得（エントロピー削減量）が最大の質問を次に選択
@@ -205,8 +208,15 @@
 # ローカル
 python app.py
 
-# コンパイル・静的チェック・全ユニット/E2E smoke
+# 開発依存（完全pin）とJavaScript依存を準備
+python -m pip install -r requirements-dev.txt
+npm ci
+
+# Ruff・mypy・pytest/coverage・ESLint・Vitestを含む標準check
 sh scripts/check.sh
+
+# Playwrightによる最小browser E2E
+npm run test:e2e
 
 # 本番（Render）。複数workerも可（DBの5秒TTLリロードで整合性を確保）
 # DATABASE_URLなしのJSON保存モードは単一processのみ（複数threadは可）
@@ -215,7 +225,7 @@ gunicorn app:app --workers 2 --threads 4
 
 ## プレイヤー追加性癖
 
-- `PLAYER_FETISH_BASE_ID = 10000`（engine.pyで定義）以上のIDがプレイヤー追加性癖
+- `PLAYER_FETISH_BASE_ID = 10000`（`engine/constants.py`で定義）以上のIDがプレイヤー追加性癖
 - シードとIDが競合しない設計
 - DBの `fetishes` テーブルに永続化
 - 管理画面でプレイヤー追加分を一覧表示・削除・シード格上げ可能

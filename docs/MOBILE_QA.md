@@ -34,4 +34,4 @@
 
 ## Execution Log
 
-See `docs/QA_EXECUTION_LOG.md` for the current run status. As of 2026-05-23, real-device tap target, native share sheet, and PWA install/update checks remain `Not run` and require manual verification.
+See [`QA.md`](QA.md) for the current automation boundary and manual checklist. Record dated device/browser results in the PR or release record.
