@@ -16,6 +16,22 @@ class TestEnginePersistenceHelpers(unittest.TestCase):
         self.assertFalse(engine_persistence.valid_matrix_shape({'yes': [[1.0, 2.0]], 'total': [[2.0]]}, 1, 1))
         self.assertFalse(engine_persistence.valid_matrix_shape([], 1, 1))
 
+    def test_valid_matrix_rejects_invalid_counts(self):
+        invalid_pairs = [
+            ('1', 2),
+            (True, 2),
+            (float('nan'), 2),
+            (1, float('inf')),
+            (-1, 2),
+            (1, -2),
+            (3, 2),
+        ]
+        for yes, total in invalid_pairs:
+            with self.subTest(yes=yes, total=total):
+                self.assertFalse(engine_persistence.valid_matrix({'yes': [[yes]], 'total': [[total]]}, 1, 1))
+
+        self.assertTrue(engine_persistence.valid_matrix({'yes': [[0], [1.5]], 'total': [[0], [2]]}, 2, 1))
+
     def test_initial_matrix_applies_learned_priors_without_changing_shape(self):
         with tempfile.TemporaryDirectory() as tmp:
             learned_path = os.path.join(tmp, 'learned_priors.json')
@@ -77,6 +93,23 @@ class TestEnginePersistenceHelpers(unittest.TestCase):
             )
 
             self.assertEqual(matrix, {'yes': [[2.0]], 'total': [[4.0]]})
+            self.assertFalse(os.path.exists(path))
+            self.assertTrue(os.path.exists(path + '.bak'))
+
+    def test_load_matrix_file_backs_up_invalid_counts_and_reinitializes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'matrix.json')
+            with open(path, 'w', encoding='utf-8') as file_obj:
+                json.dump({'yes': [[3.0]], 'total': [[2.0]]}, file_obj)
+
+            matrix = engine_persistence.load_matrix_file(
+                path,
+                [{'id': 10}],
+                [{'text': 'q0'}],
+                init_matrix=lambda: {'yes': [[1.0]], 'total': [[2.0]]},
+            )
+
+            self.assertEqual(matrix, {'yes': [[1.0]], 'total': [[2.0]]})
             self.assertFalse(os.path.exists(path))
             self.assertTrue(os.path.exists(path + '.bak'))
 

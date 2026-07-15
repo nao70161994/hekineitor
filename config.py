@@ -3,9 +3,9 @@
 Keep this module free of Flask imports so scripts, tests, and engine code can
 share the same environment-based paths.
 """
+
 import os
 import tempfile
-
 
 PROJECT_ROOT = os.path.dirname(__file__)
 DATA_DIR = os.path.join(PROJECT_ROOT, 'data')

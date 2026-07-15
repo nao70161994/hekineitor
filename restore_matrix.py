@@ -1,4 +1,5 @@
 """matrix_backup.json から learned_priors.json を再生成するスクリプト。"""
+
 import json
 import os
 import sys
@@ -11,8 +12,8 @@ if SCRIPT_DIR not in sys.path:
 from storage import atomic_write_json
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
-BACKUP   = os.path.join(DATA_DIR, 'matrix_backup.json')
-OUTPUT   = os.path.join(DATA_DIR, 'learned_priors.json')
+BACKUP = os.path.join(DATA_DIR, 'matrix_backup.json')
+OUTPUT = os.path.join(DATA_DIR, 'learned_priors.json')
 MAX_BACKUP_AGE_HOURS = int(os.environ.get('MATRIX_BACKUP_MAX_AGE_HOURS', '48'))
 
 
@@ -43,8 +44,7 @@ def _load_fetish_ids(expected_count):
 
 
 def _empty_priors(fetish_ids, question_count):
-    return {str(fetish_id): {str(q): 0.5 for q in range(question_count)}
-            for fetish_id in fetish_ids}
+    return {str(fetish_id): {str(q): 0.5 for q in range(question_count)} for fetish_id in fetish_ids}
 
 
 def _parse_exported_at(value):
@@ -155,7 +155,7 @@ def build_priors(snapshot):
 
 def main():
     if not os.path.exists(BACKUP):
-        print("data/matrix_backup.json が見つかりません")
+        print('data/matrix_backup.json が見つかりません')
         return 1
 
     with open(BACKUP, encoding='utf-8') as f:
@@ -164,15 +164,16 @@ def main():
     try:
         priors = build_priors(snapshot)
     except ValueError as e:
-        print(f"復元失敗: {e}")
+        print(f'復元失敗: {e}')
         return 1
 
     atomic_write_json(OUTPUT, priors, ensure_ascii=False, indent=2)
 
     nf = len(priors)
     nq = max((len(row) for row in priors.values()), default=0)
-    print(f"復元完了: {nf}性癖 × {nq}質問 → {OUTPUT}")
+    print(f'復元完了: {nf}性癖 × {nq}質問 → {OUTPUT}')
     return 0
+
 
 if __name__ == '__main__':
     sys.exit(main())

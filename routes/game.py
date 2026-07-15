@@ -2,6 +2,8 @@ from flask import Blueprint
 
 from services import share, share_links
 
+MAX_NEW_FETISHES_PER_DIAGNOSIS = 3
+
 
 def question_payload(
     engine, question_id, question_text, count, total, *, hint=None, progress_message=None, contradictions=None
@@ -614,9 +616,18 @@ def confirm(ctx):
 
 
 def add_fetish(ctx):
+    limited = ctx.rate_limit('api_add_fetish', 20)
+    if limited:
+        return limited
     data = ctx.request.get_json(silent=True) or {}
-    name = data.get('name', '').strip()
-    desc = data.get('desc', '').strip()
+    name_value = data.get('name', '')
+    desc_value = data.get('desc', '')
+    if not isinstance(name_value, str) or not isinstance(desc_value, str):
+        return ctx.jsonify({'status': 'error', 'message': 'name と desc は文字列で指定してください'}), 400
+    if 'confirmed' in data and not isinstance(data['confirmed'], bool):
+        return ctx.jsonify({'status': 'error', 'message': 'confirmed は真偽値で指定してください'}), 400
+    name = name_value.strip()
+    desc = desc_value.strip()
     confirmed = data.get('confirmed', False)
     answers = ctx.session.get('answers', {})
     if not name:
@@ -649,10 +660,17 @@ def add_fetish(ctx):
                     'learning_disabled': True,
                 }
             )
+        owned = set(ctx.session.get('owned_added_fetish_ids', []))
+        if len(owned) >= MAX_NEW_FETISHES_PER_DIAGNOSIS:
+            return ctx.jsonify(
+                {
+                    'status': 'error',
+                    'message': f'1回の診断で追加できる性癖は{MAX_NEW_FETISHES_PER_DIAGNOSIS}件までです',
+                }
+            ), 409
         if not desc:
             desc = name
         _, db_id = ctx.engine.add_fetish(name, desc, answers)
-        owned = set(ctx.session.get('owned_added_fetish_ids', []))
         owned.add(db_id)
         ctx.session['owned_added_fetish_ids'] = sorted(owned)
         return ctx.jsonify({'status': 'learned', 'fetish_name': name, 'fetish_id': db_id, 'is_new': True})

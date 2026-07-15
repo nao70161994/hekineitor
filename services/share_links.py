@@ -13,6 +13,9 @@ ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
 MIN_SHARE_ID_LENGTH = 4
 GENERATED_SHARE_ID_LENGTH = 8
 MAX_SHARE_ID_LENGTH = 12
+MAX_SHARE_ID_INSERT_ATTEMPTS = 20
+DEFAULT_JSON_MAX_ENTRIES = 10_000
+JSON_MAX_ENTRIES_ENV = 'SHARE_LINKS_MAX_ENTRIES'
 SHARE_ID_RE = re.compile(rf'^[0-9A-Za-z]{{{MIN_SHARE_ID_LENGTH},{MAX_SHARE_ID_LENGTH}}}$')
 
 
@@ -53,6 +56,7 @@ def _ensure_schema(conn):
             created_at TEXT NOT NULL
         )
     """)
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_share_links_created_at ON share_links (created_at DESC, share_id DESC)')
 
 
 def _load_json(path):
@@ -155,6 +159,43 @@ def _new_share_id(existing, *, token_length=GENERATED_SHARE_ID_LENGTH, token_fn=
     raise RuntimeError('share_id generation failed')
 
 
+def _is_unique_violation(exc):
+    """Return whether a database exception is a PostgreSQL unique violation."""
+    sqlstate = getattr(exc, 'pgcode', None) or getattr(getattr(exc, 'diag', None), 'sqlstate', None)
+    return sqlstate == '23505'
+
+
+def _json_max_entries(environ=None):
+    source = environ if environ is not None else os.environ
+    raw_value = source.get(JSON_MAX_ENTRIES_ENV, '')
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        return DEFAULT_JSON_MAX_ENTRIES
+    return value if value > 0 else DEFAULT_JSON_MAX_ENTRIES
+
+
+def _created_at_sort_key(item):
+    share_id, payload = item
+    raw_value = str(payload.get('created_at') or '').strip()
+    try:
+        created_at = datetime.fromisoformat(raw_value.replace('Z', '+00:00'))
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        timestamp = created_at.astimezone(timezone.utc).timestamp()
+    except (OSError, OverflowError, ValueError):
+        timestamp = float('-inf')
+    return timestamp, share_id
+
+
+def _prune_json_links(links, max_entries):
+    excess = len(links) - max_entries
+    if excess <= 0:
+        return
+    for share_id, _payload in sorted(links.items(), key=_created_at_sort_key)[:excess]:
+        del links[share_id]
+
+
 def _create_db_link(payload, *, environ=None, now_fn=None, token_fn=None):
     cleaned = clean_payload(payload)
     if not cleaned['name']:
@@ -165,17 +206,35 @@ def _create_db_link(payload, *, environ=None, now_fn=None, token_fn=None):
     try:
         with conn:
             _ensure_schema(conn)
-            cur = conn.cursor()
-            cur.execute('SELECT share_id FROM share_links')
-            existing = {row[0] for row in cur.fetchall()}
-            share_id = _new_share_id(existing, token_fn=token_fn)
-            cur.execute(
-                'INSERT INTO share_links (share_id, payload, created_at) VALUES (%s, %s, %s)',
-                (share_id, json.dumps(cleaned, ensure_ascii=False, separators=(',', ':')), cleaned['created_at']),
-            )
+        rejected = set()
+        raw_payload = json.dumps(cleaned, ensure_ascii=False, separators=(',', ':'))
+        for _attempt in range(MAX_SHARE_ID_INSERT_ATTEMPTS):
+            share_id = _new_share_id(rejected, token_fn=token_fn)
+            try:
+                with conn:
+                    cur = conn.cursor()
+                    cur.execute(
+                        'INSERT INTO share_links (share_id, payload, created_at) VALUES (%s, %s, %s)',
+                        (share_id, raw_payload, cleaned['created_at']),
+                    )
+                    cur.execute(
+                        """DELETE FROM share_links
+                        WHERE share_id IN (
+                            SELECT share_id FROM share_links
+                            ORDER BY created_at DESC, share_id DESC
+                            OFFSET %s
+                        )""",
+                        (_json_max_entries(environ),),
+                    )
+            except Exception as exc:
+                if not _is_unique_violation(exc):
+                    raise
+                rejected.add(share_id)
+                continue
+            return share_id, cleaned
+        raise RuntimeError('share_id generation failed')
     finally:
         put_conn(conn)
-    return share_id, cleaned
 
 
 def create_link(payload, *, path=None, environ=None, now_fn=None, token_fn=None):
@@ -191,6 +250,7 @@ def create_link(payload, *, path=None, environ=None, now_fn=None, token_fn=None)
         links = load_links(path=target)
         share_id = _new_share_id(links, token_fn=token_fn)
         links[share_id] = cleaned
+        _prune_json_links(links, _json_max_entries(environ))
         atomic_write_json(target, links, ensure_ascii=False, indent=2, sort_keys=True)
     return share_id, cleaned
 

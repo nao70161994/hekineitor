@@ -83,6 +83,68 @@ class TestLearningFeedbackFlow(APITestCase):
         # テスト後ロールバック（DB・JSONファイルも含む完全削除）
         app_engine.delete_fetish(data['fetish_id'])
 
+    def test_add_fetish_rejects_non_boolean_confirmed(self):
+        res = self.client.post(
+            '/api/add_fetish',
+            json={'name': '型検証テスト', 'desc': 'テスト用', 'confirmed': 'true'},
+        )
+        self.assertEqual(res.status_code, 400)
+        self.assertIn('confirmed', res.get_json()['message'])
+
+    def test_add_fetish_has_dedicated_rate_limit(self):
+        previous_enforce = app.config.get('ENFORCE_RATE_LIMIT')
+        previous_overrides = app.config.get('RATE_LIMIT_OVERRIDES')
+        app.config['ENFORCE_RATE_LIMIT'] = True
+        app.config['RATE_LIMIT_OVERRIDES'] = {'api_add_fetish': (1, 60)}
+        remote = {'REMOTE_ADDR': '198.51.100.25'}
+        try:
+            first = self.client.post(
+                '/api/add_fetish',
+                json={'name': 'ヤンデレ'},
+                environ_overrides=remote,
+            )
+            second = self.client.post(
+                '/api/add_fetish',
+                json={'name': 'ヤンデレ'},
+                environ_overrides=remote,
+            )
+        finally:
+            app.config['ENFORCE_RATE_LIMIT'] = previous_enforce
+            app.config['RATE_LIMIT_OVERRIDES'] = previous_overrides
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 429)
+
+    def test_add_fetish_limits_persistent_creations_per_diagnosis(self):
+        from app import engine as app_engine
+
+        created_ids = []
+        try:
+            for index in range(3):
+                res = self.client.post(
+                    '/api/add_fetish',
+                    json={
+                        'name': f'診断単位上限テスト_{index}_{len(app_engine.fetishes)}',
+                        'desc': 'テスト用',
+                        'confirmed': True,
+                    },
+                )
+                self.assertEqual(res.status_code, 200)
+                created_ids.append(res.get_json()['fetish_id'])
+
+            rejected = self.client.post(
+                '/api/add_fetish',
+                json={
+                    'name': f'診断単位上限テスト_rejected_{len(app_engine.fetishes)}',
+                    'desc': 'テスト用',
+                    'confirmed': True,
+                },
+            )
+            self.assertEqual(rejected.status_code, 409)
+            self.assertIn('3件まで', rejected.get_json()['message'])
+        finally:
+            for fetish_id in created_ids:
+                app_engine.delete_fetish(fetish_id)
+
     def test_delete_owned_added_fetish_endpoint(self):
         from app import engine as app_engine
 

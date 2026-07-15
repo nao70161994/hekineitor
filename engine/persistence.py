@@ -20,6 +20,25 @@ def valid_matrix_shape(matrix, nf, nq):
     )
 
 
+def _valid_matrix_count_pair(yes, total):
+    if type(yes) not in (int, float) or type(total) not in (int, float):
+        return False
+    try:
+        return math.isfinite(yes) and math.isfinite(total) and 0 <= yes <= total
+    except OverflowError:
+        return False
+
+
+def valid_matrix(matrix, nf, nq):
+    if not valid_matrix_shape(matrix, nf, nq):
+        return False
+    return all(
+        _valid_matrix_count_pair(yes, total)
+        for yes_row, total_row in zip(matrix['yes'], matrix['total'])
+        for yes, total in zip(yes_row, total_row)
+    )
+
+
 def _valid_restore_snapshot(snapshot, question_count):
     if not isinstance(snapshot, dict):
         return False
@@ -38,18 +57,7 @@ def _valid_restore_snapshot(snapshot, question_count):
         if not isinstance(name, str) or not name.strip():
             return False
         fetish_ids.add(fetish_id)
-    if not valid_matrix_shape(matrix, len(fetishes), question_count):
-        return False
-    for yes_row, total_row in zip(matrix['yes'], matrix['total']):
-        for yes, total in zip(yes_row, total_row):
-            try:
-                yes = float(yes)
-                total = float(total)
-            except (TypeError, ValueError):
-                return False
-            if not math.isfinite(yes) or not math.isfinite(total) or yes < 0 or total < 0 or yes > total:
-                return False
-    return True
+    return valid_matrix(matrix, len(fetishes), question_count)
 
 
 def durable_unlink(path):
@@ -114,7 +122,7 @@ def load_matrix_file(path, fetishes, questions, *, init_matrix):
             matrix = json.load(file_obj)
         nf = len(fetishes)
         nq = len(questions)
-        if valid_matrix_shape(matrix, nf, nq):
+        if valid_matrix(matrix, nf, nq):
             return matrix
         backup = path + '.bak'
         try:
@@ -122,7 +130,7 @@ def load_matrix_file(path, fetishes, questions, *, init_matrix):
         except OSError:
             pass
         logging.getLogger(__name__).warning(
-            'matrix.json のサイズ不整合 (fetishes=%d, questions=%d) — 再初期化します。バックアップ: %s',
+            'matrix.json の構造または値が不正 (fetishes=%d, questions=%d) — 再初期化します。バックアップ: %s',
             nf,
             nq,
             backup,

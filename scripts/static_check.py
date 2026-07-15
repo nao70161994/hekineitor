@@ -1,20 +1,9 @@
 import ast
 import pathlib
+import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-TARGETS = [
-    ROOT / 'app.py',
-    ROOT / 'engine',
-    ROOT / 'routes',
-    ROOT / 'services',
-    ROOT / 'analytics.py',
-    ROOT / 'audit.py',
-    ROOT / 'matrix_service.py',
-    ROOT / 'storage.py',
-    ROOT / 'work_utils.py',
-    ROOT / 'tests',
-]
 
 
 class StaticVisitor(ast.NodeVisitor):
@@ -29,11 +18,15 @@ class StaticVisitor(ast.NodeVisitor):
 
 
 def iter_python_files():
-    for target in TARGETS:
-        if target.is_dir():
-            yield from sorted(target.rglob('*.py'))
-        elif target.exists():
-            yield target
+    result = subprocess.run(
+        ['git', 'ls-files', '-z', '--', '*.py'],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    )
+    for relative_path in result.stdout.decode().split('\0'):
+        if relative_path:
+            yield ROOT / relative_path
 
 
 def main():

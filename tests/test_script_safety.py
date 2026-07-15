@@ -183,7 +183,7 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertIn('data/fetish_log.production.json', gitignore)
 
     def test_work_link_queue_classifies_maintenance_items(self):
-        from services.works_links import collect_work_link_queue
+        from services.works_links import collect_work_link_queue, work_url_status
 
         data = collect_work_link_queue(
             [
@@ -204,6 +204,8 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(data['counts']['search_url'], 1)
         self.assertEqual(data['counts']['missing_asin'], 1)
         self.assertEqual(data['total'], 3)
+        self.assertEqual(work_url_status({'url': 'https://www.amazon.co.jp.evil.test/s?k=x'})[0], 'ok')
+        self.assertEqual(work_url_status({'url': 'https://smile.amazon.co.jp/s?k=x'})[0], 'search_url')
 
         with_fallback = collect_work_link_queue(
             [
@@ -276,6 +278,21 @@ class CheckScriptTests(unittest.TestCase):
         self.assertIn('command -v node', script)
         self.assertIn('node --check', script)
         self.assertIn('static/*.js', script)
+
+    def test_check_script_covers_tracked_and_root_maintenance_python(self):
+        script = (ROOT / 'scripts' / 'check.sh').read_text(encoding='utf-8')
+        self.assertIn("git ls-files -z -- '*.py'", script)
+        for filename in (
+            'check_works_links.py',
+            'config.py',
+            'fetch_kindle_asins.py',
+            'restore_matrix.py',
+            'run_coverage.py',
+        ):
+            self.assertGreaterEqual(script.count(filename), 2)
+
+        static_check = (ROOT / 'scripts' / 'static_check.py').read_text(encoding='utf-8')
+        self.assertIn("['git', 'ls-files', '-z', '--', '*.py']", static_check)
 
 
 class RestoreMatrixWorkflowTests(unittest.TestCase):

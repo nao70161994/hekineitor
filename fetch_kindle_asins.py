@@ -9,51 +9,52 @@ fetishes.json の works からURLなし作品のKindle ASINを検索して直接
 途中で中断しても kindle_asin_progress.json に進捗を保存して再開できる。
 """
 
-import json
-import re
-import time
-import random
-import sys
-import os
-import urllib.request
-import urllib.parse
 import http.cookiejar
+import json
+import os
+import random
+import re
+import sys
+import time
 import unicodedata
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from storage import atomic_write_json
 from services.works_links import summarize_backfill_candidates
+from storage import atomic_write_json
 
-DATA_DIR     = SCRIPT_DIR / 'data'
-FETISHES     = DATA_DIR / 'fetishes.json'
-PROGRESS     = SCRIPT_DIR / 'kindle_asin_progress.json'
-DRY_RUN      = '--dry-run' in sys.argv
+DATA_DIR = SCRIPT_DIR / 'data'
+FETISHES = DATA_DIR / 'fetishes.json'
+PROGRESS = SCRIPT_DIR / 'kindle_asin_progress.json'
+DRY_RUN = '--dry-run' in sys.argv
 
 ASSOCIATE_ID = os.environ.get('AMAZON_ASSOCIATE_ID', 'hekinator-22')
 
-INTERVAL_MIN   = 8
-INTERVAL_MAX   = 14
-CAPTCHA_ABORT  = 8
+INTERVAL_MIN = 8
+INTERVAL_MAX = 14
+CAPTCHA_ABORT = 8
 
 USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15",
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15',
 ]
 
 BASE_HEADERS = {
-    "Accept-Language": "ja-JP,ja;q=0.9,en;q=0.8",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    'Accept-Language': 'ja-JP,ja;q=0.9,en;q=0.8',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
 }
 
 # セッションCookieを維持するopenerを共有
 _opener = None
+
 
 def _get_opener():
     global _opener
@@ -65,7 +66,7 @@ def _get_opener():
             ua = random.choice(USER_AGENTS)
             _opener.open(
                 urllib.request.Request('https://www.amazon.co.jp/', headers={**BASE_HEADERS, 'User-Agent': ua}),
-                timeout=15
+                timeout=15,
             )
             time.sleep(random.uniform(3, 5))
         except Exception:
@@ -87,22 +88,19 @@ def save_progress(p):
 def search_kindle_asin(title: str) -> str | None:
     """タイトルでKindleストアを検索して最初のASINを返す。"""
     keyword = re.sub(r'[（(][^）)]*[）)]', '', title).strip()
-    params  = urllib.parse.urlencode({'k': keyword, 'i': 'digital-text'})
-    url     = f'https://www.amazon.co.jp/s?{params}'
-    ua      = random.choice(USER_AGENTS)
-    opener  = _get_opener()
+    params = urllib.parse.urlencode({'k': keyword, 'i': 'digital-text'})
+    url = f'https://www.amazon.co.jp/s?{params}'
+    ua = random.choice(USER_AGENTS)
+    opener = _get_opener()
     try:
-        resp = opener.open(
-            urllib.request.Request(url, headers={**BASE_HEADERS, 'User-Agent': ua}),
-            timeout=15
-        )
+        resp = opener.open(urllib.request.Request(url, headers={**BASE_HEADERS, 'User-Agent': ua}), timeout=15)
         html = resp.read().decode('utf-8', errors='replace')
     except Exception as e:
         print(f'  [ERROR] {e}')
         return 'ERROR'
 
     if 'api-services-support@amazon.com' in html or 'Type the characters' in html:
-        print(f'  [CAPTCHA]')
+        print('  [CAPTCHA]')
         return 'CAPTCHA'
 
     # スポンサー商品を除いた最初のASINを優先
@@ -110,7 +108,7 @@ def search_kindle_asin(title: str) -> str | None:
     blocks = re.findall(
         r'data-component-type="s-search-result"[^>]*?data-asin="([A-Z0-9]{10})"'
         r'|data-asin="([A-Z0-9]{10})"[^>]*?data-component-type="s-search-result"',
-        html
+        html,
     )
     for m in blocks:
         asin = m[0] or m[1]
@@ -184,12 +182,9 @@ def lookup_known_asin(title: str, exact: dict, canonical: dict) -> str | None:
 
 def print_dry_run_report(fetishes, progress):
     report = summarize_backfill_candidates(fetishes, progress, associate_id=ASSOCIATE_ID)
-    print(f"直リンク化候補: {report['count']} 件")
+    print(f'直リンク化候補: {report["count"]} 件')
     for item in report['samples']:
-        print(
-            f"  - {item['fetish_name']} / {item['title']} "
-            f"[{item['current_status']}] -> {item['direct_url']}"
-        )
+        print(f'  - {item["fetish_name"]} / {item["title"]} [{item["current_status"]}] -> {item["direct_url"]}')
     return report
 
 
@@ -198,7 +193,7 @@ def main():
         fetishes = json.load(f)
 
     # URLなし・検索URL作品を収集
-    targets = []   # (fetish_idx, work_idx, title)
+    targets = []  # (fetish_idx, work_idx, title)
     for fi, fe in enumerate(fetishes):
         for wi, w in enumerate(fe.get('works', [])):
             if isinstance(w, dict):
@@ -268,7 +263,7 @@ def main():
         for fi, fe in enumerate(fetishes):
             for wi, w in enumerate(fe.get('works', [])):
                 title = w['title'] if isinstance(w, dict) else w
-                asin  = progress.get(title)
+                asin = progress.get(title)
                 if not asin or asin in ('CAPTCHA', 'ERROR', 'NOT_FOUND'):
                     continue
                 url = kindle_url(asin)
@@ -284,11 +279,11 @@ def main():
         print(f'\nfetishes.json を更新しました（{apply_count} 件）')
 
     # サマリー
-    total     = len(targets)
-    found     = sum(1 for v in progress.values() if v and v not in ('CAPTCHA', 'ERROR', 'NOT_FOUND'))
+    total = len(targets)
+    found = sum(1 for v in progress.values() if v and v not in ('CAPTCHA', 'ERROR', 'NOT_FOUND'))
     not_found = sum(1 for v in progress.values() if v == 'NOT_FOUND')
-    errors    = sum(1 for v in progress.values() if v in ('CAPTCHA', 'ERROR'))
-    print(f'\n--- サマリー ---')
+    errors = sum(1 for v in progress.values() if v in ('CAPTCHA', 'ERROR'))
+    print('\n--- サマリー ---')
     print(f'合計: {total} / 取得成功: {found} / 未発見: {not_found} / エラー: {errors}')
     if errors:
         print('エラー分は再実行すると続きから再開します')

@@ -11,9 +11,11 @@ def work_url_status(work):
     if not url:
         return 'missing_url', ''
     parsed = urllib.parse.urlparse(url)
-    if 'amazon.co.jp' in parsed.netloc and (parsed.path.startswith('/s') or parsed.query.startswith('k=')):
+    hostname = (parsed.hostname or '').lower().rstrip('.')
+    is_amazon_jp = hostname == 'amazon.co.jp' or hostname.endswith('.amazon.co.jp')
+    if is_amazon_jp and (parsed.path.startswith('/s') or parsed.query.startswith('k=')):
         return 'search_url', url
-    if 'amazon.co.jp' in parsed.netloc and not ASIN_RE.search(url):
+    if is_amazon_jp and not ASIN_RE.search(url):
         return 'missing_asin', url
     return 'ok', url
 

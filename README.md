@@ -25,6 +25,8 @@ SECRET_KEY=dev_secret_key_for_local flask --app app run
 - `MAX_CONTENT_LENGTH`: HTTP本文の最大バイト数。未指定時は16MiB。
 - `RATE_LIMIT_API_START_LIMIT` / `RATE_LIMIT_API_START_WINDOW`: `/api/start` のレート制限。
 - `RATE_LIMIT_API_ANSWER_LIMIT` / `RATE_LIMIT_API_ANSWER_WINDOW`: `/api/answer` のレート制限。
+- `RATE_LIMIT_API_ADD_FETISH_LIMIT` / `RATE_LIMIT_API_ADD_FETISH_WINDOW`: `/api/add_fetish` のレート制限。未指定時は毎分20リクエスト。
+- `SHARE_LINKS_MAX_ENTRIES`: 短縮共有リンクの最大保持件数。未指定時は10,000件。
 - `RATE_LIMIT_ADMIN_API_LIMIT` / `RATE_LIMIT_ADMIN_API_WINDOW`: 管理 API のレート制限。
 - `MATRIX_IMPORT_BACKUP_KEEP`: import/restore 前バックアップの保持件数。未指定時は20件。
 - `ADMIN_CSRF_TTL_SECONDS`: 管理画面 CSRF トークンの有効期限。未指定時は7200秒。
@@ -75,6 +77,7 @@ Pythonの設定とcoverage閾値は`pyproject.toml`、JavaScriptのcommandと固
 - `/api/admin/quality_report`: 低識別力質問、重複度が高い質問ペア、改善候補の性癖を JSON で返します。
 
 管理系の更新APIは `data/admin_audit_log_YYYYMM.json` に月次ローテーションで直近500件/月の監査ログを残します。import / restore / merge / delete は確認文字列付きの二段階確認です。`/api/fetish/<id>` の DELETE は、そのセッションで追加した性癖だけ本人削除でき、それ以外は管理認証と CSRF が必要です。レート制限の 429 応答には `retry_after` と `Retry-After` が含まれます。
+公開の新規性癖登録は1診断につき最大3件で、IP単位の共有レート制限を適用します。
 全レスポンスに基本的なセキュリティヘッダーを付与しています。管理画面はログ表のサーバー側ページング、preflight/performance表示、キーボード向け skip link を備えています。
 
 GitHub Actions:
