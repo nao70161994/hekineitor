@@ -8,10 +8,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.validate_matrix_backup import validate
-
 from engine import facade as engine_facade
 from engine import persistence as engine_persistence
+from scripts.validate_matrix_backup import validate
 from services import rate_limit, server_session
 from storage import atomic_write_json
 

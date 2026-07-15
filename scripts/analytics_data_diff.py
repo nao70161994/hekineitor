@@ -17,7 +17,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.operations_check import admin_headers, base_url
-
 from services import question_events, result_exposure, share_events
 
 DEFAULT_DATES = ('2026-06-19', '2026-06-20', '2026-06-21')

@@ -8,7 +8,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import engine_inference
 import engine_learning
 import engine_question_selection
-
 from engine import (
     AXIS_INDIRECT_BONUS,
     EARLY_RANDOM_DEPTH,

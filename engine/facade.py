@@ -4,9 +4,8 @@ import threading
 import time
 from contextlib import contextmanager
 
-from config import get_fetish_log_path
-
 from analytics import build_quality_report
+from config import get_fetish_log_path
 from matrix_service import collect_matrix_updates, matrix_validation_report
 from storage import DATA_DIR, DATABASE_URL, HAS_PSYCOPG2, atomic_write_json, data_path, load_json_file
 from storage import get_conn as _storage_get_conn

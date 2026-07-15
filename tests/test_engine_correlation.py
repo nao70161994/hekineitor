@@ -6,7 +6,6 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import engine_correlation
-
 from engine import Engine
 
 

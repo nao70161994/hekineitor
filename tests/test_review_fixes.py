@@ -12,12 +12,11 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from unittest.mock import Mock, patch
 
-from scripts import daily_analytics_report, validate_matrix_backup
-
 import app as app_module
 from engine import db as engine_db
 from engine import facade as engine_facade
 from engine import persistence as engine_persistence
+from scripts import daily_analytics_report, validate_matrix_backup
 from services import app_meta, rate_limit, server_session, share_links
 from storage import atomic_write_json
 
