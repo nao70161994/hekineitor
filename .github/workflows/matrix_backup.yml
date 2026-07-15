@@ -32,7 +32,7 @@ jobs:
         run: python scripts/validate_matrix_backup.py data/matrix_backup.json --max-age-days 1
 
       - name: Upload backup artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: matrix-backup-${{ github.run_id }}
           path: data/matrix_backup.json
