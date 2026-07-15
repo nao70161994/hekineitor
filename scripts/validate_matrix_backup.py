@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import argparse
-from datetime import datetime, timezone
 import json
 import math
+from datetime import datetime, timezone
 
 
 def _integer(value, label):
@@ -99,7 +99,9 @@ def validate(payload, max_age_days=None):
         raise ValueError('matrix_rows is not the complete fetish/question product')
 
     if max_age_days is not None:
-        exported_at = payload.get('exported_at') or (metadata.get('exported_at') if isinstance(metadata, dict) else None)
+        exported_at = payload.get('exported_at') or (
+            metadata.get('exported_at') if isinstance(metadata, dict) else None
+        )
         if not isinstance(exported_at, str):
             raise ValueError('exported_at is required')
         try:
@@ -112,7 +114,12 @@ def validate(payload, max_age_days=None):
         if age_seconds < -300 or age_seconds > max_age_days * 86400:
             raise ValueError('backup is outside the allowed age')
 
-    return {'version': 2 if has_questions else 1, 'fetishes': len(fetish_ids), 'questions': len(question_indexes), 'rows': len(rows)}
+    return {
+        'version': 2 if has_questions else 1,
+        'fetishes': len(fetish_ids),
+        'questions': len(question_indexes),
+        'rows': len(rows),
+    }
 
 
 def main():

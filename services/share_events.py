@@ -5,9 +5,9 @@ import threading
 from collections import deque
 from datetime import datetime, timezone
 
-from storage import data_path
 from services import event_store
 from services.csv_safety import csv_text
+from storage import data_path
 
 _ALLOWED_EVENTS = {
     'share_button_click',
@@ -21,10 +21,23 @@ _ALLOWED_EVENTS = {
     'ogp_svg_view',
     'work_click',
 }
-_ALLOWED_CHANNELS = {'button', 'web_share', 'clipboard', 'x', 'result_page', 'ogp', 'work', 'fetish_page', 'fetishes_list'}
+_ALLOWED_CHANNELS = {
+    'button',
+    'web_share',
+    'clipboard',
+    'x',
+    'result_page',
+    'ogp',
+    'work',
+    'fetish_page',
+    'fetishes_list',
+}
 _LOCK = threading.Lock()
 _MAX_LOG_BYTES = 5 * 1024 * 1024
-_SENSITIVE_RESULT_RE = re.compile(r'(@|https?://|postgres(?:ql)?://|\b(?:token|secret|passwd|password|api[_-]?key)\b|(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{32,})', re.IGNORECASE)
+_SENSITIVE_RESULT_RE = re.compile(
+    r'(@|https?://|postgres(?:ql)?://|\b(?:token|secret|passwd|password|api[_-]?key)\b|(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{32,})',
+    re.IGNORECASE,
+)
 
 
 def event_log_path(environ=None):
@@ -101,7 +114,15 @@ def record_event(
     now_fn=None,
     allowed_result_names=None,
 ):
-    event = build_event(event_name, result_name=result_name, channel=channel, success=success, work_title=work_title, page=page, now_fn=now_fn)
+    event = build_event(
+        event_name,
+        result_name=result_name,
+        channel=channel,
+        success=success,
+        work_title=work_title,
+        page=page,
+        now_fn=now_fn,
+    )
     allowed_names = _allowed_result_set(allowed_result_names)
     if event.get('result_name') and not _is_allowed_result_name(event['result_name'], allowed_names):
         return None
@@ -245,9 +266,7 @@ def _summary_metrics(by_event):
         'copy_successes': by_event.get('copy_success', 0),
         'copy_failures': by_event.get('copy_failure', 0),
         'share_actions': (
-            by_event.get('x_share_click', 0)
-            + by_event.get('web_share_success', 0)
-            + by_event.get('copy_success', 0)
+            by_event.get('x_share_click', 0) + by_event.get('web_share_success', 0) + by_event.get('copy_success', 0)
         ),
         'share_successes': by_event.get('web_share_success', 0) + by_event.get('copy_success', 0),
         'work_clicks': by_event.get('work_click', 0),
@@ -290,7 +309,7 @@ def daily_summary(events, days=14):
         elif name == 'work_click':
             row['work_clicks'] += 1
     rows = [daily[key] for key in sorted(daily)]
-    return rows[-max(1, int(days or 14)):]
+    return rows[-max(1, int(days or 14)) :]
 
 
 def _empty_result_row(result_name):
@@ -330,11 +349,7 @@ def _finalize_result_row(row):
 def _allowed_result_set(allowed_result_names):
     if allowed_result_names is None:
         return None
-    return {
-        str(name).strip()
-        for name in allowed_result_names
-        if str(name or '').strip()
-    }
+    return {str(name).strip() for name in allowed_result_names if str(name or '').strip()}
 
 
 def _is_allowed_result_name(result_name, allowed_names):
@@ -377,8 +392,7 @@ def result_ranking(events, limit=20, allowed_result_names=None):
         ),
         reverse=True,
     )
-    return rows[:max(1, int(limit or 20))]
-
+    return rows[: max(1, int(limit or 20))]
 
 
 def work_ranking(events, limit=20, allowed_result_names=None):
@@ -392,15 +406,19 @@ def work_ranking(events, limit=20, allowed_result_names=None):
         if result_name and not _is_allowed_result_name(result_name, allowed_names):
             continue
         key = (title, result_name, _clean_text(event.get('channel'), 32))
-        row = ranking.setdefault(key, {
-            'work_title': title,
-            'result_name': key[1],
-            'channel': key[2],
-            'clicks': 0,
-        })
+        row = ranking.setdefault(
+            key,
+            {
+                'work_title': title,
+                'result_name': key[1],
+                'channel': key[2],
+                'clicks': 0,
+            },
+        )
         row['clicks'] += 1
     rows = sorted(ranking.values(), key=lambda row: (row['clicks'], row['work_title']), reverse=True)
-    return rows[:max(1, int(limit or 20))]
+    return rows[: max(1, int(limit or 20))]
+
 
 def _invalid_result_event_count(events, allowed_result_names=None):
     allowed_names = _allowed_result_set(allowed_result_names)
@@ -544,23 +562,52 @@ def _rows_with_metadata(report, rows):
     meta = _filter_metadata(report)
     return [{**row, **meta} for row in rows]
 
+
 def ranking_csv(report):
-    return csv_text(_rows_with_metadata(report, report.get('ranking', [])), [
-        'result_name', 'total', 'share_button_clicks', 'result_page_views', 'ogp_views',
-        'x_clicks', 'web_share_successes', 'copy_successes', 'share_actions',
-        'share_successes', 'work_clicks', 'ogp_to_result_rate', 'result_to_share_rate', 'share_success_rate',
-        'previous_total', 'total_delta', 'total_growth_rate',
-        'previous_share_actions', 'share_actions_delta', 'share_actions_growth_rate',
-        *_META_FIELDS,
-    ])
+    return csv_text(
+        _rows_with_metadata(report, report.get('ranking', [])),
+        [
+            'result_name',
+            'total',
+            'share_button_clicks',
+            'result_page_views',
+            'ogp_views',
+            'x_clicks',
+            'web_share_successes',
+            'copy_successes',
+            'share_actions',
+            'share_successes',
+            'work_clicks',
+            'ogp_to_result_rate',
+            'result_to_share_rate',
+            'share_success_rate',
+            'previous_total',
+            'total_delta',
+            'total_growth_rate',
+            'previous_share_actions',
+            'share_actions_delta',
+            'share_actions_growth_rate',
+            *_META_FIELDS,
+        ],
+    )
 
 
 def daily_csv(report):
-    return csv_text(_rows_with_metadata(report, report.get('daily', [])), [
-        'date', 'total', 'share_button_clicks', 'result_page_views', 'ogp_views',
-        'x_clicks', 'web_share_successes', 'copy_successes', 'work_clicks',
-        *_META_FIELDS,
-    ])
+    return csv_text(
+        _rows_with_metadata(report, report.get('daily', [])),
+        [
+            'date',
+            'total',
+            'share_button_clicks',
+            'result_page_views',
+            'ogp_views',
+            'x_clicks',
+            'web_share_successes',
+            'copy_successes',
+            'work_clicks',
+            *_META_FIELDS,
+        ],
+    )
 
 
 def comparison_csv(report):

@@ -34,18 +34,23 @@ class TestEnginePersistenceRegression(unittest.TestCase):
         snapshot = e._matrix_snapshot()
         e.matrix['yes'][0][0] = 99.0
         e.matrix['total'][1][1] = 100.0
-        self.assertEqual(snapshot, {
-            'yes': [[1.0, 2.0], [3.0, 4.0]],
-            'total': [[5.0, 6.0], [7.0, 8.0]],
-        })
+        self.assertEqual(
+            snapshot,
+            {
+                'yes': [[1.0, 2.0], [3.0, 4.0]],
+                'total': [[5.0, 6.0], [7.0, 8.0]],
+            },
+        )
 
     def test_validate_matrix_rows_reports_valid_skipped_and_input_counts(self):
         e = minimal_engine()
-        report = e.validate_matrix_rows([
-            {'fetish_id': 10, 'question_id': 0, 'yes': 2.0, 'total': 3.0},
-            {'fetish_id': 999, 'question_id': 0, 'yes': 1.0, 'total': 1.0},
-            {'fetish_id': 20, 'question_id': 999, 'yes': 1.0, 'total': 1.0},
-        ])
+        report = e.validate_matrix_rows(
+            [
+                {'fetish_id': 10, 'question_id': 0, 'yes': 2.0, 'total': 3.0},
+                {'fetish_id': 999, 'question_id': 0, 'yes': 1.0, 'total': 1.0},
+                {'fetish_id': 20, 'question_id': 999, 'yes': 1.0, 'total': 1.0},
+            ]
+        )
         self.assertEqual(report, {'valid_rows': 1, 'skipped_rows': 2, 'input_rows': 3})
 
     def test_import_matrix_local_updates_known_rows_and_saves_once(self):
@@ -54,8 +59,10 @@ class TestEnginePersistenceRegression(unittest.TestCase):
             {'fetish_id': 10, 'question_id': 1, 'yes': 3.5, 'total': 4.5},
             {'fetish_id': 999, 'question_id': 0, 'yes': 1.0, 'total': 1.0},
         ]
-        with patch.object(engine_module, '_use_db', return_value=False), \
-                patch.object(e, '_save_matrix_file', return_value=None) as save_matrix:
+        with (
+            patch.object(engine_module, '_use_db', return_value=False),
+            patch.object(e, '_save_matrix_file', return_value=None) as save_matrix,
+        ):
             imported = e.import_matrix(rows)
         self.assertEqual(imported, 1)
         self.assertEqual(e.matrix['yes'][0][1], 3.5)
@@ -68,9 +75,11 @@ class TestEnginePersistenceRegression(unittest.TestCase):
         rows = [
             {'fetish_id': 20, 'question_id': 0, 'yes': 6.0, 'total': 7.0},
         ]
-        with patch.object(engine_module, '_use_db', return_value=True), \
-                patch.object(e, '_import_to_db', return_value=None) as import_to_db, \
-                patch.object(e, '_save_matrix_file', return_value=None) as save_matrix:
+        with (
+            patch.object(engine_module, '_use_db', return_value=True),
+            patch.object(e, '_import_to_db', return_value=None) as import_to_db,
+            patch.object(e, '_save_matrix_file', return_value=None) as save_matrix,
+        ):
             imported = e.import_matrix(rows)
         self.assertEqual(imported, 1)
         self.assertEqual(e.matrix['yes'][1][0], 6.0)
@@ -107,8 +116,10 @@ class TestEngineDbPersistenceRegression(unittest.TestCase):
             def cursor(self):
                 return Cursor()
 
-        with patch.object(engine_module, '_get_conn', return_value=Conn()) as get_conn, \
-                patch.object(engine_module, '_put_conn', return_value=None) as put_conn:
+        with (
+            patch.object(engine_module, '_get_conn', return_value=Conn()) as get_conn,
+            patch.object(engine_module, '_put_conn', return_value=None) as put_conn,
+        ):
             e._save_to_db(
                 {0: [(0, 1.0, 2.0)], 1: [(1, 3.0, 4.0)], 99: [(0, 9.0, 9.0)]},
                 {0: 10},
@@ -136,14 +147,20 @@ class TestEngineDbPersistenceRegression(unittest.TestCase):
             def cursor(self):
                 return Cursor()
 
-        fake_psycopg2 = type('Psycopg2', (), {
-            'extras': type('Extras', (), {
-                'execute_values': staticmethod(lambda cur, sql, rows: calls.append((sql, rows)))
-            })
-        })
-        with patch.object(engine_module, 'psycopg2', fake_psycopg2, create=True), \
-                patch.object(engine_module, '_get_conn', return_value=Conn()), \
-                patch.object(engine_module, '_put_conn', return_value=None):
+        fake_psycopg2 = type(
+            'Psycopg2',
+            (),
+            {
+                'extras': type(
+                    'Extras', (), {'execute_values': staticmethod(lambda cur, sql, rows: calls.append((sql, rows)))}
+                )
+            },
+        )
+        with (
+            patch.object(engine_module, 'psycopg2', fake_psycopg2, create=True),
+            patch.object(engine_module, '_get_conn', return_value=Conn()),
+            patch.object(engine_module, '_put_conn', return_value=None),
+        ):
             e._import_to_db({0: [(1, 2.0, 3.0)], 99: [(0, 9.0, 9.0)]}, {10: 0, 20: 1})
 
         self.assertEqual(calls[0][1], [(10, 1, 2.0, 3.0)])

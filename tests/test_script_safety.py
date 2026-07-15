@@ -7,7 +7,6 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -30,19 +29,24 @@ class RestoreMatrixScriptTests(unittest.TestCase):
             )
             restore_matrix.DATA_DIR = str(data_dir)
 
-            priors = restore_matrix.build_priors({
-                'exported_at': datetime.now(timezone.utc).isoformat(),
-                'fetishes': [{'id': 10}, {'id': 20}],
-                'matrix_rows': [
-                    {'fetish_id': 10, 'question_id': 0, 'yes': 2, 'total': 4},
-                    {'fetish_id': 20, 'question_id': 1, 'yes': 3, 'total': 4},
-                ],
-            })
+            priors = restore_matrix.build_priors(
+                {
+                    'exported_at': datetime.now(timezone.utc).isoformat(),
+                    'fetishes': [{'id': 10}, {'id': 20}],
+                    'matrix_rows': [
+                        {'fetish_id': 10, 'question_id': 0, 'yes': 2, 'total': 4},
+                        {'fetish_id': 20, 'question_id': 1, 'yes': 3, 'total': 4},
+                    ],
+                }
+            )
 
-        self.assertEqual(priors, {
-            '10': {'0': 0.5, '1': 0.5},
-            '20': {'0': 0.5, '1': 0.75},
-        })
+        self.assertEqual(
+            priors,
+            {
+                '10': {'0': 0.5, '1': 0.5},
+                '20': {'0': 0.5, '1': 0.75},
+            },
+        )
 
     def test_backup_freshness_is_validated_when_export_metadata_exists(self):
         restore_matrix = load_module('restore_matrix_under_test_freshness', ROOT / 'restore_matrix.py')
@@ -50,9 +54,11 @@ class RestoreMatrixScriptTests(unittest.TestCase):
         old_export = datetime.now(timezone.utc) - timedelta(hours=2)
 
         with self.assertRaisesRegex(ValueError, '古すぎます'):
-            restore_matrix.validate_backup_freshness({
-                'metadata': {'exported_at': old_export.isoformat()},
-            })
+            restore_matrix.validate_backup_freshness(
+                {
+                    'metadata': {'exported_at': old_export.isoformat()},
+                }
+            )
 
         with self.assertRaisesRegex(ValueError, 'exported_at'):
             restore_matrix.validate_backup_freshness({'matrix_rows': []})
@@ -60,10 +66,12 @@ class RestoreMatrixScriptTests(unittest.TestCase):
     def test_unsupported_backup_shape_fails_clearly(self):
         restore_matrix = load_module('restore_matrix_under_test_bad', ROOT / 'restore_matrix.py')
         with self.assertRaisesRegex(ValueError, 'unsupported backup shape'):
-            restore_matrix.build_priors({
-                'exported_at': datetime.now(timezone.utc).isoformat(),
-                'rows': [],
-            })
+            restore_matrix.build_priors(
+                {
+                    'exported_at': datetime.now(timezone.utc).isoformat(),
+                    'rows': [],
+                }
+            )
 
 
 class FetchKindleAsinsScriptTests(unittest.TestCase):
@@ -85,12 +93,16 @@ class FetchKindleAsinsScriptTests(unittest.TestCase):
     def test_known_asin_lookup_handles_search_and_title_variants(self):
         fetch_kindle = load_module('fetch_kindle_lookup_under_test', ROOT / 'fetch_kindle_asins.py')
 
-        fetishes = [{
-            'works': [{
-                'title': 'orange',
-                'url': 'https://www.amazon.co.jp/dp/B00JD349L6?tag=hekinator-22',
-            }]
-        }]
+        fetishes = [
+            {
+                'works': [
+                    {
+                        'title': 'orange',
+                        'url': 'https://www.amazon.co.jp/dp/B00JD349L6?tag=hekinator-22',
+                    }
+                ]
+            }
+        ]
         exact, canonical = fetch_kindle.known_asin_maps({}, fetishes)
 
         self.assertTrue(fetch_kindle.is_search_url('https://www.amazon.co.jp/s?k=orange&tag=hekinator-22'))
@@ -102,25 +114,28 @@ class FetchKindleAsinsScriptTests(unittest.TestCase):
     def test_known_asin_lookup_handles_descriptive_prefix(self):
         fetch_kindle = load_module('fetch_kindle_suffix_under_test', ROOT / 'fetch_kindle_asins.py')
 
-        exact, canonical = fetch_kindle.known_asin_maps({
-            '君が望む永遠（NTR√）': 'B0FNDBR1YM',
-            '君が望む永遠（遥√）': 'B0FNDBR1YM',
-        }, [])
+        exact, canonical = fetch_kindle.known_asin_maps(
+            {
+                '君が望む永遠（NTR√）': 'B0FNDBR1YM',
+                '君が望む永遠（遥√）': 'B0FNDBR1YM',
+            },
+            [],
+        )
 
         self.assertEqual(
             fetch_kindle.lookup_known_asin('NTRエロゲの金字塔・君が望む永遠', exact, canonical),
             'B0FNDBR1YM',
         )
 
-
-
     def test_dry_run_report_lists_direct_link_candidates(self):
         fetch_kindle = load_module('fetch_kindle_report_under_test', ROOT / 'fetch_kindle_asins.py')
-        fetishes = [{
-            'id': 1,
-            'name': 'テスト',
-            'works': [{'title': '作品A', 'url': 'https://www.amazon.co.jp/s?k=%E4%BD%9C%E5%93%81A'}],
-        }]
+        fetishes = [
+            {
+                'id': 1,
+                'name': 'テスト',
+                'works': [{'title': '作品A', 'url': 'https://www.amazon.co.jp/s?k=%E4%BD%9C%E5%93%81A'}],
+            }
+        ]
         report = fetch_kindle.print_dry_run_report(fetishes, {'作品A': 'B000000000'})
         self.assertEqual(report['count'], 1)
         self.assertEqual(report['samples'][0]['asin'], 'B000000000')
@@ -167,31 +182,39 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertIn('data/fetish_log.local.json', gitignore)
         self.assertIn('data/fetish_log.production.json', gitignore)
 
-
-
     def test_work_link_queue_classifies_maintenance_items(self):
         from services.works_links import collect_work_link_queue
-        data = collect_work_link_queue([{
-            'id': 1,
-            'name': 'テスト',
-            'works': [
-                'URLなし作品',
-                {'title': '検索作品', 'url': 'https://www.amazon.co.jp/s?k=x'},
-                {'title': 'ASINなし作品', 'url': 'https://www.amazon.co.jp/gp/product/noasin'},
-                {'title': 'OK作品', 'url': 'https://www.amazon.co.jp/dp/B000000000'},
-            ],
-        }])
+
+        data = collect_work_link_queue(
+            [
+                {
+                    'id': 1,
+                    'name': 'テスト',
+                    'works': [
+                        'URLなし作品',
+                        {'title': '検索作品', 'url': 'https://www.amazon.co.jp/s?k=x'},
+                        {'title': 'ASINなし作品', 'url': 'https://www.amazon.co.jp/gp/product/noasin'},
+                        {'title': 'OK作品', 'url': 'https://www.amazon.co.jp/dp/B000000000'},
+                    ],
+                }
+            ]
+        )
         self.assertEqual(data['counts']['missing_url'], 1)
         self.assertEqual(data['counts']['fallback_search_url'], 0)
         self.assertEqual(data['counts']['search_url'], 1)
         self.assertEqual(data['counts']['missing_asin'], 1)
         self.assertEqual(data['total'], 3)
 
-        with_fallback = collect_work_link_queue([{
-            'id': 1,
-            'name': 'テスト',
-            'works': ['URLなし作品'],
-        }], associate_id='hekinator-22')
+        with_fallback = collect_work_link_queue(
+            [
+                {
+                    'id': 1,
+                    'name': 'テスト',
+                    'works': ['URLなし作品'],
+                }
+            ],
+            associate_id='hekinator-22',
+        )
         self.assertEqual(with_fallback['counts']['missing_url'], 0)
         self.assertEqual(with_fallback['counts']['fallback_search_url'], 1)
         self.assertIn('tag=hekinator-22', with_fallback['samples']['fallback_search_url'][0]['fallback_url'])
@@ -205,13 +228,22 @@ class WorksLinksScriptTests(unittest.TestCase):
                 os.chdir(tmp)
                 data_dir = Path('data')
                 data_dir.mkdir()
-                (data_dir / 'fetishes.json').write_text(json.dumps([{
-                    'name': '<img src=x onerror=alert(1)>',
-                    'works': [{
-                        'title': 'A&B <script>alert(1)</script>',
-                        'url': 'https://example.test/dp/B000000000?q="x"&a=<b>',
-                    }],
-                }]), encoding='utf-8')
+                (data_dir / 'fetishes.json').write_text(
+                    json.dumps(
+                        [
+                            {
+                                'name': '<img src=x onerror=alert(1)>',
+                                'works': [
+                                    {
+                                        'title': 'A&B <script>alert(1)</script>',
+                                        'url': 'https://example.test/dp/B000000000?q="x"&a=<b>',
+                                    }
+                                ],
+                            }
+                        ]
+                    ),
+                    encoding='utf-8',
+                )
 
                 runpy.run_path(str(ROOT / 'check_works_links.py'), run_name='__main__')
                 report = Path('works_review.html').read_text(encoding='utf-8')

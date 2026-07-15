@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DOCS = os.path.join(ROOT, 'docs')
+ENGINE_ARCHIVE = os.path.join('archive', 'engine-package')
 
 
 class TestEnginePackageDocs(unittest.TestCase):
@@ -13,24 +14,25 @@ class TestEnginePackageDocs(unittest.TestCase):
         with open(os.path.join(DOCS, name), encoding='utf-8') as file_obj:
             return file_obj.read()
 
-    def test_package_prep_docs_exist(self):
+    def test_completed_package_migration_docs_are_archived(self):
         expected = [
-            'ENGINE_FACADE_CONTRACT.md',
             'ENGINE_PACKAGE_PLAN.md',
             'ENGINE_PACKAGE_REHEARSAL_CHECKLIST.md',
             'ENGINE_PACKAGE_PR_REVIEW.md',
             'ENGINE_PACKAGE_PR_TEMPLATE.md',
             'ENGINE_PACKAGE_REHEARSAL_COMMANDS.md',
+            'ENGINE_PACKAGE_REVIEW.md',
             'ENGINE_PACKAGE_SWITCH_PLAN.md',
             'ENGINE_PRIVATE_HELPER_MAP.md',
         ]
-        missing = [name for name in expected if not os.path.exists(os.path.join(DOCS, name))]
+        missing = [name for name in expected if not os.path.exists(os.path.join(DOCS, ENGINE_ARCHIVE, name))]
         self.assertEqual(missing, [])
+        self.assertTrue(os.path.exists(os.path.join(DOCS, 'ENGINE_FACADE_CONTRACT.md')))
 
     def test_switch_docs_keep_atomic_package_guidance(self):
-        switch_plan = self.read_doc('ENGINE_PACKAGE_SWITCH_PLAN.md')
-        rehearsal = self.read_doc('ENGINE_PACKAGE_REHEARSAL_CHECKLIST.md')
-        review = self.read_doc('ENGINE_PACKAGE_PR_REVIEW.md')
+        switch_plan = self.read_doc(os.path.join(ENGINE_ARCHIVE, 'ENGINE_PACKAGE_SWITCH_PLAN.md'))
+        rehearsal = self.read_doc(os.path.join(ENGINE_ARCHIVE, 'ENGINE_PACKAGE_REHEARSAL_CHECKLIST.md'))
+        review = self.read_doc(os.path.join(ENGINE_ARCHIVE, 'ENGINE_PACKAGE_PR_REVIEW.md'))
 
         for body in (switch_plan, rehearsal, review):
             self.assertIn('engine.py', body)
@@ -48,7 +50,7 @@ class TestEnginePackageDocs(unittest.TestCase):
         self.assertIn('session keys', contract)
 
     def test_package_pr_template_locks_switch_evidence(self):
-        template = self.read_doc('ENGINE_PACKAGE_PR_TEMPLATE.md')
+        template = self.read_doc(os.path.join(ENGINE_ARCHIVE, 'ENGINE_PACKAGE_PR_TEMPLATE.md'))
         self.assertIn('atomic `engine.py` to `engine/` package switch PR', template)
         self.assertIn('No inference probability', template)
         self.assertIn('No learning delta', template)
@@ -60,7 +62,7 @@ class TestEnginePackageDocs(unittest.TestCase):
         self.assertIn('Rollback Plan', template)
 
     def test_rehearsal_commands_lock_required_preflight_and_verification(self):
-        commands = self.read_doc('ENGINE_PACKAGE_REHEARSAL_COMMANDS.md')
+        commands = self.read_doc(os.path.join(ENGINE_ARCHIVE, 'ENGINE_PACKAGE_REHEARSAL_COMMANDS.md'))
         self.assertIn('test -d engine', commands)
         self.assertIn("importlib.util.find_spec('engine')", commands)
         self.assertIn('tests/test_engine_package_switch_guard.py', commands)

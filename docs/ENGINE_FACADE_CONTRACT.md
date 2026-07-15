@@ -56,7 +56,10 @@ These behaviors are already safe to live outside `engine.py` as long as facade t
 - Local JSON stats/flags/log helpers: `engine/stats.py` with a legacy top-level shim.
 - Read-only reports: `engine/reporting.py`, `engine/admin_reports.py` with legacy top-level shims.
 - Correlation helpers: `engine/correlation.py` with a legacy top-level shim.
-- DB schema/load/config/mutation/stats adapters: `engine/db.py` with a legacy top-level shim.
+- DB compatibility facade and schema/mutations: `engine/db.py` with a legacy top-level shim.
+- DB configuration, matrix persistence, statistics, and recommended-work migrations:
+  `engine/db_config.py`, `engine/db_matrix.py`, `engine/db_stats.py`, and
+  `engine/db_work_migrations.py`.
 - Local matrix persistence shape/init/load helpers: `engine/persistence.py` with a legacy top-level shim.
 - Memory-only mutation helpers: `engine/mutations.py` with a legacy top-level shim.
 

@@ -1,7 +1,6 @@
 import os
 import tempfile
 
-
 _TEST_STORAGE_DIR = tempfile.mkdtemp(prefix='hekineitor-pytest-')
 
 os.environ.setdefault('APP_ENV', 'testing')

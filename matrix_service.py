@@ -1,12 +1,15 @@
 import math
+from typing import Any, cast
 
 
-def collect_matrix_updates(fetishes, questions, matrix_rows):
+def collect_matrix_updates(
+    fetishes: list[dict[str, Any]], questions: list[dict[str, Any]], matrix_rows: object
+) -> tuple[dict[int, list[tuple[int, float, float]]], dict[str, int]]:
     if not isinstance(matrix_rows, list):
         raise ValueError('matrix_rows はリストで指定してください')
     idx_map = {f['id']: i for i, f in enumerate(fetishes)}
     nq = len(questions)
-    updates = {}
+    updates: dict[int, list[tuple[int, float, float]]] = {}
     seen_pairs = set()
     skipped = 0
     for row in matrix_rows:
@@ -17,8 +20,8 @@ def collect_matrix_updates(fetishes, questions, matrix_rows):
         fid = row.get('fetish_id')
         qi = row.get('question_id')
         try:
-            fid = int(fid)
-            qi = int(qi)
+            fid = int(cast(Any, fid))
+            qi = int(cast(Any, qi))
             y = float(row['yes'])
             t = float(row['total'])
         except (TypeError, ValueError):
@@ -39,7 +42,9 @@ def collect_matrix_updates(fetishes, questions, matrix_rows):
     return updates, {'skipped_rows': skipped, 'input_rows': len(matrix_rows)}
 
 
-def matrix_validation_report(fetishes, questions, matrix_rows):
+def matrix_validation_report(
+    fetishes: list[dict[str, Any]], questions: list[dict[str, Any]], matrix_rows: object
+) -> dict[str, int]:
     updates, meta = collect_matrix_updates(fetishes, questions, matrix_rows)
     return {
         'valid_rows': sum(len(v) for v in updates.values()),

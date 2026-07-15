@@ -1,7 +1,10 @@
 import urllib.parse
+from typing import TypeAlias
+
+WorkItem: TypeAlias = str | dict[str, str]
 
 
-def safe_work_url(url):
+def safe_work_url(url: object) -> str:
     if not url:
         return ''
     parsed = urllib.parse.urlparse(str(url).strip())
@@ -10,7 +13,7 @@ def safe_work_url(url):
     return urllib.parse.urlunparse(parsed)
 
 
-def parse_work_item(raw) -> 'str | dict':
+def parse_work_item(raw: object) -> WorkItem:
     """Normalize one work item from API/admin input."""
     if isinstance(raw, dict):
         title = str(raw.get('title', '')).strip()
@@ -29,7 +32,7 @@ def parse_work_item(raw) -> 'str | dict':
     return s
 
 
-def parse_works_list(raw_list: list) -> list:
+def parse_works_list(raw_list: list[object]) -> list[WorkItem]:
     """Normalize a list of work items and drop blank entries."""
     result = []
     for item in raw_list:
@@ -39,7 +42,7 @@ def parse_works_list(raw_list: list) -> list:
     return result
 
 
-def work_title(work) -> str:
+def work_title(work: object) -> str:
     if isinstance(work, dict):
         return str(work.get('title', '')).strip()
     return str(work).strip()

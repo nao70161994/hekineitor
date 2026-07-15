@@ -8,7 +8,6 @@ import threading
 import time
 from contextlib import contextmanager
 
-
 _LOCK = threading.RLock()
 _LAST_CLEANUP = {}
 _BUCKET_WINDOWS = {}
@@ -82,7 +81,9 @@ def _ensure_sqlite_schema(path):
         os.makedirs(os.path.dirname(absolute), exist_ok=True)
         conn = sqlite3.connect(absolute, timeout=10)
         try:
-            conn.execute('CREATE TABLE IF NOT EXISTS rate_limits (scope TEXT NOT NULL, client_ip TEXT NOT NULL, timestamps TEXT NOT NULL, updated_at REAL NOT NULL, window_seconds INTEGER NOT NULL DEFAULT 60, PRIMARY KEY(scope, client_ip))')
+            conn.execute(
+                'CREATE TABLE IF NOT EXISTS rate_limits (scope TEXT NOT NULL, client_ip TEXT NOT NULL, timestamps TEXT NOT NULL, updated_at REAL NOT NULL, window_seconds INTEGER NOT NULL DEFAULT 60, PRIMARY KEY(scope, client_ip))'
+            )
             columns = {row[1] for row in conn.execute('PRAGMA table_info(rate_limits)')}
             if 'window_seconds' not in columns:
                 conn.execute('ALTER TABLE rate_limits ADD COLUMN window_seconds INTEGER NOT NULL DEFAULT 60')
@@ -138,7 +139,10 @@ def _sqlite_bucket(path, scope, ip, now, window_seconds, limit, max_buckets=None
         if not limited:
             bucket.append(now)
         last_accepted_at = max(bucket) if bucket else now
-        conn.execute('INSERT INTO rate_limits(scope,client_ip,timestamps,updated_at,window_seconds) VALUES(?,?,?,?,?) ON CONFLICT(scope,client_ip) DO UPDATE SET timestamps=excluded.timestamps,updated_at=excluded.updated_at,window_seconds=excluded.window_seconds', (scope, ip, json.dumps(bucket, separators=(',', ':')), last_accepted_at, window_seconds))
+        conn.execute(
+            'INSERT INTO rate_limits(scope,client_ip,timestamps,updated_at,window_seconds) VALUES(?,?,?,?,?) ON CONFLICT(scope,client_ip) DO UPDATE SET timestamps=excluded.timestamps,updated_at=excluded.updated_at,window_seconds=excluded.window_seconds',
+            (scope, ip, json.dumps(bucket, separators=(',', ':')), last_accepted_at, window_seconds),
+        )
         if _should_cleanup(('sqlite', os.path.abspath(path)), now):
             conn.execute('DELETE FROM rate_limits WHERE updated_at + window_seconds <= ?', (now,))
         conn.commit()
@@ -154,13 +158,25 @@ def _sqlite_shared_bucket(base_path, scope, ip, now, window_seconds, limit, max_
     shard_count = _SQLITE_SHARD_COUNT
     home_path = _sqlite_shard_path(base_path, scope, ip, shard_count)
     existing = _sqlite_bucket(
-        home_path, scope, ip, now, window_seconds, limit, allow_insert=False,
+        home_path,
+        scope,
+        ip,
+        now,
+        window_seconds,
+        limit,
+        allow_insert=False,
     )
     if existing is not None:
         return existing
     with _sqlite_admission_lock(base_path, scope):
         existing = _sqlite_bucket(
-            home_path, scope, ip, now, window_seconds, limit, allow_insert=False,
+            home_path,
+            scope,
+            ip,
+            now,
+            window_seconds,
+            limit,
+            allow_insert=False,
         )
         if existing is not None:
             return existing
@@ -176,9 +192,13 @@ def _sqlite_shared_bucket(base_path, scope, ip, now, window_seconds, limit, max_
                     'DELETE FROM rate_limits WHERE scope=? AND updated_at + window_seconds <= ?',
                     (scope, now),
                 )
-                total += int(conn.execute(
-                    'SELECT COUNT(*) FROM rate_limits WHERE scope=?', (scope,),
-                ).fetchone()[0] or 0)
+                total += int(
+                    conn.execute(
+                        'SELECT COUNT(*) FROM rate_limits WHERE scope=?',
+                        (scope,),
+                    ).fetchone()[0]
+                    or 0
+                )
                 conn.commit()
             except Exception:
                 conn.rollback()
@@ -188,7 +208,13 @@ def _sqlite_shared_bucket(base_path, scope, ip, now, window_seconds, limit, max_
         if total >= max_buckets:
             return True, [now]
         return _sqlite_bucket(
-            home_path, scope, ip, now, window_seconds, limit, allow_insert=True,
+            home_path,
+            scope,
+            ip,
+            now,
+            window_seconds,
+            limit,
+            allow_insert=True,
         )
 
 
@@ -209,7 +235,9 @@ def _postgres_bucket(get_conn, put_conn, scope, ip, now, window_seconds, limit, 
                     cur.execute('SELECT COUNT(*) FROM rate_limits WHERE scope=%s', (scope,))
                     count = int(cur.fetchone()[0] or 0)
                     if count >= max_buckets:
-                        cur.execute('DELETE FROM rate_limits WHERE scope=%s AND updated_at + window_seconds <= %s', (scope, now))
+                        cur.execute(
+                            'DELETE FROM rate_limits WHERE scope=%s AND updated_at + window_seconds <= %s', (scope, now)
+                        )
                         cur.execute('SELECT COUNT(*) FROM rate_limits WHERE scope=%s', (scope,))
                         count = int(cur.fetchone()[0] or 0)
                         if count >= max_buckets:
@@ -222,7 +250,10 @@ def _postgres_bucket(get_conn, put_conn, scope, ip, now, window_seconds, limit, 
             if not limited:
                 bucket.append(now)
             last_accepted_at = max(bucket) if bucket else now
-            cur.execute('INSERT INTO rate_limits(scope,client_ip,timestamps,updated_at,window_seconds) VALUES(%s,%s,%s::jsonb,%s,%s) ON CONFLICT(scope,client_ip) DO UPDATE SET timestamps=EXCLUDED.timestamps,updated_at=EXCLUDED.updated_at,window_seconds=EXCLUDED.window_seconds', (scope, ip, json.dumps(bucket, separators=(',', ':')), last_accepted_at, window_seconds))
+            cur.execute(
+                'INSERT INTO rate_limits(scope,client_ip,timestamps,updated_at,window_seconds) VALUES(%s,%s,%s::jsonb,%s,%s) ON CONFLICT(scope,client_ip) DO UPDATE SET timestamps=EXCLUDED.timestamps,updated_at=EXCLUDED.updated_at,window_seconds=EXCLUDED.window_seconds',
+                (scope, ip, json.dumps(bucket, separators=(',', ':')), last_accepted_at, window_seconds),
+            )
             if _should_cleanup(('postgres', id(get_conn)), now):
                 cur.execute('DELETE FROM rate_limits WHERE updated_at + window_seconds <= %s', (now,))
             return limited, bucket
@@ -258,7 +289,24 @@ def _memory_bucket(buckets, key, now, window_seconds, limit, cleanup_interval, m
         return limited, bucket
 
 
-def rate_limit(scope, limit, request, app_config, buckets, jsonify, should_enforce_runtime_guard, *, window_seconds=60, environ=os.environ, time_fn=time.time, use_db=lambda: False, get_conn=None, put_conn=None, shared_path=None, logger=None):
+def rate_limit(
+    scope,
+    limit,
+    request,
+    app_config,
+    buckets,
+    jsonify,
+    should_enforce_runtime_guard,
+    *,
+    window_seconds=60,
+    environ=os.environ,
+    time_fn=time.time,
+    use_db=lambda: False,
+    get_conn=None,
+    put_conn=None,
+    shared_path=None,
+    logger=None,
+):
     if not should_enforce_runtime_guard('rate_limit'):
         return None
     default_limit = _positive_int(limit, 1)
@@ -288,10 +336,24 @@ def rate_limit(scope, limit, request, app_config, buckets, jsonify, should_enfor
         except (sqlite3.Error, OSError):
             if logger is not None:
                 logger.exception('Shared rate-limit storage failed')
-            return jsonify({'status': 'error', 'message': 'レート制限サービスを利用できません。'}), 503, {'Retry-After': '5'}
+            return (
+                jsonify({'status': 'error', 'message': 'レート制限サービスを利用できません。'}),
+                503,
+                {'Retry-After': '5'},
+            )
     else:
         limited, bucket = _memory_bucket(buckets, key, now, window_seconds, limit, cleanup_interval, max_buckets)
     if limited:
         retry_after = max(1, int(window_seconds - (now - bucket[0])))
-        return jsonify({'status': 'error', 'message': f'リクエストが多すぎます。{retry_after}秒後に再試行してください。', 'retry_after': retry_after}), 429, {'Retry-After': str(retry_after)}
+        return (
+            jsonify(
+                {
+                    'status': 'error',
+                    'message': f'リクエストが多すぎます。{retry_after}秒後に再試行してください。',
+                    'retry_after': retry_after,
+                }
+            ),
+            429,
+            {'Retry-After': str(retry_after)},
+        )
     return None

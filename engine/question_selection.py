@@ -1,7 +1,6 @@
 import math
 import random
 
-
 HEAVY_RELATION_RESULT_NAMES = {'共依存', '激重感情', '共生関係', '執着'}
 DIVERSIFYING_EARLY_CATEGORIES = {'attribute', 'world', 'aesthetic', 'value', 'role'}
 HEAVY_RELATION_CATEGORIES = {'relation', 'attachment'}
@@ -32,7 +31,6 @@ def question_category(engine, question_id):
     return 'value'
 
 
-
 def question_yes_balance_multiplier(row, *, min_answers=20, max_penalty=0.6):
     try:
         answered = int(row.get('answered') or 0)
@@ -45,9 +43,22 @@ def question_yes_balance_multiplier(row, *, min_answers=20, max_penalty=0.6):
     distance = min(abs(yes_rate - 50.0) / 50.0, 1.0)
     return 1.0 - penalty * distance
 
-def best_question(engine, answers, asked, idk_streak=0, *, question_axes, focus_threshold_default,
-                  ucb_explore_c, focus_top_n, early_random_depth, early_random_top_k,
-                  axis_indirect_bonus, question_balance_stats=None):
+
+def best_question(
+    engine,
+    answers,
+    asked,
+    idk_streak=0,
+    *,
+    question_axes,
+    focus_threshold_default,
+    ucb_explore_c,
+    focus_top_n,
+    early_random_depth,
+    early_random_top_k,
+    axis_indirect_bonus,
+    question_balance_stats=None,
+):
     probs = engine.posteriors(answers)
     nf = len(engine.fetishes)
     asked_list = list(asked)
@@ -113,7 +124,7 @@ def best_question(engine, answers, asked, idk_streak=0, *, question_axes, focus_
     question_vectors = {}
     for asked_question in asked_list:
         vector = [engine._prob(f, asked_question) - 0.5 for f in range(nf)]
-        norm = math.sqrt(sum(value ** 2 for value in vector)) or 1e-9
+        norm = math.sqrt(sum(value**2 for value in vector)) or 1e-9
         question_vectors[asked_question] = (vector, norm)
 
     best_filtered_q, best_filtered_score = None, -1.0
@@ -136,13 +147,13 @@ def best_question(engine, answers, asked, idk_streak=0, *, question_axes, focus_
         score = h0 - (p_yes * engine._entropy(yes_probs) + p_no * engine._entropy(no_probs))
         if asked_list:
             vector_q = [engine._prob(f, q) - 0.5 for f in range(nf)]
-            norm_q = math.sqrt(sum(value ** 2 for value in vector_q)) or 1e-9
+            norm_q = math.sqrt(sum(value**2 for value in vector_q)) or 1e-9
             max_similarity = 0.0
             for vector_asked, norm_asked in question_vectors.values():
                 similarity = sum(a * b for a, b in zip(vector_q, vector_asked)) / (norm_q * norm_asked)
                 if similarity > max_similarity:
                     max_similarity = similarity
-            score *= (1.0 - 0.4 * max_similarity)
+            score *= 1.0 - 0.4 * max_similarity
         ask_count = sum(engine.matrix['total'][f][q] for f in range(nf))
         score += ucb_c / math.sqrt(ask_count / max(nf, 1) + 1)
         axis_name = engine._question_axis(q)
@@ -161,7 +172,11 @@ def best_question(engine, answers, asked, idk_streak=0, *, question_axes, focus_
             weighted *= 0.72
         if len(asked_list) < 5 and category in {'relation', 'attachment'} and category in asked_category_set:
             weighted *= 0.50
-        if early_game and category in {'attribute', 'world', 'tone', 'value', 'aesthetic', 'role'} and category not in asked_category_set:
+        if (
+            early_game
+            and category in {'attribute', 'world', 'tone', 'value', 'aesthetic', 'role'}
+            and category not in asked_category_set
+        ):
             weighted *= 1.08
         if (early_game and heavy_relation_top) or (len(asked_list) < 6 and heavy_relation_cluster):
             if category in DIVERSIFYING_EARLY_CATEGORIES and category not in asked_category_set:
@@ -199,7 +214,7 @@ def best_disambiguating_question(engine, answers, asked, candidate_count=3, idk_
             pass
 
     ranked = sorted(range(nf), key=lambda i: probs[i], reverse=True)
-    top = ranked[:max(2, min(candidate_count, nf))]
+    top = ranked[: max(2, min(candidate_count, nf))]
     if len(top) < 2:
         return engine.best_question(answers, asked_ints, idk_streak=idk_streak)
 
@@ -217,7 +232,7 @@ def best_disambiguating_question(engine, answers, asked, candidate_count=3, idk_
 
         separation = 0.0
         for pos, fa in enumerate(top):
-            for fb in top[pos + 1:]:
+            for fb in top[pos + 1 :]:
                 pair_weight = top_weights[fa] * top_weights[fb]
                 separation += pair_weight * abs(engine._prob(fa, q) - engine._prob(fb, q))
         balance = 1.0 - abs(0.5 - p_yes) * 2.0

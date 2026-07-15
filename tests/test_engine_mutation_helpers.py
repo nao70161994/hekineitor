@@ -26,15 +26,11 @@ class TestEngineMutationHelpers(unittest.TestCase):
     def test_merge_rows_and_log_entries(self):
         fetishes = [{'id': 1, 'name': 'A', 'desc': 'a'}, {'id': 2, 'name': 'B', 'desc': 'b'}]
         matrix = {'yes': [[1.0, 2.0], [3.0, 4.0]], 'total': [[5.0, 6.0], [7.0, 8.0]]}
-        keep_name, keep_desc = engine_mutations.merge_fetish_rows(
-            fetishes, matrix, 0, 1, new_name='Merged'
-        )
+        keep_name, keep_desc = engine_mutations.merge_fetish_rows(fetishes, matrix, 0, 1, new_name='Merged')
         self.assertEqual((keep_name, keep_desc), ('Merged', 'a'))
         self.assertEqual(fetishes, [{'id': 1, 'name': 'Merged', 'desc': 'a'}])
         self.assertEqual(matrix, {'yes': [[4.0, 6.0]], 'total': [[12.0, 14.0]]})
         self.assertEqual(
-            engine_mutations.merge_log_entries(
-                {'1': {'guessed': 1, 'correct': 2}, '2': {'wrong': 3}}, 1, 2
-            ),
+            engine_mutations.merge_log_entries({'1': {'guessed': 1, 'correct': 2}, '2': {'wrong': 3}}, 1, 2),
             {'1': {'guessed': 1, 'correct': 2, 'wrong': 3}},
         )

@@ -8,8 +8,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import engine
 
-
-
 EXPECTED_MODULE_EXPORTS = {
     'Engine',
     'PLAYER_FETISH_BASE_ID',
@@ -128,7 +126,8 @@ class TestEnginePublicApiContract(unittest.TestCase):
 
     def test_no_untracked_public_engine_methods_are_added_silently(self):
         actual = {
-            name for name, member in inspect.getmembers(engine.Engine, predicate=inspect.isfunction)
+            name
+            for name, member in inspect.getmembers(engine.Engine, predicate=inspect.isfunction)
             if not name.startswith('_')
         }
         self.assertEqual(actual, set(EXPECTED_PUBLIC_METHOD_SIGNATURES))

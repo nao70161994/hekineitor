@@ -8,10 +8,7 @@ def matrix_heatmap(engine, n_fetishes=20, n_questions=20):
     n_questions = min(n_questions, nq)
     weights = [sum(engine.matrix['total'][fi]) for fi in range(nf)]
     top_fi = sorted(range(nf), key=lambda i: -weights[i])[:n_fetishes]
-    discs = [
-        sum(abs(engine._prob(f, q) - 0.5) for f in range(nf)) / max(nf, 1)
-        for q in range(nq)
-    ]
+    discs = [sum(abs(engine._prob(f, q) - 0.5) for f in range(nf)) / max(nf, 1) for q in range(nq)]
     top_qi = sorted(sorted(range(nq), key=lambda q: -discs[q])[:n_questions])
     rows = [
         {
@@ -36,12 +33,14 @@ def learning_stats(engine, *, domain_priors, pseudo):
         n_prior = len(prior_qs.get(fetish_idx, set()))
         baseline = n_prior * float(pseudo) + (nq - n_prior) * 4.0
         data_weight = sum(engine.matrix['total'][fetish_idx]) - baseline
-        stats.append({
-            'id': fetish['id'],
-            'index': fetish_idx,
-            'name': fetish['name'],
-            'data_weight': round(data_weight, 1),
-        })
+        stats.append(
+            {
+                'id': fetish['id'],
+                'index': fetish_idx,
+                'name': fetish['name'],
+                'data_weight': round(data_weight, 1),
+            }
+        )
     return sorted(stats, key=lambda item: item['data_weight'])
 
 
@@ -52,16 +51,18 @@ def question_stats(engine):
         probs = [engine._prob(fetish_idx, question_idx) for fetish_idx in range(nf)]
         disc = sum(abs(probability - 0.5) for probability in probs) / nf
         ask_count = sum(engine.matrix['total'][fetish_idx][question_idx] for fetish_idx in range(nf))
-        result.append({
-            'id': question_idx,
-            'text': question['text'],
-            'category': question.get('category') or 'unknown',
-            'axis': question.get('axis') or '',
-            'disc': round(disc, 3),
-            'disabled': question_idx in engine.disabled_questions,
-            'ask_count': round(ask_count, 1),
-            'variants_count': len(question.get('variants', [])),
-        })
+        result.append(
+            {
+                'id': question_idx,
+                'text': question['text'],
+                'category': question.get('category') or 'unknown',
+                'axis': question.get('axis') or '',
+                'disc': round(disc, 3),
+                'disabled': question_idx in engine.disabled_questions,
+                'ask_count': round(ask_count, 1),
+                'variants_count': len(question.get('variants', [])),
+            }
+        )
     return sorted(result, key=lambda item: item['disc'])
 
 
@@ -83,12 +84,14 @@ def axis_stats(engine, *, question_axes):
             continue
         avg_disc = round(sum(disc_map.get(question_idx, 0) for question_idx in ids) / len(ids), 3)
         disabled_count = sum(1 for question_idx in ids if disabled_map.get(question_idx, False))
-        result.append({
-            'name': axis_name,
-            'count': len(ids),
-            'avg_disc': avg_disc,
-            'disabled': disabled_count,
-        })
+        result.append(
+            {
+                'name': axis_name,
+                'count': len(ids),
+                'avg_disc': avg_disc,
+                'disabled': disabled_count,
+            }
+        )
     return result
 
 

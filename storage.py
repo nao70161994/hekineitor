@@ -1,10 +1,11 @@
-import os
 import json
+import os
 import tempfile
 
 try:
     import psycopg2
     from psycopg2 import pool as psycopg2_pool
+
     HAS_PSYCOPG2 = True
 except ImportError:
     HAS_PSYCOPG2 = False

@@ -1,21 +1,24 @@
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+import threading
 import types
 import unittest
-import threading
 from unittest.mock import patch
+
 import engine as eng_module
-from engine import Engine, FETISH_PRIOR_WEIGHTS
+from engine import FETISH_PRIOR_WEIGHTS, Engine
 from matrix_service import collect_matrix_updates
 
 
 class TestEngine(unittest.TestCase):
     def setUp(self):
         self._patches = [
-            patch.object(Engine, '_save_matrix_file',  return_value=None),
+            patch.object(Engine, '_save_matrix_file', return_value=None),
             patch.object(Engine, '_save_fetishes_file', return_value=None),
-            patch.object(Engine, '_save_to_db',        return_value=None),
+            patch.object(Engine, '_save_to_db', return_value=None),
             patch.object(Engine, '_load_matrix_file', new=lambda self: self._init_matrix_file()),
         ]
         for p in self._patches:
@@ -34,13 +37,13 @@ class TestEngine(unittest.TestCase):
     def test_posteriors_popular_fetish_higher_prior(self):
         """事前確率: NTR(0, weight=3.0) はゾンビ(49, weight=0.5) より高い"""
         probs = self.e.posteriors({})
-        ntr_idx   = self.e.index_of(0)
+        ntr_idx = self.e.index_of(0)
         zombie_idx = self.e.index_of(49)
         self.assertGreater(probs[ntr_idx], probs[zombie_idx])
 
     def test_posteriors_increases_matching_fetish(self):
         probs_before = self.e.posteriors({})
-        probs_after  = self.e.posteriors({'8': 1})   # Q8=裏切り → NTR(0) が上がる
+        probs_after = self.e.posteriors({'8': 1})  # Q8=裏切り → NTR(0) が上がる
         self.assertGreater(probs_after[0], probs_before[0])
 
     def test_posteriors_sums_to_one(self):
@@ -49,7 +52,7 @@ class TestEngine(unittest.TestCase):
 
     def test_posteriors_zero_answers_are_weak_signal(self):
         p_empty = self.e.posteriors({})
-        p_zero  = self.e.posteriors({'0': 0, '5': 0})
+        p_zero = self.e.posteriors({'0': 0, '5': 0})
         self.assertAlmostEqual(sum(p_zero), 1.0, places=6)
         self.assertNotEqual(p_empty, p_zero)
 
@@ -119,6 +122,7 @@ class TestEngine(unittest.TestCase):
     def test_best_question_endgame_focuses_top_candidates(self):
         """終盤モード: 特定性癖に偏った回答では、その性癖を識別する質問が選ばれやすい"""
         from engine import FOCUS_THRESHOLD
+
         # NTRに強くシグナルを与える回答（Q8=裏切り, Q6=嫉妬, Q0=力関係）
         answers = {'8': 1, '6': 1, '0': 1, '40': 1}
         probs = self.e.posteriors(answers)
@@ -147,17 +151,21 @@ class TestEngine(unittest.TestCase):
             }
             return values[q][f] if f < 3 else 0.5
 
-        with patch.object(self.e, 'posteriors', return_value=probs), \
-                patch.object(self.e, '_prob', side_effect=fake_prob):
+        with (
+            patch.object(self.e, 'posteriors', return_value=probs),
+            patch.object(self.e, '_prob', side_effect=fake_prob),
+        ):
             q = self.e.best_disambiguating_question({}, asked, candidate_count=3)
         self.assertEqual(q, 0)
 
     def test_best_disambiguating_question_falls_back_without_separation(self):
         probs = [0.5, 0.3, 0.2] + [0.0] * (len(self.e.fetishes) - 3)
         asked = set(range(1, len(self.e.questions)))
-        with patch.object(self.e, 'posteriors', return_value=probs), \
-                patch.object(self.e, '_prob', return_value=0.5), \
-                patch.object(self.e, 'best_question', return_value=7) as best_question:
+        with (
+            patch.object(self.e, 'posteriors', return_value=probs),
+            patch.object(self.e, '_prob', return_value=0.5),
+            patch.object(self.e, 'best_question', return_value=7) as best_question,
+        ):
             q = self.e.best_disambiguating_question({}, asked, candidate_count=3, idk_streak=2)
         self.assertEqual(q, 7)
         best_question.assert_called_once_with({}, asked, idk_streak=2)
@@ -175,11 +183,12 @@ class TestEngine(unittest.TestCase):
 
     def test_learn_negative_updates_other_fetishes(self):
         before = self.e.matrix['total'][1][8]  # 百合(1)
-        self.e.learn({'8': 1}, 0)              # NTR(0) が正解
+        self.e.learn({'8': 1}, 0)  # NTR(0) が正解
         self.assertGreater(self.e.matrix['total'][1][8], before)
 
     def test_learn_proportional_to_strength(self):
-        e1 = Engine(); e2 = Engine()
+        e1 = Engine()
+        e2 = Engine()
         b1 = e1.matrix['total'][0][9]
         b2 = e2.matrix['total'][0][9]
         e1.learn({'9': 1.0}, 0)
@@ -216,13 +225,14 @@ class TestEngine(unittest.TestCase):
         idx, _ = self.e.add_fetish('テンプレートテスト', '説明', {'0': 1, '3': -1})
         nq = len(self.e.questions)
         for q in range(nq):
-            yes   = self.e.matrix['yes'][idx][q]
+            yes = self.e.matrix['yes'][idx][q]
             total = self.e.matrix['total'][idx][q]
             self.assertGreaterEqual(total, yes)
 
     def test_add_fetish_id_gte_base(self):
         """プレイヤー追加性癖のIDが PLAYER_FETISH_BASE_ID 以上であること"""
         from engine import PLAYER_FETISH_BASE_ID
+
         self.e.add_fetish('IDテスト', '説明', {})
         new_f = self.e.fetishes[-1]
         self.assertGreaterEqual(new_f['id'], PLAYER_FETISH_BASE_ID)
@@ -299,16 +309,11 @@ class TestEngine(unittest.TestCase):
         def fake_execute_values(cur, query, rows):
             captured['rows'] = rows
 
-        fake_psycopg2 = types.SimpleNamespace(
-            extras=types.SimpleNamespace(execute_values=fake_execute_values)
-        )
+        fake_psycopg2 = types.SimpleNamespace(extras=types.SimpleNamespace(execute_values=fake_execute_values))
         with patch.object(eng_module, 'psycopg2', fake_psycopg2, create=True):
             self.e._seed_db(object(), self.e.fetishes)
 
-        rows = {
-            (fetish_id, question_id): (yes, total)
-            for fetish_id, question_id, yes, total in captured['rows']
-        }
+        rows = {(fetish_id, question_id): (yes, total) for fetish_id, question_id, yes, total in captured['rows']}
         ntr_id = self.e.fetishes[0]['id']
         self.assertEqual(rows[(ntr_id, 8)], (0.95 * eng_module.PSEUDO, float(eng_module.PSEUDO)))
 
@@ -332,9 +337,11 @@ class TestMatrixPersistence(unittest.TestCase):
 
     def test_local_save_async_saves_synchronously(self):
         e = Engine.__new__(Engine)
-        with patch.object(eng_module, '_use_db', return_value=False), \
-             patch.object(e, '_save_matrix_file', return_value=None) as save_matrix, \
-             patch.object(eng_module.threading, 'Thread') as thread_cls:
+        with (
+            patch.object(eng_module, '_use_db', return_value=False),
+            patch.object(e, '_save_matrix_file', return_value=None) as save_matrix,
+            patch.object(eng_module.threading, 'Thread') as thread_cls,
+        ):
             e._save_async({0: [(0, 1.0, 1.0)]}, {0: 0})
 
         save_matrix.assert_called_once()

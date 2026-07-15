@@ -1,11 +1,26 @@
-import subprocess, sys, os
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
-result = subprocess.run(
-    [sys.executable, '-m', 'coverage', 'run', '--source=app,engine',
-     '-m', 'unittest', 'tests.test_app'],
-    capture_output=False
-)
-if result.returncode == 0:
-    subprocess.run([sys.executable, '-m', 'coverage', 'report', '-m'])
-else:
-    sys.exit(result.returncode)
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parent
+
+
+def main() -> int:
+    os.chdir(ROOT)
+    subprocess.run([sys.executable, '-m', 'coverage', 'erase'], check=True)
+    result = subprocess.run(
+        [sys.executable, '-m', 'coverage', 'run', '-m', 'pytest', '-q'],
+        check=False,
+    )
+    if result.returncode:
+        return result.returncode
+    return subprocess.run(
+        [sys.executable, '-m', 'coverage', 'report'],
+        check=False,
+    ).returncode
+
+
+if __name__ == '__main__':
+    sys.exit(main())

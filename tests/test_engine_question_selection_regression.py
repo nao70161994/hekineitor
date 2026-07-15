@@ -9,7 +9,6 @@ from engine import Engine
 from engine import question_selection as engine_question_selection
 
 
-
 class TestEngineQuestionSelectionRegression(unittest.TestCase):
     def setUp(self):
         self._patches = [
@@ -28,7 +27,6 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
     def tearDown(self):
         for patcher in self._patches:
             patcher.stop()
-
 
     def test_yes_rate_balance_multiplier_penalizes_extreme_rates_only_with_enough_answers(self):
         self.assertEqual(
@@ -71,7 +69,6 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
                     expected_question,
                 )
 
-
     def test_early_questions_prefer_abstract_axis(self):
         for asked in [set(), {91}, {91, 105}]:
             with self.subTest(asked=asked):
@@ -92,7 +89,6 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
         asked = {55, 91}
         question_id = self.engine.best_question({}, asked)
         self.assertNotEqual(self.engine._question_category(question_id), 'attachment')
-
 
     def test_direct_heavy_questions_are_not_asked_in_first_five(self):
         asked = set()
@@ -119,7 +115,6 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
         heavy_names = {'共依存', '激重感情', '共生関係', '執着'}
         self.assertLessEqual(sum(name in heavy_names for name in ranked_names), 1)
 
-
     def test_heavy_emotion_cluster_prefers_diversifying_categories(self):
         answers = {'60': 1, '2': 1, '91': 1}
         asked = {60, 2, 91}
@@ -136,18 +131,26 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
         ]
         self.assertTrue({'眼鏡', '白衣', '敬語'} & set(ranked_names))
 
-
     def test_low_exposure_axis_probe_triggers_for_heavy_cluster(self):
         from services import question_selection
+
         answers = {'60': 1, '2': 1, '91': 1}
         asked = {60, 2, 91}
         probs = self.engine.posteriors(answers)
         ranked = sorted(range(len(probs)), key=lambda index: probs[index], reverse=True)
         top_p = probs[ranked[0]]
         second_p = probs[ranked[1]]
-        self.assertTrue(question_selection.should_probe_low_exposure_axis(
-            self.engine, answers, asked, count=4, top_p=top_p, second_p=second_p, hard_max_questions=30,
-        ))
+        self.assertTrue(
+            question_selection.should_probe_low_exposure_axis(
+                self.engine,
+                answers,
+                asked,
+                count=4,
+                top_p=top_p,
+                second_p=second_p,
+                hard_max_questions=30,
+            )
+        )
         question_id = question_selection.best_low_exposure_axis_question(self.engine, answers, asked)
         self.assertIsNotNone(question_id)
         self.assertIn(self.engine._question_category(question_id), {'attribute', 'world', 'aesthetic', 'value', 'role'})

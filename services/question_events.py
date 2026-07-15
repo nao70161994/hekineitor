@@ -5,10 +5,9 @@ from collections import Counter, defaultdict, deque
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
+from services import event_store
 from services.csv_safety import csv_text
 from storage import data_path
-from services import event_store
-
 
 _ALLOWED_EVENTS = {
     'question_shown',
@@ -124,7 +123,10 @@ def record_event(event_name, *, path=None, environ=None, now_fn=None, **kwargs):
             return event_store.record_event('question', event)
         except Exception:
             pass
-    _append_event(event, path or event_log_path(environ),)
+    _append_event(
+        event,
+        path or event_log_path(environ),
+    )
     return event
 
 
@@ -201,7 +203,11 @@ def read_events(*, path=None, environ=None, limit=5000):
     limit = max(1, min(int(limit or 5000), 50000))
     if path is None and event_store.enabled(environ):
         try:
-            return [event for event in event_store.read_events('question', limit=limit) if event.get('event_name') in _ALLOWED_EVENTS]
+            return [
+                event
+                for event in event_store.read_events('question', limit=limit)
+                if event.get('event_name') in _ALLOWED_EVENTS
+            ]
         except Exception:
             return []
     path = path or event_log_path(environ)
@@ -247,12 +253,14 @@ def _suspicious_timestamp_keys(events, *, max_events_per_second=30, min_same_ans
                 reasons.append('same_answer_burst')
         if reasons:
             suspicious.add(key)
-            details.append({
-                'timestamp': key,
-                'event_count': len(rows),
-                'answered': len(answer_buckets),
-                'reasons': reasons,
-            })
+            details.append(
+                {
+                    'timestamp': key,
+                    'event_count': len(rows),
+                    'answered': len(answer_buckets),
+                    'reasons': reasons,
+                }
+            )
     details.sort(key=lambda row: (-row['event_count'], row['timestamp']))
     return suspicious, details
 
@@ -291,7 +299,9 @@ def _question_meta(engine, question_id, event=None):
     return text, category, axis
 
 
-def event_report(engine, *, path=None, environ=None, limit=5000, date=None, timezone_name='Asia/Tokyo', exclude_suspicious=True):
+def event_report(
+    engine, *, path=None, environ=None, limit=5000, date=None, timezone_name='Asia/Tokyo', exclude_suspicious=True
+):
     effective_limit = max(1, min(int(limit or 5000), 50000))
     if date:
         filtered_events = _filter_events_by_date(
@@ -316,16 +326,18 @@ def event_report(engine, *, path=None, environ=None, limit=5000, date=None, time
             return None
         if question_id not in rows:
             text, cat, axis = _question_meta(engine, question_id, event)
-            rows[question_id] = Counter({
-                'question_id': question_id,
-                'shown': 0,
-                'answered': 0,
-                'yes': 0,
-                'no': 0,
-                'unknown': 0,
-                'dropoff': 0,
-                'contribution': 0,
-            })
+            rows[question_id] = Counter(
+                {
+                    'question_id': question_id,
+                    'shown': 0,
+                    'answered': 0,
+                    'yes': 0,
+                    'no': 0,
+                    'unknown': 0,
+                    'dropoff': 0,
+                    'contribution': 0,
+                }
+            )
             rows[question_id]['question_text'] = text
             rows[question_id]['category'] = cat
             rows[question_id]['axis'] = axis
@@ -364,60 +376,70 @@ def event_report(engine, *, path=None, environ=None, limit=5000, date=None, time
         answered = int(row.get('answered', 0))
         shown = max(raw_shown, answered)
         dropoff = int(row.get('dropoff', 0))
-        question_rows.append({
-            'question_id': row['question_id'],
-            'question_text': row.get('question_text', ''),
-            'category': row.get('category', 'uncategorized'),
-            'axis': row.get('axis', ''),
-            'shown': shown,
-            'answered': answered,
-            'yes': int(row.get('yes', 0)),
-            'no': int(row.get('no', 0)),
-            'unknown': int(row.get('unknown', 0)),
-            'dropoff': dropoff,
-            'contribution': int(row.get('contribution', 0)),
-            'yes_rate': round(row.get('yes', 0) / answered * 100, 1) if answered else 0,
-            'no_rate': round(row.get('no', 0) / answered * 100, 1) if answered else 0,
-            'unknown_rate': round(row.get('unknown', 0) / answered * 100, 1) if answered else 0,
-            'unanswered_rate': round(max(shown - answered, 0) / shown * 100, 1) if shown else 0,
-            'dropoff_rate': round(dropoff / shown * 100, 1) if shown else 0,
-            'top_results': [
-                {'result_name': name, 'count': count}
-                for name, count in contribution[row['question_id']].most_common(3)
-            ],
-        })
+        question_rows.append(
+            {
+                'question_id': row['question_id'],
+                'question_text': row.get('question_text', ''),
+                'category': row.get('category', 'uncategorized'),
+                'axis': row.get('axis', ''),
+                'shown': shown,
+                'answered': answered,
+                'yes': int(row.get('yes', 0)),
+                'no': int(row.get('no', 0)),
+                'unknown': int(row.get('unknown', 0)),
+                'dropoff': dropoff,
+                'contribution': int(row.get('contribution', 0)),
+                'yes_rate': round(row.get('yes', 0) / answered * 100, 1) if answered else 0,
+                'no_rate': round(row.get('no', 0) / answered * 100, 1) if answered else 0,
+                'unknown_rate': round(row.get('unknown', 0) / answered * 100, 1) if answered else 0,
+                'unanswered_rate': round(max(shown - answered, 0) / shown * 100, 1) if shown else 0,
+                'dropoff_rate': round(dropoff / shown * 100, 1) if shown else 0,
+                'top_results': [
+                    {'result_name': name, 'count': count}
+                    for name, count in contribution[row['question_id']].most_common(3)
+                ],
+            }
+        )
 
     total_shown = sum(row['shown'] for row in question_rows)
     category_rows = []
     for cat, counts in category.items():
         shown = counts['shown']
         answered = counts['answered']
-        category_rows.append({
-            'category': cat,
-            'shown': shown,
-            'answered': answered,
-            'yes': counts['yes'],
-            'no': counts['no'],
-            'unknown': counts['unknown'],
-            'dropoff': counts['dropoff'],
-            'shown_share': round(shown / total_shown * 100, 1) if total_shown else 0,
-            'yes_rate': round(counts['yes'] / answered * 100, 1) if answered else 0,
-            'dropoff_rate': round(counts['dropoff'] / shown * 100, 1) if shown else 0,
-        })
+        category_rows.append(
+            {
+                'category': cat,
+                'shown': shown,
+                'answered': answered,
+                'yes': counts['yes'],
+                'no': counts['no'],
+                'unknown': counts['unknown'],
+                'dropoff': counts['dropoff'],
+                'shown_share': round(shown / total_shown * 100, 1) if total_shown else 0,
+                'yes_rate': round(counts['yes'] / answered * 100, 1) if answered else 0,
+                'dropoff_rate': round(counts['dropoff'] / shown * 100, 1) if shown else 0,
+            }
+        )
 
-    relation_attachment_shown = sum(row['shown'] for row in category_rows if row['category'] in ('relation', 'attachment'))
+    relation_attachment_shown = sum(
+        row['shown'] for row in category_rows if row['category'] in ('relation', 'attachment')
+    )
     relation_attachment_share = round(relation_attachment_shown / total_shown * 100, 1) if total_shown else 0
     warnings = []
     if quality.get('suspicious_timestamp_count'):
-        warnings.append({
-            'type': 'suspicious_question_event_burst',
-            'message': f"同一秒の大量/固定回答らしき question_events を {quality.get('excluded_suspicious_events', 0)} 件、分析対象から除外しました。",
-        })
+        warnings.append(
+            {
+                'type': 'suspicious_question_event_burst',
+                'message': f'同一秒の大量/固定回答らしき question_events を {quality.get("excluded_suspicious_events", 0)} 件、分析対象から除外しました。',
+            }
+        )
     if total_shown >= 10 and relation_attachment_share >= 55:
-        warnings.append({
-            'type': 'relation_attachment_bias',
-            'message': f'relation/attachment の表示比率が {relation_attachment_share}% です。序盤質問の偏りを確認してください。',
-        })
+        warnings.append(
+            {
+                'type': 'relation_attachment_bias',
+                'message': f'relation/attachment の表示比率が {relation_attachment_share}% です。序盤質問の偏りを確認してください。',
+            }
+        )
 
     contribution_rows = sorted(
         [row for row in question_rows if row['contribution'] > 0],
@@ -453,13 +475,37 @@ def event_report(engine, *, path=None, environ=None, limit=5000, date=None, time
 
 def question_csv(report):
     fieldnames = [
-        'question_id', 'category', 'axis', 'shown', 'answered', 'yes', 'no', 'unknown',
-        'yes_rate', 'no_rate', 'unknown_rate', 'unanswered_rate', 'dropoff',
-        'dropoff_rate', 'contribution', 'question_text',
+        'question_id',
+        'category',
+        'axis',
+        'shown',
+        'answered',
+        'yes',
+        'no',
+        'unknown',
+        'yes_rate',
+        'no_rate',
+        'unknown_rate',
+        'unanswered_rate',
+        'dropoff',
+        'dropoff_rate',
+        'contribution',
+        'question_text',
     ]
     return csv_text(report.get('questions', []), fieldnames)
 
 
 def category_csv(report):
-    fieldnames = ['category', 'shown', 'shown_share', 'answered', 'yes', 'no', 'unknown', 'yes_rate', 'dropoff', 'dropoff_rate']
+    fieldnames = [
+        'category',
+        'shown',
+        'shown_share',
+        'answered',
+        'yes',
+        'no',
+        'unknown',
+        'yes_rate',
+        'dropoff',
+        'dropoff_rate',
+    ]
     return csv_text(report.get('categories', []), fieldnames)

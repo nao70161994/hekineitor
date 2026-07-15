@@ -18,7 +18,7 @@ window.HekiNetwork = (() => {
     } catch (error) {
       if (error.status === 440 || error.message === 'session_expired') {
         showSessionExpired();
-        throw new Error('session_expired');
+        throw new Error('session_expired', {cause: error});
       }
       const msg = error.name === 'AbortError'
         ? 'サーバーへの接続がタイムアウトしました。しばらくしてから再試行してください。'

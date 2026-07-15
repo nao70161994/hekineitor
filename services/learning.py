@@ -20,7 +20,6 @@ def learn_negative(engine, answers, fetish_idx, *, strength_factor=1.0):
     return engine.learn_negative(answers, fetish_idx, strength_factor=strength_factor)
 
 
-
 def learn_factor(engine, posteriors_fn, answers, guess_threshold, total_n=1):
     """確信度スケーリング x sqrt(n) 分散。"""
     probs = posteriors_fn(engine, answers)
@@ -33,11 +32,11 @@ def learn_factor(engine, posteriors_fn, answers, guess_threshold, total_n=1):
     return max(0.3, min(2.0, conf * n_scale))
 
 
-
 def make_learn_factor(engine, posteriors_fn, default_guess_threshold):
     def _learn_factor(answers, total_n=1):
         threshold = engine.config.get('guess_threshold', default_guess_threshold)
         return learn_factor(engine, posteriors_fn, answers, threshold, total_n)
+
     return _learn_factor
 
 
@@ -118,8 +117,12 @@ def make_feedback_factor_provider(engine, environ=None):
         return exposure_factors_cache
 
     return {
-        'positive': lambda _engine, fetish_idx: positive_feedback_factor(_engine, fetish_idx, exposure_factors=factors()),
-        'negative': lambda _engine, fetish_idx: negative_feedback_factor(_engine, fetish_idx, exposure_factors=factors()),
+        'positive': lambda _engine, fetish_idx: positive_feedback_factor(
+            _engine, fetish_idx, exposure_factors=factors()
+        ),
+        'negative': lambda _engine, fetish_idx: negative_feedback_factor(
+            _engine, fetish_idx, exposure_factors=factors()
+        ),
     }
 
 

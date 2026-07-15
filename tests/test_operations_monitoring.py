@@ -24,10 +24,20 @@ class OperationsMonitoringTests(unittest.TestCase):
         reports = {
             'question_filtered': {'total': 210, 'quality': {'excluded_suspicious_events': 0}},
             'question_raw': {'raw_loaded': 210, 'total_available': 210},
-            'share': {'total': 2, 'metrics': {'result_page_views': 1, 'share_actions': 0}, 'by_event': {'result_page_view': 1, 'ogp_png_view': 1}},
+            'share': {
+                'total': 2,
+                'metrics': {'result_page_views': 1, 'share_actions': 0},
+                'by_event': {'result_page_view': 1, 'ogp_png_view': 1},
+            },
             'result_displayed': {'total': 3, 'ranking': [{'fetish_name': '制服', 'count': 3, 'total': 3}]},
             'result_primary': {'total': 3, 'ranking': [{'fetish_name': '制服', 'count': 3, 'total': 3}]},
-            'result_candidates': {'total': 4, 'ranking': [{'fetish_name': '制服', 'count': 3, 'total': 3}, {'fetish_name': '激重感情', 'count': 1, 'total': 1}]},
+            'result_candidates': {
+                'total': 4,
+                'ranking': [
+                    {'fetish_name': '制服', 'count': 3, 'total': 3},
+                    {'fetish_name': '激重感情', 'count': 1, 'total': 1},
+                ],
+            },
         }
 
         findings = analytics_data_diff._date_findings(
@@ -41,7 +51,9 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('question_events mismatch previous_log=500 current_api=210', findings)
         self.assertIn('share_events mismatch previous_log=1 current_api=2', findings)
         self.assertIn('share_events contain no share actions; totals are views/OGP/work events only', findings)
-        self.assertIn('displayed and primary rankings match; observed bias is not from secondary result inflation', findings)
+        self.assertIn(
+            'displayed and primary rankings match; observed bias is not from secondary result inflation', findings
+        )
         self.assertIn('result sample is small primary_total=3; treat dominance as reference only', findings)
         self.assertIn('primary result dominated by 制服: 3/3 (100.0%)', findings)
         self.assertIn('expected observed result appears only in candidate/top_chart exposures: 激重感情', findings)
@@ -102,11 +114,13 @@ class OperationsMonitoringTests(unittest.TestCase):
             return {'status': 'ok'}
 
         with patch.object(operations_check, 'fetch_json', fake_fetch):
-            getter = operations_check.report_json_getter({
-                'ADMIN_READ_TOKEN': 'token',
-                'NTFY_ADMIN_RETRIES': '2',
-                'NTFY_ADMIN_TIMEOUT_SECONDS': '7',
-            })
+            getter = operations_check.report_json_getter(
+                {
+                    'ADMIN_READ_TOKEN': 'token',
+                    'NTFY_ADMIN_RETRIES': '2',
+                    'NTFY_ADMIN_TIMEOUT_SECONDS': '7',
+                }
+            )
             self.assertEqual(getter('/api/admin/preflight'), {'status': 'ok'})
 
         self.assertEqual(len(calls), 2)
@@ -122,11 +136,13 @@ class OperationsMonitoringTests(unittest.TestCase):
             return {'status': 'ok'}
 
         with patch.object(daily_analytics_report, 'fetch_json', fake_fetch):
-            getter = daily_analytics_report.report_json_getter({
-                'ADMIN_READ_TOKEN': 'token',
-                'NTFY_ADMIN_RETRIES': '2',
-                'NTFY_ADMIN_TIMEOUT_SECONDS': '8',
-            })
+            getter = daily_analytics_report.report_json_getter(
+                {
+                    'ADMIN_READ_TOKEN': 'token',
+                    'NTFY_ADMIN_RETRIES': '2',
+                    'NTFY_ADMIN_TIMEOUT_SECONDS': '8',
+                }
+            )
             self.assertEqual(getter('/api/admin/funnel_metrics'), {'status': 'ok'})
 
         self.assertEqual(len(calls), 2)
@@ -148,7 +164,12 @@ class OperationsMonitoringTests(unittest.TestCase):
             if path == '/api/admin/works_health':
                 return {'maintenance': {'works_count': 10}}
             if path.startswith('/api/admin/recent_fetish_ranking'):
-                return {'ranking': [{'fetish_name': '共依存', 'guessed': 80, 'total': 80}, {'fetish_name': '眼鏡', 'guessed': 20, 'total': 20}]}
+                return {
+                    'ranking': [
+                        {'fetish_name': '共依存', 'guessed': 80, 'total': 80},
+                        {'fetish_name': '眼鏡', 'guessed': 20, 'total': 20},
+                    ]
+                }
             if path.startswith('/api/admin/question_events'):
                 return {
                     'total': 20,
@@ -157,7 +178,12 @@ class OperationsMonitoringTests(unittest.TestCase):
                     'dropoff_ranking': [{'question_id': 2, 'shown': 10, 'dropoff_rate': 40}],
                 }
             if path == '/api/admin/funnel_metrics':
-                return {'completion': {'recent_7_days': {'starts': 30, 'completions': 1, 'completion_rate': 3}, 'completion_rate': 103}}
+                return {
+                    'completion': {
+                        'recent_7_days': {'starts': 30, 'completions': 1, 'completion_rate': 3},
+                        'completion_rate': 103,
+                    }
+                }
             if path.startswith('/api/admin/share_events'):
                 return {'total': 5, 'metrics': {'result_page_views': 30, 'share_actions': 0}}
             raise AssertionError(path)
@@ -178,7 +204,12 @@ class OperationsMonitoringTests(unittest.TestCase):
     def test_operations_report_warns_on_repeated_dominant_result(self):
         def fake_json(path):
             if path == '/health':
-                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+                return {
+                    'status': 'ok',
+                    'storage': 'postgres',
+                    'matrix': {'ok': True},
+                    'runtime': {'error_counts': {'5xx': 0}},
+                }
             if path == '/api/admin/preflight':
                 return {'checks': []}
             if path == '/api/admin/works_health':
@@ -189,7 +220,9 @@ class OperationsMonitoringTests(unittest.TestCase):
                 return {
                     'total': 500,
                     'metrics': {'relation_attachment_share': 10},
-                    'questions': [{'question_id': 111, 'answered': 23, 'shown': 23, 'yes_rate': 95.7, 'category': 'tone'}],
+                    'questions': [
+                        {'question_id': 111, 'answered': 23, 'shown': 23, 'yes_rate': 95.7, 'category': 'tone'}
+                    ],
                     'dropoff_ranking': [],
                 }
             if path == '/api/admin/funnel_metrics':
@@ -217,7 +250,12 @@ class OperationsMonitoringTests(unittest.TestCase):
             called.append(path)
             if path.startswith('/api/admin/'):
                 raise AssertionError('admin API should not be called without token')
-            return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+            return {
+                'status': 'ok',
+                'storage': 'postgres',
+                'matrix': {'ok': True},
+                'runtime': {'error_counts': {'5xx': 0}},
+            }
 
         report = operations_check.build_report(
             environ={},
@@ -230,18 +268,22 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('admin analytics checks skipped', report['message'])
 
     def test_operations_check_warn_exit_is_zero_even_when_ntfy_fails(self):
-        with patch.object(operations_check, 'build_report', return_value={'severity': 'WARN', 'message': '[WARN] test'}), \
-                patch.object(operations_check, 'notify', side_effect=RuntimeError('ntfy down')), \
-                patch.dict(operations_check.os.environ, {'NTFY_TOPIC': 'topic', 'GITHUB_ACTIONS': 'true'}, clear=True):
+        with (
+            patch.object(operations_check, 'build_report', return_value={'severity': 'WARN', 'message': '[WARN] test'}),
+            patch.object(operations_check, 'notify', side_effect=RuntimeError('ntfy down')),
+            patch.dict(operations_check.os.environ, {'NTFY_TOPIC': 'topic', 'GITHUB_ACTIONS': 'true'}, clear=True),
+        ):
             self.assertEqual(operations_check.main([]), 0)
 
     def test_operations_check_critical_exit_is_nonzero_when_ntfy_fails(self):
-        with patch.object(operations_check, 'build_report', return_value={'severity': 'CRITICAL', 'message': '[CRITICAL] test'}), \
-                patch.object(operations_check, 'notify', side_effect=RuntimeError('ntfy down')), \
-                patch.dict(operations_check.os.environ, {'NTFY_TOPIC': 'topic', 'GITHUB_ACTIONS': 'true'}, clear=True):
+        with (
+            patch.object(
+                operations_check, 'build_report', return_value={'severity': 'CRITICAL', 'message': '[CRITICAL] test'}
+            ),
+            patch.object(operations_check, 'notify', side_effect=RuntimeError('ntfy down')),
+            patch.dict(operations_check.os.environ, {'NTFY_TOPIC': 'topic', 'GITHUB_ACTIONS': 'true'}, clear=True),
+        ):
             self.assertEqual(operations_check.main([]), 1)
-
-
 
     def test_works_count_accepts_actual_works_health_shape(self):
         works_health = {
@@ -276,11 +318,15 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('/health failed: TimeoutError (admin metrics reachable; downgraded from CRITICAL)', warn)
         self.assertIn('OGP PNG failure: TimeoutError (admin metrics reachable; downgraded from CRITICAL)', warn)
 
-
     def test_heavy_ratio_warning_is_suppressed_when_samples_are_small(self):
         def fake_json(path):
             if path == '/health':
-                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+                return {
+                    'status': 'ok',
+                    'storage': 'postgres',
+                    'matrix': {'ok': True},
+                    'runtime': {'error_counts': {'5xx': 0}},
+                }
             if path == '/api/admin/preflight':
                 return {'checks': []}
             if path == '/api/admin/works_health':
@@ -311,11 +357,15 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('heavy_result_ratio=100.0%', report['message'])
         # sample不足時は警告にしない（metrics は残す）
 
-
     def test_completion_reference_warning_is_suppressed_with_small_starts(self):
         def fake_json(path):
             if path == '/health':
-                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+                return {
+                    'status': 'ok',
+                    'storage': 'postgres',
+                    'matrix': {'ok': True},
+                    'runtime': {'error_counts': {'5xx': 0}},
+                }
             if path == '/api/admin/preflight':
                 return {'checks': []}
             if path == '/api/admin/works_health':
@@ -339,7 +389,6 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('completion_rate=50.0% (参考値) (2/4)', report['message'])
         self.assertEqual(report['message'].count('completion_rate=50.0% (参考値) (2/4)'), 1)
 
-
     def test_operations_report_rechecks_public_endpoints_after_admin_warmup(self):
         attempts = {'health': 0, 'png': 0}
 
@@ -348,7 +397,12 @@ class OperationsMonitoringTests(unittest.TestCase):
                 attempts['health'] += 1
                 if attempts['health'] <= 2:
                     raise TimeoutError()
-                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+                return {
+                    'status': 'ok',
+                    'storage': 'postgres',
+                    'matrix': {'ok': True},
+                    'runtime': {'error_counts': {'5xx': 0}},
+                }
             if path == '/api/admin/preflight':
                 return {'checks': []}
             if path == '/api/admin/works_health':
@@ -422,7 +476,12 @@ class OperationsMonitoringTests(unittest.TestCase):
                 attempts['health'] += 1
                 if attempts['health'] == 1:
                     raise TimeoutError()
-                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+                return {
+                    'status': 'ok',
+                    'storage': 'postgres',
+                    'matrix': {'ok': True},
+                    'runtime': {'error_counts': {'5xx': 0}},
+                }
             if path == '/api/admin/preflight':
                 return {'checks': []}
             if path == '/api/admin/works_health':
@@ -459,7 +518,12 @@ class OperationsMonitoringTests(unittest.TestCase):
         def fake_json(path):
             calls.append(path)
             if path == '/health':
-                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+                return {
+                    'status': 'ok',
+                    'storage': 'postgres',
+                    'matrix': {'ok': True},
+                    'runtime': {'error_counts': {'5xx': 0}},
+                }
             if path == '/api/admin/preflight':
                 return {'checks': []}
             if path == '/api/admin/works_health':
@@ -491,7 +555,12 @@ class OperationsMonitoringTests(unittest.TestCase):
     def test_operations_report_includes_http_status_when_share_fallback_fails(self):
         def fake_json(path):
             if path == '/health':
-                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+                return {
+                    'status': 'ok',
+                    'storage': 'postgres',
+                    'matrix': {'ok': True},
+                    'runtime': {'error_counts': {'5xx': 0}},
+                }
             if path == '/api/admin/preflight':
                 return {'checks': []}
             if path == '/api/admin/works_health':
@@ -514,11 +583,15 @@ class OperationsMonitoringTests(unittest.TestCase):
 
         self.assertIn('share analytics unavailable: HTTP 403', report['message'])
 
-
     def test_operations_report_does_not_warn_heavy_ratio_from_stats_history_fallback(self):
         def fake_json(path):
             if path == '/health':
-                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+                return {
+                    'status': 'ok',
+                    'storage': 'postgres',
+                    'matrix': {'ok': True},
+                    'runtime': {'error_counts': {'5xx': 0}},
+                }
             if path == '/api/admin/preflight':
                 return {'checks': []}
             if path == '/api/admin/works_health':
@@ -526,7 +599,12 @@ class OperationsMonitoringTests(unittest.TestCase):
             if path.startswith('/api/admin/result_exposures'):
                 return {'source': 'result_exposures', 'ranking': []}
             if path.startswith('/api/admin/recent_fetish_ranking'):
-                return {'ranking': [{'fetish_name': '共依存', 'guessed': 90, 'total': 90}, {'fetish_name': '白衣', 'guessed': 10, 'total': 10}]}
+                return {
+                    'ranking': [
+                        {'fetish_name': '共依存', 'guessed': 90, 'total': 90},
+                        {'fetish_name': '白衣', 'guessed': 10, 'total': 10},
+                    ]
+                }
             if path.startswith('/api/admin/question_events'):
                 return {'total': 1, 'metrics': {}, 'questions': [], 'dropoff_ranking': []}
             if path == '/api/admin/funnel_metrics':
@@ -545,14 +623,18 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('result_source=stats_history_fallback', report['message'])
         self.assertNotIn('heavy_result_ratio=90.0% TOP:', report['message'])
 
-
     def test_operations_report_uses_result_exposure_ranking_before_stats_history(self):
         calls = []
 
         def fake_json(path):
             calls.append(path)
             if path == '/health':
-                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+                return {
+                    'status': 'ok',
+                    'storage': 'postgres',
+                    'matrix': {'ok': True},
+                    'runtime': {'error_counts': {'5xx': 0}},
+                }
             if path == '/api/admin/preflight':
                 return {'checks': []}
             if path == '/api/admin/works_health':
@@ -621,10 +703,17 @@ class OperationsMonitoringTests(unittest.TestCase):
     def test_daily_report_summarizes_safe_analytics(self):
         def fake_json(path):
             if path == '/api/admin/funnel_metrics':
-                return {'stats_history': [{'date': '2026-05-26', 'start': 100, 'completion': 20, 'correct': 7, 'wrong': 3}]}
+                return {
+                    'stats_history': [{'date': '2026-05-26', 'start': 100, 'completion': 20, 'correct': 7, 'wrong': 3}]
+                }
             if path.startswith('/api/admin/recent_fetish_ranking'):
                 self.assertIn('date=2026-05-26', path)
-                return {'ranking': [{'fetish_name': '共依存', 'guessed': 40, 'total': 40}, {'fetish_name': '眼鏡', 'guessed': 60, 'total': 60}]}
+                return {
+                    'ranking': [
+                        {'fetish_name': '共依存', 'guessed': 40, 'total': 40},
+                        {'fetish_name': '眼鏡', 'guessed': 60, 'total': 60},
+                    ]
+                }
             if path.startswith('/api/admin/share_events'):
                 return {
                     'total': 12,
@@ -637,8 +726,25 @@ class OperationsMonitoringTests(unittest.TestCase):
                     'raw_loaded': 38,
                     'total_available': 38,
                     'quality': {'excluded_suspicious_events': 8, 'suspicious_timestamp_count': 1},
-                    'dropoff_ranking': [{'question_id': 3, 'question_text': '少人数の方が楽？', 'shown': 10, 'dropoff': 2, 'dropoff_rate': 20}],
-                    'questions': [{'question_id': 4, 'question_text': '整った静かな雰囲気？', 'answered': 20, 'shown': 21, 'yes_rate': 92, 'category': 'aesthetic'}],
+                    'dropoff_ranking': [
+                        {
+                            'question_id': 3,
+                            'question_text': '少人数の方が楽？',
+                            'shown': 10,
+                            'dropoff': 2,
+                            'dropoff_rate': 20,
+                        }
+                    ],
+                    'questions': [
+                        {
+                            'question_id': 4,
+                            'question_text': '整った静かな雰囲気？',
+                            'answered': 20,
+                            'shown': 21,
+                            'yes_rate': 92,
+                            'category': 'aesthetic',
+                        }
+                    ],
                 }
             raise AssertionError(path)
 
@@ -658,14 +764,15 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('share_views: result_page=50, ogp=0, work=0', report['message'])
         self.assertIn('share_actions: actions=5, button_clicks=0', report['message'])
         self.assertIn('share_7d_events: 12', report['message'])
-        self.assertIn('share_events_breakdown: result_page_view=50, share_button_click=4, copy_success=1', report['message'])
+        self.assertIn(
+            'share_events_breakdown: result_page_view=50, share_button_click=4, copy_success=1', report['message']
+        )
         self.assertIn('question_events: 30 analyzed (38 raw, 8 excluded)', report['message'])
         self.assertIn('question_events_excluded: 8 suspicious events (1 timestamp buckets)', report['message'])
         self.assertIn('Q3 20.0% (2/10) 少人数の方が楽？', report['message'])
         self.assertIn('Q4 92.0% (20/21, aesthetic)', report['message'])
         self.assertNotIn('note: question_events未蓄積', report['message'])
         self.assertNotIn('token', report['message'])
-
 
     def test_yes_rate_summary_normalizes_missing_shown_events(self):
         row = {'question_id': 111, 'answered': 20, 'shown': 19, 'yes_rate': 95.2, 'category': 'tone'}
@@ -674,7 +781,9 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertEqual(daily_analytics_report._question_yes_summary(row), 'Q111 95.2% (20/20, tone)')
 
     def test_daily_report_marks_heavy_ratio_as_reference_when_sample_is_small(self):
-        line = daily_analytics_report._heavy_line([{'fetish_name': '激重感情', 'count': 4}, {'fetish_name': '白衣', 'count': 1}])
+        line = daily_analytics_report._heavy_line(
+            [{'fetish_name': '激重感情', 'count': 4}, {'fetish_name': '白衣', 'count': 1}]
+        )
 
         self.assertEqual(line, 'heavy_result_ratio: 80.0% (参考値) (4/5)')
 
@@ -697,8 +806,6 @@ class OperationsMonitoringTests(unittest.TestCase):
 
         self.assertIn('note: question_events未蓄積', report['message'])
         self.assertIn('note: share_events未蓄積', report['message'])
-
-
 
     def test_daily_report_survives_partial_api_timeouts(self):
         def fake_json(path):
@@ -725,16 +832,21 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertIn('/api/admin/funnel_metrics: TimeoutError', report['message'])
         self.assertIn('result_source: unavailable', report['message'])
         self.assertIn('partial_failures:', report['message'])
-        self.assertIn('/api/admin/share_events?since=2026-05-26&until=2026-05-26&limit=5000: TimeoutError', report['message'])
+        self.assertIn(
+            '/api/admin/share_events?since=2026-05-26&until=2026-05-26&limit=5000: TimeoutError', report['message']
+        )
         self.assertIn('note: share_events未蓄積', report['message'])
 
     def test_daily_report_uses_jst_yesterday_and_latest_active_stats(self):
-        stats = daily_analytics_report._previous_day_stats({
-            'stats_history': [
-                {'date': '2026-05-25', 'start': 0, 'completion': 0},
-                {'date': '2026-05-26', 'start': 50, 'completion': 25},
-            ]
-        }, '2026-05-24')
+        stats = daily_analytics_report._previous_day_stats(
+            {
+                'stats_history': [
+                    {'date': '2026-05-25', 'start': 0, 'completion': 0},
+                    {'date': '2026-05-26', 'start': 50, 'completion': 25},
+                ]
+            },
+            '2026-05-24',
+        )
 
         self.assertEqual(stats['date'], '2026-05-26')
         self.assertEqual(stats['plays'], 50)
@@ -742,40 +854,62 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertTrue(stats['completion_reliable'])
 
     def test_daily_report_marks_completion_rate_as_reference_when_unstable(self):
-        stats = daily_analytics_report._previous_day_stats({
-            'stats_history': [{'date': '2026-05-26', 'start': 8, 'completion': 8}],
-        }, '2026-05-26')
+        stats = daily_analytics_report._previous_day_stats(
+            {
+                'stats_history': [{'date': '2026-05-26', 'start': 8, 'completion': 8}],
+            },
+            '2026-05-26',
+        )
 
         self.assertIn('completion_rate: 100.0% (参考値) (8/8)', daily_analytics_report._completion_line(stats))
 
     def test_operations_completion_rate_prefers_recent_bucket_and_marks_reference(self):
-        metric = operations_check._completion_metric({'completion': {'recent_7_days': {'starts': 30, 'completions': 12, 'completion_rate': 42}, 'completion_rate': 101.8}})
+        metric = operations_check._completion_metric(
+            {
+                'completion': {
+                    'recent_7_days': {'starts': 30, 'completions': 12, 'completion_rate': 42},
+                    'completion_rate': 101.8,
+                }
+            }
+        )
         self.assertEqual(metric['rate'], 42.0)
         self.assertTrue(metric['reliable'])
 
-        unstable = operations_check._completion_metric({'completion': {'recent_7_days': {'starts': 8, 'completions': 8, 'completion_rate': 100}}})
+        unstable = operations_check._completion_metric(
+            {'completion': {'recent_7_days': {'starts': 8, 'completions': 8, 'completion_rate': 100}}}
+        )
         self.assertEqual(unstable['rate'], 100.0)
         self.assertFalse(unstable['reliable'])
         self.assertIn('参考値', operations_check._completion_label(unstable))
 
     def test_operations_completion_rate_unavailable_when_completions_exceed_starts(self):
-        metric = operations_check._completion_metric({
-            'completion': {'recent_7_days': {'starts': 10, 'completions': 12, 'completion_rate': 120}},
-        })
+        metric = operations_check._completion_metric(
+            {
+                'completion': {'recent_7_days': {'starts': 10, 'completions': 12, 'completion_rate': 120}},
+            }
+        )
         self.assertIsNone(metric['rate'])
         self.assertFalse(metric['reliable'])
         self.assertIn('unavailable', operations_check._completion_label(metric))
 
-        stats = daily_analytics_report._previous_day_stats({
-            'stats_history': [{'date': '2026-05-26', 'start': 10, 'completion': 12}],
-        }, '2026-05-26')
+        stats = daily_analytics_report._previous_day_stats(
+            {
+                'stats_history': [{'date': '2026-05-26', 'start': 10, 'completion': 12}],
+            },
+            '2026-05-26',
+        )
         self.assertIsNone(stats['completion_rate'])
         self.assertIn('unavailable', daily_analytics_report._completion_line(stats))
 
     def test_operations_report_surfaces_log_quality_gaps(self):
         def fake_json(path):
             if path == '/health':
-                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 0}}}
+                return {
+                    'status': 'ok',
+                    'storage': 'postgres',
+                    'matrix': {'ok': True},
+                    'runtime': {'error_counts': {'5xx': 0}},
+                }
             if path == '/api/admin/preflight':
                 return {'checks': []}
             if path == '/api/admin/works_health':
@@ -783,11 +917,28 @@ class OperationsMonitoringTests(unittest.TestCase):
             if path.startswith('/api/admin/recent_fetish_ranking'):
                 return {'ranking': []}
             if path.startswith('/api/admin/question_events'):
-                return {'total': 4, 'total_available': 16, 'quality': {'excluded_suspicious_events': 12}, 'metrics': {}, 'questions': [], 'dropoff_ranking': []}
+                return {
+                    'total': 4,
+                    'total_available': 16,
+                    'quality': {'excluded_suspicious_events': 12},
+                    'metrics': {},
+                    'questions': [],
+                    'dropoff_ranking': [],
+                }
             if path == '/api/admin/funnel_metrics':
                 return {'completion': {'recent_7_days': {'starts': 30, 'completions': 15, 'completion_rate': 50}}}
             if path.startswith('/api/admin/share_events'):
-                return {'total': 1, 'metrics': {'result_page_views': 0, 'ogp_views': 1, 'work_clicks': 0, 'share_actions': 1, 'share_button_clicks': 0}, 'by_event': {'copy_success': 1}}
+                return {
+                    'total': 1,
+                    'metrics': {
+                        'result_page_views': 0,
+                        'ogp_views': 1,
+                        'work_clicks': 0,
+                        'share_actions': 1,
+                        'share_button_clicks': 0,
+                    },
+                    'by_event': {'copy_success': 1},
+                }
             raise AssertionError(path)
 
         report = operations_check.build_report(
@@ -805,7 +956,12 @@ class OperationsMonitoringTests(unittest.TestCase):
     def test_operations_single_5xx_is_warn_not_critical(self):
         def fake_json(path):
             if path == '/health':
-                return {'status': 'ok', 'storage': 'postgres', 'matrix': {'ok': True}, 'runtime': {'error_counts': {'5xx': 1}}}
+                return {
+                    'status': 'ok',
+                    'storage': 'postgres',
+                    'matrix': {'ok': True},
+                    'runtime': {'error_counts': {'5xx': 1}},
+                }
             if path == '/api/admin/preflight':
                 return {'checks': []}
             if path == '/api/admin/works_health':

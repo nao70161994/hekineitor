@@ -2,7 +2,7 @@
 
 ## Scope
 
-Use Flask test-client smoke tests and static JS contract checks as the default E2E layer. This keeps CI fast and avoids adding Playwright/Selenium until a real browser runner is explicitly approved.
+Use layered checks: Flask test-client smoke for server contracts, Vitest for client state transitions, and one minimal Playwright path for browser integration. Keep browser coverage narrow so CI remains fast and deterministic.
 
 ## Covered Paths
 
@@ -13,6 +13,8 @@ Use Flask test-client smoke tests and static JS contract checks as the default E
 - Legacy SVG OGP route.
 - Manifest, service worker, and offline page.
 - Client compatibility exports after wrapper reduction.
+- Client state and error transitions under `tests/js/`.
+- Start-page browser rendering and bootstrap under `tests/browser/`.
 
 ## Manual QA Still Required
 
@@ -21,10 +23,10 @@ Use Flask test-client smoke tests and static JS contract checks as the default E
 - PWA install prompt and service worker update prompt on real devices.
 - Tap target sizing and long result-name wrapping on narrow mobile viewports.
 
-## When To Add Browser Automation
+## Browser Automation Boundary
 
-Add a real browser runner only when we need to verify DOM layout, native share availability, service worker lifecycle, or mobile viewport interaction. Keep that PR separate from refactors.
+Playwright verifies only the high-value integration path that cannot be proven by isolated unit tests. Add browser cases for cross-module or browser-runtime contracts; keep pure state and error handling in Vitest. Native share sheets, third-party previews, and installed-PWA lifecycle remain manual because CI cannot reproduce those external environments faithfully.
 
 ## Execution Log
 
-Current automated coverage and manual backlog are tracked in `docs/QA_EXECUTION_LOG.md`.
+Current commands and the manual backlog are tracked in [`QA.md`](QA.md). Historical runs are archived and do not represent the current branch state.

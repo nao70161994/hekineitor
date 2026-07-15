@@ -29,19 +29,25 @@ class TestEngineDbHelpers(unittest.TestCase):
     def test_save_and_import_skip_connection_when_no_rows(self):
         calls = []
         engine_db.save_matrix_updates({}, None, [], get_conn=lambda: calls.append('get'), put_conn=lambda conn: None)
-        engine_db.import_matrix_rows({}, {}, get_conn=lambda: calls.append('get'), put_conn=lambda conn: None, execute_values=None)
+        engine_db.import_matrix_rows(
+            {}, {}, get_conn=lambda: calls.append('get'), put_conn=lambda conn: None, execute_values=None
+        )
         self.assertEqual(calls, [])
 
     def test_sql_contracts_keep_conflict_modes(self):
         self.assertIn('matrix.yes_count   + EXCLUDED.yes_count', engine_db.SAVE_MATRIX_SQL)
         self.assertIn('SET yes_count   = EXCLUDED.yes_count', engine_db.IMPORT_MATRIX_SQL)
 
-
     def test_default_recommended_works_cover_promoted_seed_gaps(self):
         works = engine_db.default_recommended_works_for_name('激重感情')
-        self.assertEqual([work['title'] for work in works], ['ハッピーシュガーライフ', '未来日記', '君に愛されて痛かった'])
+        self.assertEqual(
+            [work['title'] for work in works], ['ハッピーシュガーライフ', '未来日記', '君に愛されて痛かった']
+        )
         uniform_works = engine_db.default_recommended_works_for_name('制服')
-        self.assertEqual([work['title'] for work in uniform_works], ['明日ちゃんのセーラー服', 'その着せ替え人形は恋をする', '響け！ユーフォニアム'])
+        self.assertEqual(
+            [work['title'] for work in uniform_works],
+            ['明日ちゃんのセーラー服', 'その着せ替え人形は恋をする', '響け！ユーフォニアム'],
+        )
         self.assertEqual(engine_db.default_recommended_works_for_name('unknown'), [])
 
     def test_backfill_empty_recommended_works_updates_only_empty_rows(self):
@@ -56,21 +62,28 @@ class TestEngineDbHelpers(unittest.TestCase):
         self.assertIn('ハッピーシュガーライフ', params[0])
 
     def test_direct_work_url_lookup_uses_seed_dp_links_and_canonical_titles(self):
-        seed = [{
-            'works': [
-                {'title': '薬屋のひとりごと', 'url': 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22'},
-                {'title': 'Future Diary', 'url': 'https://www.amazon.co.jp/dp/B00K6THSBE?tag=hekinator-22'},
-                {'title': '検索だけ', 'url': 'https://www.amazon.co.jp/s?k=x&tag=hekinator-22'},
-            ],
-        }]
+        seed = [
+            {
+                'works': [
+                    {'title': '薬屋のひとりごと', 'url': 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22'},
+                    {'title': 'Future Diary', 'url': 'https://www.amazon.co.jp/dp/B00K6THSBE?tag=hekinator-22'},
+                    {'title': '検索だけ', 'url': 'https://www.amazon.co.jp/s?k=x&tag=hekinator-22'},
+                ],
+            }
+        ]
         lookup = engine_db.build_direct_work_url_lookup(seed)
         self.assertEqual(lookup['薬屋のひとりごと'], 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22')
-        self.assertEqual(lookup[engine_db._canonical_work_title('薬屋のひとりごと（小説）')], 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22')
+        self.assertEqual(
+            lookup[engine_db._canonical_work_title('薬屋のひとりごと（小説）')],
+            'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22',
+        )
         self.assertEqual(lookup['未来日記'], 'https://www.amazon.co.jp/dp/B00K6THSBE?tag=hekinator-22')
         self.assertEqual(lookup['ハッピーシュガーライフ'], 'https://www.amazon.co.jp/dp/B015Z262MW?tag=hekinator-22')
         self.assertEqual(lookup['SPY×FAMILY（漫画）'], 'https://www.amazon.co.jp/dp/B07S5K4L4H?tag=hekinator-22')
         self.assertEqual(lookup['境界の彼方'], 'https://www.amazon.co.jp/dp/4990581245?tag=hekinator-22')
-        self.assertEqual(lookup['異形頭さんとニンゲンちゃん'], 'https://www.amazon.co.jp/dp/B0D7C3CVBM?tag=hekinator-22')
+        self.assertEqual(
+            lookup['異形頭さんとニンゲンちゃん'], 'https://www.amazon.co.jp/dp/B0D7C3CVBM?tag=hekinator-22'
+        )
         self.assertNotIn('検索だけ', lookup)
 
     def test_recommended_work_replacement_uses_checked_direct_links(self):
@@ -85,21 +98,26 @@ class TestEngineDbHelpers(unittest.TestCase):
         self.assertIsNone(engine_db.recommended_work_replacement_for_title('既存直リンク'))
 
     def test_backfill_recommended_work_urls_updates_only_missing_or_search_urls(self):
-        seed = [{
-            'works': [
-                {'title': '薬屋のひとりごと', 'url': 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22'},
-                {'title': '氷菓', 'url': 'https://www.amazon.co.jp/dp/B0GS3NTD6R?tag=hekinator-22'},
-                {'title': 'Future Diary', 'url': 'https://www.amazon.co.jp/dp/B00K6THSBE?tag=hekinator-22'},
+        seed = [
+            {
+                'works': [
+                    {'title': '薬屋のひとりごと', 'url': 'https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22'},
+                    {'title': '氷菓', 'url': 'https://www.amazon.co.jp/dp/B0GS3NTD6R?tag=hekinator-22'},
+                    {'title': 'Future Diary', 'url': 'https://www.amazon.co.jp/dp/B00K6THSBE?tag=hekinator-22'},
+                ],
+            }
+        ]
+        existing = json.dumps(
+            [
+                {'title': '薬屋のひとりごと（小説）', 'url': ''},
+                {'title': '氷菓', 'url': 'https://www.amazon.co.jp/s?k=%E6%B0%B7%E8%8F%93&tag=hekinator-22'},
+                {'title': '既存直リンク', 'url': 'https://www.amazon.co.jp/dp/B000000000?tag=hekinator-22'},
+                '薬屋のひとりごと',
+                {'title': '未来日記', 'url': ''},
+                {'title': '灰かぶり姫の幸運', 'url': 'https://www.amazon.co.jp/s?k=x&tag=hekinator-22'},
             ],
-        }]
-        existing = json.dumps([
-            {'title': '薬屋のひとりごと（小説）', 'url': ''},
-            {'title': '氷菓', 'url': 'https://www.amazon.co.jp/s?k=%E6%B0%B7%E8%8F%93&tag=hekinator-22'},
-            {'title': '既存直リンク', 'url': 'https://www.amazon.co.jp/dp/B000000000?tag=hekinator-22'},
-            '薬屋のひとりごと',
-            {'title': '未来日記', 'url': ''},
-            {'title': '灰かぶり姫の幸運', 'url': 'https://www.amazon.co.jp/s?k=x&tag=hekinator-22'},
-        ], ensure_ascii=False)
+            ensure_ascii=False,
+        )
         cursor = FakeCursor(fetchall_values=[[(10, existing), (11, '[]')]])
         cursor.rowcount = 1
         updated = engine_db.backfill_recommended_work_urls(cursor, seed)
@@ -170,12 +188,14 @@ class FakeEngine:
 class TestEngineDbLoadAndConfigHelpers(unittest.TestCase):
     def test_parse_fetish_rows_decodes_works_and_falls_back_to_empty_list(self):
         self.assertEqual(
-            engine_db.parse_fetish_rows([
-                (1, 'A', 'desc', '["W"]'),
-                (2, 'B', 'desc', '{"bad": true}'),
-                (3, 'C', 'desc', 'not-json'),
-                (4, 'D', 'desc', None),
-            ]),
+            engine_db.parse_fetish_rows(
+                [
+                    (1, 'A', 'desc', '["W"]'),
+                    (2, 'B', 'desc', '{"bad": true}'),
+                    (3, 'C', 'desc', 'not-json'),
+                    (4, 'D', 'desc', None),
+                ]
+            ),
             [
                 {'id': 1, 'name': 'A', 'desc': 'desc', 'works': ['W']},
                 {'id': 2, 'name': 'B', 'desc': 'desc', 'works': []},
@@ -316,7 +336,6 @@ class TestEngineDbLoadAndConfigHelpers(unittest.TestCase):
         self.assertEqual(returned, [conn])
 
 
-
 class TestEngineDbMutationAdapters(unittest.TestCase):
     def test_insert_fetish_with_matrix_keeps_id_query_and_matrix_insert_contract(self):
         cursor = FakeCursor(fetchone_values=[(10002,)])
@@ -394,14 +413,18 @@ class TestEngineDbMutationAdapters(unittest.TestCase):
         self.assertEqual(cursor.executed[5][1], ('Merged', 'Desc', 1))
 
     def test_promoted_stats_history_repair_reports_and_applies_old_keys(self):
-        cursor = FakeCursor(fetchall_values=[
-            [('f_guessed_10000', 2, 5), ('f_correct_10000', 1, 2)],
-            [('f_guessed_10000', 2, 5), ('f_correct_10000', 1, 2)],
-        ])
+        cursor = FakeCursor(
+            fetchall_values=[
+                [('f_guessed_10000', 2, 5), ('f_correct_10000', 1, 2)],
+                [('f_guessed_10000', 2, 5), ('f_correct_10000', 1, 2)],
+            ]
+        )
         conn = FakeConn(cursor)
 
         report = engine_db.promoted_stats_history_repair_report(
-            [(10000, 3)], get_conn=lambda: conn, put_conn=lambda _conn: None,
+            [(10000, 3)],
+            get_conn=lambda: conn,
+            put_conn=lambda _conn: None,
         )
         self.assertEqual(report['mapping_count'], 1)
         self.assertEqual(report['total_value'], 7)
@@ -409,11 +432,16 @@ class TestEngineDbMutationAdapters(unittest.TestCase):
         self.assertEqual(report['rows'][0]['new_key'], 'f_guessed_3')
 
         applied = engine_db.repair_promoted_stats_history(
-            [(10000, 3)], get_conn=lambda: conn, put_conn=lambda _conn: None,
+            [(10000, 3)],
+            get_conn=lambda: conn,
+            put_conn=lambda _conn: None,
         )
         self.assertTrue(applied['applied'])
         executed_sql = [call[0] for call in cursor.executed]
-        self.assertIn('SELECT key, COUNT(*), COALESCE(SUM(value), 0) FROM stats_history WHERE key = ANY(%s) GROUP BY key', executed_sql[0])
+        self.assertIn(
+            'SELECT key, COUNT(*), COALESCE(SUM(value), 0) FROM stats_history WHERE key = ANY(%s) GROUP BY key',
+            executed_sql[0],
+        )
         self.assertIn('INSERT INTO stats_history', executed_sql[2])
         temp_key = cursor.executed[2][1][0]
         self.assertTrue(temp_key.startswith('__repair_'))
@@ -510,7 +538,13 @@ class TestEngineDbStatsAdapters(unittest.TestCase):
         cursor = FakeCursor(
             fetchall_values=[
                 [('play_count', 2)],
-                [('2026-05-23', 'start', 5), ('2026-05-23', 'completion', 3), ('2026-05-23', 'play', 3), ('2026-05-23', 'wrong', 1), ('2026-05-23', 'dropoff', 2)],
+                [
+                    ('2026-05-23', 'start', 5),
+                    ('2026-05-23', 'completion', 3),
+                    ('2026-05-23', 'play', 3),
+                    ('2026-05-23', 'wrong', 1),
+                    ('2026-05-23', 'dropoff', 2),
+                ],
             ]
         )
         conn = FakeConn(cursor)
@@ -520,13 +554,32 @@ class TestEngineDbStatsAdapters(unittest.TestCase):
             {'play_count': 2, 'learn_count': 0},
         )
         self.assertEqual(
-            engine_db.load_stats_history(['2026-05-22', '2026-05-23'], get_conn=lambda: conn, put_conn=lambda _conn: None),
+            engine_db.load_stats_history(
+                ['2026-05-22', '2026-05-23'], get_conn=lambda: conn, put_conn=lambda _conn: None
+            ),
             [
-                {'date': '2026-05-22', 'start': 0, 'play': 0, 'completion': 0, 'learn': 0, 'correct': 0, 'wrong': 0, 'dropoff': 0},
-                {'date': '2026-05-23', 'start': 5, 'play': 3, 'completion': 3, 'learn': 0, 'correct': 0, 'wrong': 1, 'dropoff': 2},
+                {
+                    'date': '2026-05-22',
+                    'start': 0,
+                    'play': 0,
+                    'completion': 0,
+                    'learn': 0,
+                    'correct': 0,
+                    'wrong': 0,
+                    'dropoff': 0,
+                },
+                {
+                    'date': '2026-05-23',
+                    'start': 5,
+                    'play': 3,
+                    'completion': 3,
+                    'learn': 0,
+                    'correct': 0,
+                    'wrong': 1,
+                    'dropoff': 2,
+                },
             ],
         )
-
 
     def test_load_dropoff_totals_groups_answered_counts(self):
         cursor = FakeCursor(fetchall_values=[[('dropoff', 3), ('dropoff_q_0', 1), ('dropoff_q_3', 2)]])

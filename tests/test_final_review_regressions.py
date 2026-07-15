@@ -20,7 +20,9 @@ class FinalReviewRegressionTests(unittest.TestCase):
         engine_facade.Engine()
         result = subprocess.run(
             [sys.executable, '-c', 'from engine.facade import Engine; Engine()'],
-            cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True,
+            cwd=Path(__file__).resolve().parents[1],
+            capture_output=True,
+            text=True,
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('supports one process only', result.stderr)
@@ -65,8 +67,11 @@ class FinalReviewRegressionTests(unittest.TestCase):
             atomic_write_json(journal, {'format_version': 1, 'before': snapshot, 'after': snapshot})
             with self.assertRaises(RuntimeError):
                 engine_persistence.recover_matrix_restore(
-                    journal, os.path.join(tmp, 'fetishes.json'), os.path.join(tmp, 'matrix.json'),
-                    1, atomic_write=atomic_write_json,
+                    journal,
+                    os.path.join(tmp, 'fetishes.json'),
+                    os.path.join(tmp, 'matrix.json'),
+                    1,
+                    atomic_write=atomic_write_json,
                 )
 
     def test_atomic_write_propagates_directory_fsync_failure(self):
@@ -78,8 +83,10 @@ class FinalReviewRegressionTests(unittest.TestCase):
     def test_db_edit_failure_does_not_mutate_memory(self):
         engine = engine_facade.Engine()
         before = copy.deepcopy(engine.fetishes[0])
-        with patch.object(engine_facade, '_use_db', return_value=True), \
-                patch.object(engine_facade.engine_db, 'update_fetish_fields', side_effect=RuntimeError('db')):
+        with (
+            patch.object(engine_facade, '_use_db', return_value=True),
+            patch.object(engine_facade.engine_db, 'update_fetish_fields', side_effect=RuntimeError('db')),
+        ):
             with self.assertRaises(RuntimeError):
                 engine.edit_fetish(before['id'], name='ghost')
         self.assertEqual(engine.fetishes[0], before)
@@ -99,8 +106,10 @@ class FinalReviewRegressionTests(unittest.TestCase):
         before_total = engine.matrix['total'][0][0]
         engine.matrix['yes'][0][0] += 1.0
         engine.matrix['total'][0][0] += 2.0
-        with patch.object(engine_facade, '_use_db', return_value=True), \
-                patch.object(engine, '_save_to_db', side_effect=RuntimeError('db')):
+        with (
+            patch.object(engine_facade, '_use_db', return_value=True),
+            patch.object(engine, '_save_to_db', side_effect=RuntimeError('db')),
+        ):
             with self.assertRaises(RuntimeError):
                 engine._save_async({0: [(0, 1.0, 2.0)]}, {0: engine.fetishes[0]['id']})
         self.assertEqual(engine.matrix['yes'][0][0], before_yes)
@@ -111,12 +120,13 @@ class FinalReviewRegressionTests(unittest.TestCase):
         fresh = copy.deepcopy(engine.fetishes)
         fresh[0]['name'] = 'updated by another worker'
         engine._matrix_last_loaded = 0
-        with patch.object(engine_facade, '_use_db', return_value=True), \
-                patch.object(engine, '_load_fetishes_from_db', return_value=fresh), \
-                patch.object(engine, '_load_from_db', return_value=copy.deepcopy(engine.matrix)):
+        with (
+            patch.object(engine_facade, '_use_db', return_value=True),
+            patch.object(engine, '_load_fetishes_from_db', return_value=fresh),
+            patch.object(engine, '_load_from_db', return_value=copy.deepcopy(engine.matrix)),
+        ):
             engine._reload_matrix_if_stale()
         self.assertEqual(engine.fetishes[0]['name'], 'updated by another worker')
-
 
     def test_restore_workflow_exposes_explicit_ignore_input(self):
         workflow = Path('.github/workflows/restore_matrix.yml').read_text(encoding='utf-8')

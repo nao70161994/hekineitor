@@ -61,10 +61,7 @@ class TestEngineHelperDependencies(unittest.TestCase):
         self.assertEqual(offenders, [])
 
     def test_top_level_engine_helper_shims_remain_for_import_compatibility(self):
-        actual = sorted(
-            name for name in os.listdir(ROOT)
-            if name.startswith('engine_') and name.endswith('.py')
-        )
+        actual = sorted(name for name in os.listdir(ROOT) if name.startswith('engine_') and name.endswith('.py'))
         self.assertEqual(actual, sorted(TOP_LEVEL_HELPER_SHIMS))
 
     def test_package_helpers_import_without_engine_instance_setup(self):

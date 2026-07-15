@@ -95,7 +95,7 @@
 - `d401d19` - Engine facade contract tests added.
 - Engine facade learning delegation contract expanded.
 - Silent learning helper delegated through `engine_learning`.
-- Engine package conversion plan documented in `docs/ENGINE_PACKAGE_PLAN.md`.
+- Engine package conversion plan is preserved in `docs/archive/engine-package/ENGINE_PACKAGE_PLAN.md`.
 - Compound works pure helpers split from `engine.py`.
 - Compound works cache/load/save helpers and tests added.
 - Scalar engine constants split behind `engine` re-export compatibility.
@@ -157,7 +157,7 @@
 
 - Future works-master PR: add duplicate/title normalization reporting for recommended works before considering a `works_master` / `fetish_work_links` DB migration.
 1. Keep `app.py` as composition root; avoid further extraction unless a dependency group has clear ownership outside Flask wiring.
-2. Execute `docs/QA_EXECUTION_LOG.md` manual mobile/OGP/PWA backlog against real devices and a deployed URL.
+2. Execute the `docs/QA.md` manual mobile/OGP/PWA backlog against real devices and a deployed URL.
 3. OGP Japanese font follow-up: enable `DOWNLOAD_OGP_FONT=1 sh scripts/render_build.sh` or set `OGP_FONT_PATH` on Render, then manually verify Japanese PNG output.
 4. Browser E2E runner decision after manual QA gaps are confirmed.
 5. All engine helper modules now live under `engine/` with top-level compatibility shims; next PR can review shim retention/removal policy.

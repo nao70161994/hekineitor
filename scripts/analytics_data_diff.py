@@ -23,7 +23,6 @@ DEFAULT_DATES = ('2026-06-19', '2026-06-20', '2026-06-21')
 HEAVY_RESULTS = {'共依存', '激重感情', '共生関係', '執着'}
 
 
-
 def _count_value(row: dict[str, Any]) -> int:
     return int(row.get('count') or row.get('total') or row.get('guessed') or 0)
 
@@ -108,7 +107,16 @@ def _dropoff_summary(rows: list[dict[str, Any]], limit: int = 3) -> str:
 
 
 def _by_event_summary(by_event: dict[str, Any]) -> str:
-    keys = ('result_page_view', 'share_button_click', 'x_share_click', 'web_share_success', 'copy_success', 'ogp_png_view', 'ogp_svg_view', 'work_click')
+    keys = (
+        'result_page_view',
+        'share_button_click',
+        'x_share_click',
+        'web_share_success',
+        'copy_success',
+        'ogp_png_view',
+        'ogp_svg_view',
+        'work_click',
+    )
     parts = [f'{key}={int(by_event.get(key) or 0)}' for key in keys if int(by_event.get(key) or 0)]
     return ', '.join(parts) if parts else 'none'
 
@@ -128,23 +136,47 @@ def _local_reports(date: str, limit: int) -> dict[str, Any]:
     r_path = ROOT / 'data' / 'result_exposures.jsonl'
     engine = EmptyEngine()
     return {
-        'question_filtered': question_events.event_report(engine, path=str(q_path), limit=limit, date=date, exclude_suspicious=True),
-        'question_raw': question_events.event_report(engine, path=str(q_path), limit=limit, date=date, exclude_suspicious=False),
+        'question_filtered': question_events.event_report(
+            engine, path=str(q_path), limit=limit, date=date, exclude_suspicious=True
+        ),
+        'question_raw': question_events.event_report(
+            engine, path=str(q_path), limit=limit, date=date, exclude_suspicious=False
+        ),
         'share': share_events.event_report(path=str(s_path), limit=limit, since=date, until=date),
-        'result_displayed': result_exposure.ranking_report(path=str(r_path), limit=limit, date=date, top_n=10, include_secondary=True),
-        'result_primary': result_exposure.ranking_report(path=str(r_path), limit=limit, date=date, top_n=10, include_secondary=False),
-        'result_candidates': result_exposure.ranking_report(path=str(r_path), limit=limit, date=date, top_n=10, include_secondary=True, include_candidates=True),
+        'result_displayed': result_exposure.ranking_report(
+            path=str(r_path), limit=limit, date=date, top_n=10, include_secondary=True
+        ),
+        'result_primary': result_exposure.ranking_report(
+            path=str(r_path), limit=limit, date=date, top_n=10, include_secondary=False
+        ),
+        'result_candidates': result_exposure.ranking_report(
+            path=str(r_path), limit=limit, date=date, top_n=10, include_secondary=True, include_candidates=True
+        ),
     }
 
 
 def _api_reports(date: str, limit: int, environ: dict[str, str], timeout: int) -> dict[str, Any]:
     return {
-        'question_filtered': _fetch_json(_query('/api/admin/question_events', date=date, limit=limit, exclude_suspicious=1), environ, timeout),
-        'question_raw': _fetch_json(_query('/api/admin/question_events', date=date, limit=limit, exclude_suspicious=0), environ, timeout),
+        'question_filtered': _fetch_json(
+            _query('/api/admin/question_events', date=date, limit=limit, exclude_suspicious=1), environ, timeout
+        ),
+        'question_raw': _fetch_json(
+            _query('/api/admin/question_events', date=date, limit=limit, exclude_suspicious=0), environ, timeout
+        ),
         'share': _fetch_json(_query('/api/admin/share_events', since=date, until=date, limit=limit), environ, timeout),
-        'result_displayed': _fetch_json(_query('/api/admin/result_exposures', days=1, date=date, top_n=10, include_secondary=1), environ, timeout),
-        'result_primary': _fetch_json(_query('/api/admin/result_exposures', days=1, date=date, top_n=10), environ, timeout),
-        'result_candidates': _fetch_json(_query('/api/admin/result_exposures', days=1, date=date, top_n=10, include_secondary=1, include_candidates=1), environ, timeout),
+        'result_displayed': _fetch_json(
+            _query('/api/admin/result_exposures', days=1, date=date, top_n=10, include_secondary=1), environ, timeout
+        ),
+        'result_primary': _fetch_json(
+            _query('/api/admin/result_exposures', days=1, date=date, top_n=10), environ, timeout
+        ),
+        'result_candidates': _fetch_json(
+            _query(
+                '/api/admin/result_exposures', days=1, date=date, top_n=10, include_secondary=1, include_candidates=1
+            ),
+            environ,
+            timeout,
+        ),
     }
 
 
@@ -173,9 +205,13 @@ def _date_findings(
     raw_total = int(qr.get('total_available', qr.get('raw_loaded', qr.get('total', 0))) or 0)
     excluded = int((qf.get('quality') or {}).get('excluded_suspicious_events') or 0)
     if excluded > 0:
-        findings.append(f'question_events excluded suspicious rows={excluded}; compare analyzed={analyzed} vs raw={raw_total}')
+        findings.append(
+            f'question_events excluded suspicious rows={excluded}; compare analyzed={analyzed} vs raw={raw_total}'
+        )
     if date in expected_question_events and expected_question_events[date] != raw_total:
-        findings.append(f'question_events mismatch previous_log={expected_question_events[date]} current_api={raw_total}')
+        findings.append(
+            f'question_events mismatch previous_log={expected_question_events[date]} current_api={raw_total}'
+        )
 
     share_total = int(share.get('total') or 0)
     metrics = share.get('metrics') or {}
@@ -191,7 +227,9 @@ def _date_findings(
     displayed_total = int(displayed.get('total') or 0)
     primary_total = int(primary.get('total') or 0)
     if displayed_total > primary_total:
-        findings.append(f'displayed results exceed primary by {displayed_total - primary_total}; compound/secondary exposure affects displayed ranking')
+        findings.append(
+            f'displayed results exceed primary by {displayed_total - primary_total}; compound/secondary exposure affects displayed ranking'
+        )
     elif displayed_total == primary_total and displayed_total > 0 and _same_top_ranking(displayed, primary):
         findings.append('displayed and primary rankings match; observed bias is not from secondary result inflation')
     if primary_total and primary_total < min_result_samples:
@@ -218,9 +256,11 @@ def _print_date_report(date: str, reports: dict[str, Any], findings: list[str] |
     excluded = int(quality.get('excluded_suspicious_events') or 0)
     suspicious = int(quality.get('suspicious_timestamp_count') or 0)
     print(f'## {date}')
-    print(f"question_events: analyzed={int(qf.get('total') or 0)} raw_loaded={int(qr.get('raw_loaded', qr.get('total', 0)) or 0)} total_available={int(qr.get('total_available', qr.get('total', 0)) or 0)} excluded={excluded} suspicious_buckets={suspicious}")
-    print(f"question_dropoff_filtered: {_dropoff_summary(qf.get('dropoff_ranking') or [])}")
-    print(f"question_dropoff_raw: {_dropoff_summary(qr.get('dropoff_ranking') or [])}")
+    print(
+        f'question_events: analyzed={int(qf.get("total") or 0)} raw_loaded={int(qr.get("raw_loaded", qr.get("total", 0)) or 0)} total_available={int(qr.get("total_available", qr.get("total", 0)) or 0)} excluded={excluded} suspicious_buckets={suspicious}'
+    )
+    print(f'question_dropoff_filtered: {_dropoff_summary(qf.get("dropoff_ranking") or [])}')
+    print(f'question_dropoff_raw: {_dropoff_summary(qr.get("dropoff_ranking") or [])}')
     if qf.get('warnings'):
         print('question_warnings: ' + ', '.join(str(row.get('type') or row) for row in qf.get('warnings') or []))
 
@@ -229,8 +269,10 @@ def _print_date_report(date: str, reports: dict[str, Any], findings: list[str] |
     result_views = int(metrics.get('result_page_views') or 0)
     share_actions = int(metrics.get('share_actions') or 0)
     denominator_note = ' denominator_missing' if result_views == 0 and int(share.get('total') or 0) > 0 else ''
-    print(f"share_events: total={int(share.get('total') or 0)} result_views={result_views} share_actions={share_actions}{denominator_note}")
-    print(f"share_events_breakdown: {_by_event_summary(share.get('by_event') or {})}")
+    print(
+        f'share_events: total={int(share.get("total") or 0)} result_views={result_views} share_actions={share_actions}{denominator_note}'
+    )
+    print(f'share_events_breakdown: {_by_event_summary(share.get("by_event") or {})}')
 
     displayed = reports['result_displayed']
     primary = reports['result_primary']
@@ -239,7 +281,9 @@ def _print_date_report(date: str, reports: dict[str, Any], findings: list[str] |
     primary_total = int(primary.get('total') or 0)
     print(f'result_displayed: total={displayed_total} top={_ranking_summary(displayed.get("ranking") or [])}')
     print(f'result_primary: total={primary_total} top={_ranking_summary(primary.get("ranking") or [])}')
-    print(f'result_candidates: total={int(candidates.get("total") or 0)} top={_ranking_summary(candidates.get("ranking") or [])}')
+    print(
+        f'result_candidates: total={int(candidates.get("total") or 0)} top={_ranking_summary(candidates.get("ranking") or [])}'
+    )
     print(f'result_secondary_extra: {max(0, displayed_total - primary_total)}')
     print(f'heavy_result_ratio_displayed: {_heavy_ratio(displayed)}')
     print(f'heavy_result_ratio_primary: {_heavy_ratio(primary)}')
@@ -256,9 +300,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--date', action='append', dest='dates', help='YYYY-MM-DD. Can be repeated.')
     parser.add_argument('--limit', type=int, default=50000)
     parser.add_argument('--timeout', type=int, default=20)
-    parser.add_argument('--expected-question-events', action='append', default=[], help='Previous daily log question count as YYYY-MM-DD=COUNT.')
-    parser.add_argument('--expected-share-events', action='append', default=[], help='Previous daily log share count as YYYY-MM-DD=COUNT.')
-    parser.add_argument('--expected-result', action='append', default=[], help='Result name observed elsewhere that should appear in exposure rankings.')
+    parser.add_argument(
+        '--expected-question-events',
+        action='append',
+        default=[],
+        help='Previous daily log question count as YYYY-MM-DD=COUNT.',
+    )
+    parser.add_argument(
+        '--expected-share-events',
+        action='append',
+        default=[],
+        help='Previous daily log share count as YYYY-MM-DD=COUNT.',
+    )
+    parser.add_argument(
+        '--expected-result',
+        action='append',
+        default=[],
+        help='Result name observed elsewhere that should appear in exposure rankings.',
+    )
     parser.add_argument('--min-result-samples', type=int, default=20)
     parser.add_argument('--dominant-ratio', type=float, default=0.65)
     args = parser.parse_args(argv)
@@ -274,7 +333,11 @@ def main(argv: list[str] | None = None) -> int:
     print(f'analytics_data_diff source={args.source} dates={",".join(dates)}')
     print('')
     for date in dates:
-        reports = _api_reports(date, args.limit, environ, args.timeout) if args.source == 'api' else _local_reports(date, args.limit)
+        reports = (
+            _api_reports(date, args.limit, environ, args.timeout)
+            if args.source == 'api'
+            else _local_reports(date, args.limit)
+        )
         findings = _date_findings(
             date,
             reports,

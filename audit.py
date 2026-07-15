@@ -1,8 +1,7 @@
-import time
 import os
+import time
 
 from storage import atomic_write_json, data_path, load_json_file
-
 
 MAX_AUDIT_ROWS = 500
 SENSITIVE_DETAIL_KEYS = {'password', 'secret', 'token', 'cookie', 'authorization', 'api_key', 'apikey'}
@@ -66,8 +65,7 @@ def recent_audit(limit=50):
     names = []
     try:
         names = sorted(
-            name for name in os.listdir(data_path(''))
-            if name.startswith('admin_audit_log_') and name.endswith('.json')
+            name for name in os.listdir(data_path('')) if name.startswith('admin_audit_log_') and name.endswith('.json')
         )
     except OSError:
         pass

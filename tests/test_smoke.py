@@ -94,6 +94,7 @@ class TestSmoke(unittest.TestCase):
     def test_index_contains_adsense_slots_when_client_configured(self):
         with patch.dict(os.environ, {'ADSENSE_CLIENT': 'ca-pub-test', 'SECRET_KEY': 'test_secret_key_for_testing'}):
             import app as app_module
+
             app_module.BOOTSTRAP.adsense_client = 'ca-pub-test'
             try:
                 res = self.client.get('/')
@@ -205,7 +206,13 @@ class TestSmoke(unittest.TestCase):
             'static/teach.js': [b'window.submitTeach', b'window.addFetishStep1'],
             'static/history.js': [b'window.toggleHistory', b'window.retryExcluding'],
             'static/draft.js': [b'window.resumeGame', b'window._checkDraft', b'window._popDraft'],
-            'static/share.js': [b'window.shareResult', b'window.shareResultX', b'window.setDiagnosedName', b'prepareSharePayload', b'sharePayloadImmediate'],
+            'static/share.js': [
+                b'window.shareResult',
+                b'window.shareResultX',
+                b'window.setDiagnosedName',
+                b'prepareSharePayload',
+                b'sharePayloadImmediate',
+            ],
             'static/pwa.js': [b'window.dismissInstall'],
         }
         for relpath, markers in expectations.items():
@@ -222,7 +229,6 @@ class TestSmoke(unittest.TestCase):
         with open(os.path.join(root, 'static', 'game_state.js'), 'rb') as f:
             state = f.read()
         self.assertIn(b'window.setLastFetishName', state)
-
 
     def test_share_click_handlers_do_not_await_short_link_fetch(self):
         root = os.path.dirname(os.path.dirname(__file__))
@@ -293,7 +299,7 @@ class TestSmoke(unittest.TestCase):
 
         with open(os.path.join(root, 'templates', 'sw.js'), 'rb') as f:
             sw = f.read()
-        self.assertIn(b"const STATIC = [", sw)
+        self.assertIn(b'const STATIC = [', sw)
         for asset in (b"'/static/app.css'", b"'/static/app.js'", b"'/static/share.js'", b"'/static/pwa.js'"):
             self.assertIn(asset, sw)
         self.assertIn(b"url.pathname.includes('/admin')", sw)

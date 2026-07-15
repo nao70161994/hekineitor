@@ -80,14 +80,8 @@ def _quality_event_summary(engine, days=30):
 def build_quality_report(engine):
     """Build admin-facing diagnosis quality indicators from an Engine instance."""
     q_stats = engine.get_question_stats()
-    low_questions = [
-        q for q in q_stats
-        if not q['disabled'] and q['disc'] < 0.06
-    ][:10]
-    high_corr = [
-        p for p in engine.get_correlation_stats(top_n=50)
-        if abs(p['cos']) >= 0.92
-    ][:10]
+    low_questions = [q for q in q_stats if not q['disabled'] and q['disc'] < 0.06][:10]
+    high_corr = [p for p in engine.get_correlation_stats(top_n=50) if abs(p['cos']) >= 0.92][:10]
 
     log = engine.get_fetish_log()
     id_to_f = {f['id']: f for f in engine.fetishes}
@@ -100,34 +94,34 @@ def build_quality_report(engine):
         feedback = correct + wrong
         no_feedback = max(guessed - feedback, 0)
         if guessed >= 5 and no_feedback >= 3:
-            no_feedback_fetishes.append({
-                'fetish_id': fid,
-                'fetish_name': id_to_f.get(fid, {}).get('name', f'ID {fid}'),
-                'guessed': guessed,
-                'feedback_total': feedback,
-                'no_feedback_guesses': no_feedback,
-                'no_feedback_rate': _pct(no_feedback, guessed),
-            })
+            no_feedback_fetishes.append(
+                {
+                    'fetish_id': fid,
+                    'fetish_name': id_to_f.get(fid, {}).get('name', f'ID {fid}'),
+                    'guessed': guessed,
+                    'feedback_total': feedback,
+                    'no_feedback_guesses': no_feedback,
+                    'no_feedback_rate': _pct(no_feedback, guessed),
+                }
+            )
         if guessed < 3 and feedback < 3:
             continue
         acc = _pct(correct, guessed)
         wrong_rate = _pct(wrong, feedback) or 0
         if wrong_rate >= 35 or (acc is not None and acc < 45):
-            weak_fetishes.append({
-                'fetish_id': fid,
-                'fetish_name': id_to_f.get(fid, {}).get('name', f'ID {fid}'),
-                'guessed': guessed,
-                'correct': correct,
-                'wrong': wrong,
-                'accuracy': acc,
-                'wrong_rate': wrong_rate,
-            })
-    weak_fetishes.sort(
-        key=lambda r: (-r['wrong_rate'], r['accuracy'] if r['accuracy'] is not None else 999)
-    )
-    no_feedback_fetishes.sort(
-        key=lambda r: (-r['no_feedback_guesses'], -(r['no_feedback_rate'] or 0))
-    )
+            weak_fetishes.append(
+                {
+                    'fetish_id': fid,
+                    'fetish_name': id_to_f.get(fid, {}).get('name', f'ID {fid}'),
+                    'guessed': guessed,
+                    'correct': correct,
+                    'wrong': wrong,
+                    'accuracy': acc,
+                    'wrong_rate': wrong_rate,
+                }
+            )
+    weak_fetishes.sort(key=lambda r: (-r['wrong_rate'], r['accuracy'] if r['accuracy'] is not None else 999))
+    no_feedback_fetishes.sort(key=lambda r: (-r['no_feedback_guesses'], -(r['no_feedback_rate'] or 0)))
 
     feedback_summary = _feedback_totals(log)
     feedback_summary['recent_7_days'] = _history_summary(engine, 7)
@@ -136,25 +130,31 @@ def build_quality_report(engine):
 
     action_items = []
     if feedback_summary['feedback_total'] < 20:
-        action_items.append({
-            'type': 'feedback_volume',
-            'severity': 'info',
-            'message': 'フィードバック件数が少ないため、品質判断は暫定です。',
-        })
+        action_items.append(
+            {
+                'type': 'feedback_volume',
+                'severity': 'info',
+                'message': 'フィードバック件数が少ないため、品質判断は暫定です。',
+            }
+        )
     if feedback_summary['wrong_rate'] is not None and feedback_summary['wrong_rate'] >= 35:
-        action_items.append({
-            'type': 'overall_wrong_rate',
-            'severity': 'warning',
-            'message': '全体の外れ率が高めです。改善候補の性癖と重複質問を優先確認してください。',
-        })
+        action_items.append(
+            {
+                'type': 'overall_wrong_rate',
+                'severity': 'warning',
+                'message': '全体の外れ率が高めです。改善候補の性癖と重複質問を優先確認してください。',
+            }
+        )
     if low_conf_summary.get('low_confidence_feedback_total', 0) >= 5:
         low_acc = low_conf_summary.get('low_confidence_accuracy')
         if low_acc is not None and low_acc < (feedback_summary.get('accuracy') or 0):
-            action_items.append({
-                'type': 'low_confidence_extension',
-                'severity': 'warning',
-                'message': '低信頼時の追加質問後も正解率が全体より低いです。終盤質問と閾値を見直してください。',
-            })
+            action_items.append(
+                {
+                    'type': 'low_confidence_extension',
+                    'severity': 'warning',
+                    'message': '低信頼時の追加質問後も正解率が全体より低いです。終盤質問と閾値を見直してください。',
+                }
+            )
 
     return {
         'low_questions': low_questions,

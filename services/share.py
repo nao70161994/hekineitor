@@ -3,7 +3,7 @@ def clean_probability(raw):
         value = max(0, min(float(str(raw)[:8]), 100))
     except (TypeError, ValueError):
         return ''
-    return f"{value:.1f}".rstrip('0').rstrip('.')
+    return f'{value:.1f}'.rstrip('0').rstrip('.')
 
 
 def _probability_value(prob):
@@ -23,9 +23,9 @@ def result_rarity(prob):
 
 def result_share_text(name, prob):
     lines = [
-        "あなたの『癖』は……",
+        'あなたの『癖』は……',
         '',
-        f"『{name or '???'}』",
+        f'『{name or "???"}』',
     ]
     if prob:
         lines.extend(['', f'AI精度{prob}%'])
@@ -37,7 +37,6 @@ def result_tagline(name, prob):
     if not name:
         return ''
     return f'AI精度{prob}%' if prob else '観測済み'
-
 
 
 def public_base_url(environ, request):

@@ -1,14 +1,12 @@
+import fcntl
 import json
 import os
 import re
 import secrets
 from contextlib import contextmanager
-
-import fcntl
 from datetime import datetime, timezone
 
 from storage import atomic_write_json, data_path, get_conn, put_conn, use_db
-
 
 SHARE_LINKS_FILE = 'share_links.json'
 ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
@@ -48,13 +46,13 @@ def _use_db(environ=None, path=None):
 
 def _ensure_schema(conn):
     cur = conn.cursor()
-    cur.execute('''
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS share_links (
             share_id TEXT PRIMARY KEY,
             payload TEXT NOT NULL,
             created_at TEXT NOT NULL
         )
-    ''')
+    """)
 
 
 def _load_json(path):

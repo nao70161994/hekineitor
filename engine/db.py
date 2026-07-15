@@ -1,418 +1,53 @@
+"""Compatibility facade for database persistence helpers."""
+
 import json
-import re
-import time
-import unicodedata
-from contextlib import nullcontext
 
-
-SAVE_MATRIX_SQL = """
-    INSERT INTO matrix (fetish_id, question_id, yes_count, total_count)
-    VALUES (%s, %s, %s, %s)
-    ON CONFLICT (fetish_id, question_id) DO UPDATE
-    SET yes_count   = matrix.yes_count   + EXCLUDED.yes_count,
-        total_count = matrix.total_count + EXCLUDED.total_count
-"""
-
-IMPORT_MATRIX_SQL = """
-    INSERT INTO matrix (fetish_id, question_id, yes_count, total_count)
-    VALUES %s
-    ON CONFLICT (fetish_id, question_id) DO UPDATE
-        SET yes_count   = EXCLUDED.yes_count,
-            total_count = EXCLUDED.total_count
-"""
-
-
-def build_save_matrix_rows(all_updates, idx_to_db_id=None, fetishes=None):
-    rows = []
-    for fetish_idx, updates in all_updates.items():
-        if idx_to_db_id is not None:
-            db_id = idx_to_db_id.get(fetish_idx)
-        elif fetishes is not None and fetish_idx < len(fetishes):
-            db_id = fetishes[fetish_idx]['id']
-        else:
-            db_id = None
-        if db_id is None:
-            continue
-        for question_idx, delta_yes, delta_total in updates:
-            rows.append((db_id, question_idx, delta_yes, delta_total))
-    return rows
-
-
-def build_import_matrix_rows(updates, idx_map):
-    id_map = {idx: fetish_id for fetish_id, idx in idx_map.items()}
-    rows = []
-    for fetish_idx, questions in updates.items():
-        db_id = id_map.get(fetish_idx)
-        if db_id is None:
-            continue
-        for question_idx, yes, total in questions:
-            rows.append((db_id, question_idx, yes, total))
-    return rows
-
-
-def save_matrix_updates(all_updates, idx_to_db_id, fetishes, *, get_conn, put_conn):
-    rows = build_save_matrix_rows(all_updates, idx_to_db_id=idx_to_db_id, fetishes=fetishes)
-    if not rows:
-        return
-    conn = get_conn()
-    try:
-        with conn:
-            cur = conn.cursor()
-            cur.executemany(SAVE_MATRIX_SQL, rows)
-    finally:
-        put_conn(conn)
-
-
-def import_matrix_rows(updates, idx_map, *, get_conn, put_conn, execute_values):
-    rows = build_import_matrix_rows(updates, idx_map)
-    if not rows:
-        return
-    conn = get_conn()
-    try:
-        with conn:
-            cur = conn.cursor()
-            execute_values(cur, IMPORT_MATRIX_SQL, rows)
-    finally:
-        put_conn(conn)
-
-
-def restore_matrix_snapshot(fetishes, matrix_rows, *, get_conn, put_conn, execute_values):
-    conn = get_conn()
-    try:
-        with conn:
-            cur = conn.cursor()
-            if fetishes:
-                execute_values(
-                    cur,
-                    'INSERT INTO fetishes (id, name, "desc", works) VALUES %s',
-                    [
-                        (
-                            fetish['id'],
-                            fetish['name'],
-                            fetish.get('desc', fetish['name']),
-                            json.dumps(fetish.get('works', []), ensure_ascii=False),
-                        )
-                        for fetish in fetishes
-                    ],
-                )
-            rows = [
-                (
-                    int(row['fetish_id']),
-                    int(row['question_id']),
-                    float(row['yes']),
-                    float(row['total']),
-                )
-                for row in matrix_rows
-            ]
-            if rows:
-                execute_values(cur, IMPORT_MATRIX_SQL, rows)
-    finally:
-        put_conn(conn)
-
-
-def parse_fetish_rows(rows):
-    parsed = []
-    for row in rows:
-        try:
-            works = json.loads(row[3]) if row[3] else []
-            if not isinstance(works, list):
-                works = []
-        except (TypeError, json.JSONDecodeError):
-            works = []
-        parsed.append({'id': row[0], 'name': row[1], 'desc': row[2], 'works': works})
-    return parsed
-
-
-def load_fetishes(*, get_conn, put_conn):
-    conn = get_conn()
-    try:
-        cur = conn.cursor()
-        cur.execute('SELECT id, name, "desc", works FROM fetishes ORDER BY id')
-        return parse_fetish_rows(cur.fetchall())
-    finally:
-        put_conn(conn)
-
-
-def matrix_from_rows(fetishes, questions, rows):
-    nf = len(fetishes)
-    nq = len(questions)
-    id_to_idx = {fetish['id']: idx for idx, fetish in enumerate(fetishes)}
-    yes = [[0.0] * nq for _ in range(nf)]
-    total = [[0.0] * nq for _ in range(nf)]
-    for fetish_id, question_idx, yes_count, total_count in rows:
-        idx = id_to_idx.get(fetish_id)
-        if idx is not None and 0 <= question_idx < nq:
-            yes[idx][question_idx] = yes_count
-            total[idx][question_idx] = total_count
-    return {'yes': yes, 'total': total}
-
-
-def load_matrix(fetishes, questions, *, get_conn, put_conn):
-    conn = get_conn()
-    try:
-        cur = conn.cursor()
-        cur.execute('SELECT fetish_id, question_id, yes_count, total_count FROM matrix')
-        return matrix_from_rows(fetishes, questions, cur.fetchall())
-    finally:
-        put_conn(conn)
-
-
-def load_config(defaults, *, use_db, get_conn, put_conn, config_path, read_json):
-    values = dict(defaults)
-    if use_db():
-        conn = get_conn()
-        try:
-            cur = conn.cursor()
-            cur.execute('SELECT key, value FROM config')
-            for key, value in cur.fetchall():
-                if key in values:
-                    values[key] = float(value)
-        except Exception:
-            pass
-        finally:
-            put_conn(conn)
-    else:
-        stored = read_json(config_path, {})
-        for key, value in stored.items():
-            if key in values:
-                values[key] = float(value)
-    return values
-
-
-def save_config_value(key, value, *, use_db, get_conn, put_conn, config_path, read_json, atomic_write, file_lock=None):
-    if use_db():
-        conn = get_conn()
-        try:
-            with conn:
-                cur = conn.cursor()
-                cur.execute(
-                    "INSERT INTO config (key, value) VALUES (%s, %s) "
-                    "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-                    (key, str(value)),
-                )
-        finally:
-            put_conn(conn)
-    else:
-        with (file_lock(config_path) if file_lock else nullcontext()):
-            stored = read_json(config_path, {})
-            stored[key] = value
-            atomic_write(config_path, stored)
-
-
-
-DEFAULT_RECOMMENDED_WORKS_BY_NAME = {
-    '激重感情': ['ハッピーシュガーライフ', '未来日記', '君に愛されて痛かった'],
-    'ツンデレ優男ヤンキー': ['ヤンキー君と白杖ガール', '山田くんとLv999の恋をする', 'ひるなかの流星'],
-    '人外/異形頭': ['魔法使いの嫁', 'とつくにの少女', '異形頭さんとニンゲンちゃん'],
-    '共生関係': ['魔法使いの嫁', '宝石の国', '蟲師'],
-    '離別': ['秒速5センチメートル', '四月は君の嘘', 'ラヴレター'],
-    '制服': ['明日ちゃんのセーラー服', 'その着せ替え人形は恋をする', '響け！ユーフォニアム'],
-}
-
-DIRECT_WORK_URLS_BY_TITLE = {
-    'ハッピーシュガーライフ': 'https://www.amazon.co.jp/dp/B015Z262MW?tag=hekinator-22',
-    '君に愛されて痛かった': 'https://www.amazon.co.jp/dp/B0BKPTJN4S?tag=hekinator-22',
-    'からかい上手の高木さん': 'https://www.amazon.co.jp/dp/B00N2QXHRW?tag=hekinator-22',
-    '響け！ユーフォニアム': 'https://www.amazon.co.jp/dp/B07SZBJR55?tag=hekinator-22',
-    '四月は君の嘘': 'https://www.amazon.co.jp/dp/B00AF5PJOM?tag=hekinator-22',
-    '天気の子': 'https://www.amazon.co.jp/dp/B07TXN8GK1?tag=hekinator-22',
-    'NANA': 'https://www.amazon.co.jp/dp/B00AMB4JCM?tag=hekinator-22',
-    'リエゾン': 'https://www.amazon.co.jp/dp/B08B3JKJRS?tag=hekinator-22',
-    'コウノドリ': 'https://www.amazon.co.jp/dp/B00F02CMZ4?tag=hekinator-22',
-    'まじっく快斗': 'https://www.amazon.co.jp/dp/B00BH943D8?tag=hekinator-22',
-    '怪盗セイント・テール': 'https://www.amazon.co.jp/dp/B00ARAGSBS?tag=hekinator-22',
-    'ルパン三世': 'https://www.amazon.co.jp/dp/B019FPZ2JO?tag=hekinator-22',
-    '桜蘭高校ホスト部': 'https://www.amazon.co.jp/dp/B00DMU9GQ4?tag=hekinator-22',
-    '美少年探偵団': 'https://www.amazon.co.jp/dp/B015GW70N6?tag=hekinator-22',
-    'NHKへようこそ！': 'https://www.amazon.co.jp/dp/B0093G7X20?tag=hekinator-22',
-    'ぼっち・ざ・ろっく！': 'https://www.amazon.co.jp/dp/B07N3NRSKF?tag=hekinator-22',
-    'Rozen Maiden': 'https://www.amazon.co.jp/dp/B00DGI5C06?tag=hekinator-22',
-    '機動天使エンジェリックレイヤー': 'https://www.amazon.co.jp/dp/B0G6RL2N1T?tag=hekinator-22',
-    '境界の彼方': 'https://www.amazon.co.jp/dp/4990581245?tag=hekinator-22',
-    'Dr.STONE': 'https://www.amazon.co.jp/dp/B071VV14SF?tag=hekinator-22',
-    'SPY×FAMILY': 'https://www.amazon.co.jp/dp/B07S5K4L4H?tag=hekinator-22',
-    'ヤンキー君と白杖ガール': 'https://www.amazon.co.jp/dp/B07MSBK5BZ?tag=hekinator-22',
-    '山田くんとLv999の恋をする': 'https://www.amazon.co.jp/dp/B084JHMGD8?tag=hekinator-22',
-    'ひるなかの流星': 'https://www.amazon.co.jp/dp/B00AU3M82U?tag=hekinator-22',
-    'とつくにの少女': 'https://www.amazon.co.jp/dp/B01C5M5W1M?tag=hekinator-22',
-    '異形頭さんとニンゲンちゃん': 'https://www.amazon.co.jp/dp/B0D7C3CVBM?tag=hekinator-22',
-    '宝石の国': 'https://www.amazon.co.jp/dp/B00DW4ZYBG?tag=hekinator-22',
-    '蟲師': 'https://www.amazon.co.jp/dp/B009KYBN44?tag=hekinator-22',
-    '花束みたいな恋をした': 'https://www.amazon.co.jp/dp/B091YSWXYG?tag=hekinator-22',
-    '最後から二番目の恋': 'https://www.amazon.co.jp/dp/B0F5ZH2W18?tag=hekinator-22',
-    '半分、青い。': 'https://www.amazon.co.jp/dp/B07CXM1XYH?tag=hekinator-22',
-    'ロミオとジュリエット（宝塚版）': 'https://www.amazon.co.jp/dp/B08H5BS5JV?tag=hekinator-22',
-    '恋はDeepに': 'https://www.amazon.co.jp/dp/B096VJ6P7J?tag=hekinator-22',
-    'ラヴレター': 'https://www.amazon.co.jp/dp/B00QKD6LYU?tag=hekinator-22',
-    '明日ちゃんのセーラー服': 'https://www.amazon.co.jp/dp/B06XPYX4V1?tag=hekinator-22',
-    'その着せ替え人形は恋をする': 'https://www.amazon.co.jp/dp/B07JZNFJVD?tag=hekinator-22',
-    '後宮の烏': 'https://www.amazon.co.jp/dp/B07DK8QHGV?tag=hekinator-22',
-    '悪役令嬢後宮物語': 'https://www.amazon.co.jp/dp/B07MQCV562?tag=hekinator-22',
-    'ループ7回目の悪役令嬢は、元敵国で自由に生きる': 'https://www.amazon.co.jp/dp/B096RNH7JZ?tag=hekinator-22',
-    '時をかける少女': 'https://www.amazon.co.jp/dp/B009GPM8OQ?tag=hekinator-22',
-    'スパイ教室': 'https://www.amazon.co.jp/dp/B083PRSFG5?tag=hekinator-22',
-    '魔探偵ロキ': 'https://www.amazon.co.jp/dp/B009WNRLWQ?tag=hekinator-22',
-    '逃げるは恥だが役に立つ': 'https://www.amazon.co.jp/dp/B00GWVP77W?tag=hekinator-22',
-    '同期のサクラ': 'https://www.amazon.co.jp/dp/B07TJQRVF5?tag=hekinator-22',
-    '左ききのエレン': 'https://www.amazon.co.jp/dp/B076HN94KS?tag=hekinator-22',
-    '君に届け': 'https://www.amazon.co.jp/dp/B009PL81RE?tag=hekinator-22',
-    '青のフラッグ': 'https://www.amazon.co.jp/dp/B06VXVPNFZ?tag=hekinator-22',
-    'ハチミツとクローバー': 'https://www.amazon.co.jp/dp/B01JIC5TFG?tag=hekinator-22',
-}
-
-DIRECT_WORK_TITLE_ALIASES = {
-    '未来日記': 'Future Diary',
-    'CLANNAD': 'クラナド',
-    'まじっく快斗（怪盗キッド）': 'まじっく快斗',
-    '美少年探偵団（西尾維新）': '美少年探偵団',
-    'SPY×FAMILY（漫画）': 'SPY×FAMILY',
-    '薬屋のひとりごと（小説）': '薬屋のひとりごと',
-    'ヤンキー君と白杖ガール（漫画）': 'ヤンキー君と白杖ガール',
-    'ループ7回目の悪役令嬢は、元敵国で自由に生きる（漫画）': 'ループ7回目の悪役令嬢は、元敵国で自由に生きる',
-    'スパイ教室（小説）': 'スパイ教室',
-    '同期のサクラ（ドラマ小説）': '同期のサクラ',
-    'からかい上手の高木さん（漫画）': 'からかい上手の高木さん',
-}
-
-
-RECOMMENDED_WORK_REPLACEMENTS_BY_TITLE = {
-    '灰かぶり姫の幸運': {'title': 'わたしの幸せな結婚', 'url': 'https://www.amazon.co.jp/dp/B07X25T546?tag=hekinator-22'},
-    '私の夫は冷酷帝': {'title': 'わたしの幸せな結婚', 'url': 'https://www.amazon.co.jp/dp/B07X25T546?tag=hekinator-22'},
-    '極道くんの甘い溺愛（漫画）': {'title': '来世は他人がいい', 'url': 'https://www.amazon.co.jp/dp/B07796N6LJ?tag=hekinator-22'},
-    '着せ恋（彼女、お借りします）': {'title': 'その着せ替え人形は恋をする', 'url': 'https://www.amazon.co.jp/dp/B07JZNFJVD?tag=hekinator-22'},
-    '薔薇のないフローリスト': {'title': '同級生', 'url': 'https://www.amazon.co.jp/dp/B074CF91MQ?tag=hekinator-22'},
-    'ヤクザと花嫁（漫画）': {'title': '来世は他人がいい', 'url': 'https://www.amazon.co.jp/dp/B07796N6LJ?tag=hekinator-22'},
-    '兎と猛獣（漫画）': {'title': '贄姫と獣の王', 'url': 'https://www.amazon.co.jp/dp/B01MT8SP41?tag=hekinator-22'},
-    '拾われた伯爵令嬢は騎士団長に溺愛される（漫画）': {'title': '魔法使いの嫁', 'url': 'https://www.amazon.co.jp/dp/B0CVL3R7DW?tag=hekinator-22'},
-    '捨て猫に似た恋をする（漫画）': {'title': 'フルーツバスケット', 'url': 'https://www.amazon.co.jp/dp/B00DMU66SK?tag=hekinator-22'},
-    '偽婚約者は本気で愛したい（漫画）': {'title': '誰かこの状況を説明してください！', 'url': 'https://www.amazon.co.jp/dp/B07DL6G318?tag=hekinator-22'},
-    '契約結婚のはずが、旦那様が本気になってしまいました（漫画）': {'title': '誰かこの状況を説明してください！', 'url': 'https://www.amazon.co.jp/dp/B07DL6G318?tag=hekinator-22'},
-    '偽りの花嫁（小説）': {'title': 'わたしの幸せな結婚', 'url': 'https://www.amazon.co.jp/dp/B07X25T546?tag=hekinator-22'},
-    '探偵は今夜も嘘をつく（小説）': {'title': '虚構推理', 'url': 'https://www.amazon.co.jp/dp/B017GUUV0U?tag=hekinator-22'},
-    '不良と優等生（漫画）': {'title': 'ヤンキー君と白杖ガール', 'url': 'https://www.amazon.co.jp/dp/B07MSBK5BZ?tag=hekinator-22'},
-    '極上の敵（漫画）': {'title': 'となりの怪物くん', 'url': 'https://www.amazon.co.jp/dp/B009KYBS3U?tag=hekinator-22'},
-}
-
-
-def default_recommended_works_for_name(name):
-    return [
-        {'title': title, 'url': ''}
-        for title in DEFAULT_RECOMMENDED_WORKS_BY_NAME.get(str(name or '').strip(), [])
-    ]
-
-
-def backfill_empty_recommended_works(cur):
-    updated = 0
-    for name, titles in DEFAULT_RECOMMENDED_WORKS_BY_NAME.items():
-        works_json = json.dumps([{'title': title, 'url': ''} for title in titles], ensure_ascii=False)
-        cur.execute(
-            "UPDATE fetishes SET works=%s WHERE name=%s AND (works='' OR works='[]' OR works IS NULL)",
-            (works_json, name),
-        )
-        updated += int(getattr(cur, 'rowcount', 0) or 0)
-    return updated
-
-
-def _canonical_work_title(title):
-    title = unicodedata.normalize('NFKC', str(title or '')).strip().casefold()
-    title = re.sub(r'[（(][^）)]*[）)]', '', title).strip()
-    return re.sub(r'\s+', ' ', title)
-
-
-def recommended_work_replacement_for_title(title):
-    title = str(title or '').strip()
-    replacement = RECOMMENDED_WORK_REPLACEMENTS_BY_TITLE.get(title)
-    if replacement is not None:
-        return replacement
-    canonical_title = _canonical_work_title(title)
-    for source_title, candidate in RECOMMENDED_WORK_REPLACEMENTS_BY_TITLE.items():
-        if _canonical_work_title(source_title) == canonical_title:
-            return candidate
-    return None
-
-
-def _is_search_work_url(url):
-    url = str(url or '').strip()
-    return 'amazon.co.jp/s?' in url or 'amazon.co.jp/s/' in url
-
-
-def build_direct_work_url_lookup(seed_fetishes):
-    lookup = {}
-    for title, url in DIRECT_WORK_URLS_BY_TITLE.items():
-        lookup.setdefault(title, url)
-        lookup.setdefault(_canonical_work_title(title), url)
-    for fetish in seed_fetishes:
-        for work in fetish.get('works') or []:
-            if not isinstance(work, dict):
-                continue
-            title = str(work.get('title') or '').strip()
-            url = str(work.get('url') or '').strip()
-            if not title or '/dp/' not in url:
-                continue
-            lookup.setdefault(title, url)
-            lookup.setdefault(_canonical_work_title(title), url)
-    for alias, target_title in DIRECT_WORK_TITLE_ALIASES.items():
-        target_url = lookup.get(target_title) or lookup.get(_canonical_work_title(target_title))
-        if not target_url:
-            continue
-        lookup.setdefault(alias, target_url)
-        lookup.setdefault(_canonical_work_title(alias), target_url)
-    return lookup
-
-
-def _recommended_work_dict(work):
-    if isinstance(work, dict):
-        return dict(work)
-    return {'title': str(work or ''), 'url': ''}
-
-
-def backfill_recommended_work_urls(cur, seed_fetishes):
-    """Fill missing/search work URLs from the checked seed direct-link map."""
-    lookup = build_direct_work_url_lookup(seed_fetishes)
-    if not lookup:
-        return 0
-
-    cur.execute('SELECT id, works FROM fetishes')
-    rows = cur.fetchall()
-    updated = 0
-    for row in rows:
-        if len(row) < 2:
-            continue
-        fetish_id, works_raw = row[0], row[1]
-        try:
-            works = json.loads(works_raw) if works_raw else []
-        except (TypeError, json.JSONDecodeError):
-            continue
-        if not isinstance(works, list):
-            continue
-
-        changed = False
-        next_works = []
-        for work in works:
-            item = _recommended_work_dict(work)
-            title = str(item.get('title') or '').strip()
-            replacement = recommended_work_replacement_for_title(title)
-            if replacement is not None:
-                item['title'] = replacement['title']
-                item['url'] = replacement['url']
-                changed = True
-                next_works.append(item)
-                continue
-
-            current_url = str(item.get('url') or '').strip()
-            direct_url = lookup.get(title) or lookup.get(_canonical_work_title(title))
-            if title and direct_url and (not current_url or _is_search_work_url(current_url)):
-                item['url'] = direct_url
-                changed = True
-            next_works.append(item)
-        if not changed:
-            continue
-        cur.execute(
-            'UPDATE fetishes SET works=%s WHERE id=%s',
-            (json.dumps(next_works, ensure_ascii=False), fetish_id),
-        )
-        updated += int(getattr(cur, 'rowcount', 0) or 0)
-    return updated
+from .db_config import load_config, save_config_value
+from .db_matrix import (
+    IMPORT_MATRIX_SQL,
+    SAVE_MATRIX_SQL,
+    build_import_matrix_rows,
+    build_save_matrix_rows,
+    import_matrix_rows,
+    load_fetishes,
+    load_matrix,
+    matrix_from_rows,
+    parse_fetish_rows,
+    restore_matrix_snapshot,
+    save_matrix_updates,
+)
+from .db_stats import (
+    _move_promoted_stats_history,
+    increment_fetish_log,
+    increment_stat,
+    load_disabled_questions,
+    load_dropoff_totals,
+    load_feedback_totals,
+    load_fetish_history,
+    load_fetish_log,
+    load_quality_event_totals,
+    load_stats,
+    load_stats_history,
+    promoted_stats_history_repair_report,
+    record_daily_stat,
+    repair_promoted_stats_history,
+    save_disabled_questions,
+    toggle_question_disabled,
+)
+from .db_work_migrations import (
+    DEFAULT_RECOMMENDED_WORKS_BY_NAME,
+    DIRECT_WORK_TITLE_ALIASES,
+    DIRECT_WORK_URLS_BY_TITLE,
+    RECOMMENDED_WORK_REPLACEMENTS_BY_TITLE,
+    _canonical_work_title,
+    _is_search_work_url,
+    _recommended_work_dict,
+    backfill_empty_recommended_works,
+    backfill_recommended_work_urls,
+    build_direct_work_url_lookup,
+    default_recommended_works_for_name,
+    recommended_work_replacement_for_title,
+)
 
 
 def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id, build_initial_matrix):
@@ -420,16 +55,16 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
     try:
         with conn:
             cur = conn.cursor()
-            cur.execute('''
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS fetishes (
                     id   INTEGER PRIMARY KEY,
                     name TEXT NOT NULL,
                     "desc" TEXT NOT NULL,
                     works TEXT NOT NULL DEFAULT '[]'
                 )
-            ''')
+            """)
             cur.execute("ALTER TABLE fetishes ADD COLUMN IF NOT EXISTS works TEXT NOT NULL DEFAULT '[]'")
-            cur.execute('''
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS matrix (
                     fetish_id   INTEGER,
                     question_id INTEGER,
@@ -437,7 +72,7 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                     total_count REAL NOT NULL,
                     PRIMARY KEY (fetish_id, question_id)
                 )
-            ''')
+            """)
             cur.execute('SELECT COUNT(*) FROM fetishes')
             if cur.fetchone()[0] == 0:
                 seed_fetishes = engine._load_json('fetishes.json')
@@ -445,8 +80,12 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                     cur,
                     'INSERT INTO fetishes (id, name, "desc", works) VALUES %s',
                     [
-                        (fetish['id'], fetish['name'], fetish['desc'],
-                         json.dumps(fetish.get('works', []), ensure_ascii=False))
+                        (
+                            fetish['id'],
+                            fetish['name'],
+                            fetish['desc'],
+                            json.dumps(fetish.get('works', []), ensure_ascii=False),
+                        )
                         for fetish in seed_fetishes
                     ],
                 )
@@ -454,32 +93,30 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
             if cur.fetchone()[0] == 0:
                 seed_fetishes = engine._load_json('fetishes.json')
                 engine._seed_db(cur, seed_fetishes)
-            cur.execute('''
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS stats (
                     key   TEXT PRIMARY KEY,
                     value INTEGER NOT NULL DEFAULT 0
                 )
-            ''')
+            """)
             for key in ('start_count', 'completion_count', 'learn_count', 'play_count'):
-                cur.execute(
-                    "INSERT INTO stats (key, value) VALUES (%s, 0) ON CONFLICT DO NOTHING", (key,)
-                )
-            cur.execute('''
+                cur.execute('INSERT INTO stats (key, value) VALUES (%s, 0) ON CONFLICT DO NOTHING', (key,))
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS fetish_log (
                     fetish_id INTEGER PRIMARY KEY,
                     guessed   INTEGER NOT NULL DEFAULT 0,
                     correct   INTEGER NOT NULL DEFAULT 0,
                     wrong     INTEGER NOT NULL DEFAULT 0
                 )
-            ''')
-            cur.execute('''
+            """)
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS sessions (
                     session_id TEXT PRIMARY KEY,
                     data       TEXT NOT NULL,
                     updated_at REAL NOT NULL
                 )
-            ''')
-            cur.execute('''
+            """)
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS rate_limits (
                     scope TEXT NOT NULL,
                     client_ip TEXT NOT NULL,
@@ -488,23 +125,23 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                     window_seconds INTEGER NOT NULL DEFAULT 60,
                     PRIMARY KEY (scope, client_ip)
                 )
-            ''')
+            """)
             cur.execute('ALTER TABLE rate_limits ADD COLUMN IF NOT EXISTS window_seconds INTEGER NOT NULL DEFAULT 60')
             cur.execute('CREATE INDEX IF NOT EXISTS rate_limits_updated_at_idx ON rate_limits(updated_at)')
-            cur.execute('''
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS config (
                     key   TEXT PRIMARY KEY,
                     value TEXT NOT NULL
                 )
-            ''')
-            cur.execute('''
+            """)
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS stats_history (
                     date  TEXT NOT NULL,
                     key   TEXT NOT NULL,
                     value INTEGER NOT NULL DEFAULT 0,
                     PRIMARY KEY (date, key)
                 )
-            ''')
+            """)
             cur.execute('SELECT id FROM fetishes')
             existing_ids = {row[0] for row in cur.fetchall()}
             seed = [fetish for fetish in engine._load_json('fetishes.json') if fetish['id'] < player_base_id]
@@ -514,8 +151,12 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                     cur,
                     'INSERT INTO fetishes (id, name, "desc", works) VALUES %s ON CONFLICT DO NOTHING',
                     [
-                        (fetish['id'], fetish['name'], fetish['desc'],
-                         json.dumps(fetish.get('works', []), ensure_ascii=False))
+                        (
+                            fetish['id'],
+                            fetish['name'],
+                            fetish['desc'],
+                            json.dumps(fetish.get('works', []), ensure_ascii=False),
+                        )
                         for fetish in new_fetishes
                     ],
                 )
@@ -523,10 +164,14 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                 full_yes, full_total = build_initial_matrix(len(seed), nq)
                 seed_id_to_idx = {fetish['id']: idx for idx, fetish in enumerate(seed)}
                 new_rows = [
-                    (fetish['id'], question_idx,
-                     full_yes[seed_id_to_idx[fetish['id']]][question_idx],
-                     full_total[seed_id_to_idx[fetish['id']]][question_idx])
-                    for fetish in new_fetishes for question_idx in range(nq)
+                    (
+                        fetish['id'],
+                        question_idx,
+                        full_yes[seed_id_to_idx[fetish['id']]][question_idx],
+                        full_total[seed_id_to_idx[fetish['id']]][question_idx],
+                    )
+                    for fetish in new_fetishes
+                    for question_idx in range(nq)
                 ]
                 execute_values(
                     cur,
@@ -556,12 +201,14 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                         if seed_idx is None:
                             new_question_rows.append((fetish_id, question_idx, alpha, alpha * 2.0))
                         else:
-                            new_question_rows.append((
-                                fetish_id,
-                                question_idx,
-                                full_yes[seed_idx][question_idx],
-                                full_total[seed_idx][question_idx],
-                            ))
+                            new_question_rows.append(
+                                (
+                                    fetish_id,
+                                    question_idx,
+                                    full_yes[seed_idx][question_idx],
+                                    full_total[seed_idx][question_idx],
+                                )
+                            )
                 if new_question_rows:
                     execute_values(
                         cur,
@@ -670,29 +317,37 @@ def delete_fetish_rows(fetish_id, *, get_conn, put_conn):
         put_conn(conn)
 
 
-def merge_fetish_rows_db(id_keep, id_remove, *, new_name=None, new_desc=None, keep_name=None, keep_desc=None, get_conn, put_conn):
+def merge_fetish_rows_db(
+    id_keep, id_remove, *, new_name=None, new_desc=None, keep_name=None, keep_desc=None, get_conn, put_conn
+):
     conn = get_conn()
     try:
         with conn:
             cur = conn.cursor()
-            cur.execute('''
+            cur.execute(
+                """
                 UPDATE matrix AS m
                 SET yes_count   = m.yes_count   + rm.yes_count,
                     total_count = m.total_count + rm.total_count
                 FROM matrix rm
                 WHERE m.fetish_id = %s AND rm.fetish_id = %s
                   AND m.question_id = rm.question_id
-            ''', (id_keep, id_remove))
+            """,
+                (id_keep, id_remove),
+            )
             cur.execute('DELETE FROM fetishes WHERE id = %s', (id_remove,))
             cur.execute('DELETE FROM matrix WHERE fetish_id = %s', (id_remove,))
-            cur.execute('''
+            cur.execute(
+                """
                 INSERT INTO fetish_log (fetish_id, guessed, correct, wrong)
                 SELECT %s, guessed, correct, wrong FROM fetish_log WHERE fetish_id = %s
                 ON CONFLICT (fetish_id) DO UPDATE
                 SET guessed = fetish_log.guessed + EXCLUDED.guessed,
                     correct = fetish_log.correct + EXCLUDED.correct,
                     wrong   = fetish_log.wrong   + EXCLUDED.wrong
-            ''', (id_keep, id_remove))
+            """,
+                (id_keep, id_remove),
+            )
             cur.execute('DELETE FROM fetish_log WHERE fetish_id = %s', (id_remove,))
             if new_name or new_desc:
                 cur.execute(
@@ -701,19 +356,6 @@ def merge_fetish_rows_db(id_keep, id_remove, *, new_name=None, new_desc=None, ke
                 )
     finally:
         put_conn(conn)
-
-
-def _move_promoted_stats_history(cur, old_id, new_id):
-    for prefix in ('f_guessed_', 'f_correct_', 'f_wrong_'):
-        old_key = f'{prefix}{old_id}'
-        new_key = f'{prefix}{new_id}'
-        cur.execute('''
-            INSERT INTO stats_history (date, key, value)
-            SELECT date, %s, value FROM stats_history WHERE key = %s
-            ON CONFLICT (date, key) DO UPDATE
-            SET value = stats_history.value + EXCLUDED.value
-        ''', (new_key, old_key))
-        cur.execute('DELETE FROM stats_history WHERE key = %s', (old_key,))
 
 
 def promote_fetish_id(old_id, new_id, *, get_conn, put_conn):
@@ -738,13 +380,16 @@ def promote_player_fetish_to_seed(old_id, *, player_base_id, get_conn, put_conn)
             cur.execute('SELECT id FROM fetishes WHERE id = %s AND id >= %s', (old_id, player_base_id))
             if cur.fetchone() is None:
                 return None
-            cur.execute('''
+            cur.execute(
+                """
                 SELECT candidate
                 FROM generate_series(0, %s - 1) AS candidate
                 WHERE NOT EXISTS (SELECT 1 FROM fetishes WHERE id = candidate)
                 ORDER BY candidate
                 LIMIT 1
-            ''', (player_base_id,))
+            """,
+                (player_base_id,),
+            )
             row = cur.fetchone()
             if row is None:
                 return None
@@ -757,300 +402,6 @@ def promote_player_fetish_to_seed(old_id, *, player_base_id, get_conn, put_conn)
     finally:
         put_conn(conn)
 
-
-def promoted_stats_history_repair_report(mappings, *, get_conn, put_conn):
-    pairs = [(int(old_id), int(new_id)) for old_id, new_id in mappings if int(old_id) != int(new_id)]
-    if not pairs:
-        return {'mapping_count': 0, 'rows': [], 'total_value': 0}
-    old_keys = [f'{prefix}{old_id}' for old_id, _new_id in pairs for prefix in ('f_guessed_', 'f_correct_', 'f_wrong_')]
-    conn = get_conn()
-    try:
-        cur = conn.cursor()
-        cur.execute(
-            'SELECT key, COUNT(*), COALESCE(SUM(value), 0) FROM stats_history WHERE key = ANY(%s) GROUP BY key',
-            (old_keys,),
-        )
-        stats = {key: {'row_count': int(count or 0), 'value_sum': int(total or 0)} for key, count, total in cur.fetchall()}
-        rows = []
-        for old_id, new_id in pairs:
-            for prefix in ('f_guessed_', 'f_correct_', 'f_wrong_'):
-                old_key = f'{prefix}{old_id}'
-                new_key = f'{prefix}{new_id}'
-                entry = stats.get(old_key, {'row_count': 0, 'value_sum': 0})
-                rows.append({
-                    'old_id': old_id,
-                    'new_id': new_id,
-                    'old_key': old_key,
-                    'new_key': new_key,
-                    'row_count': entry['row_count'],
-                    'value_sum': entry['value_sum'],
-                })
-        return {
-            'mapping_count': len(pairs),
-            'rows': rows,
-            'total_value': sum(row['value_sum'] for row in rows),
-        }
-    finally:
-        put_conn(conn)
-
-
-def repair_promoted_stats_history(mappings, *, get_conn, put_conn):
-    pairs = [(int(old_id), int(new_id)) for old_id, new_id in mappings if int(old_id) != int(new_id)]
-    report = promoted_stats_history_repair_report(pairs, get_conn=get_conn, put_conn=put_conn)
-    if not pairs:
-        return {**report, 'applied': False}
-    conn = get_conn()
-    try:
-        with conn:
-            cur = conn.cursor()
-            token = str(int(time.time() * 1000000))
-            temp_entries = []
-            for old_id, new_id in pairs:
-                for prefix in ('f_guessed_', 'f_correct_', 'f_wrong_'):
-                    old_key = f'{prefix}{old_id}'
-                    temp_key = f'__repair_{token}_{old_key}'
-                    new_key = f'{prefix}{new_id}'
-                    temp_entries.append((temp_key, new_key))
-                    cur.execute('''
-                        INSERT INTO stats_history (date, key, value)
-                        SELECT date, %s, value FROM stats_history WHERE key = %s
-                        ON CONFLICT (date, key) DO UPDATE
-                        SET value = stats_history.value + EXCLUDED.value
-                    ''', (temp_key, old_key))
-                    cur.execute('DELETE FROM stats_history WHERE key = %s', (old_key,))
-            for temp_key, new_key in temp_entries:
-                cur.execute('''
-                    INSERT INTO stats_history (date, key, value)
-                    SELECT date, %s, value FROM stats_history WHERE key = %s
-                    ON CONFLICT (date, key) DO UPDATE
-                    SET value = stats_history.value + EXCLUDED.value
-                ''', (new_key, temp_key))
-                cur.execute('DELETE FROM stats_history WHERE key = %s', (temp_key,))
-    finally:
-        put_conn(conn)
-    return {**report, 'applied': True}
-
-
-def increment_stat(key, *, get_conn, put_conn):
-    conn = get_conn()
-    try:
-        with conn:
-            cur = conn.cursor()
-            cur.execute(
-                "INSERT INTO stats (key, value) VALUES (%s, 1) ON CONFLICT (key) DO UPDATE SET value = stats.value + 1",
-                (key,),
-            )
-    finally:
-        put_conn(conn)
-
-
-def record_daily_stat(key, today, *, get_conn, put_conn):
-    conn = get_conn()
-    try:
-        with conn:
-            cur = conn.cursor()
-            cur.execute(
-                "INSERT INTO stats_history (date, key, value) VALUES (%s, %s, 1) "
-                "ON CONFLICT (date, key) DO UPDATE SET value = stats_history.value + 1",
-                (today, key),
-            )
-    finally:
-        put_conn(conn)
-
-
-def load_stats(keys, *, get_conn, put_conn):
-    conn = get_conn()
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT key, value FROM stats WHERE key = ANY(%s)", (list(keys),))
-        result = dict(cur.fetchall())
-        return {key: result.get(key, 0) for key in keys}
-    finally:
-        put_conn(conn)
-
-
-def load_stats_history(date_range, *, get_conn, put_conn):
-    conn = get_conn()
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT date, key, value FROM stats_history WHERE date >= %s", (date_range[0],))
-        raw = {}
-        for day, key, value in cur.fetchall():
-            raw.setdefault(day, {})[key] = value
-        return [
-            {
-                'date': day,
-                'start': raw.get(day, {}).get('start', 0),
-                'play': raw.get(day, {}).get('play', 0),
-                'completion': raw.get(day, {}).get('completion', 0),
-                'learn': raw.get(day, {}).get('learn', 0),
-                'correct': raw.get(day, {}).get('correct', 0),
-                'wrong': raw.get(day, {}).get('wrong', 0),
-                'dropoff': raw.get(day, {}).get('dropoff', 0),
-            }
-            for day in date_range
-        ]
-    finally:
-        put_conn(conn)
-
-
-
-def load_dropoff_totals(since, *, get_conn, put_conn):
-    conn = get_conn()
-    try:
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT key, SUM(value) FROM stats_history WHERE date >= %s AND (key = 'dropoff' OR key LIKE 'dropoff_q_%%') GROUP BY key",
-            (since,),
-        )
-        total = 0
-        by_answered = {}
-        for key, value in cur.fetchall():
-            value = int(value or 0)
-            if key == 'dropoff':
-                total += value
-            elif key.startswith('dropoff_q_'):
-                try:
-                    answered_count = int(key[len('dropoff_q_'):])
-                except ValueError:
-                    continue
-                by_answered[answered_count] = by_answered.get(answered_count, 0) + value
-        return {'total': total, 'by_answered': by_answered}
-    finally:
-        put_conn(conn)
-
-def load_feedback_totals(since, until=None, *, get_conn, put_conn):
-    conn = get_conn()
-    try:
-        cur = conn.cursor()
-        if until:
-            cur.execute(
-                "SELECT key, SUM(value) FROM stats_history WHERE date >= %s AND date <= %s AND (key LIKE 'f_guessed_%%' OR key LIKE 'f_correct_%%' OR key LIKE 'f_wrong_%%') GROUP BY key",
-                (since, until),
-            )
-        else:
-            cur.execute(
-                "SELECT key, SUM(value) FROM stats_history WHERE date >= %s AND (key LIKE 'f_guessed_%%' OR key LIKE 'f_correct_%%' OR key LIKE 'f_wrong_%%') GROUP BY key",
-                (since,),
-            )
-        totals = {}
-        for key, value in cur.fetchall():
-            if key.startswith('f_guessed_'):
-                fetish_id = int(key[len('f_guessed_'):])
-                totals.setdefault(fetish_id, {'guessed': 0, 'correct': 0, 'wrong': 0})['guessed'] += int(value or 0)
-            elif key.startswith('f_correct_'):
-                fetish_id = int(key[len('f_correct_'):])
-                totals.setdefault(fetish_id, {'guessed': 0, 'correct': 0, 'wrong': 0})['correct'] += int(value or 0)
-            elif key.startswith('f_wrong_'):
-                fetish_id = int(key[len('f_wrong_'):])
-                totals.setdefault(fetish_id, {'guessed': 0, 'correct': 0, 'wrong': 0})['wrong'] += int(value or 0)
-        return totals
-    finally:
-        put_conn(conn)
-
-
-def load_fetish_history(date_range, correct_key, wrong_key, *, get_conn, put_conn):
-    conn = get_conn()
-    try:
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT date, key, value FROM stats_history WHERE date >= %s AND key IN (%s, %s)",
-            (date_range[0], correct_key, wrong_key),
-        )
-        raw = {}
-        for day, key, value in cur.fetchall():
-            raw.setdefault(day, {})[key] = value
-        return raw
-    finally:
-        put_conn(conn)
-
-
-def load_quality_event_totals(date_range, keys, *, get_conn, put_conn):
-    totals = {key: 0 for key in keys}
-    conn = get_conn()
-    try:
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT key, SUM(value) FROM stats_history WHERE date >= %s AND key = ANY(%s) GROUP BY key",
-            (date_range[0], list(keys)),
-        )
-        for key, value in cur.fetchall():
-            totals[key] = int(value or 0)
-        return totals
-    finally:
-        put_conn(conn)
-
-
-def load_disabled_questions(*, get_conn, put_conn):
-    conn = get_conn()
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT key FROM stats WHERE key LIKE 'disabled_q_%'")
-        return {int(row[0][len('disabled_q_'):]) for row in cur.fetchall()}
-    finally:
-        put_conn(conn)
-
-
-def save_disabled_questions(disabled_questions, *, get_conn, put_conn):
-    conn = get_conn()
-    try:
-        with conn:
-            cur = conn.cursor()
-            cur.execute("DELETE FROM stats WHERE key LIKE 'disabled_q_%'")
-            for question_id in disabled_questions:
-                cur.execute(
-                    "INSERT INTO stats (key, value) VALUES (%s, 1) ON CONFLICT (key) DO UPDATE SET value=1",
-                    (f'disabled_q_{question_id}',),
-                )
-    finally:
-        put_conn(conn)
-
-
-def toggle_question_disabled(question_id, *, get_conn, put_conn):
-    key = f'disabled_q_{int(question_id)}'
-    conn = get_conn()
-    try:
-        with conn:
-            cur = conn.cursor()
-            cur.execute('SELECT pg_advisory_xact_lock(hashtext(%s))', (key,))
-            cur.execute('DELETE FROM stats WHERE key = %s RETURNING key', (key,))
-            if cur.fetchone():
-                return False
-            cur.execute(
-                'INSERT INTO stats (key, value) VALUES (%s, 1) ON CONFLICT (key) DO UPDATE SET value=1',
-                (key,),
-            )
-            return True
-    finally:
-        put_conn(conn)
-
-
-def increment_fetish_log(fetish_db_id, column, *, get_conn, put_conn):
-    if column not in ('guessed', 'correct', 'wrong'):
-        raise ValueError(f'不正な列名: {column}')
-    conn = get_conn()
-    try:
-        with conn:
-            cur = conn.cursor()
-            cur.execute(f'''
-                INSERT INTO fetish_log (fetish_id, {column}) VALUES (%s, 1)
-                ON CONFLICT (fetish_id) DO UPDATE SET {column} = fetish_log.{column} + 1
-            ''', (fetish_db_id,))
-    finally:
-        put_conn(conn)
-
-
-def load_fetish_log(*, get_conn, put_conn):
-    conn = get_conn()
-    try:
-        cur = conn.cursor()
-        cur.execute('SELECT fetish_id, guessed, correct, wrong FROM fetish_log')
-        return {
-            row[0]: {'guessed': row[1], 'correct': row[2], 'wrong': row[3]}
-            for row in cur.fetchall()
-        }
-    finally:
-        put_conn(conn)
 
 def build_seed_matrix_rows(fetishes, question_count, *, build_initial_matrix):
     yes, total = build_initial_matrix(len(fetishes), question_count)

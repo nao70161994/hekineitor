@@ -41,4 +41,4 @@
 
 ## Execution Log
 
-See `docs/QA_EXECUTION_LOG.md` for the current run status. As of 2026-05-23, X / LINE / Discord external preview checks remain `Not run` because they require a deployed public URL.
+See [`QA.md`](QA.md) for the current automation boundary. Record X / LINE / Discord checks against the deployed URL in the PR or release record.

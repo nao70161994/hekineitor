@@ -123,7 +123,9 @@ def load_matrix_file(path, fetishes, questions, *, init_matrix):
             pass
         logging.getLogger(__name__).warning(
             'matrix.json のサイズ不整合 (fetishes=%d, questions=%d) — 再初期化します。バックアップ: %s',
-            nf, nq, backup,
+            nf,
+            nq,
+            backup,
         )
         os.remove(path)
     return init_matrix()

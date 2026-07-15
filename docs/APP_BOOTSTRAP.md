@@ -48,4 +48,4 @@ Current `app.py` responsibilities match this document. The remaining factories a
 - `_matrix_operations()` is an admin adapter built from the filesystem context and remains a useful route-test patch point.
 - `_seo_context()`, `_game_context()`, `_admin_context()`, and `_system_context()` are thin calls into owning service builders.
 
-Do not extract more from `app.py` only to reduce line count. The next meaningful backend reduction should happen inside `engine.py`/engine helpers, not by hiding Flask wiring behind opaque global objects.
+Do not extract more from `app.py` only to reduce line count. Backend responsibility changes should use explicit boundaries inside the `engine/` package or owning services, not hide Flask wiring behind opaque global objects.

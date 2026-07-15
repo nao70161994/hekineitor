@@ -19,7 +19,9 @@ class TestEnginePackageSwitchGuard(unittest.TestCase):
         spec = importlib.util.find_spec('engine')
         self.assertIsNotNone(spec)
         self.assertEqual(os.path.abspath(spec.origin), os.path.join(ROOT, 'engine', '__init__.py'))
-        self.assertEqual([os.path.abspath(path) for path in spec.submodule_search_locations], [os.path.join(ROOT, 'engine')])
+        self.assertEqual(
+            [os.path.abspath(path) for path in spec.submodule_search_locations], [os.path.join(ROOT, 'engine')]
+        )
 
     def test_legacy_engine_py_module_is_removed_after_atomic_switch(self):
         self.assertFalse(os.path.exists(os.path.join(ROOT, 'engine.py')))

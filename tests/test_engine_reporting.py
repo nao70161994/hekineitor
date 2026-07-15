@@ -19,10 +19,33 @@ class TestEngineReportingHelpers(unittest.TestCase):
             {10: 'A', 20: 'B'},
             top_n=2,
         )
-        self.assertEqual(rows, [
-            {'fetish_id': 20, 'fetish_name': 'B', 'guessed': 5, 'correct': 2, 'wrong': 2, 'feedback_total': 4, 'total': 5, 'acc': 50, 'source': 'recent'},
-            {'fetish_id': 10, 'fetish_name': 'A', 'guessed': 3, 'correct': 1, 'wrong': 1, 'feedback_total': 2, 'total': 3, 'acc': 50, 'source': 'recent'},
-        ])
+        self.assertEqual(
+            rows,
+            [
+                {
+                    'fetish_id': 20,
+                    'fetish_name': 'B',
+                    'guessed': 5,
+                    'correct': 2,
+                    'wrong': 2,
+                    'feedback_total': 4,
+                    'total': 5,
+                    'acc': 50,
+                    'source': 'recent',
+                },
+                {
+                    'fetish_id': 10,
+                    'fetish_name': 'A',
+                    'guessed': 3,
+                    'correct': 1,
+                    'wrong': 1,
+                    'feedback_total': 2,
+                    'total': 3,
+                    'acc': 50,
+                    'source': 'recent',
+                },
+            ],
+        )
 
     def test_fetish_history_rows_preserve_missing_days(self):
         rows = engine_reporting.fetish_history_rows(
@@ -31,10 +54,13 @@ class TestEngineReportingHelpers(unittest.TestCase):
             'f_correct_10',
             'f_wrong_10',
         )
-        self.assertEqual(rows, [
-            {'date': '2026-05-22', 'correct': 0, 'wrong': 0},
-            {'date': '2026-05-23', 'correct': 2, 'wrong': 0},
-        ])
+        self.assertEqual(
+            rows,
+            [
+                {'date': '2026-05-22', 'correct': 0, 'wrong': 0},
+                {'date': '2026-05-23', 'correct': 2, 'wrong': 0},
+            ],
+        )
 
     def test_quality_event_summary_from_history_matches_engine_shape(self):
         keys = (
@@ -55,11 +81,14 @@ class TestEngineReportingHelpers(unittest.TestCase):
             keys,
             days=2,
         )
-        self.assertEqual(summary, {
-            'days': 2,
-            'low_confidence': {'guesses': 1, 'correct': 0, 'wrong': 3},
-            'additional_questions': {'guesses': 0, 'correct': 4, 'wrong': 0, 'questions': 2},
-        })
+        self.assertEqual(
+            summary,
+            {
+                'days': 2,
+                'low_confidence': {'guesses': 1, 'correct': 0, 'wrong': 3},
+                'additional_questions': {'guesses': 0, 'correct': 4, 'wrong': 0, 'questions': 2},
+            },
+        )
 
     def test_dropoff_summary_from_history_groups_by_answered_count(self):
         raw = {
@@ -70,8 +99,12 @@ class TestEngineReportingHelpers(unittest.TestCase):
         self.assertEqual(totals, {'total': 3, 'by_answered': {0: 1, 3: 2}})
         self.assertEqual(
             engine_reporting.format_dropoff_summary(totals, days=2),
-            {'days': 2, 'total': 3, 'by_answered': [
-                {'answered_count': 3, 'count': 2},
-                {'answered_count': 0, 'count': 1},
-            ]},
+            {
+                'days': 2,
+                'total': 3,
+                'by_answered': [
+                    {'answered_count': 3, 'count': 2},
+                    {'answered_count': 0, 'count': 1},
+                ],
+            },
         )

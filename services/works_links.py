@@ -1,13 +1,11 @@
 import re
 import urllib.parse
-from collections import Counter
 
 ASIN_RE = re.compile(r'/dp/([A-Z0-9]{10})')
 
 
 def work_url_status(work):
     """Classify a work link for affiliate maintenance without mutating data."""
-    title = work.get('title', '') if isinstance(work, dict) else str(work)
     url = (work.get('url') or '') if isinstance(work, dict) else ''
     url = str(url).strip()
     if not url:
@@ -25,7 +23,7 @@ def _affiliate_search_url(title, associate_id):
     associate_id = str(associate_id or '').strip()
     if not title or not associate_id:
         return ''
-    return f"https://www.amazon.co.jp/s?k={urllib.parse.quote(title)}&tag={urllib.parse.quote(associate_id)}"
+    return f'https://www.amazon.co.jp/s?k={urllib.parse.quote(title)}&tag={urllib.parse.quote(associate_id)}'
 
 
 def collect_work_link_queue(fetishes, *, sample_limit=20, associate_id=''):
@@ -38,14 +36,16 @@ def collect_work_link_queue(fetishes, *, sample_limit=20, associate_id=''):
             title = work.get('title', '') if isinstance(work, dict) else str(work)
             fallback_url = _affiliate_search_url(title, associate_id) if status == 'missing_url' else ''
             bucket = 'fallback_search_url' if fallback_url else status
-            buckets[bucket].append({
-                'fetish_id': fetish.get('id'),
-                'fetish_name': fetish.get('name', ''),
-                'work_index': index,
-                'title': title,
-                'url': url,
-                'fallback_url': fallback_url,
-            })
+            buckets[bucket].append(
+                {
+                    'fetish_id': fetish.get('id'),
+                    'fetish_name': fetish.get('name', ''),
+                    'work_index': index,
+                    'title': title,
+                    'url': url,
+                    'fallback_url': fallback_url,
+                }
+            )
     counts = {key: len(value) for key, value in buckets.items()}
     total = sum(counts.values())
     samples = {key: value[:sample_limit] for key, value in buckets.items()}
@@ -64,18 +64,19 @@ def summarize_backfill_candidates(fetishes, progress, *, associate_id='hekinator
             asin = progress.get(title)
             if not asin or asin in ('CAPTCHA', 'ERROR', 'NOT_FOUND'):
                 continue
-            candidates.append({
-                'fetish_id': fetish.get('id'),
-                'fetish_name': fetish.get('name', ''),
-                'work_index': index,
-                'title': title,
-                'current_status': status,
-                'current_url': current_url,
-                'asin': asin,
-                'direct_url': f'https://www.amazon.co.jp/dp/{asin}?tag={associate_id}',
-            })
+            candidates.append(
+                {
+                    'fetish_id': fetish.get('id'),
+                    'fetish_name': fetish.get('name', ''),
+                    'work_index': index,
+                    'title': title,
+                    'current_status': status,
+                    'current_url': current_url,
+                    'asin': asin,
+                    'direct_url': f'https://www.amazon.co.jp/dp/{asin}?tag={associate_id}',
+                }
+            )
     return {'count': len(candidates), 'samples': candidates[:limit]}
-
 
 
 def build_work_maintenance_summary(fetishes, *, work_title_fn, safe_work_url_fn, sample_limit=8):
@@ -90,10 +91,12 @@ def build_work_maintenance_summary(fetishes, *, work_title_fn, safe_work_url_fn,
     for fetish in fetishes:
         works = fetish.get('works') or []
         if not works:
-            missing_work_fetishes.append({
-                'fetish_id': fetish['id'],
-                'fetish_name': fetish['name'],
-            })
+            missing_work_fetishes.append(
+                {
+                    'fetish_id': fetish['id'],
+                    'fetish_name': fetish['name'],
+                }
+            )
             continue
         for work in works:
             total_works += 1
@@ -123,11 +126,13 @@ def build_work_maintenance_summary(fetishes, *, work_title_fn, safe_work_url_fn,
         items = duplicate['items']
         if len(items) <= 1:
             continue
-        duplicate_works.append({
-            'title': duplicate['title'],
-            'count': len(items),
-            'fetishes': items[:sample_limit],
-        })
+        duplicate_works.append(
+            {
+                'title': duplicate['title'],
+                'count': len(items),
+                'fetishes': items[:sample_limit],
+            }
+        )
     duplicate_works.sort(key=lambda row: (-row['count'], row['title']))
     return {
         'total_works': total_works,

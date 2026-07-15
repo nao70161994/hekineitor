@@ -58,7 +58,10 @@ def result_diversity_candidate(exposure_events, fetish_rows=None):
     total = sum(counts.values())
     if total < 30 or not counts:
         return {'status': 'insufficient_data', 'sample_count': total, 'top_share': 0, 'top_results': []}
-    top = [{'result_name': name, 'count': count, 'share': round(count / total * 100, 1)} for name, count in counts.most_common(5)]
+    top = [
+        {'result_name': name, 'count': count, 'share': round(count / total * 100, 1)}
+        for name, count in counts.most_common(5)
+    ]
     top_share = top[0]['share'] if top else 0
     status = 'needs_review' if top_share >= 60 else 'ok'
     return {'status': status, 'sample_count': total, 'top_share': top_share, 'top_results': top}
@@ -89,15 +92,17 @@ def low_learning_candidates(fetish_rows, exposure_events=None, *, limit=10):
         wrong = int(row.get('wrong', 0) or 0)
         feedback_total = int(row.get('feedback_total', correct + wrong) or 0)
         exposures = exposure_counts.get(fetish_id, 0)
-        rows.append({
-            'id': fetish_id,
-            'name': row.get('name', ''),
-            'guessed': guessed,
-            'exposed': exposures,
-            'feedback_total': feedback_total,
-            'correct': correct,
-            'wrong': wrong,
-        })
+        rows.append(
+            {
+                'id': fetish_id,
+                'name': row.get('name', ''),
+                'guessed': guessed,
+                'exposed': exposures,
+                'feedback_total': feedback_total,
+                'correct': correct,
+                'wrong': wrong,
+            }
+        )
 
     rows.sort(key=lambda item: (item['exposed'], item['feedback_total'], item['guessed'], item['id']))
     zero_exposure = sum(1 for row in rows if row['exposed'] == 0)
@@ -108,7 +113,9 @@ def low_learning_candidates(fetish_rows, exposure_events=None, *, limit=10):
         'zero_exposure_count': zero_exposure,
         'zero_feedback_count': zero_feedback,
         'least_exposed': rows[:limit],
-        'least_feedback': sorted(rows, key=lambda item: (item['feedback_total'], item['exposed'], item['guessed'], item['id']))[:limit],
+        'least_feedback': sorted(
+            rows, key=lambda item: (item['feedback_total'], item['exposed'], item['guessed'], item['id'])
+        )[:limit],
     }
 
 
@@ -121,22 +128,38 @@ def build_candidates(question_report, *, exposure_events=None, fetish_rows=None,
     return {
         'yes_rate_high': _top(
             [row for row in answered_rows if float(row.get('yes_rate', 0) or 0) > 90],
-            lambda row: (-float(row.get('yes_rate', 0) or 0), -int(row.get('answered', 0) or 0), row.get('question_id', 0)),
+            lambda row: (
+                -float(row.get('yes_rate', 0) or 0),
+                -int(row.get('answered', 0) or 0),
+                row.get('question_id', 0),
+            ),
             limit=limit,
         ),
         'yes_rate_low': _top(
             [row for row in answered_rows if float(row.get('yes_rate', 0) or 0) < 10],
-            lambda row: (float(row.get('yes_rate', 0) or 0), -int(row.get('answered', 0) or 0), row.get('question_id', 0)),
+            lambda row: (
+                float(row.get('yes_rate', 0) or 0),
+                -int(row.get('answered', 0) or 0),
+                row.get('question_id', 0),
+            ),
             limit=limit,
         ),
         'dropoff_top': _top(
             shown_rows,
-            lambda row: (-float(row.get('dropoff_rate', 0) or 0), -int(row.get('dropoff', 0) or 0), row.get('question_id', 0)),
+            lambda row: (
+                -float(row.get('dropoff_rate', 0) or 0),
+                -int(row.get('dropoff', 0) or 0),
+                row.get('question_id', 0),
+            ),
             limit=limit,
         ),
         'heavy_result_contributors': _top(
             heavy_rows,
-            lambda row: (-_heavy_contribution_count(row), -int(row.get('contribution', 0) or 0), row.get('question_id', 0)),
+            lambda row: (
+                -_heavy_contribution_count(row),
+                -int(row.get('contribution', 0) or 0),
+                row.get('question_id', 0),
+            ),
             limit=limit,
         ),
         'result_diversity': result_diversity_candidate(exposure_events or [], fetish_rows),

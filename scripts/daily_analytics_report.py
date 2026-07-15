@@ -7,9 +7,9 @@ import json
 import os
 import sys
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 from typing import Any, Callable, Mapping
 from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
 
 try:
     from scripts.ntfy_notifier import notify
@@ -85,7 +85,9 @@ def _result_count(row: dict[str, Any]) -> int:
     return int(row.get('total') or row.get('count') or row.get('guessed') or 0)
 
 
-def _previous_day_stats(funnel: dict[str, Any], target_date: str, *, min_starts: int = 20, available: bool = True) -> dict[str, Any]:
+def _previous_day_stats(
+    funnel: dict[str, Any], target_date: str, *, min_starts: int = 20, available: bool = True
+) -> dict[str, Any]:
     if not available:
         return {
             'date': target_date,
@@ -133,7 +135,7 @@ def _completion_line(stats: dict[str, Any]) -> str:
     if rate is None:
         return 'completion_rate: unavailable'
     suffix = '' if stats.get('completion_reliable') else ' (参考値)'
-    return f"completion_rate: {_pct(rate)}{suffix} ({stats.get('completions', 0)}/{stats.get('plays', 0)})"
+    return f'completion_rate: {_pct(rate)}{suffix} ({stats.get("completions", 0)}/{stats.get("plays", 0)})'
 
 
 def _top_results(ranking: list[dict[str, Any]], limit: int = 5) -> list[str]:
@@ -159,12 +161,14 @@ def _heavy_ratio(ranking: list[dict[str, Any]]) -> float:
     return _heavy_stats(ranking)['ratio']
 
 
-def _heavy_line(ranking: list[dict[str, Any]], *, result_source: str = 'result_exposures', min_samples: int = 30) -> str:
+def _heavy_line(
+    ranking: list[dict[str, Any]], *, result_source: str = 'result_exposures', min_samples: int = 30
+) -> str:
     if result_source != 'result_exposures':
         return f'heavy_result_ratio: unavailable ({result_source})'
     stats = _heavy_stats(ranking)
     suffix = '' if stats['total'] >= min_samples else ' (参考値)'
-    return f"heavy_result_ratio: {_pct(stats['ratio'])}{suffix} ({stats['heavy']}/{stats['total']})"
+    return f'heavy_result_ratio: {_pct(stats["ratio"])}{suffix} ({stats["heavy"]}/{stats["total"]})'
 
 
 def _fetch_result_ranking(
@@ -217,7 +221,7 @@ def _question_yes_summary(row: dict[str, Any]) -> str:
     if category:
         suffix += f', {category}'
     suffix += ')'
-    return f"Q{row.get('question_id')} {_pct(row.get('yes_rate'))}{suffix}"
+    return f'Q{row.get("question_id")} {_pct(row.get("yes_rate"))}{suffix}'
 
 
 def _top_dropoff_questions(question_report: dict[str, Any], limit: int = 3) -> list[str]:
@@ -228,7 +232,7 @@ def _top_dropoff_questions(question_report: dict[str, Any], limit: int = 3) -> l
         text = str(row.get('question_text') or '')[:28]
         dropoff = int(row.get('dropoff') or 0)
         shown = int(row.get('shown') or 0)
-        rows.append(f"Q{row.get('question_id')} {_pct(row.get('dropoff_rate'))} ({dropoff}/{shown}) {text}")
+        rows.append(f'Q{row.get("question_id")} {_pct(row.get("dropoff_rate"))} ({dropoff}/{shown}) {text}')
         if len(rows) >= limit:
             break
     return rows
@@ -239,7 +243,16 @@ def _share_breakdown_line(share_report: dict[str, Any]) -> str:
     if not by_event:
         return ''
     parts = []
-    for key in ('result_page_view', 'share_button_click', 'x_share_click', 'web_share_success', 'copy_success', 'ogp_png_view', 'ogp_svg_view', 'work_click'):
+    for key in (
+        'result_page_view',
+        'share_button_click',
+        'x_share_click',
+        'web_share_success',
+        'copy_success',
+        'ogp_png_view',
+        'ogp_svg_view',
+        'work_click',
+    ):
         value = int(by_event.get(key) or 0)
         if value:
             parts.append(f'{key}={value}')
@@ -259,7 +272,9 @@ def _share_activity_lines(share_report: dict[str, Any], *, prefix: str = 'share'
     ]
 
 
-def _dominant_result_line(ranking: list[dict[str, Any]], *, label: str, min_samples: int = 20, threshold: float = 65.0) -> str:
+def _dominant_result_line(
+    ranking: list[dict[str, Any]], *, label: str, min_samples: int = 20, threshold: float = 65.0
+) -> str:
     total = sum(_result_count(row) for row in ranking)
     if total <= 0 or not ranking:
         return ''
@@ -291,7 +306,9 @@ def _question_quality_lines(question_report: dict[str, Any]) -> list[str]:
 
 
 def _question_events_line(question_report: dict[str, Any]) -> str:
-    raw_total = int(question_report.get('total_available', question_report.get('raw_loaded', question_report.get('total', 0))) or 0)
+    raw_total = int(
+        question_report.get('total_available', question_report.get('raw_loaded', question_report.get('total', 0))) or 0
+    )
     analyzed = int(question_report.get('total', 0) or 0)
     excluded = int((question_report.get('quality') or {}).get('excluded_suspicious_events') or 0)
     if excluded > 0:
@@ -299,13 +316,18 @@ def _question_events_line(question_report: dict[str, Any]) -> str:
     return f'question_events: {raw_total}'
 
 
-def _yes_anomaly_questions(question_report: dict[str, Any], limit: int = 3, threshold: float = 90.0, min_answers: int = 20) -> list[str]:
+def _yes_anomaly_questions(
+    question_report: dict[str, Any], limit: int = 3, threshold: float = 90.0, min_answers: int = 20
+) -> list[str]:
     rows = []
-    for row in sorted(question_report.get('questions', []), key=lambda r: (-float(r.get('yes_rate') or 0), -int(r.get('answered') or 0))):
+    for row in sorted(
+        question_report.get('questions', []),
+        key=lambda r: (-float(r.get('yes_rate') or 0), -int(r.get('answered') or 0)),
+    ):
         if int(row.get('answered') or 0) < min_answers or float(row.get('yes_rate') or 0) < threshold:
             continue
         text = str(row.get('question_text') or '')[:28]
-        rows.append(f"{_question_yes_summary(row)} {text}")
+        rows.append(f'{_question_yes_summary(row)} {text}')
         if len(rows) >= limit:
             break
     return rows
@@ -367,7 +389,7 @@ def build_daily_report(
     )
     questions = _safe_fetch_json(
         json_getter,
-        f"/api/admin/question_events?date={target_date}&limit={_env_int(environ, 'NTFY_QUESTION_EVENT_LIMIT', 500)}",
+        f'/api/admin/question_events?date={target_date}&limit={_env_int(environ, "NTFY_QUESTION_EVENT_LIMIT", 500)}',
         {'total': 0, 'dropoff_ranking': [], 'questions': []},
         failures,
     )
@@ -379,27 +401,35 @@ def build_daily_report(
     share_rate = _ratio(share_actions, result_views)
     top_results = _top_results(ranking)
     primary_top_results = _top_results(primary_ranking)
-    weekly_result_line = _result_window_line(weekly_primary_ranking, label='result_7d_primary') if weekly_primary_source == 'result_exposures' else ''
+    weekly_result_line = (
+        _result_window_line(weekly_primary_ranking, label='result_7d_primary')
+        if weekly_primary_source == 'result_exposures'
+        else ''
+    )
     dominant_daily = _dominant_result_line(primary_ranking, label='dominant_result_daily')
-    dominant_weekly = _dominant_result_line(weekly_primary_ranking, label='dominant_result_7d') if weekly_primary_source == 'result_exposures' else ''
+    dominant_weekly = (
+        _dominant_result_line(weekly_primary_ranking, label='dominant_result_7d')
+        if weekly_primary_source == 'result_exposures'
+        else ''
+    )
     dropoff = _top_dropoff_questions(questions)
     yes_anomaly = _yes_anomaly_questions(questions)
 
     lines = [
         '[DAILY] Hekineitor analytics',
-        f"date: {stats['date']}",
+        f'date: {stats["date"]}',
         _plays_line(stats),
         _completion_line(stats),
         _heavy_line(ranking, result_source=result_source),
-        f"result_source: {result_source}",
+        f'result_source: {result_source}',
         'result_scope: displayed_results',
         'note: displayed result counts may exceed plays because compound results are counted separately',
-        f"primary_result_source: {primary_result_source}",
-        f"share_rate: {_pct(share_rate)} ({share_actions}/{result_views})",
+        f'primary_result_source: {primary_result_source}',
+        f'share_rate: {_pct(share_rate)} ({share_actions}/{result_views})',
         _question_events_line(questions),
-        f"share_events: {share.get('total', 0)}",
+        f'share_events: {share.get("total", 0)}',
         *_share_activity_lines(share),
-        f"share_7d_events: {weekly_share.get('total', 0)}",
+        f'share_7d_events: {weekly_share.get("total", 0)}',
         *_share_activity_lines(weekly_share, prefix='share_7d'),
     ]
     if int(questions.get('total_available', questions.get('total', 0)) or 0) == 0:

@@ -1,6 +1,7 @@
-from flask import Blueprint
 import html as _html
 import urllib.parse
+
+from flask import Blueprint
 
 from services import share_links
 
@@ -21,11 +22,11 @@ def index(ctx):
 
 
 def result_og_image_url(base_url, name, probability):
-    return f"{base_url}/ogp.png?f={urllib.parse.quote(name or '')}&p={probability or ''}"
+    return f'{base_url}/ogp.png?f={urllib.parse.quote(name or "")}&p={probability or ""}'
 
 
 def fetish_og_image_url(base_url, fetish_name, probability=90):
-    return f"{base_url}/ogp.png?f={urllib.parse.quote(fetish_name or '')}&p={probability}"
+    return f'{base_url}/ogp.png?f={urllib.parse.quote(fetish_name or "")}&p={probability}'
 
 
 def ogp_cache_headers():
@@ -79,15 +80,17 @@ def fetish_index(ctx):
             continue
         works = work_links(ctx, (fetish.get('works') or [])[:3])
         log = fetish_log.get(fetish['id'], {'guessed': 0, 'correct': 0, 'wrong': 0})
-        rows.append({
-            'id': fetish['id'],
-            'name': fetish['name'],
-            'desc': fetish['desc'],
-            'works': works,
-            'guessed': log.get('guessed', 0),
-        })
+        rows.append(
+            {
+                'id': fetish['id'],
+                'name': fetish['name'],
+                'desc': fetish['desc'],
+                'works': works,
+                'guessed': log.get('guessed', 0),
+            }
+        )
     rows.sort(key=lambda row: (-row['guessed'], row['id']))
-    page_url = f"{base_url}/fetishes"
+    page_url = f'{base_url}/fetishes'
     json_ld = {
         '@context': 'https://schema.org',
         '@type': 'CollectionPage',
@@ -98,7 +101,7 @@ def fetish_index(ctx):
             '@type': 'ItemList',
             'numberOfItems': len(rows),
             'itemListElement': [
-                {'@type': 'ListItem', 'position': i + 1, 'url': f"{base_url}/fetish/{row['id']}", 'name': row['name']}
+                {'@type': 'ListItem', 'position': i + 1, 'url': f'{base_url}/fetish/{row["id"]}', 'name': row['name']}
                 for i, row in enumerate(rows[:50])
             ],
         },
@@ -113,13 +116,11 @@ def fetish_index(ctx):
     )
 
 
-
 def fetish_detail(ctx, fetish_id):
     idx = ctx.engine.index_of(fetish_id)
     if idx is None:
         return ctx.error_page.format(
-            title='見つかりません', emoji='🔍', code='404',
-            message='その性癖は存在しないか、削除されました。'
+            title='見つかりません', emoji='🔍', code='404', message='その性癖は存在しないか、削除されました。'
         ), 404
     fetish = ctx.engine.fetishes[idx]
 
@@ -151,12 +152,12 @@ def fetish_detail(ctx, fetish_id):
     accuracy = round(log.get('correct', 0) / feedback_total * 100) if feedback_total else None
     base_url = ctx.public_base_url()
     work_names = [work['title'] for work in works[:6]]
-    seo_desc = f"{fetish['name']}とは、{fetish['desc']} へきネイターでこの性癖に当てはまるか診断できます。"[:155]
+    seo_desc = f'{fetish["name"]}とは、{fetish["desc"]} へきネイターでこの性癖に当てはまるか診断できます。'[:155]
     page_url = f'{base_url}/fetish/{fetish_id}'
     json_ld = {
         '@context': 'https://schema.org',
         '@type': 'Article',
-        'headline': f"{fetish['name']}とは？性癖診断とおすすめ作品",
+        'headline': f'{fetish["name"]}とは？性癖診断とおすすめ作品',
         'description': seo_desc,
         'url': page_url,
         'isPartOf': {'@type': 'WebSite', 'name': 'へきネイター', 'url': base_url},
@@ -204,11 +205,13 @@ def _render_result_share(ctx, *, name, probability, desc, share_url):
 
 def _legacy_result_share_url(ctx, *, name, probability, desc):
     base_url = ctx.public_base_url()
-    query = urllib.parse.urlencode({
-        'f': name,
-        'p': probability,
-        'd': desc,
-    })
+    query = urllib.parse.urlencode(
+        {
+            'f': name,
+            'p': probability,
+            'd': desc,
+        }
+    )
     return f'{base_url}/r?{query}'
 
 
@@ -230,8 +233,7 @@ def result_share_by_id(ctx, share_id):
     payload = share_links.resolve_link(share_id, environ=ctx.environ)
     if not payload:
         return ctx.error_page.format(
-            title='見つかりません', emoji='🔍', code='404',
-            message='共有リンクが存在しないか、期限切れです。'
+            title='見つかりません', emoji='🔍', code='404', message='共有リンクが存在しないか、期限切れです。'
         ), 404
     name = payload.get('name', '')[:60]
     probability = ctx.clean_probability(payload.get('probability', ''))
@@ -276,16 +278,18 @@ def stats_page(ctx):
         guessed, correct, wrong = log['guessed'], log['correct'], log['wrong']
         feedback_total = correct + wrong
         accuracy = round(correct / feedback_total * 100) if feedback_total else None
-        rows.append({
-            'id': fetish['id'],
-            'name': fetish['name'],
-            'guessed': guessed,
-            'correct': correct,
-            'wrong': wrong,
-            'feedback_total': feedback_total,
-            'unfeedback': max(0, guessed - feedback_total),
-            'acc': accuracy,
-        })
+        rows.append(
+            {
+                'id': fetish['id'],
+                'name': fetish['name'],
+                'guessed': guessed,
+                'correct': correct,
+                'wrong': wrong,
+                'feedback_total': feedback_total,
+                'unfeedback': max(0, guessed - feedback_total),
+                'acc': accuracy,
+            }
+        )
     rows.sort(key=lambda row: -row['guessed'])
     top10 = [row for row in rows if row['guessed'] > 0][:10]
     total_guessed = sum(row['guessed'] for row in rows)
@@ -305,7 +309,7 @@ def stats_page(ctx):
         total_fetishes=len([f for f in ctx.engine.fetishes if f['id'] < ctx.player_fetish_base_id]),
         display_version=ctx.display_version,
         base_url=base_url,
-        page_url=f"{base_url}/stats",
+        page_url=f'{base_url}/stats',
     )
 
 
@@ -325,14 +329,13 @@ def sitemap_xml(ctx):
     urls = [host + '/', host + '/fetishes', host + '/stats']
     for fetish in ctx.engine.fetishes:
         if fetish['id'] < 10000:
-            urls.append(f"{host}/fetish/{fetish['id']}")
+            urls.append(f'{host}/fetish/{fetish["id"]}')
     lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for url in urls:
         priority = '1.0' if url == host + '/' else ('0.8' if url in (host + '/fetishes', host + '/stats') else '0.6')
         lines.append(f'  <url><loc>{_html.escape(url, quote=True)}</loc><priority>{priority}</priority></url>')
     lines.append('</urlset>')
     return ctx.Response('\n'.join(lines), mimetype='application/xml')
-
 
 
 def create_blueprint(ctx_factory):

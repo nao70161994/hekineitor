@@ -1,23 +1,24 @@
 import copy
-import fcntl
-import math
 import os
 import threading
 import time
 from contextlib import contextmanager
+
 from analytics import build_quality_report
 from config import get_fetish_log_path
 from matrix_service import collect_matrix_updates, matrix_validation_report
-from storage import DATA_DIR, DATABASE_URL, HAS_PSYCOPG2
-from storage import atomic_write_json, data_path, load_json_file
+from storage import DATA_DIR, DATABASE_URL, HAS_PSYCOPG2, atomic_write_json, data_path, load_json_file
 from storage import get_conn as _storage_get_conn
 from storage import put_conn as _storage_put_conn
 from storage import use_db as _storage_use_db
 from work_utils import parse_work_item, parse_works_list, work_title
+
 from . import admin_reports as engine_admin_reports
 from . import compound_works as engine_compound_works
 from . import correlation as engine_correlation
 from . import db as engine_db
+from . import facade_locks as engine_facade_locks
+from . import facade_settings as engine_facade_settings
 from . import inference as engine_inference
 from . import learning as engine_learning
 from . import mutations as engine_mutations
@@ -48,6 +49,8 @@ from .data import (
     FETISH_RELATIONS,
     QUESTION_AXES,
 )
+
+
 def _use_db():
     return _storage_use_db()
 
@@ -55,6 +58,7 @@ def _use_db():
 _COMPOUND_WORKS: dict = {}
 _compound_works_loaded = False
 _COMPOUND_WORKS_PATH = data_path('compound_works.json')
+
 
 def _load_compound_works():
     global _COMPOUND_WORKS, _compound_works_loaded
@@ -66,18 +70,22 @@ def _load_compound_works():
         _COMPOUND_WORKS = loaded
         _compound_works_loaded = True
 
+
 def _save_compound_works():
     engine_compound_works.save_cache(_COMPOUND_WORKS_PATH, _COMPOUND_WORKS, atomic_write_json)
+
 
 def get_compound_works(id_a: int, id_b: int) -> list:
     """2つの性癖IDペアに特化した作品リストを返す。なければ空リスト。"""
     _load_compound_works()
     return engine_compound_works.get_works(_COMPOUND_WORKS, id_a, id_b)
 
+
 def list_compound_works() -> list:
     """全ペアをリスト形式で返す。[{key, id_a, id_b, works}, ...]"""
     _load_compound_works()
     return engine_compound_works.serialize_compound_works(_COMPOUND_WORKS)
+
 
 def set_compound_works(id_a: int, id_b: int, works: list) -> str:
     """ペアの作品リストを追加・更新する。キーを返す。"""
@@ -85,6 +93,7 @@ def set_compound_works(id_a: int, id_b: int, works: list) -> str:
     key = engine_compound_works.set_works(_COMPOUND_WORKS, id_a, id_b, works)
     _save_compound_works()
     return key
+
 
 def delete_compound_works(id_a: int, id_b: int) -> bool:
     """ペアを削除する。存在しなければFalse。"""
@@ -98,72 +107,34 @@ def delete_compound_works(id_a: int, id_b: int) -> bool:
 def _get_conn():
     return _storage_get_conn()
 
+
 def _put_conn(conn):
     _storage_put_conn(conn)
 
 
 def _build_initial_matrix(nf, nq):
     alpha = 2.0
-    yes   = [[alpha]       * nq for _ in range(nf)]
+    yes = [[alpha] * nq for _ in range(nf)]
     total = [[alpha * 2.0] * nq for _ in range(nf)]
     for f, q, p in DOMAIN_PRIORS:
-        yes[f][q]   = p * PSEUDO
+        yes[f][q] = p * PSEUDO
         total[f][q] = float(PSEUDO)
     return yes, total
 
 
-_MATRIX_RELOAD_INTERVAL  = 5.0   # 複数worker対応: DBからmatrixをリロードする間隔(秒)
-_DYNAMIC_PRIOR_INTERVAL  = 60.0  # 動的事前確率キャッシュの更新間隔(秒)
-
-_SETTINGS_LOCK_GUARD = threading.Lock()
-_SETTINGS_THREAD_LOCKS = {}
-_FILE_ENGINE_PROCESS_GUARD = threading.Lock()
-_FILE_ENGINE_PROCESS_LOCK = None
-_FILE_ENGINE_PROCESS_PID = None
+_MATRIX_RELOAD_INTERVAL = 5.0  # 複数worker対応: DBからmatrixをリロードする間隔(秒)
+_DYNAMIC_PRIOR_INTERVAL = 60.0  # 動的事前確率キャッシュの更新間隔(秒)
 
 
 def _acquire_file_engine_process_lock():
     """Reject multiple processes when the mutable engine uses JSON files."""
-    global _FILE_ENGINE_PROCESS_LOCK, _FILE_ENGINE_PROCESS_PID
-    if _use_db():
-        return
-    pid = os.getpid()
-    with _FILE_ENGINE_PROCESS_GUARD:
-        if _FILE_ENGINE_PROCESS_LOCK is not None and _FILE_ENGINE_PROCESS_PID == pid:
-            return
-        if _FILE_ENGINE_PROCESS_LOCK is not None:
-            # A pre-fork child must not treat the master's inherited descriptor
-            # as permission to use a stale in-memory Engine snapshot.
-            _FILE_ENGINE_PROCESS_LOCK.close()
-            _FILE_ENGINE_PROCESS_LOCK = None
-            _FILE_ENGINE_PROCESS_PID = None
-        lock_path = os.path.join(DATA_DIR, 'engine_file_mode.lock')
-        os.makedirs(os.path.dirname(lock_path), exist_ok=True)
-        lock_file = open(lock_path, 'a', encoding='utf-8')
-        try:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError as exc:
-            lock_file.close()
-            raise RuntimeError(
-                'JSON engine storage supports one process only; configure DATABASE_URL for multiple workers'
-            ) from exc
-        _FILE_ENGINE_PROCESS_LOCK = lock_file
-        _FILE_ENGINE_PROCESS_PID = pid
+    engine_facade_locks.acquire_file_engine_process_lock(use_db=_use_db, data_dir=DATA_DIR)
 
 
 @contextmanager
 def _settings_file_lock(path):
-    absolute = os.path.abspath(path)
-    with _SETTINGS_LOCK_GUARD:
-        thread_lock = _SETTINGS_THREAD_LOCKS.setdefault(absolute, threading.RLock())
-    with thread_lock:
-        os.makedirs(os.path.dirname(absolute), exist_ok=True)
-        with open(f'{absolute}.lock', 'a', encoding='utf-8') as lock_file:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-            try:
-                yield
-            finally:
-                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+    with engine_facade_locks.settings_file_lock(path):
+        yield
 
 
 class Engine:
@@ -178,27 +149,28 @@ class Engine:
                     journal_path,
                     os.path.join(DATA_DIR, 'fetishes.json'),
                     os.path.join(DATA_DIR, 'matrix.json'),
-                    len(self.questions), atomic_write=self._atomic_write,
+                    len(self.questions),
+                    atomic_write=self._atomic_write,
                 )
         if _use_db():
             self._ensure_db()
             self.fetishes = self._load_fetishes_from_db()
-            self.matrix   = self._load_from_db()
+            self.matrix = self._load_from_db()
         else:
             self.fetishes = self._load_json('fetishes.json')
-            self.matrix   = self._load_matrix_file()
-        self.disabled_questions    = self._load_disabled_questions()
-        self._matrix_last_loaded   = time.monotonic()
+            self.matrix = self._load_matrix_file()
+        self.disabled_questions = self._load_disabled_questions()
+        self._matrix_last_loaded = time.monotonic()
         self._settings_last_loaded = self._matrix_last_loaded
-        self._dynamic_prior_cache  = {}
-        self._dynamic_prior_time   = 0.0
-        self._disc_cache           = []   # [disc_value per question]
-        self._disc_cache_time      = 0.0
-        self._corr_cache           = []   # get_correlation_stats のキャッシュ
-        self._corr_cache_time      = 0.0
+        self._dynamic_prior_cache = {}
+        self._dynamic_prior_time = 0.0
+        self._disc_cache = []  # [disc_value per question]
+        self._disc_cache_time = 0.0
+        self._corr_cache = []  # get_correlation_stats のキャッシュ
+        self._corr_cache_time = 0.0
         self._question_balance_cache = {}
         self._question_balance_time = 0.0
-        self.config                = self._load_config()
+        self.config = self._load_config()
         self._settings_config_snapshot = copy.deepcopy(self.config)
 
     # ── JSON ローカル ──────────────────────────────────────
@@ -313,6 +285,7 @@ class Engine:
 
     def _record_daily_stat(self, key):
         from datetime import date as _date
+
         today = _date.today().isoformat()
         if _use_db():
             engine_db.record_daily_stat(key, today, get_conn=_get_conn, put_conn=_put_conn)
@@ -352,7 +325,9 @@ class Engine:
 
     def get_stats_history(self, days=30):
         """過去N日間の日別プレイ・学習回数を [{date, play, learn}, ...] で返す。"""
-        from datetime import date as _date, timedelta
+        from datetime import date as _date
+        from datetime import timedelta
+
         today = _date.today()
         date_range = [(today - timedelta(days=i)).isoformat() for i in range(days - 1, -1, -1)]
         if _use_db():
@@ -360,10 +335,11 @@ class Engine:
         path = os.path.join(DATA_DIR, 'stats_history.json')
         return engine_stats.history_rows_from_file(path, date_range)
 
-
     def get_dropoff_summary(self, days=7, top_n=8):
         """途中離脱を回答済み質問数ごとに集計する。"""
-        from datetime import date as _date, timedelta
+        from datetime import date as _date
+        from datetime import timedelta
+
         today = _date.today()
         since = (today - timedelta(days=days - 1)).isoformat()
         if _use_db():
@@ -377,7 +353,9 @@ class Engine:
 
     def get_recent_fetish_ranking(self, days=7, top_n=10, end_date=None):
         """過去N日間に診断結果へ出た性癖TOP n件とFB指標を返す。"""
-        from datetime import date as _date, timedelta
+        from datetime import date as _date
+        from datetime import timedelta
+
         try:
             today = _date.fromisoformat(str(end_date)[:10]) if end_date else _date.today()
         except (TypeError, ValueError):
@@ -386,7 +364,9 @@ class Engine:
         until = today.isoformat()
         totals = {}  # fetish_id -> {'guessed': int, 'correct': int, 'wrong': int}
         if _use_db():
-            totals = engine_db.load_feedback_totals(since, until=until if end_date else None, get_conn=_get_conn, put_conn=_put_conn)
+            totals = engine_db.load_feedback_totals(
+                since, until=until if end_date else None, get_conn=_get_conn, put_conn=_put_conn
+            )
         else:
             path = os.path.join(DATA_DIR, 'stats_history.json')
             raw = engine_stats.read_json_path(path, {})
@@ -409,7 +389,9 @@ class Engine:
 
     def get_fetish_history(self, fetish_db_id, days=30):
         """指定性癖の日別正解/外れ件数を [{date, correct, wrong}, ...] で返す。"""
-        from datetime import date as _date, timedelta
+        from datetime import date as _date
+        from datetime import timedelta
+
         today = _date.today()
         date_range = [(today - timedelta(days=i)).isoformat() for i in range(days - 1, -1, -1)]
         ck = f'f_correct_{fetish_db_id}'
@@ -423,7 +405,9 @@ class Engine:
 
     def get_quality_event_summary(self, days=30):
         """診断品質用の内部イベントを過去N日分集計して返す。"""
-        from datetime import date as _date, timedelta
+        from datetime import date as _date
+        from datetime import timedelta
+
         today = _date.today()
         days = max(1, int(days or 30))
         date_range = [(today - timedelta(days=i)).isoformat() for i in range(days - 1, -1, -1)]
@@ -520,7 +504,6 @@ class Engine:
             path = get_fetish_log_path()
             return engine_stats.load_fetish_log_file(path)
 
-
     def _save_to_db(self, all_updates, idx_to_db_id=None):
         if not all_updates:
             return
@@ -537,9 +520,9 @@ class Engine:
     # ── パラメータ設定 ────────────────────────────────────
     _CONFIG_DEFAULTS = {
         'guess_threshold': 0.75,
-        'compound_ratio':  0.55,
-        'triple_ratio':    0.45,
-        'ucb_explore_c':   0.05,
+        'compound_ratio': 0.55,
+        'triple_ratio': 0.45,
+        'ucb_explore_c': 0.05,
         'focus_threshold': 0.40,
         'question_yes_balance_min_answers': 20.0,
         'question_yes_balance_max_penalty': 0.6,
@@ -555,55 +538,32 @@ class Engine:
     }
 
     def _load_config(self):
-        return engine_db.load_config(
-            self._CONFIG_DEFAULTS,
+        return engine_facade_settings.load_config(
+            self,
             use_db=_use_db,
             get_conn=_get_conn,
             put_conn=_put_conn,
             config_path=os.path.join(DATA_DIR, 'config.json'),
-            read_json=engine_stats.read_json_path,
         )
 
     def set_config(self, key, value):
-        if key not in self._CONFIG_DEFAULTS:
-            raise ValueError(f'未知のパラメータ: {key}')
-        fval = float(value)
-        if not math.isfinite(fval):
-            raise ValueError(f'不正なパラメータ値: {key}')
-        min_value, max_value = self._CONFIG_RANGES[key]
-        if fval < min_value or fval > max_value:
-            raise ValueError(f'{key} は {min_value}〜{max_value} の範囲で指定してください')
-        config_path = os.path.join(DATA_DIR, 'config.json')
-        engine_db.save_config_value(
-            key, fval, use_db=_use_db, get_conn=_get_conn, put_conn=_put_conn,
-            config_path=config_path, read_json=engine_stats.read_json_path,
-            atomic_write=self._atomic_write, file_lock=_settings_file_lock,
+        engine_facade_settings.set_config(
+            self,
+            key,
+            value,
+            use_db=_use_db,
+            get_conn=_get_conn,
+            put_conn=_put_conn,
+            config_path=os.path.join(DATA_DIR, 'config.json'),
+            file_lock=_settings_file_lock,
+            monotonic=time.monotonic,
         )
-        with self._lock:
-            self.config[key] = fval
-            self._settings_config_snapshot = copy.deepcopy(self.config)
-            self._settings_last_loaded = time.monotonic()
 
     # ── disc キャッシュ（学習重みスケーリング用） ──────────
     _DISC_CACHE_TTL = 120.0  # 2分ごとに再計算
 
     def _get_disc_scales(self):
-        now = time.monotonic()
-        if self._disc_cache and now - self._disc_cache_time < self._DISC_CACHE_TTL:
-            return self._disc_cache
-        mean_question_indexes = [
-            index for index, question in enumerate(self.questions)
-            if not question.get('learning_scale_neutral')
-        ]
-        scales = engine_runtime.disc_scales(
-            len(self.fetishes),
-            len(self.questions),
-            probability=self._prob,
-            mean_question_indexes=mean_question_indexes,
-        )
-        self._disc_cache      = scales
-        self._disc_cache_time = now
-        return scales
+        return engine_facade_settings.disc_scales(self, monotonic=time.monotonic)
 
     # ── 複数Worker対応: DBからmatrixをTTLリロード ──────────
     def _reload_matrix_if_stale(self):
@@ -616,10 +576,7 @@ class Engine:
             if time.monotonic() - self._matrix_last_loaded < _MATRIX_RELOAD_INTERVAL:
                 return
             fresh_fetishes = self._load_fetishes_from_db()
-            ids_changed = (
-                [fetish['id'] for fetish in fresh_fetishes]
-                != [fetish['id'] for fetish in self.fetishes]
-            )
+            ids_changed = [fetish['id'] for fetish in fresh_fetishes] != [fetish['id'] for fetish in self.fetishes]
             self.fetishes = fresh_fetishes
             if ids_changed:
                 self._disc_cache = None
@@ -628,44 +585,25 @@ class Engine:
             self._matrix_last_loaded = time.monotonic()
 
     def _reload_settings_if_stale(self, force=False):
-        _acquire_file_engine_process_lock()
-        now = time.monotonic()
-        if not force and now - self._settings_last_loaded < _MATRIX_RELOAD_INTERVAL:
-            return
-        with self._lock:
-            if not force and time.monotonic() - self._settings_last_loaded < _MATRIX_RELOAD_INTERVAL:
-                return
-            try:
-                disabled_questions = self._load_disabled_questions()
-                config = self._load_config()
-            except Exception:
-                self._settings_last_loaded = time.monotonic()
-                return
-            self.disabled_questions = disabled_questions
-            # Preserve an intentional in-process override until its owner
-            # restores the last persisted snapshot (used by diagnostics and
-            # callers that temporarily tune inference parameters).
-            if self.config == self._settings_config_snapshot:
-                self.config = config
-                self._settings_config_snapshot = copy.deepcopy(config)
-            self._settings_last_loaded = time.monotonic()
+        engine_facade_settings.reload_settings_if_stale(
+            self,
+            force=force,
+            acquire_process_lock=_acquire_file_engine_process_lock,
+            reload_interval=_MATRIX_RELOAD_INTERVAL,
+            monotonic=time.monotonic,
+        )
 
     def _refresh_settings(self):
         self._reload_settings_if_stale(force=True)
 
     # ── 動的事前確率（診断ログから自動更新） ──────────────
     def _get_dynamic_prior_weights(self):
-        now = time.monotonic()
-        if now - self._dynamic_prior_time < _DYNAMIC_PRIOR_INTERVAL:
-            return self._dynamic_prior_cache
-        log = self.get_fetish_log()
-        if not log:
-            self._dynamic_prior_time = now
-            return self._dynamic_prior_cache
-        weights = engine_runtime.dynamic_prior_weights(self.fetishes, log, FETISH_PRIOR_WEIGHTS)
-        self._dynamic_prior_cache = weights
-        self._dynamic_prior_time  = now
-        return weights
+        return engine_facade_settings.dynamic_prior_weights(
+            self,
+            monotonic=time.monotonic,
+            refresh_interval=_DYNAMIC_PRIOR_INTERVAL,
+            base_weights=FETISH_PRIOR_WEIGHTS,
+        )
 
     def get_top_questions_per_fetish(self, top_n=5):
         """各性癖について P(yes) が高い/低い質問を返す（DOMAIN_PRIORS整備の参考用）。"""
@@ -674,12 +612,9 @@ class Engine:
         for fi, f in enumerate(self.fetishes):
             probs = [(q, self._prob(fi, q)) for q in range(nq)]
             probs.sort(key=lambda x: x[1], reverse=True)
-            high = [{'q_id': q, 'text': self.questions[q]['text'], 'p': round(p, 3)}
-                    for q, p in probs[:top_n]]
-            low  = [{'q_id': q, 'text': self.questions[q]['text'], 'p': round(p, 3)}
-                    for q, p in probs[-top_n:]]
-            result.append({'fetish_id': f['id'], 'fetish_name': f['name'],
-                           'high': high, 'low': low})
+            high = [{'q_id': q, 'text': self.questions[q]['text'], 'p': round(p, 3)} for q, p in probs[:top_n]]
+            low = [{'q_id': q, 'text': self.questions[q]['text'], 'p': round(p, 3)} for q, p in probs[-top_n:]]
+            result.append({'fetish_id': f['id'], 'fetish_name': f['name'], 'high': high, 'low': low})
         return result
 
     # ── 推論 ───────────────────────────────────────────────
@@ -704,6 +639,7 @@ class Engine:
             return self._question_balance_cache
         try:
             from services import question_events as question_events_service
+
             report = question_events_service.event_report(self, limit=5000)
             rows = report.get('questions', []) if isinstance(report, dict) else []
             stats = {}
@@ -772,9 +708,7 @@ class Engine:
 
     def get_correlation_stats(self, top_n=30):
         """質問ベクトル間のコサイン類似度を計算し、上位ペアを返す（5分TTLキャッシュ）。"""
-        return engine_correlation.correlation_stats(
-            self, top_n=top_n, now=time.monotonic(), ttl=self._CORR_CACHE_TTL
-        )
+        return engine_correlation.correlation_stats(self, top_n=top_n, now=time.monotonic(), ttl=self._CORR_CACHE_TTL)
 
     def get_quality_report(self):
         """診断品質改善に使う要注意項目を返す。"""
@@ -803,9 +737,7 @@ class Engine:
         )
 
     def learn_negative(self, answers, fetish_idx, strength_factor=1.0):
-        return engine_learning.learn_negative(
-            self, answers, fetish_idx, strength_factor=strength_factor, pseudo=PSEUDO
-        )
+        return engine_learning.learn_negative(self, answers, fetish_idx, strength_factor=strength_factor, pseudo=PSEUDO)
 
     def _learn_silent(self, answers, fetish_idx, cold_start=False):
         """learn() without incrementing learn_count (used for initial boost).
@@ -825,10 +757,10 @@ class Engine:
         with self._lock:
             array_idx = len(self.fetishes)
             if auto_template is not None and 0 <= auto_template < array_idx:
-                new_yes   = list(self.matrix['yes'][auto_template])
+                new_yes = list(self.matrix['yes'][auto_template])
                 new_total = list(self.matrix['total'][auto_template])
             else:
-                new_yes   = [alpha] * nq
+                new_yes = [alpha] * nq
                 new_total = [alpha * 2.0] * nq
 
             if _use_db():
@@ -970,24 +902,34 @@ class Engine:
                         self._atomic_write(journal_path, journal, ensure_ascii=False)
                         journal_written = True
                         engine_persistence.save_fetishes_file(
-                            fetishes_path, new_fetishes, atomic_write=self._atomic_write,
+                            fetishes_path,
+                            new_fetishes,
+                            atomic_write=self._atomic_write,
                         )
                         engine_persistence.save_matrix_file(
-                            matrix_path, new_matrix, atomic_write=self._atomic_write,
+                            matrix_path,
+                            new_matrix,
+                            atomic_write=self._atomic_write,
                         )
                         engine_persistence.durable_unlink(journal_path)
                     except BaseException:
                         if journal_written:
                             try:
                                 engine_persistence.save_fetishes_file(
-                                    fetishes_path, old_fetishes, atomic_write=self._atomic_write,
+                                    fetishes_path,
+                                    old_fetishes,
+                                    atomic_write=self._atomic_write,
                                 )
                                 engine_persistence.save_matrix_file(
-                                    matrix_path, old_matrix, atomic_write=self._atomic_write,
+                                    matrix_path,
+                                    old_matrix,
+                                    atomic_write=self._atomic_write,
                                 )
                                 engine_persistence.durable_unlink(journal_path)
                             except BaseException as rollback_error:
-                                raise RuntimeError('matrix restore rollback failed; recovery journal retained') from rollback_error
+                                raise RuntimeError(
+                                    'matrix restore rollback failed; recovery journal retained'
+                                ) from rollback_error
                         raise
             self.fetishes = new_fetishes
             self.matrix = new_matrix
@@ -1010,7 +952,7 @@ class Engine:
         """id_remove の性癖を id_keep にマージ（matrixを加算、id_remove を削除）。"""
         with self._lock:
             idx_keep = self.index_of(id_keep)
-            idx_rm   = self.index_of(id_remove)
+            idx_rm = self.index_of(id_remove)
             if idx_keep is None or idx_rm is None or id_keep == id_remove:
                 return False
             db_mode = _use_db()
@@ -1076,7 +1018,7 @@ class Engine:
         with self._lock:
             for fi, qs in updates.items():
                 for qi, y, t in qs:
-                    self.matrix['yes'][fi][qi]   = y
+                    self.matrix['yes'][fi][qi] = y
                     self.matrix['total'][fi][qi] = t
         if not _use_db():
             self._save_matrix_file()
@@ -1156,7 +1098,9 @@ class Engine:
             return {'mapping_count': 0, 'rows': [], 'total_value': 0, 'storage': 'local_json'}
         return {
             **engine_db.promoted_stats_history_repair_report(
-                mappings, get_conn=_get_conn, put_conn=_put_conn,
+                mappings,
+                get_conn=_get_conn,
+                put_conn=_put_conn,
             ),
             'storage': 'postgres',
         }
@@ -1166,7 +1110,9 @@ class Engine:
             return {'mapping_count': 0, 'rows': [], 'total_value': 0, 'applied': False, 'storage': 'local_json'}
         return {
             **engine_db.repair_promoted_stats_history(
-                mappings, get_conn=_get_conn, put_conn=_put_conn,
+                mappings,
+                get_conn=_get_conn,
+                put_conn=_put_conn,
             ),
             'storage': 'postgres',
         }

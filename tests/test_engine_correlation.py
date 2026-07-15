@@ -9,7 +9,6 @@ import engine_correlation
 from engine import Engine
 
 
-
 class TestEngineCorrelationHelpers(unittest.TestCase):
     def setUp(self):
         self._patches = [

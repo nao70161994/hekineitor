@@ -2,7 +2,6 @@ import html as _html
 import io
 import os
 import zlib
-from services import share as _share
 
 OGP_WIDTH = 1200
 OGP_HEIGHT = 630
@@ -152,7 +151,7 @@ def _ascii_name_fallback(name):
 def _ogp_texts(name, prob, cjk_supported=True):
     if cjk_supported:
         return {
-            'label': "あなたの『癖』は……",
+            'label': 'あなたの『癖』は……',
             'name': name or '???',
             'prob': f'AI精度 {prob}%' if prob else '',
             'title': '',
@@ -204,10 +203,6 @@ def generate_png(name, prob):
     except ImportError:
         return _minimal_png()
 
-    try:
-        prob_val = max(0, min(float(prob), 100)) if prob else 0
-    except ValueError:
-        prob_val = 0
     accent = (233, 76, 96)
     accent_soft = (245, 166, 35)
 
@@ -250,7 +245,13 @@ def generate_png(name, prob):
     if prob:
         prob_y = y1 + len(lines) * (name_font_size + 8) + 28
         badge_w = 310 if cjk_supported else 390
-        draw.rounded_rectangle((600 - badge_w // 2, prob_y - 36, 600 + badge_w // 2, prob_y + 20), radius=18, fill=(36, 20, 28), outline=accent, width=2)
+        draw.rounded_rectangle(
+            (600 - badge_w // 2, prob_y - 36, 600 + badge_w // 2, prob_y + 20),
+            radius=18,
+            fill=(36, 20, 28),
+            outline=accent,
+            width=2,
+        )
         _center_text(draw, 600, prob_y - 25, texts['prob'], prob_font, accent_soft)
     _center_text(draw, 600, 512, texts['side'], side_font, (190, 202, 220))
     _center_text(draw, 600, 565, 'hekineitor.onrender.com', small_font, (92, 106, 128))
@@ -271,12 +272,6 @@ def render_svg(name, prob):
     """診断結果のOGP画像をSVGで動的生成する（1200×630 Twitter推奨サイズ）。"""
     name = (name or '???')[:30]
     prob = (prob or '')[:5]
-    try:
-        bar_w = max(8, min(int(float(prob) * 5.6), 560)) if prob else 0
-        prob_val = float(prob) if prob else 0
-    except ValueError:
-        bar_w = 0
-        prob_val = 0
     # 名前の折り返し（12文字で改行）
     if len(name) > 12:
         line1, line2 = name[:12], name[12:24]
@@ -290,7 +285,6 @@ def render_svg(name, prob):
     fs_name = 72 if len(line1) <= 8 else 60
     y1 = 260 if line2 else 290
     y2 = y1 + fs_name + 12
-    bar_color = '#f5a623' if prob_val >= 75 else ('#e94560' if prob_val >= 50 else '#5b8dd9')
     svg = f'''<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <defs>
@@ -309,7 +303,7 @@ def render_svg(name, prob):
   <text x="603" y="{y1 + 3}" text-anchor="middle" font-family="sans-serif" font-size="{fs_name}" font-weight="bold" fill="#2a0c16">{line1}</text>
   <text x="600" y="{y1}" text-anchor="middle" font-family="sans-serif" font-size="{fs_name}" font-weight="bold" fill="#fff8f2">{line1}</text>
   {'<text x="603" y="' + str(y2 + 3) + '" text-anchor="middle" font-family="sans-serif" font-size="' + str(fs_name) + '" font-weight="bold" fill="#2a0c16">' + line2 + '</text><text x="600" y="' + str(y2) + '" text-anchor="middle" font-family="sans-serif" font-size="' + str(fs_name) + '" font-weight="bold" fill="#fff8f2">' + line2 + '</text>' if line2 else ''}
-  {'<rect x="445" y="' + str((y2 if line2 else y1)+44) + '" width="310" height="56" rx="18" fill="#24141c" stroke="#e94c60" stroke-width="2"/><text x="600" y="' + str((y2 if line2 else y1)+84) + '" text-anchor="middle" font-family="sans-serif" font-size="42" fill="#f5a623">AI精度 ' + prob_text + '%</text>' if prob else ''}
+  {'<rect x="445" y="' + str((y2 if line2 else y1) + 44) + '" width="310" height="56" rx="18" fill="#24141c" stroke="#e94c60" stroke-width="2"/><text x="600" y="' + str((y2 if line2 else y1) + 84) + '" text-anchor="middle" font-family="sans-serif" font-size="42" fill="#f5a623">AI精度 ' + prob_text + '%</text>' if prob else ''}
   <text x="600" y="525" text-anchor="middle" font-family="sans-serif" font-size="30" fill="#becadc">次はあなたの番です……</text>
   <text x="600" y="570" text-anchor="middle" font-family="sans-serif" font-size="18" fill="#5c6a80">hekineitor.onrender.com</text>
 </svg>'''

@@ -102,7 +102,7 @@ def _question_yes_summary(row: dict[str, Any]) -> str:
     if category:
         suffix += f', {category}'
     suffix += ')'
-    return f"Q{row.get('question_id')} {_pct(row.get('yes_rate'))}{suffix}"
+    return f'Q{row.get("question_id")} {_pct(row.get("yes_rate"))}{suffix}'
 
 
 def _error_label(exc: Exception) -> str:
@@ -129,7 +129,6 @@ def _result_count(row: dict[str, Any]) -> int:
     return int(row.get('total') or row.get('count') or row.get('guessed') or 0)
 
 
-
 def _total_results(ranking: list[dict[str, Any]]) -> int:
     return sum(_result_count(row) for row in ranking)
 
@@ -153,7 +152,9 @@ def _dominant_result(ranking: list[dict[str, Any]]) -> tuple[str, int, int, floa
     return _result_name(top), count, total, _ratio(count, total)
 
 
-def _fetch_result_ranking(json_getter: Callable[[str], dict[str, Any]], *, days: int = 7, top_n: int = 20) -> tuple[list[dict[str, Any]], str]:
+def _fetch_result_ranking(
+    json_getter: Callable[[str], dict[str, Any]], *, days: int = 7, top_n: int = 20
+) -> tuple[list[dict[str, Any]], str]:
     try:
         exposure = json_getter(f'/api/admin/result_exposures?days={days}&top_n={top_n}')
         ranking = exposure.get('ranking') or []
@@ -167,14 +168,14 @@ def _fetch_result_ranking(json_getter: Callable[[str], dict[str, Any]], *, days:
 
 def _validate_health_response(health, critical, warn, environ):
     if health.get('status') != 'ok':
-        critical.append(f"/health status={health.get('status', 'unknown')}")
+        critical.append(f'/health status={health.get("status", "unknown")}')
     storage = health.get('storage')
     if storage != 'postgres':
         critical.append(f'storage={storage or "unknown"}')
     matrix = health.get('matrix') or {}
     if matrix.get('ok') is not True:
         critical.append('matrix shape mismatch')
-    errors = ((health.get('runtime') or {}).get('error_counts') or {})
+    errors = (health.get('runtime') or {}).get('error_counts') or {}
     five_xx = int(errors.get('5xx') or 0)
     critical_5xx = _env_int(environ, 'NTFY_5XX_CRITICAL_COUNT', 3)
     if five_xx >= critical_5xx:
@@ -204,10 +205,22 @@ def _completion_metric(funnel: dict[str, Any], *, min_starts: int = 20) -> dict[
         value = bucket.get('completion_rate')
         if isinstance(value, (int, float)):
             if starts and completions > starts:
-                return {'rate': None, 'starts': starts, 'completions': completions, 'reliable': False, 'source': bucket_name}
+                return {
+                    'rate': None,
+                    'starts': starts,
+                    'completions': completions,
+                    'reliable': False,
+                    'source': bucket_name,
+                }
             rate = _bounded_percent(value)
             reliable = starts >= min_starts and not (rate >= 99.5 and completions >= starts and starts > 0)
-            return {'rate': rate, 'starts': starts, 'completions': completions, 'reliable': reliable, 'source': bucket_name}
+            return {
+                'rate': rate,
+                'starts': starts,
+                'completions': completions,
+                'reliable': reliable,
+                'source': bucket_name,
+            }
     history = funnel.get('stats_history') or []
     active_rows = [row for row in history if int(row.get('start') or row.get('play') or row.get('completion') or 0) > 0]
     if active_rows:
@@ -216,10 +229,22 @@ def _completion_metric(funnel: dict[str, Any], *, min_starts: int = 20) -> dict[
         completions = int(row.get('completion') or 0)
         if starts:
             if completions > starts:
-                return {'rate': None, 'starts': starts, 'completions': completions, 'reliable': False, 'source': 'stats_history'}
+                return {
+                    'rate': None,
+                    'starts': starts,
+                    'completions': completions,
+                    'reliable': False,
+                    'source': 'stats_history',
+                }
             rate = _bounded_percent(_ratio(completions, starts))
             reliable = starts >= min_starts and not (rate >= 99.5 and completions >= starts and starts > 0)
-            return {'rate': rate, 'starts': starts, 'completions': completions, 'reliable': reliable, 'source': 'stats_history'}
+            return {
+                'rate': rate,
+                'starts': starts,
+                'completions': completions,
+                'reliable': reliable,
+                'source': 'stats_history',
+            }
     for key in ('completion_rate', 'recent_completion_rate', 'complete_rate'):
         value = completion.get(key)
         if isinstance(value, (int, float)):
@@ -254,6 +279,7 @@ def _demote_public_timeout_criticals(critical, warn, *, admin_signal_available=F
         else:
             remaining.append(item)
     return remaining
+
 
 def build_report(
     *,
@@ -318,17 +344,25 @@ def build_report(
             if result_source == 'result_exposures':
                 daily.append(f'heavy_result_ratio={_pct(heavy_ratio)}')
                 min_heavy_samples = _env_int(environ, 'NTFY_HEAVY_RESULT_MIN_SAMPLES', 30)
-                if ranking_total >= min_heavy_samples and heavy_ratio >= _env_float(environ, 'NTFY_HEAVY_RESULT_WARN_RATIO', 65.0):
+                if ranking_total >= min_heavy_samples and heavy_ratio >= _env_float(
+                    environ, 'NTFY_HEAVY_RESULT_WARN_RATIO', 65.0
+                ):
                     warn.append(f'heavy_result_ratio={_pct(heavy_ratio)} TOP: {", ".join(heavy_top[:4])}')
                 dominant_name, dominant_count, dominant_total, dominant_ratio = _dominant_result(ranking)
                 if dominant_total:
-                    daily.append(f'dominant_result_7d={dominant_name}:{_pct(dominant_ratio)}({dominant_count}/{dominant_total})')
+                    daily.append(
+                        f'dominant_result_7d={dominant_name}:{_pct(dominant_ratio)}({dominant_count}/{dominant_total})'
+                    )
                 min_dominance_samples = _env_int(environ, 'NTFY_RESULT_DOMINANCE_MIN_SAMPLES', 3)
                 dominance_warn_ratio = _env_float(environ, 'NTFY_RESULT_DOMINANCE_WARN_RATIO', 65.0)
                 if dominant_total >= min_dominance_samples and dominant_ratio >= dominance_warn_ratio:
-                    warn.append(f'dominant result 7d={dominant_name} {_pct(dominant_ratio)} ({dominant_count}/{dominant_total})')
+                    warn.append(
+                        f'dominant result 7d={dominant_name} {_pct(dominant_ratio)} ({dominant_count}/{dominant_total})'
+                    )
                 elif 0 < dominant_total < min_dominance_samples and dominant_ratio >= dominance_warn_ratio:
-                    insight.append(f'dominant result 7d reference={dominant_name} {_pct(dominant_ratio)} ({dominant_count}/{dominant_total})')
+                    insight.append(
+                        f'dominant result 7d reference={dominant_name} {_pct(dominant_ratio)} ({dominant_count}/{dominant_total})'
+                    )
             else:
                 daily.append(f'heavy_result_ratio=unavailable ({result_source})')
             daily.append(f'result_source={result_source}')
@@ -336,7 +370,9 @@ def build_report(
             warn.append(f'result ranking unavailable: {_error_label(exc)}')
 
         try:
-            question_report = json_getter(f"/api/admin/question_events?limit={_env_int(environ, 'NTFY_QUESTION_EVENT_LIMIT', 500)}")
+            question_report = json_getter(
+                f'/api/admin/question_events?limit={_env_int(environ, "NTFY_QUESTION_EVENT_LIMIT", 500)}'
+            )
             admin_signal_available = True
             q_metrics = question_report.get('metrics') or {}
             relation_share = float(q_metrics.get('relation_attachment_share') or 0)
@@ -353,7 +389,8 @@ def build_report(
             min_answers = _env_int(environ, 'NTFY_QUESTION_MIN_ANSWERS', 20)
             yes_threshold = _env_float(environ, 'NTFY_QUESTION_YES_WARN_RATE', 90.0)
             yes_questions = [
-                row for row in question_report.get('questions', [])
+                row
+                for row in question_report.get('questions', [])
                 if int(row.get('answered') or 0) >= min_answers and float(row.get('yes_rate') or 0) >= yes_threshold
             ]
             if yes_questions:
@@ -361,11 +398,14 @@ def build_report(
                 insight.append(f'YES率{yes_threshold:.0f}%以上質問: {sample}')
             drop_threshold = _env_float(environ, 'NTFY_DROPOFF_WARN_RATE', 35.0)
             drop_questions = [
-                row for row in question_report.get('dropoff_ranking', [])
+                row
+                for row in question_report.get('dropoff_ranking', [])
                 if int(row.get('shown') or 0) >= min_answers and float(row.get('dropoff_rate') or 0) >= drop_threshold
             ]
             if drop_questions:
-                sample = ', '.join(f"Q{row.get('question_id')} {_pct(row.get('dropoff_rate'))}" for row in drop_questions[:3])
+                sample = ', '.join(
+                    f'Q{row.get("question_id")} {_pct(row.get("dropoff_rate"))}' for row in drop_questions[:3]
+                )
                 warn.append(f'離脱率{drop_threshold:.0f}%以上質問: {sample}')
         except Exception as exc:
             warn.append(f'question analytics unavailable: {_error_label(exc)}')
@@ -417,16 +457,26 @@ def build_report(
             by_event = share_report.get('by_event') or {}
             event_parts = [
                 f'{key}={int(by_event.get(key) or 0)}'
-                for key in ('result_page_view', 'share_button_click', 'x_share_click', 'web_share_success', 'copy_success')
+                for key in (
+                    'result_page_view',
+                    'share_button_click',
+                    'x_share_click',
+                    'web_share_success',
+                    'copy_success',
+                )
                 if int(by_event.get(key) or 0)
             ]
             if event_parts:
                 daily.append('share_events_breakdown=' + ','.join(event_parts))
             if result_views == 0 and share_total > 0:
-                insight.append('share_rate denominator=0; result_page_view events are missing while other share events exist')
+                insight.append(
+                    'share_rate denominator=0; result_page_view events are missing while other share events exist'
+                )
             if share_total == 0:
                 warn.append('share_events=0; シェア分析ログが未蓄積です')
-            if result_views >= _env_int(environ, 'NTFY_SHARE_MIN_RESULT_VIEWS', 20) and share_rate < _env_float(environ, 'NTFY_SHARE_WARN_RATE', 3.0):
+            if result_views >= _env_int(environ, 'NTFY_SHARE_MIN_RESULT_VIEWS', 20) and share_rate < _env_float(
+                environ, 'NTFY_SHARE_WARN_RATE', 3.0
+            ):
                 insight.append(f'share rate low={_pct(share_rate)} ({share_actions}/{result_views})')
         except Exception as exc:
             warn.append(f'share analytics unavailable: {_error_label(exc)}')
@@ -491,8 +541,16 @@ def main(argv: list[str] | None = None) -> int:
     report = build_report()
     print(report['message'])
     if report['severity'] in ('CRITICAL', 'WARN') or os.environ.get('NTFY_NOTIFY_OK') == '1':
-        priority = 'urgent' if report['severity'] == 'CRITICAL' else 'high' if report['severity'] == 'WARN' else 'default'
-        tags = 'rotating_light' if report['severity'] == 'CRITICAL' else 'warning' if report['severity'] == 'WARN' else 'white_check_mark'
+        priority = (
+            'urgent' if report['severity'] == 'CRITICAL' else 'high' if report['severity'] == 'WARN' else 'default'
+        )
+        tags = (
+            'rotating_light'
+            if report['severity'] == 'CRITICAL'
+            else 'warning'
+            if report['severity'] == 'WARN'
+            else 'white_check_mark'
+        )
         try:
             result = notify(f'Hekineitor {report["severity"]}', report['message'], priority=priority, tags=tags)
             if result.get('skipped'):

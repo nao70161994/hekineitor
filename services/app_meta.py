@@ -3,7 +3,6 @@ import os
 import sys
 import warnings
 
-
 SECRET_KEY_REQUIRED_MESSAGE = '本番環境では SECRET_KEY 環境変数の設定が必須です'
 SECRET_KEY_MISSING_WARNING = 'SECRET_KEY が未設定です。本番環境では環境変数に設定してください。'
 SECRET_KEY_SHORT_WARNING = 'SECRET_KEY が短すぎます（16文字以上推奨）。'

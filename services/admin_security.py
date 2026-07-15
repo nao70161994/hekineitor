@@ -3,7 +3,6 @@ import hmac
 import secrets
 import time
 
-
 MUTATION_METHODS = {'POST', 'PUT', 'PATCH', 'DELETE'}
 
 
@@ -14,11 +13,13 @@ def confirmation_text(request):
 
 def require_confirm(request, jsonify, expected):
     if confirmation_text(request) != expected:
-        return jsonify({
-            'status': 'error',
-            'message': f'確認のため「{expected}」と入力してください',
-            'required_confirm_text': expected,
-        }), 400
+        return jsonify(
+            {
+                'status': 'error',
+                'message': f'確認のため「{expected}」と入力してください',
+                'required_confirm_text': expected,
+            }
+        ), 400
     return None
 
 
@@ -49,7 +50,7 @@ def _bearer_token(request):
     header = request.headers.get('Authorization', '')
     prefix = 'Bearer '
     if header.startswith(prefix):
-        return header[len(prefix):].strip()
+        return header[len(prefix) :].strip()
     return ''
 
 
@@ -79,10 +80,18 @@ def admin_guard_response(request, environ, session, response_cls, jsonify, rate_
     auth = request.authorization
     username = getattr(auth, 'username', '') if auth else ''
     password = getattr(auth, 'password', '') if auth else ''
-    if not username or not password or not hmac.compare_digest(username, admin_user) or not hmac.compare_digest(password, admin_pass):
+    if (
+        not username
+        or not password
+        or not hmac.compare_digest(username, admin_user)
+        or not hmac.compare_digest(password, admin_pass)
+    ):
         return response_cls('認証が必要です', 401, {'WWW-Authenticate': 'Basic realm="Admin"'})
     if request.method in MUTATION_METHODS and not check_admin_csrf(
-        request, session, environ, should_enforce_runtime_guard,
+        request,
+        session,
+        environ,
+        should_enforce_runtime_guard,
     ):
         return jsonify({'status': 'error', 'message': 'CSRF token が不正です'}), 403
     return None
@@ -99,7 +108,9 @@ def require_admin_or_read_decorator(admin_guard_fn, read_guard_fn):
             if not read_guard:
                 return func(*args, **kwargs)
             return admin_guard
+
         return decorated
+
     return require_admin_or_read
 
 
@@ -111,5 +122,7 @@ def require_admin_decorator(guard_fn):
             if guard:
                 return guard
             return func(*args, **kwargs)
+
         return decorated
+
     return require_admin
