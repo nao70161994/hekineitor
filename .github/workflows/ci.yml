@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 jobs:
@@ -37,6 +39,7 @@ jobs:
           name: python-coverage
           path: .coverage
           if-no-files-found: error
+          include-hidden-files: true
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium

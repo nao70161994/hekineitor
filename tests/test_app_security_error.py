@@ -111,17 +111,18 @@ class TestGameSecurityAndErrors(APITestCase):
         # Q0 を無効化
         app_engine.disabled_questions.add(0)
         try:
-            start = self._start()
-            q = start['question_id']
-            asked = [q]
-            for _ in range(10):
-                res = self.client.post('/api/answer', json={'question_id': q, 'answer': 1.0})
-                d = res.get_json()
-                if d.get('action') == 'guess':
-                    break
-                q = d.get('question_id', q)
-                asked.append(q)
-            self.assertNotIn(0, asked)
+            with patch.object(app_engine, '_reload_settings_if_stale', return_value=None):
+                start = self._start()
+                q = start['question_id']
+                asked = [q]
+                for _ in range(10):
+                    res = self.client.post('/api/answer', json={'question_id': q, 'answer': 1.0})
+                    d = res.get_json()
+                    if d.get('action') == 'guess':
+                        break
+                    q = d.get('question_id', q)
+                    asked.append(q)
+                self.assertNotIn(0, asked)
         finally:
             app_engine.disabled_questions.discard(0)
 
