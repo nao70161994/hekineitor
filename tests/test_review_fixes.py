@@ -735,6 +735,11 @@ class ReviewFixTests(unittest.TestCase):
         self.assertIn("'Title': 'Hekineitor DB expiry warning'", backup)
         self.assertNotIn("'Title': 'へきネイター DB期限警告'", backup)
 
+    def test_service_worker_initial_install_does_not_reload_active_game(self):
+        pwa = Path('static/pwa.js').read_text(encoding='utf-8')
+        self.assertIn('const hadController = Boolean(navigator.serviceWorker.controller);', pwa)
+        self.assertIn('if (hadController && !reloading)', pwa)
+
 
 if __name__ == '__main__':
     unittest.main()

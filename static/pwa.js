@@ -68,9 +68,13 @@ window.HekiPwa = (() => {
   function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     let swReg = null;
+    const hadController = Boolean(navigator.serviceWorker.controller);
     let reloading = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!reloading) { reloading = true; location.reload(); }
+      if (hadController && !reloading) {
+        reloading = true;
+        location.reload();
+      }
     });
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js').then(reg => {
