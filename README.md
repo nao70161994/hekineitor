@@ -83,7 +83,7 @@ Pythonの設定とcoverage閾値は`pyproject.toml`、JavaScriptのcommandと固
 GitHub Actions:
 
 - `CI`: push / pull requestでPython lint・型・test・coverage、JavaScript lint・unit test・Playwright E2Eを実行します。
-- `Matrix Backup & DB Expiry Check`: Renderからmatrixを定期取得し、schema・完全性・鮮度を検証してからartifactへ保存し、DB期限も確認します。
+- `Matrix Backup & DB Expiry Check`: Renderからmatrixを定期取得し、schema・完全性・鮮度を検証してartifactへ保存します。Render APIの`plan`と`expiresAt`に基づき、無料DBだけ期限を監視します。
 - `Restore Matrix`: 指定run IDのartifactを30日以内に限って検証・復元します。質問削除後に復元する場合だけ`allow_ignored_source_rows`を明示的に有効化します。
 
 ## コード構成
