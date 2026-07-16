@@ -730,6 +730,11 @@ class ReviewFixTests(unittest.TestCase):
         self.assertNotIn("with open('data/questions.json'", restore)
         self.assertIn("expected = result.get('expected_rows')", restore)
 
+    def test_workflow_ntfy_title_is_http_header_safe(self):
+        backup = Path('.github/workflows/matrix_backup.yml').read_text(encoding='utf-8')
+        self.assertIn("'Title': 'Hekineitor DB expiry warning'", backup)
+        self.assertNotIn("'Title': 'へきネイター DB期限警告'", backup)
+
 
 if __name__ == '__main__':
     unittest.main()

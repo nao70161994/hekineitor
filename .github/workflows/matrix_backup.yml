@@ -129,7 +129,7 @@ jobs:
                       f'https://ntfy.sh/{ntfy_topic}',
                       data=msg.encode(),
                       headers={
-                          'Title': 'へきネイター DB期限警告',
+                          'Title': 'Hekineitor DB expiry warning',
                           'Priority': 'high',
                           'Tags': 'warning,database',
                       },
