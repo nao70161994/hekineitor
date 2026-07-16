@@ -1,8 +1,8 @@
 -r requirements.in
 
-coverage>=7.15,<8
+coverage>=7.15.2,<8
 mypy>=2.3,<3
-pip==25.3
-pip-tools>=7.5,<8
-pytest>=9,<10
+pip==26.1.2
+pip-tools>=7.5.3,<8
+pytest>=9.1.1,<10
 ruff>=0.15,<0.16
