@@ -6,6 +6,7 @@ window.HekiGameFlow = (() => {
   const axisLabels = {content: 'コンテンツ軸', abstract: '抽象軸', personality: 'パーソナリティ軸'};
 
 function startExcluding() {
+  if (_fetching) return;
   // 現在診断済みの性癖IDを除外してゲームを再スタート
   const excludeIds = window._excludedIds ? [...window._excludedIds] : [];
   if (window._guessedId != null) excludeIds.push(window._guessedId);
@@ -20,28 +21,37 @@ function startExcluding() {
 }
 
 async function startGame(excludeIds) {
-  _clearDraft();
-  answeredCount = 0;
-  resultShown = false;
-  dropoffSent = false;
-  document.getElementById('resume-banner').classList.add('hidden');
+  if (_fetching) return;
+  setFetching(true);
+  const startButtons = document.querySelectorAll(
+    '[data-action="start-game"], [data-action="start-excluding"], [data-action="quick-retry"]',
+  );
+  startButtons.forEach(button => { button.disabled = true; });
   const btn = document.querySelector('.btn-start');
   const origText = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = '起動中...'; }
+  if (btn) btn.textContent = '起動中...';
   const wakeTimer = setTimeout(() => {
     showToast('サーバーを起動中です。少々お待ちください…', '#555', 25000);
   }, 3000);
   const body = excludeIds && excludeIds.length ? {exclude_ids: excludeIds} : undefined;
   try {
     const data = await apiFetch('/api/start', body, 45000);
-    clearTimeout(wakeTimer);
+    _clearDraft();
+    answeredCount = 0;
+    resultShown = false;
+    dropoffSent = false;
+    document.getElementById('resume-banner')?.classList.add('hidden');
     if (excludeIds && excludeIds.length) {
       showToast(`${excludeIds.length}件の性癖を除外して診断します`, '#1a4a8a', 3000);
     }
     showQuestion(data);
   } catch {
+    // apiFetch already surfaced the error; keep the previous draft available.
+  } finally {
     clearTimeout(wakeTimer);
-    if (btn) { btn.disabled = false; btn.textContent = origText; }
+    if (btn) btn.textContent = origText;
+    startButtons.forEach(button => { button.disabled = false; });
+    setFetching(false);
   }
 }
 
@@ -71,8 +81,25 @@ function showQuestion(data) {
   } else {
     axisEl.style.display = 'none';
   }
-  const pct = Math.round((data.count / data.total) * 100);
-  document.getElementById('progress-fill').style.width = pct + '%';
+  const total = Math.max(1, Number(data.total || 1));
+  const softTotal = Math.min(20, total);
+  const isExtended = total > softTotal && answeredCount >= softTotal;
+  const pct = isExtended ? 100 : Math.round((answeredCount / total) * 100);
+  const progressFill = document.getElementById('progress-fill');
+  const progressBar = progressFill?.parentElement;
+  const stageLabel = document.getElementById('question-stage-label');
+  if (progressFill) progressFill.style.width = pct + '%';
+  if (progressBar) {
+    progressBar.setAttribute('aria-valuenow', String(pct));
+    progressBar.setAttribute('aria-valuetext', isExtended
+      ? `追加質問 ${Math.min(total - softTotal, answeredCount - softTotal + 1)}/${total - softTotal}`
+      : `質問 ${Math.min(total, answeredCount + 1)}/${total}`);
+  }
+  if (stageLabel) {
+    stageLabel.textContent = isExtended
+      ? `追加質問 ${Math.min(total - softTotal, answeredCount - softTotal + 1)}/${total - softTotal}`
+      : `質問 ${Math.min(total, answeredCount + 1)}/${total}`;
+  }
   document.getElementById('btn-back').style.visibility = data.count > 0 ? 'visible' : 'hidden';
   show('question-screen');
   setGenieState('thinking');
@@ -110,12 +137,12 @@ async function sendAnswer(ans) {
   setAnswerButtons(true);
   try {
     const data = await apiFetch('/api/answer', {question_id: currentQuestionId, answer: ans});
+    _pushDraft(currentQuestionId, ans);
+    _saveDraft();
     if (data.action === 'question') {
-      _pushDraft(currentQuestionId, ans);
-      _saveDraft();
       showQuestion(data);
     } else {
-      _clearDraft();
+      _pauseDraft();
       showGuess(data);
     }
   } finally {
@@ -184,6 +211,7 @@ window.addEventListener('pagehide', reportDropoff);
 
 
 async function quickRetry() {
+  if (_fetching) return;
   const excludeIds = [
     ...(window._excludedIds || []),
     window._guessedId,
@@ -205,6 +233,7 @@ async function continueGame() {
   try {
     const data = await apiFetch('/api/continue');
     if (data.action === 'question') {
+      _saveDraft();
       showQuestion(data);
     } else {
       showToast('これ以上質問できません', '#7f8c8d');

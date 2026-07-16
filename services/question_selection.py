@@ -115,10 +115,10 @@ def make_low_confidence_extender(soft_max_questions, hard_max_questions):
 
 
 def select_next_question(engine, answers, asked, *, idk_streak=0, disambiguate=False):
-    asked_set = set(asked)
+    asked_in_order = list(dict.fromkeys(asked))
     if disambiguate:
-        return best_disambiguating_question(engine, answers, asked_set, idk_streak=idk_streak)
-    return best_question(engine, answers, asked_set, idk_streak=idk_streak)
+        return best_disambiguating_question(engine, answers, asked_in_order, idk_streak=idk_streak)
+    return best_question(engine, answers, asked_in_order, idk_streak=idk_streak)
 
 
 def make_next_question_selector(engine):
@@ -133,16 +133,17 @@ def make_next_question_selector(engine):
 
 def make_low_exposure_axis_probe(engine, hard_max_questions):
     def probe(answers, asked, *, count, top_p, second_p):
+        asked_in_order = list(dict.fromkeys(asked))
         if not should_probe_low_exposure_axis(
             engine,
             answers,
-            set(asked),
+            asked_in_order,
             count=count,
             top_p=top_p,
             second_p=second_p,
             hard_max_questions=hard_max_questions,
         ):
             return None
-        return best_low_exposure_axis_question(engine, answers, set(asked))
+        return best_low_exposure_axis_question(engine, answers, asked_in_order)
 
     return probe

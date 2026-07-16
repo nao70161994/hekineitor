@@ -181,10 +181,10 @@ class TestEngine(unittest.TestCase):
         self.e.learn({'8': 1}, 0)
         self.assertGreater(self.e.matrix['total'][0][8], before)
 
-    def test_learn_negative_updates_other_fetishes(self):
+    def test_learn_does_not_update_other_fetishes(self):
         before = self.e.matrix['total'][1][8]  # 百合(1)
         self.e.learn({'8': 1}, 0)  # NTR(0) が正解
-        self.assertGreater(self.e.matrix['total'][1][8], before)
+        self.assertEqual(self.e.matrix['total'][1][8], before)
 
     def test_learn_proportional_to_strength(self):
         e1 = Engine()

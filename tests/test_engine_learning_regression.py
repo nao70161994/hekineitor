@@ -39,9 +39,19 @@ class TestEngineLearningRegression(unittest.TestCase):
             engine,
             {
                 0: {8: (19.765263926052054, 20.765263926052054), 9: (2.0, 4.921795183653612), 10: (2.0, 4.0)},
-                1: {8: (2.0, 4.229579177815617), 9: (19.276538555096085, 20.276538555096085), 10: (2.0, 4.0)},
+                1: {8: (2.0, 4.0), 9: (19.0, 20.0), 10: (2.0, 4.0)},
             },
         )
+
+    def test_positive_learning_leaves_every_non_target_cell_unchanged(self):
+        engine = Engine()
+        other_yes_before = list(engine.matrix['yes'][1])
+        other_total_before = list(engine.matrix['total'][1])
+
+        engine.learn({'8': 1, '9': -1}, 0, strength_factor=0.5)
+
+        self.assertEqual(engine.matrix['yes'][1], other_yes_before)
+        self.assertEqual(engine.matrix['total'][1], other_total_before)
 
     def test_near_miss_learning_matrix_delta_snapshot(self):
         engine = Engine()

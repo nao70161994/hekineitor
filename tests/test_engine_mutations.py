@@ -25,7 +25,7 @@ class TestEngineMutations(unittest.TestCase):
         for patcher in self._patches:
             patcher.stop()
 
-    def test_learn_silent_cold_start_updates_target_and_other_rows_without_learn_count(self):
+    def test_learn_silent_cold_start_updates_only_target_without_learn_count(self):
         target_before_yes = self.engine.matrix['yes'][0][8]
         target_before_total = self.engine.matrix['total'][0][8]
         other_before_yes = self.engine.matrix['yes'][1][8]
@@ -38,7 +38,7 @@ class TestEngineMutations(unittest.TestCase):
         self.assertEqual(self.engine.matrix['yes'][0][8], target_before_yes + 1.0)
         self.assertEqual(self.engine.matrix['total'][0][8], target_before_total + 1.0)
         self.assertEqual(self.engine.matrix['yes'][1][8], other_before_yes)
-        self.assertEqual(self.engine.matrix['total'][1][8], other_before_total + 0.3)
+        self.assertEqual(self.engine.matrix['total'][1][8], other_before_total)
         save_async.assert_called_once()
         increment.assert_not_called()
 

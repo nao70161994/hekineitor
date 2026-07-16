@@ -1,5 +1,4 @@
 def learn(engine, answers, fetish_idx, strength_factor=1.0, *, pseudo):
-    neg_weight = 0.3
     disc_scales = engine._get_disc_scales()
     all_updates = {}
     idx_to_db_id = {}
@@ -24,15 +23,6 @@ def learn(engine, answers, fetish_idx, strength_factor=1.0, *, pseudo):
             engine.matrix['total'][fetish_idx][q] += effective
             engine.matrix['yes'][fetish_idx][q] += delta_yes
             all_updates.setdefault(fetish_idx, []).append((q, delta_yes, effective))
-
-            for f in range(nf):
-                if f == fetish_idx:
-                    continue
-                weight = neg_weight * effective
-                neg_yes = weight * (0.0 if ans > 0 else 1.0)
-                engine.matrix['total'][f][q] += weight
-                engine.matrix['yes'][f][q] += neg_yes
-                all_updates.setdefault(f, []).append((q, neg_yes, weight))
 
         idx_to_db_id = {i: fetish['id'] for i, fetish in enumerate(engine.fetishes)}
 
@@ -133,7 +123,6 @@ def learn_negative(engine, answers, fetish_idx, strength_factor=1.0, *, pseudo):
 
 def learn_silent(engine, answers, fetish_idx, cold_start=False, *, pseudo):
     """learn() without incrementing learn_count, used for initial new-fetish boost."""
-    neg_weight = 0.3
     all_updates = {}
     idx_to_db_id = {}
 
@@ -161,14 +150,6 @@ def learn_silent(engine, answers, fetish_idx, cold_start=False, *, pseudo):
             engine.matrix['yes'][fetish_idx][q] += delta_yes
             all_updates.setdefault(fetish_idx, []).append((q, delta_yes, effective))
 
-            for f in range(nf):
-                if f == fetish_idx:
-                    continue
-                weight = neg_weight * effective
-                neg_yes = weight * (0.0 if ans > 0 else 1.0)
-                engine.matrix['total'][f][q] += weight
-                engine.matrix['yes'][f][q] += neg_yes
-                all_updates.setdefault(f, []).append((q, neg_yes, weight))
 
         idx_to_db_id = {i: fetish['id'] for i, fetish in enumerate(engine.fetishes)}
 

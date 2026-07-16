@@ -189,7 +189,7 @@ def start(ctx):
     ctx.session['dropoff_recorded'] = False
     ctx.session['completion_recorded'] = False
     ctx.session['exclude_ids'] = _parse_exclude_ids(data.get('exclude_ids', []))
-    question_id = ctx.best_question(ctx.engine, {}, set())
+    question_id = ctx.best_question(ctx.engine, {}, [])
     ctx.session['asked'].append(question_id)
     q_data, q_text = _question_text(ctx, question_id)
     _record_question_shown(ctx, question_id, q_text)
@@ -250,13 +250,13 @@ def resume(ctx):
     answers = ctx.session['answers']
     asked = ctx.session['asked']
     if not answers:
-        question_id = ctx.best_question(ctx.engine, {}, set())
+        question_id = ctx.best_question(ctx.engine, {}, [])
         ctx.session['asked'].append(question_id)
         q_data, q_text = _question_text(ctx, question_id)
         _record_question_shown(ctx, question_id, q_text)
         return ctx.jsonify(question_payload(ctx.engine, question_id, q_text, 0, ctx.soft_max_questions))
 
-    next_q = ctx.best_question(ctx.engine, answers, set(asked), idk_streak=ctx.session['idk_streak'])
+    next_q = ctx.best_question(ctx.engine, answers, asked, idk_streak=ctx.session['idk_streak'])
     if next_q is None:
         return ctx.make_guess(answers)
     asked.append(next_q)
@@ -286,7 +286,7 @@ def continue_game(ctx):
     top_p = top2[0][1] if top2 else 0.0
     ctx.session['continue_thr'] = min(top_p + 0.20, 0.95)
     ctx.session['continued'] = True
-    next_q = ctx.best_question(ctx.engine, answers, set(asked), idk_streak=0)
+    next_q = ctx.best_question(ctx.engine, answers, asked, idk_streak=0)
     if next_q is None:
         return ctx.jsonify({'status': 'no_question'})
     asked.append(next_q)

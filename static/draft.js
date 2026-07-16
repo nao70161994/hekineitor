@@ -19,7 +19,23 @@ window.HekiDraft = (() => {
   }
 
   function push(questionId, answer) {
-    draftPairs.push({q_id: questionId, answer});
+    const pair = {q_id: Number(questionId), answer: Number(answer)};
+    if (!validPair(pair)) return;
+    const existingIndex = draftPairs.findIndex(item => item.q_id === pair.q_id);
+    if (existingIndex >= 0) draftPairs[existingIndex] = pair;
+    else if (draftPairs.length < MAX_DRAFT_PAIRS) draftPairs.push(pair);
+  }
+
+  function pauseDraft() {
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      // Keep the in-memory answers available for optional additional questions.
+    }
+  }
+
+  function getPairs() {
+    return [...draftPairs];
   }
 
   function popLast() {
@@ -78,7 +94,8 @@ window.HekiDraft = (() => {
         saveDraft();
         showQuestion(data);
       } else {
-        clearDraft();
+        draftPairs = pairs;
+        pauseDraft();
         showGuess(data);
       }
     } catch {
@@ -90,12 +107,13 @@ window.HekiDraft = (() => {
     }
   }
 
-  return {push, popLast, saveDraft, clearDraft, checkDraft, resumeGame};
+  return {push, popLast, saveDraft, pauseDraft, getPairs, clearDraft, checkDraft, resumeGame};
 })();
 
 window._pushDraft = (questionId, answer) => window.HekiDraft.push(questionId, answer);
 window._saveDraft = () => window.HekiDraft.saveDraft();
 window._popDraft = () => window.HekiDraft.popLast();
+window._pauseDraft = () => window.HekiDraft.pauseDraft();
 window._clearDraft = () => window.HekiDraft.clearDraft();
 window._checkDraft = () => window.HekiDraft.checkDraft();
 window.resumeGame = () => window.HekiDraft.resumeGame();

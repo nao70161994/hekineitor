@@ -27,14 +27,18 @@ class TestServiceInference(unittest.TestCase):
 
         class Engine:
             def best_question(self, answers, asked, *, idk_streak=0):
-                return ('best', tuple(sorted(asked)), idk_streak)
+                return ('best', tuple(asked), idk_streak)
 
             def best_disambiguating_question(self, answers, asked, *, candidate_count=3, idk_streak=0):
-                return ('disambig', tuple(sorted(asked)), candidate_count, idk_streak)
+                return ('disambig', tuple(asked), candidate_count, idk_streak)
 
         selector = question_selection.make_next_question_selector(Engine())
-        self.assertEqual(selector({}, [2, 1], idk_streak=1), ('best', (1, 2), 1))
+        self.assertEqual(selector({}, [2, 1], idk_streak=1), ('best', (2, 1), 1))
         self.assertEqual(selector({}, [2], idk_streak=3, disambiguate=True), ('disambig', (2,), 3, 3))
+        self.assertEqual(
+            selector({}, [2, 1], idk_streak=3, disambiguate=True),
+            ('disambig', (2, 1), 3, 3),
+        )
 
     def test_ids_parse_id_list_ignores_invalid_values(self):
         self.assertEqual(ids.parse_id_list(['1', 2, 'bad', None]), {1, 2})

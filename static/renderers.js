@@ -46,6 +46,16 @@ window.HekiRenderers = (() => {
     void target.offsetWidth;
     target.classList.add('screen-in');
     if (typeof onShown === 'function') onShown(id);
+    const focusTargetId = id === 'question-screen'
+      ? 'question-text'
+      : (id === 'result-screen' ? 'result-name' : null);
+    const focusTarget = focusTargetId ? document.getElementById(focusTargetId) : null;
+    if (focusTarget) {
+      requestAnimationFrame(() => {
+        focusTarget.scrollIntoView({block: 'start', behavior: 'auto'});
+        focusTarget.focus({preventScroll: true});
+      });
+    }
   }
 
   function showToast(message, color, durationMs = 3000) {

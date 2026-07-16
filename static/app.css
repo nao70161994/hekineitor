@@ -46,6 +46,12 @@
     max-width: 480px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.4);
   }
+  .question-stage-label {
+    margin-bottom: 5px;
+    color: #aaa;
+    font-size: 0.72rem;
+    text-align: right;
+  }
   .progress-bar {
     height: 6px;
     background: #0f3460;
