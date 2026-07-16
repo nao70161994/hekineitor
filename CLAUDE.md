@@ -245,12 +245,13 @@ gunicorn app:app --workers 2 --threads 4
 | `matrix_backup.yml` | 毎日JST11時 / 手動 | v2 matrixバックアップのschema・完全性・鮮度検証、artifact保存、DB期限チェック、通知 |
 | `restore_matrix.yml` | 手動（`restore`とrun ID入力必須） | 30日以内のartifactを検証して本番DBへ復元。削除済み質問行の無視はboolean入力で明示許可 |
 
-### DB期限切れ対応フロー（Render無料PostgreSQL・90日で削除）
+### DB期限切れ対応フロー（Render無料PostgreSQL）
 
-1. 残り10日以内になるとntfy.sh（スマホ）+ GitHub Issueで自動通知
-2. Renderダッシュボードで新しいPostgreSQLを手動作成
-3. `DATABASE_URL` 環境変数を更新 → サービス再デプロイ
-4. Actions「Restore Matrix」を手動実行 → 学習データ復元
+1. Render APIの`plan`と`expiresAt`を確認し、無料DBの残り10日以内だけntfy.sh（スマホ）+ GitHub Issueで自動通知
+2. 有料DBでは期限監視をスキップし、既存の期限警告Issueを自動クローズ
+3. 無料DBを継続する場合はRenderダッシュボードで新しいPostgreSQLを手動作成
+4. `DATABASE_URL` 環境変数を更新 → サービス再デプロイ
+5. Actions「Restore Matrix」を手動実行 → 学習データ復元
 
 ### 必要なGitHub Secrets
 
