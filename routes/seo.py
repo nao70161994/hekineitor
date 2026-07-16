@@ -6,6 +6,29 @@ from flask import Blueprint
 from services import share_links
 
 
+FETISH_CATEGORY_LABELS = {
+    'role': '役割',
+    'relation': '関係性',
+    'attachment': '執着',
+    'tone': '雰囲気',
+    'world': '世界観',
+    'attribute': '属性',
+    'value': '価値観',
+    'aesthetic': '美学',
+}
+
+
+def _dominant_fetish_category(engine, fetish_index):
+    scores = {category: 0.0 for category in FETISH_CATEGORY_LABELS}
+    for question_index in range(len(engine.questions)):
+        category = engine._question_category(question_index)
+        if category not in scores:
+            continue
+        scores[category] += abs(engine._prob(fetish_index, question_index) - 0.5)
+    category = max(scores, key=scores.get)
+    return category, FETISH_CATEGORY_LABELS[category]
+
+
 def index(ctx):
     base_url = ctx.public_base_url()
     public_fetish_count = len([f for f in ctx.engine.fetishes if f['id'] < ctx.player_fetish_base_id])
@@ -75,9 +98,10 @@ def fetish_index(ctx):
     base_url = ctx.public_base_url()
     fetish_log = ctx.engine.get_fetish_log()
     rows = []
-    for fetish in ctx.engine.fetishes:
+    for fetish_index, fetish in enumerate(ctx.engine.fetishes):
         if fetish['id'] >= ctx.player_fetish_base_id:
             continue
+        category, category_label = _dominant_fetish_category(ctx.engine, fetish_index)
         works = work_links(ctx, (fetish.get('works') or [])[:3])
         log = fetish_log.get(fetish['id'], {'guessed': 0, 'correct': 0, 'wrong': 0})
         rows.append(
@@ -87,6 +111,8 @@ def fetish_index(ctx):
                 'desc': fetish['desc'],
                 'works': works,
                 'guessed': log.get('guessed', 0),
+                'category': category,
+                'category_label': category_label,
             }
         )
     rows.sort(key=lambda row: (-row['guessed'], row['id']))
@@ -110,9 +136,11 @@ def fetish_index(ctx):
         'fetishes.html',
         fetishes=rows,
         display_version=ctx.display_version,
+        app_version=ctx.app_version,
         base_url=base_url,
         page_url=page_url,
         json_ld=json_ld,
+        category_labels=FETISH_CATEGORY_LABELS,
     )
 
 

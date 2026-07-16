@@ -209,17 +209,19 @@ def _record_result_contributions(ctx, result):
 
 def make_guess(ctx, answers):
     result = compute_guess(ctx.inference_context(), answers)
-    if not ctx.session.get('completion_recorded'):
+    analytics_disabled = bool(getattr(ctx, 'learning_disabled', lambda: False)())
+    if not analytics_disabled and not ctx.session.get('completion_recorded'):
         ctx.engine.increment_play_count()
-        ctx.session['completion_recorded'] = True
+    ctx.session['completion_recorded'] = True
     ctx.session['last_guess_fetish_id'] = result['fetish_id']
     ctx.session['last_guess_compound_ids'] = [item['fetish_id'] for item in result.get('compound', [])]
     ctx.session.pop('feedback_status', None)
     ctx.session['completed'] = True
     ctx.mark_guess_quality(ctx.engine, ctx.session, answers, ctx.soft_max_questions)
-    _record_result_contributions(ctx, result)
+    if not analytics_disabled:
+        _record_result_contributions(ctx, result)
     record_result_exposure = getattr(ctx, 'record_result_exposure', None)
-    if callable(record_result_exposure):
+    if not analytics_disabled and callable(record_result_exposure):
         record_result_exposure(
             result['fetish_id'],
             result.get('fetish_name', ''),
@@ -245,6 +247,7 @@ def make_guess(ctx, answers):
                 source='top_chart',
             )
     guessed_ids = {result['fetish_id']} | {item['fetish_id'] for item in result.get('compound', [])}
-    for fetish_id in guessed_ids:
-        ctx.engine.log_guessed(fetish_id)
+    if not analytics_disabled:
+        for fetish_id in guessed_ids:
+            ctx.engine.log_guessed(fetish_id)
     return ctx.jsonify(result)

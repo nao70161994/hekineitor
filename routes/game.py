@@ -3,6 +3,7 @@ from flask import Blueprint
 from services import share, share_links
 
 MAX_NEW_FETISHES_PER_DIAGNOSIS = 3
+_SHOWN_QUESTIONS_KEY = 'shown_question_payloads'
 
 
 def question_payload(
@@ -25,6 +26,29 @@ def question_payload(
     if contradictions:
         payload['contradictions'] = contradictions
     return payload
+
+
+def _remember_question_payload(ctx, payload):
+    """Keep the exact UI context for back navigation in the signed session."""
+    if not isinstance(payload, dict) or 'question_id' not in payload:
+        return payload
+    allowed = (
+        'action', 'question_id', 'question', 'count', 'total', 'axis', 'q_hint',
+        'hint', 'progress_message', 'contradictions',
+    )
+    compact = {key: payload[key] for key in allowed if key in payload}
+    history = dict(ctx.session.get(_SHOWN_QUESTIONS_KEY, {}))
+    history[str(payload['question_id'])] = compact
+    asked = ctx.session.get('asked', [])
+    active_ids = {str(question_id) for question_id in asked[-ctx.hard_max_questions :]}
+    ctx.session[_SHOWN_QUESTIONS_KEY] = {
+        key: value for key, value in history.items() if key in active_ids
+    }
+    return payload
+
+
+def _question_response(ctx, payload):
+    return ctx.jsonify(_remember_question_payload(ctx, payload))
 
 
 def _parse_exclude_ids(raw_ids):
@@ -54,6 +78,8 @@ def _question_text(ctx, question_id):
 
 
 def _record_question_event(ctx, event_name, question_id=None, question_text='', **kwargs):
+    if getattr(ctx, 'learning_disabled', lambda: False)():
+        return
     recorder = getattr(ctx, 'record_question_event', None)
     if not recorder:
         return
@@ -181,7 +207,8 @@ def start(ctx):
     test_play_enabled = ctx.preserve_test_play_flag()
     ctx.session.clear()
     ctx.restore_test_play_flag(test_play_enabled)
-    ctx.engine.increment_start_count()
+    if not ctx.learning_disabled():
+        ctx.engine.increment_start_count()
     ctx.session['answers'] = {}
     ctx.session['asked'] = []
     ctx.session['started'] = True
@@ -193,7 +220,8 @@ def start(ctx):
     ctx.session['asked'].append(question_id)
     q_data, q_text = _question_text(ctx, question_id)
     _record_question_shown(ctx, question_id, q_text)
-    return ctx.jsonify(
+    return _question_response(
+        ctx,
         {
             'question_id': question_id,
             'question': q_text,
@@ -229,7 +257,7 @@ def resume(ctx):
     ctx.session['exclude_ids'] = _parse_exclude_ids(data.get('exclude_ids', []))
     ctx.session['client_resumed'] = bool(pairs)
     ctx.session['resume_learning_verified'] = not bool(pairs)
-    if pairs:
+    if pairs and not ctx.learning_disabled():
         ctx.engine.increment_start_count()
     for item in pairs:
         try:
@@ -254,7 +282,7 @@ def resume(ctx):
         ctx.session['asked'].append(question_id)
         q_data, q_text = _question_text(ctx, question_id)
         _record_question_shown(ctx, question_id, q_text)
-        return ctx.jsonify(question_payload(ctx.engine, question_id, q_text, 0, ctx.soft_max_questions))
+        return _question_response(ctx, question_payload(ctx.engine, question_id, q_text, 0, ctx.soft_max_questions))
 
     next_q = ctx.best_question(ctx.engine, answers, asked, idk_streak=ctx.session['idk_streak'])
     if next_q is None:
@@ -263,7 +291,8 @@ def resume(ctx):
     ctx.session['asked'] = asked
     _, q_text = _question_text(ctx, next_q)
     _record_question_shown(ctx, next_q, q_text)
-    return ctx.jsonify(
+    return _question_response(
+        ctx,
         question_payload(
             ctx.engine,
             next_q,
@@ -293,7 +322,9 @@ def continue_game(ctx):
     ctx.session['asked'] = asked
     _, q_text = _question_text(ctx, next_q)
     _record_question_shown(ctx, next_q, q_text)
-    return ctx.jsonify(question_payload(ctx.engine, next_q, q_text, len(asked) - 1, ctx.hard_max_questions))
+    return _question_response(
+        ctx, question_payload(ctx.engine, next_q, q_text, len(asked) - 1, ctx.hard_max_questions)
+    )
 
 
 def back(ctx):
@@ -312,14 +343,15 @@ def back(ctx):
     ctx.session['answers'] = answers
     ctx.session['idk_streak'] = 0
     count = max(0, len(asked) - 1)
-    return ctx.jsonify(
-        {
-            'question_id': previous_q,
-            'question': ctx.engine.questions[previous_q]['text'],
-            'count': count,
-            'total': ctx.question_total_for_count(count),
-        }
-    )
+    stored = ctx.session.get(_SHOWN_QUESTIONS_KEY, {}).get(str(previous_q))
+    if isinstance(stored, dict):
+        payload = dict(stored)
+    else:
+        q_data = ctx.engine.questions[previous_q]
+        payload = question_payload(
+            ctx.engine, previous_q, q_data['text'], count, ctx.question_total_for_count(count)
+        )
+    return ctx.jsonify(payload)
 
 
 def answer(ctx):
@@ -400,7 +432,8 @@ def answer(ctx):
             _, question_text = _question_text(ctx, next_q)
             _record_question_shown(ctx, next_q, question_text)
             contradictions = ctx.engine.detect_contradictions(answers)
-            return ctx.jsonify(
+            return _question_response(
+                ctx,
                 question_payload(
                     ctx.engine,
                     next_q,
@@ -436,7 +469,8 @@ def answer(ctx):
         _, question_text = _question_text(ctx, next_q)
         _record_question_shown(ctx, next_q, question_text)
         contradictions = ctx.engine.detect_contradictions(answers)
-        return ctx.jsonify(
+        return _question_response(
+            ctx,
             question_payload(
                 ctx.engine,
                 next_q,
@@ -830,6 +864,8 @@ def share_event(ctx):
     limited = ctx.rate_limit('api_share_event', 180)
     if limited:
         return limited
+    if ctx.learning_disabled():
+        return ctx.jsonify({'status': 'ok', 'recorded': False, 'learning_disabled': True})
     data = ctx.request.get_json(silent=True) or {}
     event = ctx.record_share_event(
         data.get('event_name', ''),
@@ -862,7 +898,8 @@ def dropoff(ctx):
         if question_id is None or question_id < 0 or question_id >= len(ctx.engine.questions):
             return ctx.jsonify({'status': 'error', 'message': '不正な question_id です'}), 400
     _record_question_event(ctx, 'question_dropoff', question_id, answered_count=answered_count)
-    ctx.engine.log_dropoff(answered_count)
+    if not ctx.learning_disabled():
+        ctx.engine.log_dropoff(answered_count)
     ctx.session['dropoff_recorded'] = True
     return ctx.jsonify({'status': 'ok', 'answered_count': answered_count})
 

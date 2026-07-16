@@ -17,13 +17,14 @@ window.HekiHistory = (() => {
     }
   }
 
-  function saveHistory(name, probability, fetishId) {
+  function saveHistory(name, probability, fetishId, compoundIds = []) {
     const history = load();
     history.unshift({
       name,
       prob: probability,
       date: new Date().toLocaleDateString('ja-JP'),
-      fetish_id: fetishId || null,
+      fetish_id: fetishId ?? null,
+      compound_ids: Array.isArray(compoundIds) ? compoundIds.filter(id => id != null) : [],
     });
     if (history.length > 20) history.pop();
     save(history);
@@ -66,11 +67,12 @@ window.HekiHistory = (() => {
   function retryExcluding(historyIndex) {
     const history = load();
     const entry = history[historyIndex];
-    if (!entry || !entry.fetish_id) {
+    if (!entry || entry.fetish_id == null) {
       startGame();
       return;
     }
-    const excludeIds = [...(window._excludedIds || []), entry.fetish_id];
+    const compoundIds = Array.isArray(entry.compound_ids) ? entry.compound_ids : [];
+    const excludeIds = [...(window._excludedIds || []), entry.fetish_id, ...compoundIds];
     if (window.HekiState) window.HekiState.setExcludedIds([...new Set(excludeIds)]);
     else {
       window._excludedIds = [...new Set(excludeIds)];
@@ -83,7 +85,7 @@ window.HekiHistory = (() => {
   return {saveHistory, updateHistoryBadge, toggleHistory, retryExcluding};
 })();
 
-window.saveHistory = (name, prob, fetishId) => window.HekiHistory.saveHistory(name, prob, fetishId);
+window.saveHistory = (name, prob, fetishId, compoundIds) => window.HekiHistory.saveHistory(name, prob, fetishId, compoundIds);
 window._updateHistoryBadge = () => window.HekiHistory.updateHistoryBadge();
 window.toggleHistory = () => window.HekiHistory.toggleHistory();
 window.retryExcluding = historyIndex => window.HekiHistory.retryExcluding(historyIndex);

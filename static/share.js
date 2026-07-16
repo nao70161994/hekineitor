@@ -143,8 +143,10 @@ window.HekiShare = (() => {
           trackShareEvent('copy_success', {resultName: name, channel: 'clipboard', success: true});
         })
         .catch(() => trackShareEvent('copy_failure', {resultName: name, channel: 'clipboard', success: false}));
+      return;
     }
-    openXShare(name, false);
+    showToast('この環境では共有テキストをコピーできません', '#c0392b');
+    trackShareEvent('copy_failure', {resultName: name, channel: 'clipboard', success: false});
   }
 
 

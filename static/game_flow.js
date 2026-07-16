@@ -164,8 +164,9 @@ function showGuess(data) {
     if (window.gameState) window.gameState.guessData = data;
   }
 
+  let renderedName = data.fetish_name;
   if (window.HekiRenderers?.renderGuess) {
-    const renderedName = window.HekiRenderers.renderGuess(data, {
+    renderedName = window.HekiRenderers.renderGuess(data, {
       escapeHtml,
       safeExternalUrl,
       amazonAssociateId: window.APP_CONFIG?.amazonAssociateId || '',
@@ -174,9 +175,10 @@ function showGuess(data) {
     window.setDiagnosedName(renderedName);
   } else if (data.compound && data.compound.length > 0) {
     const names = [data.fetish_name, ...data.compound.map(c => c.fetish_name)];
-    document.getElementById('result-name').textContent = names.join(' × ');
-    window.setLastFetishName(names.join(' × '));
-    window.setDiagnosedName(names.join(' × '));
+    renderedName = names.join(' × ');
+    document.getElementById('result-name').textContent = renderedName;
+    window.setLastFetishName(renderedName);
+    window.setDiagnosedName(renderedName);
   } else {
     document.getElementById('result-name').textContent = data.fetish_name;
     window.setLastFetishName(data.fetish_name);
@@ -184,7 +186,7 @@ function showGuess(data) {
   }
 
   if (window.HekiShare?.prepareSharePayload) window.HekiShare.prepareSharePayload();
-  saveHistory(data.fetish_name, data.probability, data.fetish_id);
+  saveHistory(renderedName, data.probability, data.fetish_id, window._compoundIds);
   show('result-screen');
 }
 

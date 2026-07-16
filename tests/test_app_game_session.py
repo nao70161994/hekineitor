@@ -41,6 +41,76 @@ class TestGameSessionFlow(APITestCase):
         if data2.get('action') == 'question':
             self.assertNotEqual(data2['question_id'], q0)
 
+    def test_back_restores_exact_shown_question_context(self):
+        from app import engine as app_engine
+
+        start = self._start()
+        q0 = start['question_id']
+        expected = dict(start)
+        expected.update(
+            {
+                'question': '表示時だけの質問variant',
+                'axis': '表示時の軸',
+                'q_hint': '表示時の質問ヒント',
+                'hint': '表示時の進行ヒント',
+                'progress_message': '表示時の進捗文言',
+                'contradictions': [{'question_id': 999, 'message': '表示時の矛盾'}],
+            }
+        )
+        with self.client.session_transaction() as sess:
+            shown = dict(sess['shown_question_payloads'])
+            shown[str(q0)] = expected
+            sess['shown_question_payloads'] = shown
+        self.client.post('/api/answer', json={'question_id': q0, 'answer': 1.0})
+
+        restored = self.client.post('/api/back').get_json()
+
+        self.assertEqual(restored, expected)
+        self.assertNotEqual(restored['question'], app_engine.questions[q0]['text'])
+
+    def test_test_play_is_excluded_from_runtime_analytics(self):
+        from app import engine as app_engine
+
+        with self.client.session_transaction() as sess:
+            test_play_service.enable(sess)
+        with (
+            patch.object(app_engine, 'increment_start_count') as increment_start,
+            patch.object(app_engine, 'increment_play_count') as increment_play,
+            patch.object(app_engine, 'log_guessed') as log_guessed,
+            patch.object(app_engine, 'log_dropoff') as log_dropoff,
+            patch('services.question_events.safe_record_event') as record_question,
+            patch('services.result_exposure.safe_record_result') as record_exposure,
+            patch('services.share_events.safe_record_event') as record_share,
+        ):
+            start = self.client.post('/api/start').get_json()
+            qid = start['question_id']
+            result = None
+            for _ in range(35):
+                result = self.client.post(
+                    '/api/answer', json={'question_id': qid, 'answer': 1.0}
+                ).get_json()
+                if result.get('action') == 'guess':
+                    break
+                qid = result['question_id']
+
+            self.assertEqual(result.get('action'), 'guess')
+            increment_start.assert_not_called()
+            increment_play.assert_not_called()
+            log_guessed.assert_not_called()
+            record_question.assert_not_called()
+            record_exposure.assert_not_called()
+
+            with self.client.session_transaction() as sess:
+                sess['completed'] = False
+                sess['dropoff_recorded'] = False
+            self.client.post('/api/dropoff')
+            log_dropoff.assert_not_called()
+            record_question.assert_not_called()
+
+            share = self.client.post('/api/share_event', json={'event_name': 'share_click'})
+            self.assertTrue(share.get_json()['learning_disabled'])
+            record_share.assert_not_called()
+
     def test_test_play_admin_link_enables_banner_and_survives_start(self):
         headers = self._admin_headers()
         plain = self.client.get('/?sandbox=1')

@@ -38,7 +38,17 @@ h1 { color:#e94560; font-size:1.55rem; line-height:1.35; margin-bottom:8px; }
 .work-link, .work-text { display:inline; color:#5f93bf; }
 .work-link { text-decoration:underline; text-underline-offset:2px; }
 .work-link:hover { color:#8cc7f0; }
-.count { color:#555; font-size:0.74rem; margin-bottom:12px; }
+.catalog-tools { display:grid; grid-template-columns:minmax(180px,2fr) repeat(2,minmax(130px,1fr)) auto; gap:8px; margin-bottom:10px; }
+.catalog-tools input, .catalog-tools select, .catalog-tools button { min-height:42px; border:1px solid #263554; border-radius:9px; background:#111b32; color:#eee; padding:9px 11px; font:inherit; }
+.catalog-tools button { cursor:pointer; color:#f5c56d; }
+.catalog-tools input:focus, .catalog-tools select:focus, .catalog-tools button:focus { outline:2px solid #e94560; outline-offset:1px; }
+.catalog-summary { display:flex; justify-content:space-between; gap:12px; color:#777; font-size:0.76rem; margin-bottom:12px; }
+.category-tag { display:inline-block; margin-bottom:7px; padding:2px 7px; border-radius:999px; background:#1a2b4e; color:#8fb9dd; font-size:0.68rem; }
+.item.is-discovered { border-color:#385b54; }
+.item.is-random-pick { outline:3px solid #f5a623; outline-offset:2px; }
+.empty-state { color:#777; text-align:center; padding:30px 10px; }
+.count { color:#777; }
+@media (max-width:700px) { .catalog-tools { grid-template-columns:1fr 1fr; } .catalog-tools input { grid-column:1 / -1; } }
 .footer { color:#333; text-align:center; font-size:0.72rem; margin-top:24px; }
 </style>
 </head>
@@ -51,11 +61,28 @@ h1 { color:#e94560; font-size:1.55rem; line-height:1.35; margin-bottom:8px; }
     <a class="btn btn-primary" href="/">自分の性癖を診断する</a>
     <a class="btn btn-secondary" href="/stats">診断統計を見る</a>
   </div>
-  <div class="count">{{ fetishes|length }}種類</div>
+  <div class="catalog-tools" aria-label="性癖一覧の絞り込み">
+    <input id="catalog-search" type="search" placeholder="名前や説明から検索" aria-label="性癖を検索">
+    <select id="catalog-category" aria-label="カテゴリで絞り込む">
+      <option value="">すべてのカテゴリ</option>
+      {% for category, label in category_labels.items() %}<option value="{{ category }}">{{ label }}</option>{% endfor %}
+    </select>
+    <select id="catalog-discovery" aria-label="診断履歴で絞り込む">
+      <option value="all">すべて</option>
+      <option value="discovered">診断済み</option>
+      <option value="undiscovered">未診断</option>
+    </select>
+    <button id="catalog-random" type="button">ランダム発見</button>
+  </div>
+  <div class="catalog-summary" aria-live="polite">
+    <span id="catalog-count">{{ fetishes|length }}種類</span>
+    <span id="catalog-progress">診断済み 0/{{ fetishes|length }}</span>
+  </div>
 
-  <div class="grid">
+  <div class="grid" id="catalog-grid">
     {% for f in fetishes %}
-    <div class="item" data-href="/fetish/{{ f.id }}" tabindex="0" role="link" aria-label="{{ f.name }}の詳細を見る">
+    <div class="item" data-href="/fetish/{{ f.id }}" data-fetish-id="{{ f.id }}" data-category="{{ f.category }}" data-search="{{ (f.name ~ ' ' ~ f.desc)|lower }}" tabindex="0" role="link" aria-label="{{ f.name }}の詳細を見る">
+      <span class="category-tag">{{ f.category_label }}</span>
       <div class="name"><a class="name-link" href="/fetish/{{ f.id }}">{{ f.name }}</a></div>
       <div class="desc">{{ f.desc }}</div>
       {% if f.works %}
@@ -73,6 +100,7 @@ h1 { color:#e94560; font-size:1.55rem; line-height:1.35; margin-bottom:8px; }
     </div>
     {% endfor %}
   </div>
+  <p id="catalog-empty" class="empty-state hidden" hidden>条件に一致する性癖がありません。</p>
   <div class="footer">へきネイター {{ display_version }}</div>
 </div>
 <script>
@@ -89,6 +117,7 @@ document.addEventListener('keydown', event => {
   window.location.href = item.dataset.href;
 });
 </script>
+<script src="/static/catalog.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
 <script src="/static/share.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
 </body>
 </html>

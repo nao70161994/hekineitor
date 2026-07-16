@@ -87,6 +87,7 @@ def build(
             ),
             record_question_event=record_question_event,
             record_result_exposure=result_exposure.safe_record_result,
+            learning_disabled=learning_disabled,
         )
         return inference.make_guess(guess_context, answers)
 

@@ -310,6 +310,12 @@ class TestShareAndSEO(APITestCase):
         self.assertIn('href="/fetish/0"', body)
         self.assertIn('data-href="/fetish/0"', body)
         self.assertIn("event.target.closest('a')", body)
+        self.assertIn('id="catalog-search"', body)
+        self.assertIn('id="catalog-category"', body)
+        self.assertIn('id="catalog-discovery"', body)
+        self.assertIn('id="catalog-random"', body)
+        self.assertIn('data-category="', body)
+        self.assertIn('/static/catalog.js', body)
 
     def test_fetish_index_links_work_examples_with_affiliate_tag(self):
         from app import BOOTSTRAP
