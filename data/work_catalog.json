@@ -219,13 +219,6 @@
       "status": "active"
     },
     {
-      "work_id": "wrk_16ef22cb090aa0999730",
-      "canonical_title": "作品B",
-      "normalized_title": "作品b",
-      "media_type": "",
-      "status": "active"
-    },
-    {
       "work_id": "wrk_17645d17443dcf77119d",
       "canonical_title": "魔法科のループ転生（小説）",
       "normalized_title": "魔法科のループ転生(小説)",
@@ -2459,13 +2452,6 @@
       "status": "active"
     },
     {
-      "work_id": "wrk_d9fc6de1dc2de73bd489",
-      "canonical_title": "作品A",
-      "normalized_title": "作品a",
-      "media_type": "",
-      "status": "active"
-    },
-    {
       "work_id": "wrk_da0f21471fe8cd675728",
       "canonical_title": "仕事バカな上司と私（漫画）",
       "normalized_title": "仕事バカな上司と私(漫画)",
@@ -2595,13 +2581,6 @@
       "work_id": "wrk_e25d9d6cae7d4211e2c5",
       "canonical_title": "エヴァンゲリオン（シンジ×カヲル）",
       "normalized_title": "エヴァンゲリオン(シンジ×カヲル)",
-      "media_type": "",
-      "status": "active"
-    },
-    {
-      "work_id": "wrk_e28035b4b0f58d1ed1ae",
-      "canonical_title": "複合専用テスト作品",
-      "normalized_title": "複合専用テスト作品",
       "media_type": "",
       "status": "active"
     },
@@ -8958,17 +8937,6 @@
   ],
   "compound_work_links": [
     {
-      "link_id": "cwl_3751a57a524ac4fe24af",
-      "id_a": 0,
-      "id_b": 1,
-      "work_id": "wrk_e28035b4b0f58d1ed1ae",
-      "edition_id": null,
-      "alias_id": null,
-      "position": 0,
-      "context_label": "",
-      "recommendation_reason": ""
-    },
-    {
       "link_id": "cwl_ea00120600d0e2992111",
       "id_a": 0,
       "id_b": 10,
@@ -11019,28 +10987,6 @@
       "id_a": 97,
       "id_b": 104,
       "work_id": "wrk_fc889611266d25834ea0",
-      "edition_id": null,
-      "alias_id": null,
-      "position": 1,
-      "context_label": "",
-      "recommendation_reason": ""
-    },
-    {
-      "link_id": "cwl_816fb20dfb6421cb6b26",
-      "id_a": 100,
-      "id_b": 200,
-      "work_id": "wrk_d9fc6de1dc2de73bd489",
-      "edition_id": null,
-      "alias_id": null,
-      "position": 0,
-      "context_label": "",
-      "recommendation_reason": ""
-    },
-    {
-      "link_id": "cwl_e508ac3c4d142e30158f",
-      "id_a": 100,
-      "id_b": 200,
-      "work_id": "wrk_16ef22cb090aa0999730",
       "edition_id": null,
       "alias_id": null,
       "position": 1,

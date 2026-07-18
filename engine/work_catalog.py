@@ -152,6 +152,7 @@ def build_catalog_from_inline(fetishes, *, compound_rows=()):
             }
             catalog['fetish_work_links'].append(link)
 
+    known_fetish_ids = {int(fetish['id']) for fetish in fetishes}
     normalized_compounds = sorted(
         compound_rows or [],
         key=lambda row: (min(int(row['id_a']), int(row['id_b'])), max(int(row['id_a']), int(row['id_b']))),
@@ -159,6 +160,11 @@ def build_catalog_from_inline(fetishes, *, compound_rows=()):
     for compound in normalized_compounds:
         id_a = min(int(compound['id_a']), int(compound['id_b']))
         id_b = max(int(compound['id_a']), int(compound['id_b']))
+        if id_a == id_b:
+            raise ValueError(f'compound link must reference two different fetishes: {id_a}')
+        missing_ids = sorted({id_a, id_b} - known_fetish_ids)
+        if missing_ids:
+            raise ValueError(f'compound link references unknown fetish ids: {missing_ids}')
         for position, raw_work in enumerate(compound.get('works') or []):
             registered = register_work(raw_work)
             if registered is None:

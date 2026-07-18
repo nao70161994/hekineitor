@@ -3,7 +3,7 @@ import json
 import unittest
 from pathlib import Path
 
-from services import work_catalog
+from engine import work_catalog
 from work_utils import work_title
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -91,6 +91,19 @@ class WorkCatalogMigrationTests(unittest.TestCase):
 
         checked_in = json.loads((ROOT / 'data' / 'work_catalog.json').read_text())
         self.assertEqual(checked_in, build_catalog())
+
+    def test_builder_rejects_unknown_or_same_compound_fetish(self):
+        fetishes = [{'id': 1, 'name': 'A', 'desc': '', 'works': []}]
+        with self.assertRaisesRegex(ValueError, 'unknown fetish ids'):
+            work_catalog.build_catalog_from_inline(
+                fetishes,
+                compound_rows=[{'id_a': 1, 'id_b': 2, 'works': ['Work']}],
+            )
+        with self.assertRaisesRegex(ValueError, 'two different fetishes'):
+            work_catalog.build_catalog_from_inline(
+                fetishes,
+                compound_rows=[{'id_a': 1, 'id_b': 1, 'works': ['Work']}],
+            )
 
     def test_validation_rejects_broken_references_and_duplicate_positions(self):
         catalog = work_catalog.build_catalog_from_inline(

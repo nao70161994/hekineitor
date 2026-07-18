@@ -10,7 +10,7 @@ CATALOG_PATH = DATA_DIR / 'work_catalog.json'
 
 
 def build_catalog():
-    from services.work_catalog import build_catalog_from_inline
+    from engine.work_catalog import build_catalog_from_inline
 
     fetishes = json.loads((DATA_DIR / 'fetishes.json').read_text(encoding='utf-8'))
     compound_data = json.loads((DATA_DIR / 'compound_works.json').read_text(encoding='utf-8'))
