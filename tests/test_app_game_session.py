@@ -86,9 +86,7 @@ class TestGameSessionFlow(APITestCase):
             qid = start['question_id']
             result = None
             for _ in range(35):
-                result = self.client.post(
-                    '/api/answer', json={'question_id': qid, 'answer': 1.0}
-                ).get_json()
+                result = self.client.post('/api/answer', json={'question_id': qid, 'answer': 1.0}).get_json()
                 if result.get('action') == 'guess':
                     break
                 qid = result['question_id']

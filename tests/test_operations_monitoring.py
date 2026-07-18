@@ -248,7 +248,9 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertEqual(report['warn'], ['dominant result 7d=制服 100.0% (10/10)'])
         self.assertIn('YES率90%以上質問', report['message'])
         self.assertIn('share rate low=0.0%', report['message'])
-        self.assertIn('cold_start_questions=27 (collecting=20, learning=4, mature=2, needs_review=1)', report['message'])
+        self.assertIn(
+            'cold_start_questions=27 (collecting=20, learning=4, mature=2, needs_review=1)', report['message']
+        )
         self.assertIn('未学習質問 needs_review=1', report['message'])
         self.assertIn('insights:', report['message'])
 

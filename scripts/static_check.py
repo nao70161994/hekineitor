@@ -20,9 +20,7 @@ class StaticVisitor(ast.NodeVisitor):
     def _check_legacy_engine_import(self, module_name, lineno):
         root_module = str(module_name or '').split('.', 1)[0]
         if root_module in LEGACY_ENGINE_SHIMS and not _legacy_shim_import_allowed(self.path):
-            self.errors.append(
-                (lineno, f'import {root_module} via engine.*; top-level module is a compatibility shim')
-            )
+            self.errors.append((lineno, f'import {root_module} via engine.*; top-level module is a compatibility shim'))
 
     def visit_Import(self, node):
         for alias in node.names:

@@ -33,17 +33,23 @@ def _remember_question_payload(ctx, payload):
     if not isinstance(payload, dict) or 'question_id' not in payload:
         return payload
     allowed = (
-        'action', 'question_id', 'question', 'count', 'total', 'axis', 'q_hint',
-        'hint', 'progress_message', 'contradictions',
+        'action',
+        'question_id',
+        'question',
+        'count',
+        'total',
+        'axis',
+        'q_hint',
+        'hint',
+        'progress_message',
+        'contradictions',
     )
     compact = {key: payload[key] for key in allowed if key in payload}
     history = dict(ctx.session.get(_SHOWN_QUESTIONS_KEY, {}))
     history[str(payload['question_id'])] = compact
     asked = ctx.session.get('asked', [])
     active_ids = {str(question_id) for question_id in asked[-ctx.hard_max_questions :]}
-    ctx.session[_SHOWN_QUESTIONS_KEY] = {
-        key: value for key, value in history.items() if key in active_ids
-    }
+    ctx.session[_SHOWN_QUESTIONS_KEY] = {key: value for key, value in history.items() if key in active_ids}
     return payload
 
 
@@ -167,12 +173,15 @@ def _finish_feedback(ctx):
 
 def _require_feedback_open(ctx):
     if ctx.session.get('feedback_status') in ('pending_correction', 'done'):
-        return ctx.jsonify(
-            {
-                'status': 'error',
-                'message': 'この診断結果へのフィードバックは処理済みです',
-            }
-        ), 409
+        return (
+            ctx.jsonify(
+                {
+                    'status': 'error',
+                    'message': 'この診断結果へのフィードバックは処理済みです',
+                }
+            ),
+            409,
+        )
     return None
 
 
@@ -258,7 +267,7 @@ def start(ctx):
             'total': ctx.soft_max_questions,
             'axis': ctx.engine._question_axis(question_id),
             'q_hint': q_data.get('hint', ''),
-        }
+        },
     )
 
 
@@ -328,7 +337,7 @@ def resume(ctx):
             q_text,
             len(asked) - 1,
             ctx.question_total_for_count(len(asked) - 1),
-        )
+        ),
     )
 
 
@@ -351,9 +360,7 @@ def continue_game(ctx):
     ctx.session['asked'] = asked
     _, q_text = _question_text(ctx, next_q)
     _record_question_shown(ctx, next_q, q_text)
-    return _question_response(
-        ctx, question_payload(ctx.engine, next_q, q_text, len(asked) - 1, ctx.hard_max_questions)
-    )
+    return _question_response(ctx, question_payload(ctx.engine, next_q, q_text, len(asked) - 1, ctx.hard_max_questions))
 
 
 def back(ctx):
@@ -377,9 +384,7 @@ def back(ctx):
         payload = dict(stored)
     else:
         q_data = ctx.engine.questions[previous_q]
-        payload = question_payload(
-            ctx.engine, previous_q, q_data['text'], count, ctx.question_total_for_count(count)
-        )
+        payload = question_payload(ctx.engine, previous_q, q_data['text'], count, ctx.question_total_for_count(count))
     return ctx.jsonify(payload)
 
 
@@ -472,7 +477,7 @@ def answer(ctx):
                     hint='候補の質感をもう少し確認します',
                     progress_message='AIが別の軸も観測しています',
                     contradictions=contradictions,
-                )
+                ),
             )
 
         next_q = ctx.select_next_question(
@@ -509,7 +514,7 @@ def answer(ctx):
                 hint=hint,
                 progress_message=progress_message,
                 contradictions=contradictions,
-            )
+            ),
         )
     except Exception:
         ctx.logger.exception('answer() 推論エラー')
@@ -739,12 +744,15 @@ def add_fetish(ctx):
             )
         owned = set(ctx.session.get('owned_added_fetish_ids', []))
         if len(owned) >= MAX_NEW_FETISHES_PER_DIAGNOSIS:
-            return ctx.jsonify(
-                {
-                    'status': 'error',
-                    'message': f'1回の診断で追加できる性癖は{MAX_NEW_FETISHES_PER_DIAGNOSIS}件までです',
-                }
-            ), 409
+            return (
+                ctx.jsonify(
+                    {
+                        'status': 'error',
+                        'message': f'1回の診断で追加できる性癖は{MAX_NEW_FETISHES_PER_DIAGNOSIS}件までです',
+                    }
+                ),
+                409,
+            )
         if not desc:
             desc = name
         _, db_id = ctx.engine.add_fetish(name, desc, answers)

@@ -150,7 +150,6 @@ def learn_silent(engine, answers, fetish_idx, cold_start=False, *, pseudo):
             engine.matrix['yes'][fetish_idx][q] += delta_yes
             all_updates.setdefault(fetish_idx, []).append((q, delta_yes, effective))
 
-
         idx_to_db_id = {i: fetish['id'] for i, fetish in enumerate(engine.fetishes)}
 
     engine._save_async(all_updates, idx_to_db_id)
