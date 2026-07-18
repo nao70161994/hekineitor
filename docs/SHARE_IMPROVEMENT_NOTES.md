@@ -8,9 +8,9 @@
 - 個人情報、IP、User-Agent、ユーザーIDは保存しない。
 - 保存対象は管理者が入力した運用メモのみ。
 - 診断結果、推論、質問選択、学習には影響させない。
-- 最初は `data/share_improvement_notes.json` の小さなJSONで十分。
+- `data/share_improvement_notes.json` の小さなJSONへ保存する。
 
-## 保存案
+## 保存形式
 
 ```json
 {
@@ -28,7 +28,7 @@
 - `POST /api/admin/share_notes`
   - `result_name`, `note` を保存。
   - 管理者認証と既存CSRF/adminFetchを使う。
-  - `result_name` は最大80文字、`note` は最大500文字。
+  - `result_name` は80文字、`note` は500文字へ正規化し、超過分は切り捨てる。
 
 ## 管理画面
 

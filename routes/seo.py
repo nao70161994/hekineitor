@@ -5,7 +5,6 @@ from flask import Blueprint
 
 from services import share_links
 
-
 FETISH_CATEGORY_LABELS = {
     'role': '役割',
     'relation': '関係性',

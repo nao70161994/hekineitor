@@ -36,7 +36,7 @@
 
 ## Current Automation
 
-- Smoke tests verify `/ogp.png` returns PNG, `/ogp` still returns SVG, and result share pages use PNG `og:image`.
+- Smoke tests verify `/ogp.png` returns PNG, `/ogp` still returns SVG, result share pages use PNG `og:image`, and no-CJK environments use a safe ASCII fallback. `OGP_FONT_PATH` is preferred when configured.
 - External X / LINE / Discord preview rendering still requires a deployed URL and manual verification.
 
 ## Execution Log

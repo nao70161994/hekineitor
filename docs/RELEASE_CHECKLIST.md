@@ -12,4 +12,4 @@
 - [ ] `/manifest.json` を実機確認
 - [ ] `/sw.js` を実機確認
 - [ ] `/offline` を実機確認
-- [ ] `npm run test:pwa` を実行
+- [x] `npm run test:pwa` 自動contract確認済み（2026-07-19）

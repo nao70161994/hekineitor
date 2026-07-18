@@ -8,7 +8,7 @@
 - `8ce2e77` - Pillow dependency documentation.
 - `3bc6d46` - Split module formatting cleanup.
 
-## Suggested PRs
+## Historical Suggested PR Split
 
 1. Backend route/service split.
 2. Admin maintenance and ASIN backfill support.
@@ -153,19 +153,19 @@
 - Matrix restore PR: import/dry-run/backup restore now validates export payloads with missing player-added fetishes and restores those rows before importing matrix values.
 
 
-## Next PRs
+## Remaining Work
 
-- Future works-master PR: add duplicate/title normalization reporting for recommended works before considering a `works_master` / `fetish_work_links` DB migration.
-1. Keep `app.py` as composition root; avoid further extraction unless a dependency group has clear ownership outside Flask wiring.
-2. Execute the `docs/QA.md` manual mobile/OGP/PWA backlog against real devices and a deployed URL.
-3. OGP Japanese font follow-up: enable `DOWNLOAD_OGP_FONT=1 sh scripts/render_build.sh` or set `OGP_FONT_PATH` on Render, then manually verify Japanese PNG output.
-4. Browser E2E runner decision after manual QA gaps are confirmed.
-5. All engine helper modules now live under `engine/` with top-level compatibility shims; next PR can review shim retention/removal policy.
-6. Keep DB and mutation behavior locked with tests while reducing remaining facade method bodies.
-7. Share analytics follow-up: admin dashboard, result-name ranking, lightweight funnel rates, period comparison, growth columns, and CSV exports are available; review deployed SNS cycles before adding trend charts.
-8. Share improvement notes: implement the documented JSON-backed admin note editor with CSRF and escaping in a focused PR.
-- Question analytics dashboard: 質問表示回数、YES/NO率、離脱率、カテゴリ偏重、結果寄与を管理画面とCSVで確認可能。
-- Production analytics readiness: preflight/adminで stats_history/share_events/question_events の蓄積状況と取得元を確認可能。
-- Admin read token PR: `ADMIN_READ_TOKEN` でpreflight/question/share/fetish stats系の読み取りAPIのみ参照可能。変更系APIはBasic認証のまま。
-- Bias mitigation PR: reduce over-concentration in 共依存/激重感情/共生関係/執着 through question wording, early penalties, and category diversification only.
-- Admin read API expansion PR: added read-only operational endpoints so Codex can analyze production health without mutation permissions.
+### Repository work
+
+1. Keep `app.py` as the composition root; extract only dependencies with a clear owner outside Flask wiring.
+2. Retain the top-level `engine_*` compatibility shims for external callers, while the static check prevents new application imports. Remove them only in a dedicated migration after a documented deprecation period.
+3. Continue facade thinning only for small pure helpers with parity tests. Transaction, lock, persistence, and mutation orchestration remain Engine-owned.
+4. Use the read-only work catalog report to review same-owner duplicates, same-ASIN aliases, normalization candidates, and ASIN conflicts. Apply only explicit data corrections; do not start a `works_master` schema migration while deployed click analytics are still stabilizing.
+
+### Deployment and manual verification
+
+1. Execute the [`QA.md`](QA.md) mobile, native-share, OGP, and PWA backlog against real devices and the deployed URL.
+2. Enable the Japanese OGP font through `DOWNLOAD_OGP_FONT=1` or `OGP_FONT_PATH` on Render, then verify Japanese PNG output.
+3. Review deployed SNS/share analytics cycles before adding more trend visualization or changing OGP copy.
+
+Browser E2E, share improvement notes, question analytics, production-readiness metrics, admin read-token endpoints, result-bias mitigation, and the read-only operations API are implemented and are no longer future PRs.

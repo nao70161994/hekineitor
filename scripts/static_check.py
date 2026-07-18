@@ -4,12 +4,34 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+LEGACY_ENGINE_SHIMS = {path.stem for path in ROOT.glob('engine_*.py')}
+
+
+def _legacy_shim_import_allowed(path):
+    relative = path.resolve().relative_to(ROOT)
+    return bool(relative.parts and relative.parts[0] in {'tests', 'scripts'})
 
 
 class StaticVisitor(ast.NodeVisitor):
     def __init__(self, path):
         self.path = path
         self.errors = []
+
+    def _check_legacy_engine_import(self, module_name, lineno):
+        root_module = str(module_name or '').split('.', 1)[0]
+        if root_module in LEGACY_ENGINE_SHIMS and not _legacy_shim_import_allowed(self.path):
+            self.errors.append(
+                (lineno, f'import {root_module} via engine.*; top-level module is a compatibility shim')
+            )
+
+    def visit_Import(self, node):
+        for alias in node.names:
+            self._check_legacy_engine_import(alias.name, node.lineno)
+        self.generic_visit(node)
+
+    def visit_ImportFrom(self, node):
+        self._check_legacy_engine_import(node.module, node.lineno)
+        self.generic_visit(node)
 
     def visit_Call(self, node):
         if isinstance(node.func, ast.Name) and node.func.id in {'eval', 'exec'}:

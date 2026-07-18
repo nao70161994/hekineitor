@@ -13,7 +13,7 @@ sh scripts/check.sh
 npm run test:e2e
 ```
 
-`scripts/check.sh`はPython compile、既存の安全性check、Ruff lint/format、段階導入したmypy、Python testとcoverage最低基準、ESLint、Vitestをまとめて実行します。Playwrightの最小browser E2EはCIの専用stepでも実行します。
+`scripts/check.sh`はPython compile、既存の安全性check、Ruff lint/format、段階導入したmypy、Python testとcoverage最低基準、ESLint、Vitestをまとめて実行します。PlaywrightのChromium E2Eは、診断完走、manifest/offline、continue/feedback/history、mobile viewportをCIの専用stepで検証します。
 
 個別に問題を切り分ける場合は次を使います。
 
@@ -24,7 +24,10 @@ python -m mypy matrix_service.py work_utils.py services/ids.py services/csv_safe
 python run_coverage.py
 npm run lint
 npm run test:unit
-npm run test:e2e
+npm run test:js       # ESLint + Vitest
+npm run test:static   # 静的asset・AdSense smoke
+npm run test:pwa      # service worker・share/OGP/PWA contract
+npm run test:e2e      # Chromium browser E2E
 ```
 
 設定のsource of truthは`pyproject.toml`、`package.json`、`playwright.config.js`です。対象や閾値を変更した場合は、CIと`scripts/check.sh`も同じ変更で更新します。

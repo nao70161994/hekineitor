@@ -19,7 +19,7 @@ from services import result_exposure as result_exposure_service
 from services import share_events as share_events_service
 from services import share_links as share_links_service
 from services.csv_safety import csv_text
-from services.works_links import collect_work_link_queue
+from services.works_links import build_work_catalog_report, collect_work_link_queue
 
 
 def _date_arg(value):
@@ -739,12 +739,18 @@ def works_health(ctx):
     maintenance = ctx.build_admin_maintenance_checklist().get('works', {})
     queue = works_link_queue_payload(ctx, sample_limit=50)
     seed_backfill = seed_works_backfill_payload(ctx, sample_limit=50, apply=False).get_json()
+    catalog = build_work_catalog_report(
+        ctx.engine.fetishes,
+        compound_rows=ctx.list_compound_works(),
+        sample_limit=50,
+    )
     return ctx.jsonify(
         {
             'status': 'ok',
             'maintenance': maintenance,
             'link_queue': queue,
             'seed_backfill': seed_backfill,
+            'catalog': catalog,
         }
     )
 

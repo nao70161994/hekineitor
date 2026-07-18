@@ -1,3 +1,5 @@
+import copy
+
 from tests._service_test_support import (
     app_meta,
     bootstrap,
@@ -73,6 +75,48 @@ class TestServiceAppConfig(unittest.TestCase):
         self.assertEqual(summary['duplicate_work_title_count'], 1)
         self.assertEqual(summary['duplicate_works'][0]['title'], '重複作品')
         self.assertEqual(summary['duplicate_works'][0]['count'], 2)
+
+    def test_work_catalog_report_separates_duplicates_aliases_and_conflicts(self):
+        fetishes = [
+            {
+                'id': 1,
+                'name': 'A',
+                'works': [
+                    {'title': '同一作品', 'url': 'https://www.amazon.co.jp/dp/B000000001'},
+                    {'title': '同一作品', 'url': 'https://www.amazon.co.jp/dp/B000000001'},
+                    {'title': '作品（漫画）', 'url': 'https://www.amazon.co.jp/dp/B000000002'},
+                ],
+            },
+            {
+                'id': 2,
+                'name': 'B',
+                'works': [
+                    {'title': '同一作品 別表記', 'url': 'https://www.amazon.co.jp/dp/B000000001'},
+                    {'title': '作品', 'url': 'https://www.amazon.co.jp/dp/B000000003'},
+                ],
+            },
+        ]
+        compound = [
+            {
+                'key': '1,2',
+                'id_a': 1,
+                'id_b': 2,
+                'works': [{'title': '複合作品', 'url': 'https://www.amazon.co.jp/dp/B000000004'}],
+            }
+        ]
+        original = copy.deepcopy((fetishes, compound))
+
+        report = works_links.build_work_catalog_report(fetishes, compound_rows=compound, sample_limit=10)
+
+        self.assertEqual(report['total_works'], 6)
+        self.assertEqual(report['fetish_work_count'], 5)
+        self.assertEqual(report['compound_work_count'], 1)
+        self.assertEqual(report['within_owner_exact_duplicate_count'], 1)
+        self.assertEqual(report['same_asin_alias_count'], 1)
+        self.assertEqual(report['normalization_conflict_count'], 1)
+        self.assertEqual(report['normalization_conflicts'][0]['asins'], ['B000000002', 'B000000003'])
+        self.assertEqual(report['identity_policy'], 'review_only_no_automatic_merge')
+        self.assertEqual((fetishes, compound), original)
 
     def test_app_version_default_includes_pwa_assets(self):
         self.assertIn('static/icon-192.png', app_meta.APP_VERSION_PATHS)

@@ -17,6 +17,28 @@ def load_module(name, path):
     return module
 
 
+class StaticCheckTests(unittest.TestCase):
+    def test_application_code_cannot_add_new_legacy_engine_shim_imports(self):
+        static_check = load_module('static_check_under_test', ROOT / 'scripts' / 'static_check.py')
+        visitor = static_check.StaticVisitor(ROOT / 'routes' / 'example.py')
+        visitor.visit(__import__('ast').parse('import engine_inference\nfrom engine_db import load_matrix\n'))
+
+        self.assertEqual(
+            visitor.errors,
+            [
+                (1, 'import engine_inference via engine.*; top-level module is a compatibility shim'),
+                (2, 'import engine_db via engine.*; top-level module is a compatibility shim'),
+            ],
+        )
+
+    def test_compatibility_contract_tests_may_import_legacy_engine_shims(self):
+        static_check = load_module('static_check_contract_under_test', ROOT / 'scripts' / 'static_check.py')
+        visitor = static_check.StaticVisitor(ROOT / 'tests' / 'test_compatibility.py')
+        visitor.visit(__import__('ast').parse('import engine_inference\n'))
+
+        self.assertEqual(visitor.errors, [])
+
+
 class RestoreMatrixScriptTests(unittest.TestCase):
     def test_current_backup_shape_builds_priors(self):
         restore_matrix = load_module('restore_matrix_under_test', ROOT / 'restore_matrix.py')

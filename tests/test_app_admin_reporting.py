@@ -293,6 +293,19 @@ class TestAdminReporting(APITestCase):
         if data['duplicate_questions']:
             self.assertIn('suggested_action', data['duplicate_questions'][0])
 
+    def test_works_health_exposes_read_only_catalog_conflict_report(self):
+        res = self.client.get('/api/admin/works_health', headers=self._admin_headers())
+
+        self.assertEqual(res.status_code, 200)
+        catalog = res.get_json()['catalog']
+        self.assertEqual(catalog['status'], 'ok')
+        self.assertEqual(catalog['identity_policy'], 'review_only_no_automatic_merge')
+        self.assertIn('within_owner_exact_duplicate_count', catalog)
+        self.assertIn('same_asin_alias_count', catalog)
+        self.assertIn('normalization_candidate_count', catalog)
+        self.assertIn('normalization_conflict_count', catalog)
+        self.assertIn('compound_work_count', catalog)
+
     def test_edit_question(self):
         headers = self._admin_headers()
         from app import engine as app_engine

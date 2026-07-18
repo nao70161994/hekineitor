@@ -13,6 +13,10 @@
 
 変更時は[`../ENGINE_FACADE_CONTRACT.md`](../ENGINE_FACADE_CONTRACT.md)とcontract/regression testsを同時に更新します。意図的な契約変更はmigration pathを明示した別変更として扱います。
 
+Top-level `engine_*` modulesは外部caller向けの互換shimとして保持します。アプリケーションコードは`engine.*`を直接importし、互換性testと移行script以外からshimへの新規依存を追加しません。静的checkでこの依存方向を固定します。
+
+shimを削除できるのは、repository内のproduction参照が0であることに加え、外部caller向けのdeprecation期間を設け、major migrationとして公開import更新手順を提示できた場合だけです。単なる内部行数削減を理由には削除しません。
+
 ## Consequences
 
 内部moduleは小さくできますが、互換wrapperが残る場合があります。重複を機械的に除去することより、公開境界での安定性と回帰testを優先します。

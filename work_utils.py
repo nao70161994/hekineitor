@@ -1,3 +1,5 @@
+import re
+import unicodedata
 import urllib.parse
 from typing import TypeAlias
 
@@ -46,3 +48,16 @@ def work_title(work: object) -> str:
     if isinstance(work, dict):
         return str(work.get('title', '')).strip()
     return str(work).strip()
+
+
+def normalized_work_title(title: object) -> str:
+    """Return a conservative title key for reporting; never use it as a work identity."""
+    normalized = unicodedata.normalize('NFKC', str(title or '')).casefold().strip()
+    return ' '.join(normalized.split())
+
+
+def work_title_candidate_key(title: object) -> str:
+    """Return a loose review key while preserving identity decisions for administrators."""
+    normalized = normalized_work_title(title)
+    without_labels = re.sub(r'[(（][^()（）]*[)）]', '', normalized)
+    return ''.join(without_labels.split()).strip()

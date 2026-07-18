@@ -650,8 +650,8 @@ Impact:
 Safe migration direction:
 
 1. Keep existing `fetishes.works` as the compatibility source.
-2. Add a read-only duplicate/title-normalization report first.
-3. Normalize obvious duplicate titles and URLs without changing DB schema.
+2. Use `/api/admin/works_health` の `catalog` report to review same-owner exact duplicates, same-ASIN aliases, normalization candidates, and title/ASIN conflicts across fetish and compound works. The report never merges or mutates data.
+3. Normalize only reviewed duplicates and URLs without changing DB schema. A loose title key is a review candidate, not a work identity.
 4. Design a future `works_master` / `fetish_work_links` migration only after deployed analytics prove work-click volume is meaningful.
 5. Keep fallback rendering from legacy `fetishes.works` during any migration.
 

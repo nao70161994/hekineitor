@@ -1,7 +1,10 @@
 import re
 import urllib.parse
+from collections import defaultdict
 
-ASIN_RE = re.compile(r'/dp/([A-Z0-9]{10})')
+from work_utils import normalized_work_title, work_title_candidate_key
+
+ASIN_RE = re.compile(r'/dp/([A-Z0-9]{10})', re.IGNORECASE)
 
 
 def work_url_status(work):
@@ -150,4 +153,125 @@ def build_work_maintenance_summary(fetishes, *, work_title_fn, safe_work_url_fn,
         'unsafe_url_works': unsafe_url_works[:sample_limit],
         'duplicate_works': duplicate_works[:sample_limit],
         'works_review_url': '/api/admin/works_review',
+    }
+
+
+def _catalog_work_row(*, source, owner_id, owner_name, index, work):
+    title = work.get('title', '') if isinstance(work, dict) else str(work or '')
+    url = work.get('url', '') if isinstance(work, dict) else ''
+    asin_match = ASIN_RE.search(str(url))
+    return {
+        'source': source,
+        'owner_id': owner_id,
+        'owner_name': str(owner_name or ''),
+        'work_index': index,
+        'title': str(title or '').strip(),
+        'url': str(url or '').strip(),
+        'asin': asin_match.group(1).upper() if asin_match else '',
+        'exact_key': normalized_work_title(title),
+        'candidate_key': work_title_candidate_key(title),
+    }
+
+
+def _catalog_group_samples(groups, *, predicate, sample_limit):
+    result = []
+    for key, items in groups.items():
+        if not key or not predicate(items):
+            continue
+        titles = sorted({item['title'] for item in items})
+        asins = sorted({item['asin'] for item in items if item['asin']})
+        result.append(
+            {
+                'key': key,
+                'count': len(items),
+                'titles': titles[:sample_limit],
+                'asins': asins[:sample_limit],
+                'items': [
+                    {
+                        field: item[field]
+                        for field in ('source', 'owner_id', 'owner_name', 'work_index', 'title', 'asin')
+                    }
+                    for item in items[:sample_limit]
+                ],
+            }
+        )
+    result.sort(key=lambda row: (-row['count'], row['key']))
+    return result
+
+
+def build_work_catalog_report(fetishes, *, compound_rows=(), sample_limit=20):
+    """Build a read-only duplicate/alias/conflict report without merging work identities."""
+    rows = []
+    for fetish in fetishes:
+        for index, work in enumerate(fetish.get('works') or []):
+            rows.append(
+                _catalog_work_row(
+                    source='fetish',
+                    owner_id=fetish.get('id'),
+                    owner_name=fetish.get('name', ''),
+                    index=index,
+                    work=work,
+                )
+            )
+    for compound in compound_rows or []:
+        owner_id = compound.get('key') or f'{compound.get("id_a")},{compound.get("id_b")}'
+        for index, work in enumerate(compound.get('works') or []):
+            rows.append(
+                _catalog_work_row(
+                    source='compound',
+                    owner_id=owner_id,
+                    owner_name=owner_id,
+                    index=index,
+                    work=work,
+                )
+            )
+
+    by_owner_exact = defaultdict(list)
+    by_exact = defaultdict(list)
+    by_candidate = defaultdict(list)
+    by_asin = defaultdict(list)
+    for row in rows:
+        by_owner_exact[(row['source'], str(row['owner_id']), row['exact_key'])].append(row)
+        by_exact[row['exact_key']].append(row)
+        by_candidate[row['candidate_key']].append(row)
+        if row['asin']:
+            by_asin[row['asin']].append(row)
+
+    within_owner = _catalog_group_samples(
+        by_owner_exact, predicate=lambda items: len(items) > 1, sample_limit=sample_limit
+    )
+    asin_aliases = _catalog_group_samples(
+        by_asin,
+        predicate=lambda items: len({item['exact_key'] for item in items}) > 1,
+        sample_limit=sample_limit,
+    )
+    candidate_groups = _catalog_group_samples(
+        by_candidate,
+        predicate=lambda items: len({item['exact_key'] for item in items}) > 1,
+        sample_limit=sample_limit,
+    )
+    candidate_conflicts = [row for row in candidate_groups if len(row['asins']) > 1]
+    exact_conflicts = _catalog_group_samples(
+        by_exact,
+        predicate=lambda items: len({item['asin'] for item in items if item['asin']}) > 1,
+        sample_limit=sample_limit,
+    )
+    safe_candidates = [row for row in candidate_groups if len(row['asins']) <= 1]
+
+    return {
+        'status': 'ok',
+        'total_works': len(rows),
+        'fetish_work_count': sum(row['source'] == 'fetish' for row in rows),
+        'compound_work_count': sum(row['source'] == 'compound' for row in rows),
+        'within_owner_exact_duplicate_count': len(within_owner),
+        'same_asin_alias_count': len(asin_aliases),
+        'normalization_candidate_count': len(safe_candidates),
+        'normalization_conflict_count': len(candidate_conflicts),
+        'exact_title_asin_conflict_count': len(exact_conflicts),
+        'within_owner_exact_duplicates': within_owner[:sample_limit],
+        'same_asin_aliases': asin_aliases[:sample_limit],
+        'normalization_candidates': safe_candidates[:sample_limit],
+        'normalization_conflicts': candidate_conflicts[:sample_limit],
+        'exact_title_asin_conflicts': exact_conflicts[:sample_limit],
+        'identity_policy': 'review_only_no_automatic_merge',
     }
