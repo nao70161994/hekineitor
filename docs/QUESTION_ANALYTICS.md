@@ -1,15 +1,18 @@
 # 質問分析ダッシュボード
 
-管理画面の「質問分析ダッシュボード」は、質問ごとの刺さり方と離脱を軽量イベントで確認するための運用ビューです。
+管理画面の「質問分析ダッシュボード」は、質問ごとの回答傾向・離脱・結果寄与に加え、未学習質問がfeedbackによって育っているかを確認する読み取り専用の運用ビューです。
 
 ## 記録するイベント
 
 - `question_shown`: 質問が表示された
-- `question_answered`: YES/NO/不明などの回答が送られた
+- `question_answered`: YES / NO / 不明などの回答が送られた
 - `question_dropoff`: 診断途中で離脱が記録された
-- `question_result_contribution`: 結果表示時に理由として採用された質問
+- `question_result_contribution`: 結果表示時に理由として採用された
+- `question_feedback_learned`: 正解・不正解・惜しい等のfeedbackを受け、回答済み質問が学習処理に使われた
 
-本番で `DATABASE_URL` が有効な場合は、デプロイで消えないよう `analytics_events` テーブルへ保存します。`QUESTION_EVENT_LOG_PATH` が指定された場合やDB未使用のローカルでは、その JSONL に保存します。保存するのは質問ID、質問文、カテゴリ、回答値、結果名、timestamp 程度に限定し、IP、User-Agent、ユーザーID、session ID は保存しません。
+`question_feedback_learned` は、回答値が0（不明）の質問とテストプレイを除外します。`feedback_kind` と学習対象結果数 `target_count` は記録しますが、IP、User-Agent、ユーザーID、session IDは保存しません。
+
+本番で `DATABASE_URL` が有効な場合は `analytics_events` テーブルへ保存します。`QUESTION_EVENT_LOG_PATH` が指定された場合、またはDB未使用のローカル環境ではJSONLへ保存します。
 
 ## 管理画面で見えるもの
 
@@ -17,42 +20,41 @@
 - YES率 / NO率 / 未回答率
 - 離脱率
 - 結果寄与ランキング
-- カテゴリ別出現率
-- カテゴリ別YES率 / 離脱率
+- カテゴリ別出現率、YES率、離脱率
 - `relation` / `attachment` 偏重警告
+- feedback learning回数、positive feedback回数、学習対象結果数
+- discrimination（識別力）、feedback観測期間中の識別力差分、未学習質問の成熟度
 
-## CSV
+## 未学習質問の扱い
 
-- `/api/admin/question_events/questions.csv`
-- `/api/admin/question_events/category.csv`
+初期の識別力が中立な質問は、同じ結果しか出ない状態を避けるための探索対象です。質問を無効化せず、実際の回答と結果feedbackを蓄積してmatrixを学習させます。`learning_scale_neutral: true` の質問（現在はQ143〜Q152）に加え、discriminationが `0.02` 以下の質問をcold-start監視対象として表示します。
 
-どちらも管理者認証必須です。
+成熟度は次のルールです。
 
-## 注意
+- `collecting`: feedback learningが20回未満。警告せず、データ収集中として扱う。
+- `learning`: feedback learningが20回以上で、discriminationが `0.02` 以上 `0.05` 未満。
+- `mature`: discriminationが `0.05` 以上。
+- `needs_review`: feedback learningが20回以上あるのに、discriminationが `0.02` 未満。
 
-この分析は観測専用です。推論アルゴリズム、matrix、prior、DB schema は変更しません。結果の偏りを見つけた場合は、まず質問カテゴリ・序盤質問・質問文の追加や整理で改善してください。
+`needs_review` だけを警告対象にします。表示回数だけが多い質問やfeedbackがまだ少ない質問は異常扱いしません。しきい値は診断用であり、自動的に質問を停止したりmatrixを変更したりはしません。
+
+このfeedback eventは導入後から蓄積します。過去に行われた学習回数は復元しないため、導入直後の `collecting` は既存質問の品質が低いという意味ではありません。
+
+## 読み取りAPIとCSV
+
+- `/api/admin/question_events`: 集約、警告、`cold_start_summary`、`cold_start_questions`
+- `/api/admin/operations_snapshot`: 運用snapshot内の同じcold-start集約
+- `/api/admin/question_events/questions.csv`: 質問別CSV
+- `/api/admin/question_events/category.csv`: カテゴリ別CSV
+
+質問別CSVには `feedback`、`positive_feedback`、`feedback_targets`、`feedback_discrimination_first`、`feedback_discrimination_latest`、`feedback_discrimination_delta`、`discrimination`、`learning_scale_neutral`、`cold_start`、`maturity` を含みます。すべて管理者認証必須です。
 
 ## 本番分析に必要な確認手順
 
-本番データを分析するときは、ローカルJSONではなく本番の管理画面または管理APIを確認します。
+1. `/api/admin/preflight` で `analysis_question_events_rows` を確認します。
+2. `/api/admin/question_events` の `quality` を確認し、不審な同一秒burstが除外されていないか確認します。
+3. `cold_start_summary` で `collecting` / `learning` / `mature` / `needs_review` の推移を確認します。
+4. `needs_review` が出た場合だけ、質問文、回答分布、対象結果、matrixの学習方向を個別にレビューします。
+5. 長期的な外部レビューには `ADMIN_READ_TOKEN` を使い、読み取り専用APIだけを参照します。詳細は `docs/ADMIN_READ_ACCESS.md` を参照してください。
 
-1. `/api/admin/preflight` を開き、次の行数を確認します。
-   - `analysis_stats_history_rows`: 結果分布・フィードバック分析に使う履歴日数
-   - `analysis_share_events_rows`: 結果ページ表示、OGP表示、Xクリック、コピー、Web Share分析に使うJSONL行数
-   - `analysis_question_events_rows`: 質問表示、回答、離脱、結果寄与分析に使うJSONL行数
-2. 管理画面の「分析ログ蓄積状況」を確認します。
-   - `question_events` が50行未満なら質問別離脱率・YES/NO偏り・結果寄与は参考にしない
-   - `share_events` が20行未満なら結果別シェア率・チャネル別評価は参考にしない
-3. 取得元を確認します。
-   - result distribution: Engine `stats_history` / `fetish_log`
-   - feedback / confirm / wrong: Engine `fetish_log` / `stats_history`
-   - share analytics: JSONL `share_events`
-   - question analytics: JSONL `question_events`
-4. 本番分析で使うAPI。
-   - `/api/admin/share_events`
-   - `/api/admin/question_events`
-   - `/api/admin/fetish_log_rows`
-   - `/api/admin/export_stats_history`
-
-`share_events` と `question_events` はDB schemaを増やさず軽量JSONLで保存します。Renderの永続ディスク設定やログパス環境変数を変更する場合は、preflightの行数が継続して増えることを確認してください。
-- 長期的に外部レビューで本番分析する場合は `ADMIN_READ_TOKEN` を設定し、読み取り専用APIだけをBearer認証で使います。詳細は `docs/ADMIN_READ_ACCESS.md` を参照。
+この分析は観測専用です。自動で推論アルゴリズム、matrix、prior、DB schemaを変更しません。

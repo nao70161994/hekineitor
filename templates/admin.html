@@ -235,6 +235,8 @@
   <div><div style="font-size:1.35rem;color:#7af0a0;font-weight:bold;">{{ question_events.metrics.answered }}</div><div style="font-size:0.72rem;color:#888;">回答</div></div>
   <div><div style="font-size:1.35rem;color:#e74c3c;font-weight:bold;">{{ question_events.metrics.dropoffs }}</div><div style="font-size:0.72rem;color:#888;">離脱記録</div></div>
   <div><div style="font-size:1.35rem;color:#5b8dd9;font-weight:bold;">{{ question_events.metrics.contributions }}</div><div style="font-size:0.72rem;color:#888;">結果寄与</div></div>
+  <div><div style="font-size:1.35rem;color:#b38cff;font-weight:bold;">{{ question_events.metrics.feedback_learning }}</div><div style="font-size:0.72rem;color:#888;">FB学習回答</div></div>
+  <div><div style="font-size:1.35rem;color:{% if question_events.cold_start_summary.needs_review %}#e74c3c{% else %}#7af0a0{% endif %};font-weight:bold;">{{ question_events.cold_start_summary.needs_review }}</div><div style="font-size:0.72rem;color:#888;">未学習質問 要確認</div></div>
   <div><div style="font-size:1.35rem;color:{% if question_events.metrics.relation_attachment_share >= 55 %}#e74c3c{% else %}#aaa{% endif %};font-weight:bold;">{{ question_events.metrics.relation_attachment_share }}%</div><div style="font-size:0.72rem;color:#888;">relation/attachment比率</div></div>
 </div>
 {% if question_events.warnings %}
@@ -263,6 +265,25 @@
 </tr>
 {% endfor %}
 </table>
+{% if question_events.cold_start_questions %}
+<h3 style="font-size:0.82rem;color:#ddd;margin:14px 0 6px;">未学習質問の成熟度</h3>
+<div style="font-size:0.7rem;color:#777;margin-bottom:5px;">20回未満のフィードバックは収集中として扱い、識別力が低くても警告しません。</div>
+<table style="width:100%;border-collapse:collapse;font-size:0.74rem;">
+<tr style="color:#888;border-bottom:1px solid #263244;"><th style="text-align:left;padding:4px;">Q</th><th style="text-align:left;padding:4px;">質問</th><th style="text-align:right;padding:4px;">表示</th><th style="text-align:right;padding:4px;">FB</th><th style="text-align:right;padding:4px;">正解FB</th><th style="text-align:right;padding:4px;">識別力</th><th style="text-align:right;padding:4px;">FB後推移</th><th style="text-align:left;padding:4px;">状態</th></tr>
+{% for row in question_events.cold_start_questions[:30] %}
+<tr style="border-bottom:1px solid #1f2937;">
+  <td style="padding:4px;color:#888;">{{ row.question_id }}</td>
+  <td style="padding:4px;color:#ddd;max-width:360px;">{{ row.question_text }}</td>
+  <td style="padding:4px;text-align:right;color:#eee;">{{ row.shown }}</td>
+  <td style="padding:4px;text-align:right;color:#b38cff;">{{ row.feedback }}</td>
+  <td style="padding:4px;text-align:right;color:#7af0a0;">{{ row.positive_feedback }}</td>
+  <td style="padding:4px;text-align:right;color:#aaa;">{{ row.discrimination }}</td>
+  <td style="padding:4px;text-align:right;color:#aaa;">{% if row.feedback_discrimination_delta is not none %}{{ '%+.3f'|format(row.feedback_discrimination_delta) }}{% else %}-{% endif %}</td>
+  <td style="padding:4px;color:{% if row.maturity == 'needs_review' %}#e74c3c{% elif row.maturity == 'mature' %}#7af0a0{% else %}#f5a623{% endif %};">{{ row.maturity }}</td>
+</tr>
+{% endfor %}
+</table>
+{% endif %}
 <h3 style="font-size:0.82rem;color:#ddd;margin:14px 0 6px;">離脱率順</h3>
 <table style="width:100%;border-collapse:collapse;font-size:0.74rem;">
 <tr style="color:#888;border-bottom:1px solid #263244;"><th style="text-align:left;padding:4px;">Q</th><th style="text-align:left;padding:4px;">カテゴリ</th><th style="text-align:left;padding:4px;">質問</th><th style="text-align:right;padding:4px;">表示</th><th style="text-align:right;padding:4px;">離脱率</th></tr>

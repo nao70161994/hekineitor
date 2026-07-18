@@ -384,6 +384,21 @@ def build_report(
                 insight.append(f'question_events suspicious excluded={excluded}')
             if question_total == 0:
                 warn.append('question_events=0; 質問分析ログが未蓄積です')
+            cold_start = question_report.get('cold_start_summary') or {}
+            if cold_start:
+                daily.append(
+                    'cold_start_questions='
+                    f'{int(cold_start.get("total") or 0)} '
+                    f'(collecting={int(cold_start.get("collecting") or 0)}, '
+                    f'learning={int(cold_start.get("learning") or 0)}, '
+                    f'mature={int(cold_start.get("mature") or 0)}, '
+                    f'needs_review={int(cold_start.get("needs_review") or 0)})'
+                )
+                if int(cold_start.get('needs_review') or 0):
+                    insight.append(
+                        f'未学習質問 needs_review={int(cold_start.get("needs_review") or 0)} '
+                        '(フィードバック20回以上・識別力0.02未満)'
+                    )
             if relation_share >= _env_float(environ, 'NTFY_RELATION_ATTACHMENT_WARN_RATIO', 55.0):
                 warn.append(f'relation/attachment share={_pct(relation_share)}')
             min_answers = _env_int(environ, 'NTFY_QUESTION_MIN_ANSWERS', 20)

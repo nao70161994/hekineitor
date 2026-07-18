@@ -14,6 +14,7 @@ _ALLOWED_EVENTS = {
     'question_answered',
     'question_dropoff',
     'question_result_contribution',
+    'question_feedback_learned',
 }
 _MAX_LOG_BYTES = 5 * 1024 * 1024
 _LOCK = threading.Lock()
@@ -70,6 +71,9 @@ def build_event(
     result_name='',
     result_rank=None,
     answered_count=None,
+    feedback_kind='',
+    target_count=None,
+    discrimination=None,
     now_fn=None,
 ):
     event_name = _clean_text(event_name, 48)
@@ -104,6 +108,15 @@ def build_event(
     count = _clean_int(answered_count)
     if count is not None:
         event['answered_count'] = max(0, count)
+    feedback_kind = _clean_text(feedback_kind, 24)
+    if feedback_kind:
+        event['feedback_kind'] = feedback_kind
+    targets = _clean_int(target_count)
+    if targets is not None:
+        event['target_count'] = max(0, targets)
+    disc = _clean_float(discrimination)
+    if disc is not None:
+        event['discrimination'] = round(max(0.0, disc), 6)
     return event
 
 
@@ -336,6 +349,11 @@ def event_report(
                     'unknown': 0,
                     'dropoff': 0,
                     'contribution': 0,
+                    'feedback': 0,
+                    'positive_feedback': 0,
+                    'feedback_targets': 0,
+                    'feedback_discrimination_first': None,
+                    'feedback_discrimination_latest': None,
                 }
             )
             rows[question_id]['question_text'] = text
@@ -369,6 +387,30 @@ def event_report(
             row['contribution'] += 1
             result_name = event.get('result_name') or '(unknown)'
             contribution[q_id][result_name] += 1
+        elif event_name == 'question_feedback_learned':
+            row['feedback'] += 1
+            if event.get('feedback_kind') == 'positive':
+                row['positive_feedback'] += 1
+            row['feedback_targets'] += max(1, _clean_int(event.get('target_count'), 1))
+            event_disc = _clean_float(event.get('discrimination'))
+            if event_disc is not None:
+                if row.get('feedback_discrimination_first') is None:
+                    row['feedback_discrimination_first'] = event_disc
+                row['feedback_discrimination_latest'] = event_disc
+
+    question_stats = {}
+    stats_provider = getattr(engine, 'get_question_stats', None)
+    if callable(stats_provider):
+        try:
+            question_stats = {int(item['id']): item for item in stats_provider()}
+        except (KeyError, TypeError, ValueError):
+            question_stats = {}
+
+    # Cold-start questions must remain visible even before their first event.
+    for question_id, question in enumerate(getattr(engine, 'questions', [])):
+        stats = question_stats.get(question_id, {})
+        if question.get('learning_scale_neutral') or float(stats.get('disc', 1.0)) <= 0.02:
+            ensure_row(question_id)
 
     question_rows = []
     for row in rows.values():
@@ -389,6 +431,20 @@ def event_report(
                 'unknown': int(row.get('unknown', 0)),
                 'dropoff': dropoff,
                 'contribution': int(row.get('contribution', 0)),
+                'feedback': int(row.get('feedback', 0)),
+                'positive_feedback': int(row.get('positive_feedback', 0)),
+                'feedback_targets': int(row.get('feedback_targets', 0)),
+                'feedback_discrimination_first': row.get('feedback_discrimination_first'),
+                'feedback_discrimination_latest': row.get('feedback_discrimination_latest'),
+                'feedback_discrimination_delta': (
+                    round(
+                        row.get('feedback_discrimination_latest') - row.get('feedback_discrimination_first'),
+                        3,
+                    )
+                    if row.get('feedback_discrimination_first') is not None
+                    and row.get('feedback_discrimination_latest') is not None
+                    else None
+                ),
                 'yes_rate': round(row.get('yes', 0) / answered * 100, 1) if answered else 0,
                 'no_rate': round(row.get('no', 0) / answered * 100, 1) if answered else 0,
                 'unknown_rate': round(row.get('unknown', 0) / answered * 100, 1) if answered else 0,
@@ -400,6 +456,39 @@ def event_report(
                 ],
             }
         )
+
+    cold_start_rows = []
+    for row in question_rows:
+        question_id = row['question_id']
+        question = engine.questions[question_id] if 0 <= question_id < len(getattr(engine, 'questions', [])) else {}
+        stats = question_stats.get(question_id, {})
+        disc = float(stats.get('disc', 0.0))
+        neutral_seed = bool(question.get('learning_scale_neutral'))
+        first_feedback_disc = row.get('feedback_discrimination_first')
+        is_cold_start = (
+            neutral_seed
+            or (question_id in question_stats and disc <= 0.02)
+            or (first_feedback_disc is not None and first_feedback_disc <= 0.02)
+        )
+        if disc >= 0.05:
+            maturity = 'mature'
+        elif row['feedback'] < 20:
+            maturity = 'collecting'
+        elif disc < 0.02:
+            maturity = 'needs_review'
+        else:
+            maturity = 'learning'
+        row.update(
+            {
+                'discrimination': round(disc, 3),
+                'matrix_weight': float(stats.get('ask_count', 0.0)),
+                'learning_scale_neutral': neutral_seed,
+                'cold_start': is_cold_start,
+                'maturity': maturity,
+            }
+        )
+        if is_cold_start:
+            cold_start_rows.append(row)
 
     total_shown = sum(row['shown'] for row in question_rows)
     category_rows = []
@@ -441,6 +530,15 @@ def event_report(
             }
         )
 
+    stalled_cold_start = [row for row in cold_start_rows if row['maturity'] == 'needs_review']
+    if stalled_cold_start:
+        warnings.append(
+            {
+                'type': 'cold_start_questions_stalled',
+                'message': f'{len(stalled_cold_start)}件の未学習質問が20回以上のフィードバック後も識別力0.02未満です。',
+            }
+        )
+
     contribution_rows = sorted(
         [row for row in question_rows if row['contribution'] > 0],
         key=lambda row: (-row['contribution'], -row['shown'], row['question_id']),
@@ -463,12 +561,29 @@ def event_report(
             'answered': totals['question_answered'],
             'dropoffs': totals['question_dropoff'],
             'contributions': totals['question_result_contribution'],
+            'feedback_learning': totals['question_feedback_learned'],
             'relation_attachment_share': relation_attachment_share,
         },
         'questions': question_rows,
         'dropoff_ranking': dropoff_rows,
         'categories': category_rows,
         'contribution_ranking': contribution_rows,
+        'cold_start_questions': sorted(
+            cold_start_rows,
+            key=lambda row: (
+                {'needs_review': 0, 'collecting': 1, 'learning': 2, 'mature': 3}.get(row['maturity'], 9),
+                row['question_id'],
+            ),
+        ),
+        'cold_start_summary': {
+            'total': len(cold_start_rows),
+            'collecting': sum(row['maturity'] == 'collecting' for row in cold_start_rows),
+            'learning': sum(row['maturity'] == 'learning' for row in cold_start_rows),
+            'mature': sum(row['maturity'] == 'mature' for row in cold_start_rows),
+            'needs_review': len(stalled_cold_start),
+            'minimum_feedback_for_review': 20,
+            'review_discrimination_threshold': 0.02,
+        },
         'warnings': warnings,
     }
 
@@ -490,6 +605,17 @@ def question_csv(report):
         'dropoff',
         'dropoff_rate',
         'contribution',
+        'feedback',
+        'positive_feedback',
+        'feedback_targets',
+        'feedback_discrimination_first',
+        'feedback_discrimination_latest',
+        'feedback_discrimination_delta',
+        'discrimination',
+        'matrix_weight',
+        'learning_scale_neutral',
+        'cold_start',
+        'maturity',
         'question_text',
     ]
     return csv_text(report.get('questions', []), fieldnames)

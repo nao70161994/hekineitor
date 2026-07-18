@@ -977,6 +977,8 @@ def operations_snapshot(ctx):
                 'total_available': question_events.get('total_available', question_events.get('total', 0)),
                 'quality': question_events.get('quality', {}),
                 'summary': question_events.get('summary', {}),
+                'cold_start_summary': question_events.get('cold_start_summary', {}),
+                'cold_start_questions': question_events.get('cold_start_questions', []),
                 'warnings': question_events.get('warnings', []),
             },
             'compound_works': _compound_works_rows(ctx, limit=200),

@@ -102,6 +102,47 @@ class TestServiceEvents(unittest.TestCase):
         self.assertEqual(report['contribution_ranking'][0]['top_results'][0]['result_name'], '共依存')
         self.assertEqual(report['warnings'][0]['type'], 'relation_attachment_bias')
 
+    def test_question_events_report_tracks_cold_start_maturity(self):
+        class Engine:
+            questions = [
+                {'text': 'neutral', 'category': 'world', 'learning_scale_neutral': True},
+                {'text': 'learned', 'category': 'value', 'learning_scale_neutral': True},
+            ]
+
+            def get_question_stats(self):
+                return [
+                    {'id': 0, 'disc': 0.0, 'ask_count': 512.0},
+                    {'id': 1, 'disc': 0.06, 'ask_count': 540.0},
+                ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'question_events.jsonl')
+            for _ in range(20):
+                question_events.record_event(
+                    'question_feedback_learned',
+                    question_id=0,
+                    answer=1.0,
+                    feedback_kind='positive',
+                    target_count=2,
+                    discrimination=_ / 1000,
+                    path=path,
+                )
+            report = question_events.event_report(Engine(), path=path, exclude_suspicious=False)
+
+        stalled = next(row for row in report['cold_start_questions'] if row['question_id'] == 0)
+        mature = next(row for row in report['cold_start_questions'] if row['question_id'] == 1)
+        self.assertEqual(stalled['feedback'], 20)
+        self.assertEqual(stalled['positive_feedback'], 20)
+        self.assertEqual(stalled['feedback_targets'], 40)
+        self.assertEqual(stalled['feedback_discrimination_first'], 0.0)
+        self.assertEqual(stalled['feedback_discrimination_latest'], 0.019)
+        self.assertEqual(stalled['feedback_discrimination_delta'], 0.019)
+        self.assertEqual(stalled['maturity'], 'needs_review')
+        self.assertEqual(mature['maturity'], 'mature')
+        self.assertEqual(report['cold_start_summary']['needs_review'], 1)
+        self.assertEqual(report['metrics']['feedback_learning'], 20)
+        self.assertIn('cold_start_questions_stalled', [item['type'] for item in report['warnings']])
+
     def test_question_events_report_exposes_available_total_when_limited(self):
         class Engine:
             questions = [{'text': 'Q0', 'category': 'relation', 'axis': 'abstract'}]

@@ -112,6 +112,35 @@ def _record_question_answered(ctx, question_id, answer_value):
     _record_question_event(ctx, 'question_answered', question_id, answer=answer_value)
 
 
+def _record_question_feedback_learning(ctx, answers, feedback_kind, target_count):
+    if target_count <= 0 or not isinstance(answers, dict):
+        return
+    question_stats = {}
+    stats_provider = getattr(ctx.engine, 'get_question_stats', None)
+    if callable(stats_provider):
+        try:
+            question_stats = {int(row['id']): row for row in stats_provider()}
+        except (KeyError, TypeError, ValueError):
+            question_stats = {}
+    for question_id, answer in answers.items():
+        try:
+            question_id = int(question_id)
+            answer = float(answer)
+        except (TypeError, ValueError):
+            continue
+        if answer == 0 or not (0 <= question_id < len(ctx.engine.questions)):
+            continue
+        _record_question_event(
+            ctx,
+            'question_feedback_learned',
+            question_id,
+            answer=answer,
+            feedback_kind=feedback_kind,
+            target_count=target_count,
+            discrimination=(question_stats.get(question_id) or {}).get('disc'),
+        )
+
+
 def _clear_active_guess(ctx):
     ctx.session.pop('feedback_status', None)
     _clear_pending_feedback(ctx)
@@ -524,6 +553,7 @@ def teach(ctx):
     factor = ctx.learn_factor(answers, total_n) * ctx.positive_feedback_factor(ctx.engine, fetish_idx)
     ctx.learn_positive(ctx.engine, answers, fetish_idx, strength_factor=factor)
     ctx.engine.log_correct(ctx.engine.fetishes[fetish_idx]['id'])
+    _record_question_feedback_learning(ctx, answers, 'positive', 1)
     _finish_feedback(ctx)
     return ctx.jsonify({'status': 'learned', 'fetish_name': ctx.engine.fetishes[fetish_idx]['name']})
 
@@ -578,6 +608,7 @@ def confirm(ctx):
                 ) / 2
                 ctx.learn_cooccurrence(ctx.engine, answers, learn_idxs[i], learn_idxs[j], pair_factor * 0.3)
         ctx.record_guess_quality_feedback(True)
+        _record_question_feedback_learning(ctx, answers, 'positive', len(learn_idxs))
         _finish_feedback(ctx)
         return ctx.jsonify({'status': 'learned'})
 
@@ -593,15 +624,17 @@ def confirm(ctx):
     wrong_db_ids = explicit_wrong_ids if ('wrong_ids' in data or 'maybe_ids' in data) else set(presented_db_ids)
 
     factor = ctx.learn_factor(answers, total_n=max(1, len(maybe_db_ids)))
+    near_learned_count = 0
     if not learning_disabled and not defer_learning:
         for maybe_id in maybe_db_ids:
             maybe_idx = ctx.engine.index_of(maybe_id)
             if maybe_idx is not None:
                 near_factor = factor * ctx.near_miss_feedback_factor(ctx.engine, maybe_idx)
                 ctx.learn_near_miss(ctx.engine, answers, maybe_idx, strength_factor=near_factor)
+                near_learned_count += 1
 
+    negative_learned_db_ids = []
     if not data.get('add_only', False) and not learning_disabled and not defer_learning:
-        negative_learned_db_ids = []
         for wrong_id in wrong_db_ids:
             ctx.engine.log_wrong(wrong_id)
             wrong_idx = ctx.engine.index_of(wrong_id)
@@ -616,6 +649,16 @@ def confirm(ctx):
         if negative_learned_db_ids:
             ctx.session['negative_learned_db_ids'] = sorted(negative_learned_db_ids)
         ctx.record_guess_quality_feedback(False)
+
+    learned_target_count = near_learned_count + len(negative_learned_db_ids)
+    if learned_target_count:
+        if near_learned_count and negative_learned_db_ids:
+            feedback_kind = 'mixed'
+        elif near_learned_count:
+            feedback_kind = 'near_miss'
+        else:
+            feedback_kind = 'negative'
+        _record_question_feedback_learning(ctx, answers, feedback_kind, learned_target_count)
 
     probs = ctx.posteriors(ctx.engine, answers)
     candidates = []
@@ -705,6 +748,7 @@ def add_fetish(ctx):
         if not desc:
             desc = name
         _, db_id = ctx.engine.add_fetish(name, desc, answers)
+        _record_question_feedback_learning(ctx, answers, 'positive', 1)
         owned.add(db_id)
         ctx.session['owned_added_fetish_ids'] = sorted(owned)
         return ctx.jsonify({'status': 'learned', 'fetish_name': name, 'fetish_id': db_id, 'is_new': True})
@@ -772,6 +816,7 @@ def finalize_added(ctx):
 
     wrong_db_ids = ctx.session.pop('wrong_db_ids', [])
     negative_learned_db_ids = set(ctx.session.pop('negative_learned_db_ids', []))
+    finalized_negative_count = 0
     for wrong_id in wrong_db_ids:
         if wrong_id not in correct_db_ids and wrong_id not in negative_learned_db_ids:
             wrong_idx = ctx.engine.index_of(wrong_id)
@@ -782,6 +827,7 @@ def finalize_added(ctx):
                     wrong_idx,
                     strength_factor=ctx.negative_feedback_factor(ctx.engine, wrong_idx),
                 )
+                finalized_negative_count += 1
 
     candidate_db_ids = ctx.session.pop('candidate_db_ids', [])
     near_miss_db_ids = set(ctx.session.pop('near_miss_db_ids', []))
@@ -803,6 +849,17 @@ def finalize_added(ctx):
                     / (n_unsel**0.5)
                 ),
             )
+            finalized_negative_count += 1
+    finalized_positive_count = len(correct_db_ids)
+    finalized_target_count = finalized_positive_count + finalized_negative_count
+    if finalized_target_count:
+        if finalized_positive_count and finalized_negative_count:
+            finalized_kind = 'mixed'
+        elif finalized_positive_count:
+            finalized_kind = 'positive'
+        else:
+            finalized_kind = 'negative'
+        _record_question_feedback_learning(ctx, answers, finalized_kind, finalized_target_count)
     _finish_feedback(ctx)
     return ctx.jsonify({'status': 'done'})
 

@@ -61,6 +61,7 @@ def question_stats(engine):
                 'disabled': question_idx in engine.disabled_questions,
                 'ask_count': round(ask_count, 1),
                 'variants_count': len(question.get('variants', [])),
+                'learning_scale_neutral': bool(question.get('learning_scale_neutral')),
             }
         )
     return sorted(result, key=lambda item: item['disc'])

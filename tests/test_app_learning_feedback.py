@@ -9,6 +9,21 @@ class TestLearningFeedbackFlow(APITestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.get_json()['status'], 'learned')
 
+    def test_confirm_correct_records_feedback_learning_for_answered_questions(self):
+        with self.client.session_transaction() as sess:
+            sess['answers'] = {'0': 1.0, '1': 0.0, '2': -0.5}
+        with patch.object(question_events_service, 'safe_record_event') as record_event:
+            res = self.client.post('/api/confirm', json={'correct': True, 'fetish_id': 0})
+
+        self.assertEqual(res.status_code, 200)
+        learned_calls = [
+            call for call in record_event.call_args_list if call.args and call.args[0] == 'question_feedback_learned'
+        ]
+        self.assertEqual([call.kwargs['question_id'] for call in learned_calls], [0, 2])
+        self.assertTrue(all(call.kwargs['feedback_kind'] == 'positive' for call in learned_calls))
+        self.assertTrue(all(call.kwargs['target_count'] == 1 for call in learned_calls))
+        self.assertTrue(all(isinstance(call.kwargs['discrimination'], float) for call in learned_calls))
+
     def test_confirm_correct_is_not_applied_twice(self):
         from app import engine as app_engine
 

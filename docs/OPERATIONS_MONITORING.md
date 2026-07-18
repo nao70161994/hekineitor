@@ -81,6 +81,7 @@ INSIGHTS（ntfy通知しない・Actionsログ/本文確認用）:
 - YES率90%以上の質問
 - share率低下
 - 母数不足または参考値のcompletion_rate
+- feedback 20回以上でも識別力0.02未満の未学習質問（`needs_review`）
 
 DAILY:
 
@@ -92,8 +93,11 @@ DAILY:
 - 離脱質問TOP
 - YES率異常質問
 - question_events / share_events 件数
+- 未学習質問の `collecting` / `learning` / `mature` / `needs_review` 件数
 
 `result_source=stats_history_fallback` の場合、結果分布は過去の累積/legacy guessed counters を含む可能性があるため、`heavy_result_ratio` は `unavailable` として扱います。最新デプロイ後の偏り確認は `/api/admin/result_exposures/recent` または `result_source=result_exposures` の集計だけを使います。
+
+未学習質問は `/api/admin/question_events` の `cold_start_summary` と `cold_start_questions` で確認します。20回未満はデータ収集中なので通知せず、20回以上のfeedback learning後もdiscriminationが `0.02` 未満の場合だけ `needs_review` としてINSIGHTSに出します。このシグナルはntfy WARNにはせず、質問を自動停止しません。`/api/admin/operations_snapshot` にも同じ集約が含まれます。
 
 ## 通知例
 

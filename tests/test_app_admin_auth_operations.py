@@ -188,6 +188,8 @@ class TestAdminAuthOperations(APITestCase):
         self.assertIn('raw_loaded', data['question_events_summary'])
         self.assertIn('total_available', data['question_events_summary'])
         self.assertIn('quality', data['question_events_summary'])
+        self.assertIn('cold_start_summary', data['question_events_summary'])
+        self.assertIn('cold_start_questions', data['question_events_summary'])
         body = res.data.decode('utf-8', errors='replace')
         for forbidden in (
             'secret-key-sentinel',
