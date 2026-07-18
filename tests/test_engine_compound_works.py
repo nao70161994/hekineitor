@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import unittest
@@ -11,6 +12,18 @@ class TestEngineCompoundWorksHelpers(unittest.TestCase):
     def test_pair_key_normalizes_id_order(self):
         self.assertEqual(engine_compound_works.pair_key(200, 100), '100,200')
         self.assertEqual(engine_compound_works.pair_key(100, 200), '100,200')
+
+    def test_seed_compound_work_keys_are_canonical_and_unique(self):
+        path = os.path.join(os.path.dirname(__file__), '..', 'data', 'compound_works.json')
+        with open(path, encoding='utf-8') as file_obj:
+            rows = json.load(file_obj)
+
+        canonical = []
+        for key in rows:
+            id_a, id_b = (int(value) for value in key.split(',', 1))
+            canonical.append(engine_compound_works.pair_key(id_a, id_b))
+        self.assertEqual(list(rows), canonical)
+        self.assertEqual(len(canonical), len(set(canonical)))
 
     def test_serialize_compound_works_sorts_and_parses_ids(self):
         rows = engine_compound_works.serialize_compound_works(
