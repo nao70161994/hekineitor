@@ -201,8 +201,11 @@ class FakeEngine:
         self.seed_calls = []
 
     def _load_json(self, name):
-        assert name == 'fetishes.json'
-        return [{'id': 0, 'name': 'Seed', 'desc': 'Desc', 'works': ['Work']}]
+        if name == 'fetishes.json':
+            return [{'id': 0, 'name': 'Seed', 'desc': 'Desc', 'works': ['Work']}]
+        if name == 'compound_works.json':
+            return {}
+        raise AssertionError(name)
 
     def _seed_db(self, cur, fetishes):
         self.seed_calls.append((cur, fetishes))
@@ -329,8 +332,8 @@ class TestEngineDbLoadAndConfigHelpers(unittest.TestCase):
 
     def test_ensure_schema_preserves_table_creation_seed_and_question_migration_contract(self):
         cursor = FakeCursor(
-            fetchone_values=[(0,), (0,), (0,)],
-            fetchall_values=[[(0,)], [(0, '[]')], [(0,), (1,)]],
+            fetchone_values=[(0,), (0,), (0,), (0,)],
+            fetchall_values=[[(0,)], [(0, '[]')], [(0, 'Seed', 'Desc', '["Work"]')], [(0,), (1,)]],
         )
         conn = FakeConn(cursor)
         engine = FakeEngine()
@@ -351,11 +354,13 @@ class TestEngineDbLoadAndConfigHelpers(unittest.TestCase):
         self.assertIn('ALTER TABLE fetishes ADD COLUMN IF NOT EXISTS works', executed_sql)
         self.assertIn('CREATE TABLE IF NOT EXISTS matrix', executed_sql)
         self.assertIn('CREATE TABLE IF NOT EXISTS stats_history', executed_sql)
+        self.assertIn('CREATE TABLE IF NOT EXISTS works_master', executed_sql)
+        self.assertIn('CREATE TABLE IF NOT EXISTS compound_work_links', executed_sql)
         self.assertIn('SELECT MAX(question_id) FROM matrix', executed_sql)
         self.assertEqual(len(engine.seed_calls), 1)
         self.assertIn('INSERT INTO fetishes', execute_values_calls[0][0])
-        self.assertIn('INSERT INTO matrix', execute_values_calls[1][0])
-        self.assertEqual(execute_values_calls[1][1], [(0, 1, 2.0, 4.0), (1, 1, 2.0, 4.0)])
+        matrix_insert = next(call for call in execute_values_calls if 'INSERT INTO matrix' in call[0])
+        self.assertEqual(matrix_insert[1], [(0, 1, 2.0, 4.0), (1, 1, 2.0, 4.0)])
         self.assertEqual(returned, [conn])
 
 

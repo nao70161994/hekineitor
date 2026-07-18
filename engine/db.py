@@ -2,6 +2,7 @@
 
 import json
 
+from . import db_work_catalog
 from .db_config import load_config, save_config_value
 from .db_matrix import (
     IMPORT_MATRIX_SQL,
@@ -185,6 +186,11 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                 )
             backfill_empty_recommended_works(cur)
             backfill_recommended_work_urls(cur, seed)
+            db_work_catalog.migrate_legacy_catalog(
+                cur,
+                compound_data=engine._load_json('compound_works.json'),
+                execute_values=execute_values,
+            )
             nq = len(engine.questions)
             cur.execute('SELECT MAX(question_id) FROM matrix')
             max_qid = cur.fetchone()[0]

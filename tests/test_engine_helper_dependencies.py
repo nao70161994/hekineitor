@@ -32,6 +32,7 @@ PACKAGE_HELPER_MODULES = [
     'engine.correlation',
     'engine.data',
     'engine.db',
+    'engine.db_work_catalog',
     'engine.inference',
     'engine.learning',
     'engine.persistence',
@@ -39,6 +40,7 @@ PACKAGE_HELPER_MODULES = [
     'engine.reporting',
     'engine.runtime',
     'engine.stats',
+    'engine.work_catalog',
 ]
 
 PACKAGE_HELPER_FILES = [module.replace('.', '/') + '.py' for module in PACKAGE_HELPER_MODULES]
