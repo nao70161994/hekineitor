@@ -1,4 +1,6 @@
 import copy
+import json
+from pathlib import Path
 
 from tests._service_test_support import (
     app_meta,
@@ -117,6 +119,21 @@ class TestServiceAppConfig(unittest.TestCase):
         self.assertEqual(report['normalization_conflicts'][0]['asins'], ['B000000002', 'B000000003'])
         self.assertEqual(report['identity_policy'], 'review_only_no_automatic_merge')
         self.assertEqual((fetishes, compound), original)
+
+    def test_seed_work_catalog_has_no_within_owner_exact_duplicates(self):
+        root = Path(__file__).resolve().parents[1]
+        fetishes = json.loads((root / 'data' / 'fetishes.json').read_text())
+        compound_data = json.loads((root / 'data' / 'compound_works.json').read_text())
+        compound_rows = []
+        for key, works in compound_data.items():
+            id_a, id_b = key.split(',', 1)
+            compound_rows.append({'key': key, 'id_a': int(id_a), 'id_b': int(id_b), 'works': works})
+
+        report = works_links.build_work_catalog_report(fetishes, compound_rows=compound_rows, sample_limit=200)
+
+        self.assertEqual(report['within_owner_exact_duplicate_count'], 0)
+        self.assertEqual(report['within_owner_exact_duplicates'], [])
+        self.assertGreater(report['normalization_conflict_count'], 0)
 
     def test_app_version_default_includes_pwa_assets(self):
         self.assertIn('static/icon-192.png', app_meta.APP_VERSION_PATHS)

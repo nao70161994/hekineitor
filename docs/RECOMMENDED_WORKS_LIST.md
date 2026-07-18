@@ -552,7 +552,6 @@
 ## 111 無自覚溺愛
 - ヲタクに恋は難しい | https://www.amazon.co.jp/dp/B00WGA6W7C?tag=hekinator-22
 - 幼なじみが絶対に負けないラブコメ | https://www.amazon.co.jp/dp/B0DV52Q98W?tag=hekinator-22
-- 幼なじみが絶対に負けないラブコメ | https://www.amazon.co.jp/dp/B0DV52Q98W?tag=hekinator-22
 
 ## 112 主従逆転
 - 黒執事 | https://www.amazon.co.jp/dp/B0FSTK3QF8?tag=hekinator-22
@@ -570,7 +569,6 @@
 - 坂道のアポロン | https://www.amazon.co.jp/dp/B009SHW4EQ?tag=hekinator-22
 
 ## 115 病弱・薄命の恋
-- 君の膵臓をたべたい | https://www.amazon.co.jp/dp/B071RFTDZG?tag=hekinator-22
 - 君の膵臓をたべたい | https://www.amazon.co.jp/dp/B071RFTDZG?tag=hekinator-22
 - orange | https://www.amazon.co.jp/dp/B00JD349L6?tag=hekinator-22
 
@@ -601,7 +599,6 @@
 
 ## 121 ニート・社会不適合者
 - やはり俺の青春ラブコメはまちがっている。 | https://www.amazon.co.jp/dp/B00A20SDQQ?tag=hekinator-22
-- やはり俺の青春ラブコメはまちがっている。 | https://www.amazon.co.jp/dp/B00A20SDQQ?tag=hekinator-22
 - ネト充のススメ | https://www.amazon.co.jp/dp/B09RMQ8TGT?tag=hekinator-22
 
 ## 122 人形・操り人形
@@ -627,7 +624,6 @@
 ## 126 共依存
 - Future Diary | https://www.amazon.co.jp/dp/B00K6THSBE?tag=hekinator-22
 - 君が望む永遠 | https://www.amazon.co.jp/dp/B0FNDBR1YM?tag=hekinator-22
-- Future Diary | https://www.amazon.co.jp/dp/B00K6THSBE?tag=hekinator-22
 
 ## 127 執着
 - Future Diary | https://www.amazon.co.jp/dp/B00K6THSBE?tag=hekinator-22
@@ -656,3 +652,5 @@ Safe migration direction:
 5. Keep fallback rendering from legacy `fetishes.works` during any migration.
 
 Do not start with a DB schema migration while production recommendation coverage and click analytics are still stabilizing.
+
+2026-07-19のseed整備で、同一owner内のタイトル・URL・ASINが完全一致する4件を削除しました。`within_owner_exact_duplicate_count` は0で固定しています。PostgreSQLの既存行も起動時のrecommended-work migrationで同じ完全一致だけを除去します。正規化候補のうち異なるASINを持つものは自動統合せず、`normalization_conflicts` として残します。

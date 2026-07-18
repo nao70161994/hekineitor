@@ -200,6 +200,12 @@ def _recommended_work_dict(work):
     return {'title': str(work or ''), 'url': ''}
 
 
+def _exact_work_key(work):
+    title = unicodedata.normalize('NFKC', str(work.get('title') or '')).casefold().strip()
+    title = ' '.join(title.split())
+    return title, str(work.get('url') or '').strip()
+
+
 def backfill_recommended_work_urls(cur, seed_fetishes):
     """Fill missing/search work URLs from the checked seed direct-link map."""
     lookup = build_direct_work_url_lookup(seed_fetishes)
@@ -222,6 +228,7 @@ def backfill_recommended_work_urls(cur, seed_fetishes):
 
         changed = False
         next_works = []
+        seen_work_keys = set()
         for work in works:
             item = _recommended_work_dict(work)
             title = str(item.get('title') or '').strip()
@@ -230,14 +237,18 @@ def backfill_recommended_work_urls(cur, seed_fetishes):
                 item['title'] = replacement['title']
                 item['url'] = replacement['url']
                 changed = True
-                next_works.append(item)
-                continue
+            else:
+                current_url = str(item.get('url') or '').strip()
+                direct_url = lookup.get(title) or lookup.get(_canonical_work_title(title))
+                if title and direct_url and (not current_url or _is_search_work_url(current_url)):
+                    item['url'] = direct_url
+                    changed = True
 
-            current_url = str(item.get('url') or '').strip()
-            direct_url = lookup.get(title) or lookup.get(_canonical_work_title(title))
-            if title and direct_url and (not current_url or _is_search_work_url(current_url)):
-                item['url'] = direct_url
+            work_key = _exact_work_key(item)
+            if work_key in seen_work_keys:
                 changed = True
+                continue
+            seen_work_keys.add(work_key)
             next_works.append(item)
         if not changed:
             continue

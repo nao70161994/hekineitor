@@ -135,6 +135,29 @@ class TestEngineDbHelpers(unittest.TestCase):
         self.assertEqual(works[5]['title'], 'わたしの幸せな結婚')
         self.assertEqual(works[5]['url'], 'https://www.amazon.co.jp/dp/B07X25T546?tag=hekinator-22')
 
+    def test_backfill_recommended_work_urls_removes_only_exact_owner_duplicates(self):
+        direct_url = 'https://www.amazon.co.jp/dp/B000000001?tag=hekinator-22'
+        other_url = 'https://www.amazon.co.jp/dp/B000000002?tag=hekinator-22'
+        existing = json.dumps(
+            [
+                {'title': '同一作品', 'url': direct_url},
+                {'title': '同一作品', 'url': direct_url},
+                {'title': '同一作品', 'url': other_url},
+                {'title': '同一作品（別版）', 'url': direct_url},
+            ],
+            ensure_ascii=False,
+        )
+        cursor = FakeCursor(fetchall_values=[[(10, existing)]])
+        cursor.rowcount = 1
+
+        updated = engine_db.backfill_recommended_work_urls(cursor, [])
+
+        self.assertEqual(updated, 1)
+        works = json.loads(cursor.executed[1][1][0])
+        self.assertEqual(len(works), 3)
+        self.assertEqual([work['url'] for work in works], [direct_url, other_url, direct_url])
+        self.assertEqual(works[-1]['title'], '同一作品（別版）')
+
 
 class FakeCursor:
     def __init__(self, *, fetchone_values=None, fetchall_values=None):
