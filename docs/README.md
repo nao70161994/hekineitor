@@ -39,6 +39,7 @@
 - [`SHARE_LINKS.md`](SHARE_LINKS.md): share link仕様
 - [`MULTI_CORRECT_FEEDBACK_PLAN.md`](MULTI_CORRECT_FEEDBACK_PLAN.md): 複数正解feedbackの設計
 - [`RECOMMENDED_WORKS_LIST.md`](RECOMMENDED_WORKS_LIST.md): 推薦作品リスト
+- [`WORK_CATALOG.md`](WORK_CATALOG.md): 正規化作品catalogのデータ契約・生成・review方針
 - [`PR_MAPPING.md`](PR_MAPPING.md): 過去の改善項目とPR対応表（履歴寄りの参照資料）
 
 ## 文書の更新ルール
