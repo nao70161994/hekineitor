@@ -64,7 +64,9 @@ class TestEnginePersistenceRegression(unittest.TestCase):
         expected = {'schema_version': 1}
         with (
             patch.object(engine_module, '_use_db', return_value=True),
-            patch.object(engine_module.engine_db.db_work_catalog, 'load_catalog', return_value=expected) as load_catalog,
+            patch.object(
+                engine_module.engine_db.db_work_catalog, 'load_catalog', return_value=expected
+            ) as load_catalog,
         ):
             self.assertIs(e._work_catalog_snapshot(), expected)
         load_catalog.assert_called_once()
