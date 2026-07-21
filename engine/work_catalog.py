@@ -538,3 +538,86 @@ def replace_compound_works(catalog, id_a, id_b, raw_works):
     _sort_catalog_rows(updated)
     validate_catalog(updated)
     return updated
+
+
+def _remap_compound_links(catalog, old_id, new_id):
+    old_id = int(old_id)
+    new_id = int(new_id)
+    grouped = defaultdict(list)
+    for link in catalog['compound_work_links']:
+        source_pair = (int(link['id_a']), int(link['id_b']))
+        mapped = tuple(new_id if value == old_id else value for value in source_pair)
+        id_a, id_b = sorted(mapped)
+        if id_a == id_b:
+            continue
+        priority = 1 if old_id in source_pair else 0
+        grouped[(id_a, id_b)].append((priority, int(link['position']), link))
+    remapped = []
+    for (id_a, id_b), candidates in sorted(grouped.items()):
+        seen = set()
+        position = 0
+        for _priority, _old_position, link in sorted(
+            candidates, key=lambda item: (item[0], item[1], item[2]['link_id'])
+        ):
+            identity = (link['work_id'], link.get('edition_id'))
+            if identity in seen:
+                continue
+            seen.add(identity)
+            alias_id = link.get('alias_id')
+            remapped.append(
+                {
+                    **link,
+                    'link_id': _stable_id('cwl', id_a, id_b, link['work_id'], link.get('edition_id'), alias_id),
+                    'id_a': id_a,
+                    'id_b': id_b,
+                    'position': position,
+                }
+            )
+            position += 1
+    catalog['compound_work_links'] = remapped
+
+
+def delete_fetish_references(catalog, fetish_id, *, replacement_id=None):
+    """Remove one fetish owner and optionally merge its compound pairs into another owner."""
+    updated = copy.deepcopy(catalog)
+    validate_catalog(updated)
+    fetish_id = int(fetish_id)
+    updated['fetish_work_links'] = [
+        link for link in updated['fetish_work_links'] if int(link['fetish_id']) != fetish_id
+    ]
+    if replacement_id is None:
+        updated['compound_work_links'] = [
+            link for link in updated['compound_work_links'] if fetish_id not in (int(link['id_a']), int(link['id_b']))
+        ]
+    else:
+        _remap_compound_links(updated, fetish_id, int(replacement_id))
+    _sort_catalog_rows(updated)
+    validate_catalog(updated)
+    return updated
+
+
+def promote_fetish_references(catalog, old_id, new_id):
+    """Return a copy with every owner reference moved to a newly allocated fetish ID."""
+    updated = copy.deepcopy(catalog)
+    validate_catalog(updated)
+    old_id = int(old_id)
+    new_id = int(new_id)
+    for link in updated['fetish_work_links']:
+        if int(link['fetish_id']) != old_id:
+            continue
+        link['fetish_id'] = new_id
+        link['link_id'] = _stable_id('fwl', new_id, link['work_id'], link.get('edition_id'), link.get('alias_id'))
+    _remap_compound_links(updated, old_id, new_id)
+    _sort_catalog_rows(updated)
+    validate_catalog(updated)
+    return updated
+
+
+def legacy_compound_projection(catalog):
+    """Project normalized compound links back to the transitional JSON shape."""
+    projected = {}
+    for key, works in materialize_compound_works(catalog).items():
+        projected[key] = [
+            {'title': work['title'], 'url': work['url']} if work.get('url') else work['title'] for work in works
+        ]
+    return projected

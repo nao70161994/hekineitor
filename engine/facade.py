@@ -72,6 +72,12 @@ def _save_compound_works():
     engine_compound_works.save_cache(_COMPOUND_WORKS_PATH, _COMPOUND_WORKS, atomic_write_json)
 
 
+def _replace_compound_works_cache(compound_works):
+    global _COMPOUND_WORKS, _compound_works_loaded
+    _COMPOUND_WORKS = copy.deepcopy(compound_works)
+    _compound_works_loaded = True
+
+
 def get_compound_works(id_a: int, id_b: int) -> list:
     """2つの性癖IDペアに特化した作品リストを返す。なければ空リスト。"""
     _load_compound_works()
@@ -148,6 +154,9 @@ class Engine:
                     os.path.join(DATA_DIR, 'compound_works.json'),
                     catalog_path,
                     atomic_write=self._atomic_write,
+                    matrix_path=os.path.join(DATA_DIR, 'matrix.json'),
+                    fetish_log_path=get_fetish_log_path(),
+                    question_count=len(self.questions),
                 )
                 engine_persistence.recover_matrix_restore(
                     os.path.join(DATA_DIR, 'matrix_restore_journal.json'),
@@ -1037,7 +1046,8 @@ class Engine:
                     'before': before,
                     'after': after,
                 }
-                with _settings_file_lock(journal_path):
+                lock_path = work_catalog_path if work_catalog is not None else journal_path
+                with _settings_file_lock(lock_path):
                     journal_written = False
                     try:
                         self._atomic_write(journal_path, journal, ensure_ascii=False)
@@ -1104,35 +1114,47 @@ class Engine:
             idx_rm = self.index_of(id_remove)
             if idx_keep is None or idx_rm is None or id_keep == id_remove:
                 return False
-            db_mode = _use_db()
-            old_fetishes = copy.deepcopy(self.fetishes) if db_mode else None
-            old_matrix = copy.deepcopy(self.matrix) if db_mode else None
+            next_fetishes = copy.deepcopy(self.fetishes)
+            next_matrix = copy.deepcopy(self.matrix)
             keep_name, keep_desc = engine_mutations.merge_fetish_rows(
-                self.fetishes, self.matrix, idx_keep, idx_rm, new_name=new_name, new_desc=new_desc
+                next_fetishes,
+                next_matrix,
+                idx_keep,
+                idx_rm,
+                new_name=new_name,
+                new_desc=new_desc,
             )
-            if db_mode:
-                try:
-                    engine_db.merge_fetish_rows_db(
-                        id_keep,
-                        id_remove,
-                        new_name=new_name,
-                        new_desc=new_desc,
-                        keep_name=keep_name,
-                        keep_desc=keep_desc,
-                        get_conn=_get_conn,
-                        put_conn=_put_conn,
-                    )
-                except BaseException:
-                    self.fetishes = old_fetishes
-                    self.matrix = old_matrix
-                    raise
+            if _use_db():
+                engine_db.merge_fetish_rows_db(
+                    id_keep,
+                    id_remove,
+                    new_name=new_name,
+                    new_desc=new_desc,
+                    keep_name=keep_name,
+                    keep_desc=keep_desc,
+                    get_conn=_get_conn,
+                    put_conn=_put_conn,
+                    execute_values=psycopg2.extras.execute_values,
+                )
             else:
-                self._save_fetishes_file()
-                self._save_matrix_file()
-                log_path = get_fetish_log_path()
-                log = engine_stats.read_json_path(log_path, {})
-                engine_mutations.merge_log_entries(log, id_keep, id_remove)
-                self._atomic_write(log_path, log)
+                before = self._local_work_catalog_state(include_lifecycle=True)
+                next_catalog = engine_work_catalog.delete_fetish_references(
+                    before['work_catalog'], id_remove, replacement_id=id_keep
+                )
+                next_log = copy.deepcopy(before['fetish_log'])
+                engine_mutations.merge_log_entries(next_log, id_keep, id_remove)
+                after = self._local_work_catalog_state(
+                    fetishes=next_fetishes,
+                    compound_works=engine_work_catalog.legacy_compound_projection(next_catalog),
+                    work_catalog=next_catalog,
+                    matrix=next_matrix,
+                    fetish_log=next_log,
+                    include_lifecycle=True,
+                )
+                self._commit_local_work_catalog_state(before, after)
+            self.fetishes = next_fetishes
+            self.matrix = next_matrix
+            self._invalidate_work_catalog_cache()
         return True
 
     def edit_question(self, q_idx, text):
@@ -1183,14 +1205,29 @@ class Engine:
             execute_values=psycopg2.extras.execute_values,
         )
 
-    def _local_work_catalog_state(self, *, fetishes=None, compound_works=None, work_catalog=None):
-        return {
+    def _local_work_catalog_state(
+        self,
+        *,
+        fetishes=None,
+        compound_works=None,
+        work_catalog=None,
+        matrix=None,
+        fetish_log=None,
+        include_lifecycle=False,
+    ):
+        state = {
             'fetishes': copy.deepcopy(self.fetishes if fetishes is None else fetishes),
             'compound_works': copy.deepcopy(
                 self._load_json('compound_works.json') if compound_works is None else compound_works
             ),
             'work_catalog': copy.deepcopy(self._work_catalog_snapshot() if work_catalog is None else work_catalog),
         }
+        if include_lifecycle:
+            state['matrix'] = copy.deepcopy(self.matrix if matrix is None else matrix)
+            state['fetish_log'] = copy.deepcopy(
+                engine_stats.read_json_path(get_fetish_log_path(), {}) if fetish_log is None else fetish_log
+            )
+        return state
 
     def _commit_local_work_catalog_state(self, before, after):
         catalog_path = os.path.join(DATA_DIR, 'work_catalog.json')
@@ -1203,7 +1240,11 @@ class Engine:
                 before=before,
                 after=after,
                 atomic_write=self._atomic_write,
+                matrix_path=os.path.join(DATA_DIR, 'matrix.json'),
+                fetish_log_path=get_fetish_log_path(),
+                question_count=len(self.questions),
             )
+        _replace_compound_works_cache(after['compound_works'])
 
     def edit_fetish(self, fetish_id, name=None, desc=None, works=None):
         """性癖の名前・説明文・作品リストを更新する。変更したフィールドのみ渡す。"""
@@ -1248,17 +1289,37 @@ class Engine:
             idx = next((i for i, f in enumerate(self.fetishes) if f['id'] == fetish_id), None)
             if idx is None or self.fetishes[idx]['id'] < PLAYER_FETISH_BASE_ID:
                 return False
+            next_fetishes = copy.deepcopy(self.fetishes)
+            next_matrix = copy.deepcopy(self.matrix)
+            engine_mutations.delete_fetish_at(next_fetishes, next_matrix, idx)
             if _use_db():
-                engine_db.delete_fetish_rows(fetish_id, get_conn=_get_conn, put_conn=_put_conn)
-            engine_mutations.delete_fetish_at(self.fetishes, self.matrix, idx)
-            if not _use_db():
-                self._save_fetishes_file()
-                self._save_matrix_file()
+                engine_db.delete_fetish_rows(
+                    fetish_id,
+                    get_conn=_get_conn,
+                    put_conn=_put_conn,
+                    execute_values=psycopg2.extras.execute_values,
+                )
+            else:
+                before = self._local_work_catalog_state(include_lifecycle=True)
+                next_catalog = engine_work_catalog.delete_fetish_references(before['work_catalog'], fetish_id)
+                next_log = copy.deepcopy(before['fetish_log'])
+                next_log.pop(str(fetish_id), None)
+                after = self._local_work_catalog_state(
+                    fetishes=next_fetishes,
+                    compound_works=engine_work_catalog.legacy_compound_projection(next_catalog),
+                    work_catalog=next_catalog,
+                    matrix=next_matrix,
+                    fetish_log=next_log,
+                    include_lifecycle=True,
+                )
+                self._commit_local_work_catalog_state(before, after)
+            self.fetishes = next_fetishes
+            self.matrix = next_matrix
+            self._invalidate_work_catalog_cache()
         return True
 
     def promote_fetish(self, old_id):
-        """プレイヤー追加性癖（ID≥10000）をシード性癖に格上げ（次の空きIDを割り当て）。
-        DB・matrix・fetish_log のIDを全て更新する。返り値は新ID、失敗時None。"""
+        """プレイヤー追加性癖（ID≥10000）をシード性癖に格上げする。"""
         with self._lock:
             idx = self.index_of(old_id)
             if idx is None or self.fetishes[idx]['id'] < PLAYER_FETISH_BASE_ID:
@@ -1269,6 +1330,7 @@ class Engine:
                     player_base_id=PLAYER_FETISH_BASE_ID,
                     get_conn=_get_conn,
                     put_conn=_put_conn,
+                    execute_values=psycopg2.extras.execute_values,
                 )
                 if new_id is None:
                     return None
@@ -1277,8 +1339,24 @@ class Engine:
                 new_id = engine_mutations.first_free_seed_id(self.fetishes, PLAYER_FETISH_BASE_ID)
                 if new_id is None:
                     return None
-                self.fetishes[idx]['id'] = new_id
-                self._save_fetishes_file()
+                before = self._local_work_catalog_state(include_lifecycle=True)
+                next_fetishes = copy.deepcopy(self.fetishes)
+                next_fetishes[idx]['id'] = new_id
+                next_catalog = engine_work_catalog.promote_fetish_references(before['work_catalog'], old_id, new_id)
+                next_log = copy.deepcopy(before['fetish_log'])
+                if str(old_id) in next_log:
+                    engine_mutations.merge_log_entries(next_log, new_id, old_id)
+                after = self._local_work_catalog_state(
+                    fetishes=next_fetishes,
+                    compound_works=engine_work_catalog.legacy_compound_projection(next_catalog),
+                    work_catalog=next_catalog,
+                    matrix=before['matrix'],
+                    fetish_log=next_log,
+                    include_lifecycle=True,
+                )
+                self._commit_local_work_catalog_state(before, after)
+                self.fetishes = next_fetishes
+            self._invalidate_work_catalog_cache()
         return new_id
 
     def promoted_stats_history_repair_report(self, mappings):

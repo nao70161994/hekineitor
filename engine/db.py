@@ -341,11 +341,16 @@ def replace_compound_work_rows(id_a, id_b, works, *, get_conn, put_conn, execute
         put_conn(conn)
 
 
-def delete_fetish_rows(fetish_id, *, get_conn, put_conn):
+def delete_fetish_rows(fetish_id, *, get_conn, put_conn, execute_values=None):
     conn = get_conn()
     try:
         with conn:
             cur = conn.cursor()
+            if execute_values is not None:
+                db_work_catalog.lock_catalog(cur)
+                current = db_work_catalog.load_catalog_from_cursor(cur)
+                updated = db_work_catalog.delete_fetish_references(current, fetish_id)
+                db_work_catalog.replace_catalog(cur, updated, execute_values=execute_values)
             cur.execute('DELETE FROM fetishes WHERE id = %s', (fetish_id,))
             cur.execute('DELETE FROM matrix WHERE fetish_id = %s', (fetish_id,))
     finally:
@@ -353,12 +358,25 @@ def delete_fetish_rows(fetish_id, *, get_conn, put_conn):
 
 
 def merge_fetish_rows_db(
-    id_keep, id_remove, *, new_name=None, new_desc=None, keep_name=None, keep_desc=None, get_conn, put_conn
+    id_keep,
+    id_remove,
+    *,
+    new_name=None,
+    new_desc=None,
+    keep_name=None,
+    keep_desc=None,
+    get_conn,
+    put_conn,
+    execute_values=None,
 ):
     conn = get_conn()
     try:
         with conn:
             cur = conn.cursor()
+            if execute_values is not None:
+                db_work_catalog.lock_catalog(cur)
+                current = db_work_catalog.load_catalog_from_cursor(cur)
+                updated = db_work_catalog.delete_fetish_references(current, id_remove, replacement_id=id_keep)
             cur.execute(
                 """
                 UPDATE matrix AS m
@@ -370,6 +388,8 @@ def merge_fetish_rows_db(
             """,
                 (id_keep, id_remove),
             )
+            if execute_values is not None:
+                db_work_catalog.replace_catalog(cur, updated, execute_values=execute_values)
             cur.execute('DELETE FROM fetishes WHERE id = %s', (id_remove,))
             cur.execute('DELETE FROM matrix WHERE fetish_id = %s', (id_remove,))
             cur.execute(
@@ -406,11 +426,13 @@ def promote_fetish_id(old_id, new_id, *, get_conn, put_conn):
         put_conn(conn)
 
 
-def promote_player_fetish_to_seed(old_id, *, player_base_id, get_conn, put_conn):
+def promote_player_fetish_to_seed(old_id, *, player_base_id, get_conn, put_conn, execute_values=None):
     conn = get_conn()
     try:
         with conn:
             cur = conn.cursor()
+            if execute_values is not None:
+                db_work_catalog.lock_catalog(cur)
             cur.execute('SELECT pg_advisory_xact_lock(%s)', (player_base_id,))
             cur.execute('SELECT id FROM fetishes WHERE id = %s AND id >= %s', (old_id, player_base_id))
             if cur.fetchone() is None:
@@ -429,10 +451,22 @@ def promote_player_fetish_to_seed(old_id, *, player_base_id, get_conn, put_conn)
             if row is None:
                 return None
             new_id = int(row[0])
-            cur.execute('UPDATE fetishes  SET id = %s WHERE id = %s', (new_id, old_id))
+            if execute_values is not None:
+                current = db_work_catalog.load_catalog_from_cursor(cur)
+                updated = db_work_catalog.promote_fetish_references(current, old_id, new_id)
+                cur.execute(
+                    'INSERT INTO fetishes (id, name, "desc", works) '
+                    'SELECT %s, name, "desc", works FROM fetishes WHERE id = %s',
+                    (new_id, old_id),
+                )
+                db_work_catalog.replace_catalog(cur, updated, execute_values=execute_values)
+            else:
+                cur.execute('UPDATE fetishes  SET id = %s WHERE id = %s', (new_id, old_id))
             cur.execute('UPDATE matrix    SET fetish_id = %s WHERE fetish_id = %s', (new_id, old_id))
             cur.execute('UPDATE fetish_log SET fetish_id = %s WHERE fetish_id = %s', (new_id, old_id))
             _move_promoted_stats_history(cur, old_id, new_id)
+            if execute_values is not None:
+                cur.execute('DELETE FROM fetishes WHERE id = %s', (old_id,))
             return new_id
     finally:
         put_conn(conn)

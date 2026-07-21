@@ -467,6 +467,31 @@ class TestEngineDbMutationAdapters(unittest.TestCase):
         self.assertEqual(sql, 'UPDATE fetishes SET name=%s, works=%s WHERE id=%s')
         self.assertEqual(params, ['Name', '["作品"]', 7])
 
+    def test_delete_fetish_rows_updates_catalog_in_same_transaction(self):
+        cursor = FakeCursor()
+        conn = FakeConn(cursor)
+        current = {'schema_version': 1}
+        updated = {'schema_version': 1, 'deleted': True}
+        execute_values = lambda *_args: None
+
+        with (
+            patch.object(engine_db.db_work_catalog, 'lock_catalog') as lock_catalog,
+            patch.object(engine_db.db_work_catalog, 'load_catalog_from_cursor', return_value=current),
+            patch.object(engine_db.db_work_catalog, 'delete_fetish_references', return_value=updated) as remove,
+            patch.object(engine_db.db_work_catalog, 'replace_catalog') as replace_catalog,
+        ):
+            engine_db.delete_fetish_rows(
+                7,
+                get_conn=lambda: conn,
+                put_conn=lambda _conn: None,
+                execute_values=execute_values,
+            )
+
+        lock_catalog.assert_called_once_with(cursor)
+        remove.assert_called_once_with(current, 7)
+        replace_catalog.assert_called_once_with(cursor, updated, execute_values=execute_values)
+        self.assertEqual(cursor.executed[-2][0], 'DELETE FROM fetishes WHERE id = %s')
+
     def test_delete_fetish_rows_deletes_fetish_then_matrix(self):
         cursor = FakeCursor()
         conn = FakeConn(cursor)
@@ -478,6 +503,34 @@ class TestEngineDbMutationAdapters(unittest.TestCase):
             ['DELETE FROM fetishes WHERE id = %s', 'DELETE FROM matrix WHERE fetish_id = %s'],
         )
         self.assertEqual([call[1] for call in cursor.executed], [(7,), (7,)])
+
+    def test_merge_fetish_rows_db_remaps_catalog_before_removing_owner(self):
+        cursor = FakeCursor()
+        conn = FakeConn(cursor)
+        current = {'schema_version': 1}
+        updated = {'schema_version': 1, 'merged': True}
+        execute_values = lambda *_args: None
+
+        with (
+            patch.object(engine_db.db_work_catalog, 'lock_catalog'),
+            patch.object(engine_db.db_work_catalog, 'load_catalog_from_cursor', return_value=current),
+            patch.object(engine_db.db_work_catalog, 'delete_fetish_references', return_value=updated) as remap,
+            patch.object(engine_db.db_work_catalog, 'replace_catalog') as replace_catalog,
+        ):
+            engine_db.merge_fetish_rows_db(
+                1,
+                2,
+                keep_name='Keep',
+                keep_desc='Desc',
+                get_conn=lambda: conn,
+                put_conn=lambda _conn: None,
+                execute_values=execute_values,
+            )
+
+        remap.assert_called_once_with(current, 2, replacement_id=1)
+        replace_catalog.assert_called_once_with(cursor, updated, execute_values=execute_values)
+        statements = [sql for sql, _params in cursor.executed]
+        self.assertLess(statements.index('DELETE FROM fetishes WHERE id = %s'), len(statements))
 
     def test_merge_fetish_rows_db_keeps_matrix_log_and_optional_name_update_contract(self):
         cursor = FakeCursor()
@@ -566,6 +619,35 @@ class TestEngineDbMutationAdapters(unittest.TestCase):
             self.assertEqual(insert_params, (f'{prefix}3', f'{prefix}10000'))
             self.assertEqual(delete_sql, 'DELETE FROM stats_history WHERE key = %s')
             self.assertEqual(delete_params, (f'{prefix}10000',))
+
+    def test_promote_player_fetish_rekeys_catalog_before_old_owner_is_deleted(self):
+        cursor = FakeCursor(fetchone_values=[(10000,), (3,)])
+        conn = FakeConn(cursor)
+        current = {'schema_version': 1}
+        updated = {'schema_version': 1, 'promoted': True}
+        execute_values = lambda *_args: None
+
+        with (
+            patch.object(engine_db.db_work_catalog, 'lock_catalog') as lock_catalog,
+            patch.object(engine_db.db_work_catalog, 'load_catalog_from_cursor', return_value=current),
+            patch.object(engine_db.db_work_catalog, 'promote_fetish_references', return_value=updated) as promote,
+            patch.object(engine_db.db_work_catalog, 'replace_catalog') as replace_catalog,
+        ):
+            new_id = engine_db.promote_player_fetish_to_seed(
+                10000,
+                player_base_id=100000,
+                get_conn=lambda: conn,
+                put_conn=lambda _conn: None,
+                execute_values=execute_values,
+            )
+
+        self.assertEqual(new_id, 3)
+        lock_catalog.assert_called_once_with(cursor)
+        promote.assert_called_once_with(current, 10000, 3)
+        replace_catalog.assert_called_once_with(cursor, updated, execute_values=execute_values)
+        statements = [sql for sql, _params in cursor.executed]
+        self.assertTrue(any(sql.startswith('INSERT INTO fetishes') for sql in statements))
+        self.assertEqual(statements[-1], 'DELETE FROM fetishes WHERE id = %s')
 
     def test_promote_player_fetish_to_seed_chooses_id_inside_db_lock(self):
         cursor = FakeCursor(fetchone_values=[(10000,), (3,)])

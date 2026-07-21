@@ -49,6 +49,8 @@ resolverはlinkを表示順に解決し、次の互換shapeを返します。
 - PostgreSQL: catalog advisory lockを最初に取得し、`fetishes.works`と正規化tableを一つのtransactionで更新します。compoundは正規化tableをruntime source of truthとし、worker間の書き込みを同じlockで直列化します。各workerのread cacheは更新workerでは即時破棄され、他workerでは最大5秒のTTL後に追従します。
 - Local JSON: `fetishes.json`、`compound_works.json`、`work_catalog.json`のbefore/afterを`work_catalog_mutation_journal.json`へ先にdurable保存します。全ファイルの置換成功後だけjournalを削除し、途中停止時は次回起動でafterへroll-forwardします。通常の書き込み失敗時はbeforeへrollbackします。
 - 管理API: 既存のadmin認証・CSRFを維持し、成功した作品更新は件数とowner IDだけを監査ログへ記録します。
+- 性癖lifecycle: deleteはその性癖の直接linkとcompound pairを削除し、promoteは新IDへ全ownerをrekeyします。mergeは削除側の直接作品を破棄し、compound pairは保持側へ統合して、既存pairを先・削除側pairを後の順で重複排除します。
+- lifecycleのPostgreSQL更新はcatalog、matrix、fetish log、fetish rowを同じtransactionに置きます。ローカル更新はjournal version 2でmatrixとfetish logもbefore/afterへ含め、成功後だけin-memory state/cacheを切り替えます。
 
 ## Review policy
 
@@ -67,6 +69,7 @@ resolverはlinkを表示順に解決し、次の互換shapeを返します。
 - v3 importはcatalogのschemaと参照整合性をwrite前に検証します。
 - PostgreSQLでは不足player fetish、catalog、matrixを同一transactionで復元します。
 - ローカルではrestore journal version 2にcatalogのbefore/afterも保存し、途中停止時は3ファイルを同じ世代へroll-forwardします。
+- 通常の作品編集journal version 1は3つの作品data fileを、性癖lifecycle journal version 2はさらにmatrixとfetish logを同じ世代へ復旧します。
 - 旧v1/v2 matrix backupはcatalogを変更せず、従来どおりimportできます。
 - review queueの`decision`、`target_work_id`、`version`、`updated_at`もDB snapshotとrestoreで保持します。
 

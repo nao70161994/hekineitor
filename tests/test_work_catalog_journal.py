@@ -94,6 +94,44 @@ class WorkCatalogMutationJournalTests(unittest.TestCase):
             self.assertEqual(json.loads(paths[2].read_text()), after['compound_works'])
             self.assertEqual(json.loads(paths[3].read_text()), after['work_catalog'])
 
+    def test_lifecycle_recovery_rolls_matrix_and_log_forward_with_catalog(self):
+        before = self._state('Before')
+        after = self._state('After')
+        before.update(
+            {
+                'matrix': {'yes': [[2.0], [2.0]], 'total': [[4.0], [4.0]]},
+                'fetish_log': {'1': {'guessed': 1, 'correct': 1, 'wrong': 0}},
+            }
+        )
+        after['fetishes'] = after['fetishes'][:1]
+        after['compound_works'] = {}
+        after['work_catalog'] = work_catalog.delete_fetish_references(after['work_catalog'], 2)
+        after.update(
+            {
+                'matrix': {'yes': [[3.0]], 'total': [[5.0]]},
+                'fetish_log': {'1': {'guessed': 2, 'correct': 1, 'wrong': 1}},
+            }
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            paths = self._paths(root)
+            matrix_path = root / 'matrix.json'
+            log_path = root / 'fetish_log.json'
+            atomic_write_json(paths[0], {'format_version': 2, 'before': before, 'after': after})
+
+            recovered = persistence.recover_work_catalog_mutation(
+                *paths,
+                atomic_write=atomic_write_json,
+                matrix_path=matrix_path,
+                fetish_log_path=log_path,
+                question_count=1,
+            )
+
+            self.assertTrue(recovered)
+            self.assertEqual(json.loads(matrix_path.read_text()), after['matrix'])
+            self.assertEqual(json.loads(log_path.read_text()), after['fetish_log'])
+            self.assertEqual(json.loads(paths[3].read_text()), after['work_catalog'])
+
     def test_recovery_rejects_catalog_with_unknown_fetish(self):
         before = self._state('Before')
         after = self._state('After')

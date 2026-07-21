@@ -247,6 +247,51 @@ class WorkCatalogMigrationTests(unittest.TestCase):
         self.assertEqual(len(updated_review['work_ids']), 3)
         self.assertEqual(updated_review['asins'], ['B000000001', 'B000000002', 'B000000003'])
 
+    def test_delete_fetish_references_removes_owned_and_compound_links(self):
+        catalog = work_catalog.build_catalog_from_inline(
+            [
+                {'id': 1, 'works': ['Keep']},
+                {'id': 2, 'works': ['Remove']},
+                {'id': 3, 'works': []},
+            ],
+            compound_rows=[
+                {'id_a': 1, 'id_b': 2, 'works': ['Pair A']},
+                {'id_a': 2, 'id_b': 3, 'works': ['Pair B']},
+            ],
+        )
+        updated = work_catalog.delete_fetish_references(catalog, 2)
+
+        self.assertNotIn(2, work_catalog.materialize_fetish_works(updated))
+        self.assertEqual(work_catalog.materialize_compound_works(updated), {})
+        self.assertIn(2, work_catalog.materialize_fetish_works(catalog))
+
+    def test_merge_fetish_references_combines_compound_pairs_without_duplicates(self):
+        catalog = work_catalog.build_catalog_from_inline(
+            [{'id': 1, 'works': ['Keep']}, {'id': 2, 'works': ['Remove']}, {'id': 3, 'works': []}],
+            compound_rows=[
+                {'id_a': 1, 'id_b': 3, 'works': ['Shared', 'Keep pair']},
+                {'id_a': 2, 'id_b': 3, 'works': ['Shared', 'Remove pair']},
+                {'id_a': 1, 'id_b': 2, 'works': ['Self pair']},
+            ],
+        )
+        updated = work_catalog.delete_fetish_references(catalog, 2, replacement_id=1)
+        compounds = work_catalog.materialize_compound_works(updated)
+
+        self.assertEqual([work['title'] for work in compounds['1,3']], ['Shared', 'Keep pair', 'Remove pair'])
+        self.assertEqual(list(compounds), ['1,3'])
+        self.assertNotIn(2, work_catalog.materialize_fetish_works(updated))
+
+    def test_promote_fetish_references_rekeys_all_owners_and_legacy_projection(self):
+        catalog = work_catalog.build_catalog_from_inline(
+            [{'id': 1, 'works': []}, {'id': 3, 'works': []}, {'id': 10000, 'works': ['Player']}],
+            compound_rows=[{'id_a': 3, 'id_b': 10000, 'works': ['Pair']}],
+        )
+        updated = work_catalog.promote_fetish_references(catalog, 10000, 2)
+
+        self.assertEqual([work['title'] for work in work_catalog.materialize_fetish_works(updated)[2]], ['Player'])
+        self.assertEqual(work_catalog.legacy_compound_projection(updated), {'2,3': ['Pair']})
+        work_catalog.validate_catalog_fetish_references(updated, {1, 2, 3})
+
     def test_replacement_rejects_duplicate_work_identity(self):
         catalog = work_catalog.build_catalog_from_inline([{'id': 1, 'works': []}])
         with self.assertRaisesRegex(ValueError, 'duplicate work identity'):
