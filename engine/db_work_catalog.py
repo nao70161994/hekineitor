@@ -273,7 +273,7 @@ def _serialized_timestamp(value):
 def load_catalog_from_cursor(cur):
     """Read one catalog snapshot from the caller's transaction."""
     cur.execute(
-        'SELECT work_id, canonical_title, normalized_title, media_type, status ' 'FROM works_master ORDER BY work_id'
+        'SELECT work_id, canonical_title, normalized_title, media_type, status FROM works_master ORDER BY work_id'
     )
     works_master = [
         {
@@ -286,7 +286,7 @@ def load_catalog_from_cursor(cur):
         for row in cur.fetchall()
     ]
     cur.execute(
-        'SELECT edition_id, work_id, asin, canonical_url, format, status ' 'FROM work_editions ORDER BY edition_id'
+        'SELECT edition_id, work_id, asin, canonical_url, format, status FROM work_editions ORDER BY edition_id'
     )
     work_editions = [
         {
