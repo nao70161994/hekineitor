@@ -148,5 +148,111 @@ class WorkCatalogMigrationTests(unittest.TestCase):
         self.assertIsNone(materialized[1][0]['edition_id'])
 
 
+    def test_replace_fetish_works_only_replaces_target_owner(self):
+        original = work_catalog.build_catalog_from_inline(
+            [
+                {'id': 1, 'works': [{'title': 'A', 'url': 'https://www.amazon.co.jp/dp/B000000001'}]},
+                {'id': 2, 'works': [{'title': 'B', 'url': 'https://www.amazon.co.jp/dp/B000000002'}]},
+            ],
+            compound_rows=[{'id_a': 1, 'id_b': 2, 'works': ['Compound']}],
+        )
+        before = copy.deepcopy(original)
+        original['fetish_work_links'][1]['context_label'] = 'keep'
+
+        updated = work_catalog.replace_fetish_works(
+            original,
+            1,
+            [
+                {'title': 'B alias', 'url': 'https://www.amazon.co.jp/dp/B000000002'},
+                {'title': 'C', 'url': 'https://www.amazon.co.jp/dp/B000000003'},
+            ],
+        )
+
+        self.assertEqual(before['fetish_work_links'][0]['work_id'], original['fetish_work_links'][0]['work_id'])
+        self.assertEqual(original['fetish_work_links'][1]['context_label'], 'keep')
+        self.assertEqual(
+            [work['title'] for work in work_catalog.materialize_fetish_works(updated)[1]],
+            ['B alias', 'C'],
+        )
+        owner_two = [row for row in updated['fetish_work_links'] if row['fetish_id'] == 2]
+        self.assertEqual(owner_two[0]['context_label'], 'keep')
+        self.assertEqual(
+            work_catalog.materialize_compound_works(updated),
+            work_catalog.materialize_compound_works(original),
+        )
+
+    def test_replace_work_reuses_edition_and_preserves_catalog_metadata(self):
+        catalog = work_catalog.build_catalog_from_inline(
+            [
+                {'id': 1, 'works': []},
+                {'id': 2, 'works': [{'title': 'Original', 'url': 'https://www.amazon.co.jp/dp/B000000001'}]},
+            ]
+        )
+        catalog['works_master'][0]['media_type'] = 'manga'
+        catalog['work_editions'][0]['format'] = 'kindle'
+        original_work_id = catalog['works_master'][0]['work_id']
+        original_edition_id = catalog['work_editions'][0]['edition_id']
+
+        updated = work_catalog.replace_fetish_works(
+            catalog,
+            1,
+            [{'title': 'Localized', 'url': 'https://www.amazon.co.jp/dp/B000000001'}],
+        )
+        materialized = work_catalog.materialize_fetish_works(updated)[1][0]
+
+        self.assertEqual(materialized['title'], 'Localized')
+        self.assertEqual(materialized['work_id'], original_work_id)
+        self.assertEqual(materialized['edition_id'], original_edition_id)
+        self.assertEqual(updated['works_master'][0]['media_type'], 'manga')
+        self.assertEqual(updated['work_editions'][0]['format'], 'kindle')
+
+    def test_replace_compound_works_is_canonical_and_empty_deletes_links(self):
+        catalog = work_catalog.build_catalog_from_inline(
+            [{'id': 1, 'works': []}, {'id': 2, 'works': []}],
+            compound_rows=[{'id_a': 1, 'id_b': 2, 'works': ['Old']}],
+        )
+        updated = work_catalog.replace_compound_works(catalog, 2, 1, ['New'])
+        self.assertEqual(
+            [work['title'] for work in work_catalog.materialize_compound_works(updated)['1,2']],
+            ['New'],
+        )
+        deleted = work_catalog.replace_compound_works(updated, 1, 2, [])
+        self.assertNotIn('1,2', work_catalog.materialize_compound_works(deleted))
+
+    def test_new_conflict_resets_stale_review_decision(self):
+        catalog = work_catalog.build_catalog_from_inline(
+            [
+                {
+                    'id': 1,
+                    'works': [
+                        {'title': 'Same (manga)', 'url': 'https://www.amazon.co.jp/dp/B000000001'},
+                        {'title': 'Same', 'url': 'https://www.amazon.co.jp/dp/B000000002'},
+                    ],
+                },
+                {'id': 2, 'works': []},
+            ]
+        )
+        review = catalog['review_queue'][0]
+        review.update({'status': 'resolved', 'decision': 'keep_separate', 'version': 4})
+
+        updated = work_catalog.replace_fetish_works(
+            catalog,
+            2,
+            [{'title': 'Same (novel)', 'url': 'https://www.amazon.co.jp/dp/B000000003'}],
+        )
+        updated_review = updated['review_queue'][0]
+
+        self.assertEqual(updated_review['status'], 'pending')
+        self.assertEqual(updated_review['decision'], '')
+        self.assertEqual(updated_review['version'], 5)
+        self.assertEqual(len(updated_review['work_ids']), 3)
+        self.assertEqual(updated_review['asins'], ['B000000001', 'B000000002', 'B000000003'])
+
+    def test_replacement_rejects_duplicate_work_identity(self):
+        catalog = work_catalog.build_catalog_from_inline([{'id': 1, 'works': []}])
+        with self.assertRaisesRegex(ValueError, 'duplicate work identity'):
+            work_catalog.replace_fetish_works(catalog, 1, ['Same', 'Same'])
+
+
 if __name__ == '__main__':
     unittest.main()

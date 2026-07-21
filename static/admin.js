@@ -477,8 +477,11 @@ async function editFetish(fid, btn) {
     const name  = nameEl.querySelector('input').value.trim();
     const desc  = descEl.querySelector('input').value.trim();
     const worksRaw = worksEl.querySelector('input').value.trim();
-    const body  = {name, desc};
-    if (worksRaw) body.works = worksRaw.split(',').map(s => s.trim()).filter(Boolean);
+    const body  = {
+      name,
+      desc,
+      works: worksRaw ? worksRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+    };
     btn.disabled = true;
     const res  = await adminFetch(`/api/admin/edit_fetish/${fid}`, {method: 'POST', body: JSON.stringify(body)});
     btn.disabled = false;
@@ -512,7 +515,7 @@ async function editFetishById() {
   const desc  = document.getElementById('ef-desc').value.trim() || undefined;
   const worksRaw = document.getElementById('ef-works').value.trim();
   const msg   = document.getElementById('ef-msg');
-  if (!fid) { msg.style.color = '#e74c3c'; msg.textContent = 'IDを入力してください'; return; }
+  if (!Number.isInteger(fid) || fid < 0) { msg.style.color = '#e74c3c'; msg.textContent = 'IDを入力してください'; return; }
   const body = {};
   if (name) body.name = name;
   if (desc) body.desc = desc;
@@ -728,7 +731,7 @@ async function saveCompoundWorks() {
   const id_b = parseInt(document.getElementById('cw-b').value);
   const worksRaw = document.getElementById('cw-works').value.trim();
   const msg = document.getElementById('cw-msg');
-  if (!id_a || !id_b) { msg.style.color='#e74c3c'; msg.textContent='IDを両方入力してください'; return; }
+  if (!Number.isInteger(id_a) || id_a < 0 || !Number.isInteger(id_b) || id_b < 0) { msg.style.color='#e74c3c'; msg.textContent='IDを両方入力してください'; return; }
   if (!worksRaw) { msg.style.color='#e74c3c'; msg.textContent='作品を入力してください'; return; }
   const works = worksRaw.split(',').map(s => s.trim()).filter(Boolean);
   const res = await adminFetch('/api/admin/compound_works', {method: 'POST', body: JSON.stringify({id_a, id_b, works})});

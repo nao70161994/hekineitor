@@ -115,6 +115,9 @@ The following public `Engine` methods are route/script contract. Their names, ca
 - `get_related(fetish_id)` -> related fetish ids/names.
 - `get_recommended_works(fetish_id)` -> catalog-first normalized work links; legacy inline fallback only when the catalog is unavailable.
 - `get_compound_recommended_works(id_a, id_b)` -> catalog-first normalized pair links with the same fallback rule.
+- `list_compound_work_rows()` -> catalog-backed compound owner rows for administration.
+- `set_compound_work_rows(id_a, id_b, works)` -> canonical pair key; transactionally updates the normalized catalog and the local legacy projection when applicable.
+- `delete_compound_work_rows(id_a, id_b)` -> bool; transactionally removes the pair links.
 
 ## Package Conversion Rules
 

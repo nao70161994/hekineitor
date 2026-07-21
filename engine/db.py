@@ -289,11 +289,20 @@ def insert_fetish_with_matrix(name, desc, yes_row, total_row, *, get_conn, put_c
         put_conn(conn)
 
 
-def update_fetish_fields(fetish_id, *, name=None, desc=None, works=None, get_conn, put_conn):
+def update_fetish_fields(
+    fetish_id, *, name=None, desc=None, works=None, get_conn, put_conn, execute_values=None
+):
     conn = get_conn()
     try:
         with conn:
             cur = conn.cursor()
+            next_catalog = None
+            if works is not None:
+                if execute_values is None:
+                    raise ValueError('execute_values is required when updating recommended works')
+                db_work_catalog.lock_catalog(cur)
+                current_catalog = db_work_catalog.load_catalog_from_cursor(cur)
+                next_catalog = db_work_catalog.replace_fetish_works(current_catalog, fetish_id, works)
             updates = []
             params = []
             if name is not None:
@@ -308,6 +317,29 @@ def update_fetish_fields(fetish_id, *, name=None, desc=None, works=None, get_con
             if updates:
                 params.append(fetish_id)
                 cur.execute(f'UPDATE fetishes SET {", ".join(updates)} WHERE id=%s', params)
+            if next_catalog is not None:
+                db_work_catalog.replace_catalog(cur, next_catalog, execute_values=execute_values)
+    finally:
+        put_conn(conn)
+
+
+def replace_compound_work_rows(id_a, id_b, works, *, get_conn, put_conn, execute_values):
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            db_work_catalog.lock_catalog(cur)
+            current = db_work_catalog.load_catalog_from_cursor(cur)
+            id_a, id_b = sorted((int(id_a), int(id_b)))
+            existed = any(
+                int(row['id_a']) == id_a and int(row['id_b']) == id_b
+                for row in current['compound_work_links']
+            )
+            if not works and not existed:
+                return False
+            updated = db_work_catalog.replace_compound_works(current, id_a, id_b, works)
+            db_work_catalog.replace_catalog(cur, updated, execute_values=execute_values)
+            return True
     finally:
         put_conn(conn)
 

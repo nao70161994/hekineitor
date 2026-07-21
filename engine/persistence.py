@@ -4,7 +4,7 @@ import math
 import os
 import shutil
 
-from .work_catalog import validate_catalog
+from .work_catalog import validate_catalog, validate_catalog_fetish_references
 
 
 def valid_matrix_shape(matrix, nf, nq):
@@ -103,6 +103,86 @@ def recover_matrix_restore(
         atomic_write(work_catalog_path, after['work_catalog'], ensure_ascii=False, indent=2)
     durable_unlink(journal_path)
     return True
+
+
+def _validate_work_catalog_mutation_snapshot(snapshot):
+    if not isinstance(snapshot, dict):
+        raise ValueError('work catalog mutation snapshot must be an object')
+    fetishes = snapshot.get('fetishes')
+    compound_works = snapshot.get('compound_works')
+    catalog = snapshot.get('work_catalog')
+    if not isinstance(fetishes, list) or not isinstance(compound_works, dict):
+        raise ValueError('work catalog mutation snapshot is incomplete')
+    fetish_ids = set()
+    for fetish in fetishes:
+        if not isinstance(fetish, dict) or type(fetish.get('id')) is not int:
+            raise ValueError('work catalog mutation contains an invalid fetish')
+        fetish_ids.add(fetish['id'])
+    for key, works in compound_works.items():
+        parts = str(key).split(',')
+        if len(parts) != 2 or not all(part.isdigit() for part in parts):
+            raise ValueError('work catalog mutation contains an invalid compound key')
+        id_a, id_b = (int(part) for part in parts)
+        if id_a >= id_b or id_a not in fetish_ids or id_b not in fetish_ids or not isinstance(works, list):
+            raise ValueError('work catalog mutation contains an invalid compound owner')
+    validate_catalog_fetish_references(catalog, fetish_ids)
+    return True
+
+
+def recover_work_catalog_mutation(
+    journal_path, fetishes_path, compound_path, catalog_path, *, atomic_write
+):
+    if not os.path.exists(journal_path):
+        return False
+    try:
+        with open(journal_path, encoding='utf-8') as source:
+            journal = json.load(source)
+        if not isinstance(journal, dict) or journal.get('format_version') != 1:
+            raise ValueError('unsupported format')
+        after = journal['after']
+        _validate_work_catalog_mutation_snapshot(after)
+    except (KeyError, OSError, json.JSONDecodeError, ValueError) as exc:
+        raise RuntimeError('work catalog mutation journal is invalid') from exc
+    atomic_write(fetishes_path, after['fetishes'], ensure_ascii=False, indent=2)
+    atomic_write(compound_path, after['compound_works'], ensure_ascii=False, indent=2)
+    atomic_write(catalog_path, after['work_catalog'], ensure_ascii=False, indent=2)
+    durable_unlink(journal_path)
+    return True
+
+
+def commit_work_catalog_mutation(
+    journal_path,
+    fetishes_path,
+    compound_path,
+    catalog_path,
+    *,
+    before,
+    after,
+    atomic_write,
+):
+    _validate_work_catalog_mutation_snapshot(before)
+    _validate_work_catalog_mutation_snapshot(after)
+    journal = {'format_version': 1, 'before': before, 'after': after}
+    journal_written = False
+    try:
+        atomic_write(journal_path, journal, ensure_ascii=False, indent=2)
+        journal_written = True
+        atomic_write(fetishes_path, after['fetishes'], ensure_ascii=False, indent=2)
+        atomic_write(compound_path, after['compound_works'], ensure_ascii=False, indent=2)
+        atomic_write(catalog_path, after['work_catalog'], ensure_ascii=False, indent=2)
+        durable_unlink(journal_path)
+    except BaseException:
+        if journal_written:
+            try:
+                atomic_write(fetishes_path, before['fetishes'], ensure_ascii=False, indent=2)
+                atomic_write(compound_path, before['compound_works'], ensure_ascii=False, indent=2)
+                atomic_write(catalog_path, before['work_catalog'], ensure_ascii=False, indent=2)
+                durable_unlink(journal_path)
+            except BaseException as rollback_error:
+                raise RuntimeError(
+                    'work catalog mutation rollback failed; recovery journal retained'
+                ) from rollback_error
+        raise
 
 
 def apply_learned_priors(yes, total, fetishes, questions, learned, *, pseudo):

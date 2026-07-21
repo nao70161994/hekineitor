@@ -34,6 +34,8 @@ DATA_FILES = (
     'matrix.json',
     'questions.json',
     'compound_works.json',
+    'work_catalog.json',
+    'work_catalog_mutation_journal.json',
     'question_flags.json',
     'config.json',
     'admin_audit_log.json',

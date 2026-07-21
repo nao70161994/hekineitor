@@ -1,5 +1,6 @@
 import json
 import unittest
+from unittest.mock import patch
 
 import engine_db
 
@@ -429,11 +430,39 @@ class TestEngineDbMutationAdapters(unittest.TestCase):
         engine_db.update_fetish_fields(
             7,
             name='Name',
-            works=['作品'],
             get_conn=lambda: conn,
             put_conn=lambda _conn: None,
         )
 
+        sql, params = cursor.executed[0]
+        self.assertEqual(sql, 'UPDATE fetishes SET name=%s WHERE id=%s')
+        self.assertEqual(params, ['Name', 7])
+
+    def test_update_fetish_works_replaces_legacy_and_catalog_in_one_transaction(self):
+        cursor = FakeCursor()
+        conn = FakeConn(cursor)
+        current = {'schema_version': 1}
+        updated = {'schema_version': 1, 'updated': True}
+        execute_values = lambda *_args: None
+
+        with (
+            patch.object(engine_db.db_work_catalog, 'lock_catalog') as lock_catalog,
+            patch.object(engine_db.db_work_catalog, 'load_catalog_from_cursor', return_value=current),
+            patch.object(engine_db.db_work_catalog, 'replace_fetish_works', return_value=updated) as replace_works,
+            patch.object(engine_db.db_work_catalog, 'replace_catalog') as replace_catalog,
+        ):
+            engine_db.update_fetish_fields(
+                7,
+                name='Name',
+                works=['作品'],
+                get_conn=lambda: conn,
+                put_conn=lambda _conn: None,
+                execute_values=execute_values,
+            )
+
+        lock_catalog.assert_called_once_with(cursor)
+        replace_works.assert_called_once_with(current, 7, ['作品'])
+        replace_catalog.assert_called_once_with(cursor, updated, execute_values=execute_values)
         sql, params = cursor.executed[0]
         self.assertEqual(sql, 'UPDATE fetishes SET name=%s, works=%s WHERE id=%s')
         self.assertEqual(params, ['Name', '["作品"]', 7])

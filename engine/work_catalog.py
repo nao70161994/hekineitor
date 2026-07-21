@@ -1,5 +1,6 @@
 """Normalized recommended-work catalog with deterministic legacy migration."""
 
+import copy
 import hashlib
 import re
 from collections import defaultdict
@@ -330,3 +331,222 @@ def materialize_compound_works(catalog):
         key = f'{min(int(link["id_a"]), int(link["id_b"]))},{max(int(link["id_a"]), int(link["id_b"]))}'
         result[key].append(materialize_link_work(link, works=works, editions=editions, aliases=aliases))
     return dict(result)
+
+
+def _catalog_editor(catalog):
+    updated = copy.deepcopy(catalog)
+    validate_catalog(updated)
+    works = {row['work_id']: row for row in updated['works_master']}
+    editions = {row['edition_id']: row for row in updated['work_editions']}
+    aliases = {row['alias_id']: row for row in updated['work_aliases']}
+    editions_by_key = {
+        _edition_key(row.get('canonical_url')): row
+        for row in updated['work_editions']
+        if _edition_key(row.get('canonical_url'))
+    }
+    works_by_title = defaultdict(set)
+    works_by_candidate = defaultdict(set)
+    for row in updated['works_master']:
+        works_by_title[row.get('normalized_title', '')].add(row['work_id'])
+        works_by_candidate[work_title_candidate_key(row.get('canonical_title', ''))].add(row['work_id'])
+    for row in updated['work_aliases']:
+        works_by_title[row.get('normalized_alias', '')].add(row['work_id'])
+        works_by_candidate[work_title_candidate_key(row.get('alias', ''))].add(row['work_id'])
+    return updated, works, editions, aliases, editions_by_key, works_by_title, works_by_candidate
+
+
+def _register_catalog_work(editor, raw_work):
+    updated, works, editions, aliases, editions_by_key, works_by_title, works_by_candidate = editor
+    title = work_title(raw_work)
+    raw_url = raw_work.get('url', '') if isinstance(raw_work, dict) else ''
+    url = safe_work_url(raw_url)
+    if not title:
+        raise ValueError('work title is required')
+    edition_key = _edition_key(url)
+    edition = editions_by_key.get(edition_key) if edition_key else None
+    normalized_title = normalized_work_title(title)
+
+    if edition is not None:
+        work = works[edition['work_id']]
+    else:
+        asin = extract_asin(url)
+        candidate_ids = works_by_title.get(normalized_title, set())
+        if not asin and len(candidate_ids) == 1:
+            work = works[next(iter(candidate_ids))]
+        else:
+            identity = _identity_key(title, url)
+            work_id = _stable_id('wrk', identity)
+            work = works.get(work_id)
+            if work is None:
+                work = {
+                    'work_id': work_id,
+                    'canonical_title': title,
+                    'normalized_title': normalized_title,
+                    'media_type': '',
+                    'status': 'active',
+                }
+                works[work_id] = work
+                updated['works_master'].append(work)
+                works_by_title[normalized_title].add(work_id)
+                works_by_candidate[work_title_candidate_key(title)].add(work_id)
+
+    alias = None
+    if title != work['canonical_title']:
+        alias_id = _stable_id('wal', work['work_id'], normalized_title)
+        alias = aliases.get(alias_id)
+        if alias is None:
+            alias = {
+                'alias_id': alias_id,
+                'work_id': work['work_id'],
+                'alias': title,
+                'normalized_alias': normalized_title,
+            }
+            aliases[alias_id] = alias
+            updated['work_aliases'].append(alias)
+            works_by_title[normalized_title].add(work['work_id'])
+            works_by_candidate[work_title_candidate_key(title)].add(work['work_id'])
+
+    if edition is None and edition_key:
+        edition_id = _stable_id('wed', edition_key)
+        edition = {
+            'edition_id': edition_id,
+            'work_id': work['work_id'],
+            'asin': extract_asin(url),
+            'canonical_url': url,
+            'format': '',
+            'status': 'active',
+        }
+        editions[edition_id] = edition
+        editions_by_key[edition_key] = edition
+        updated['work_editions'].append(edition)
+
+    candidate_key = work_title_candidate_key(title)
+    candidate_ids = sorted(works_by_candidate.get(candidate_key, set()))
+    if len(candidate_ids) > 1:
+        review_id = _stable_id('wrv', candidate_key)
+        candidate_editions = [row for row in updated['work_editions'] if row['work_id'] in candidate_ids]
+        candidate_titles = {
+            row['canonical_title'] for row in updated['works_master'] if row['work_id'] in candidate_ids
+        }
+        candidate_titles.update(
+            row['alias'] for row in updated['work_aliases'] if row['work_id'] in candidate_ids
+        )
+        asins = sorted({row.get('asin') for row in candidate_editions if row.get('asin')})
+        review = next((row for row in updated['review_queue'] if row['review_id'] == review_id), None)
+        if candidate_key and review is None:
+            review = {'review_id': review_id, 'version': 0}
+            updated['review_queue'].append(review)
+        if review is not None and sorted(review.get('work_ids', [])) != candidate_ids:
+            review.update(
+                {
+                    'review_type': 'normalization_conflict' if len(asins) > 1 else 'normalization_candidate',
+                    'candidate_key': candidate_key,
+                    'work_ids': candidate_ids,
+                    'titles': sorted(candidate_titles),
+                    'asins': asins,
+                    'status': 'pending',
+                    'decision': '',
+                    'target_work_id': None,
+                    'version': int(review.get('version', 0)) + 1,
+                }
+            )
+    return work['work_id'], edition['edition_id'] if edition else None, alias['alias_id'] if alias else None
+
+
+def _sort_catalog_rows(catalog):
+    for collection, id_field in (
+        ('works_master', 'work_id'),
+        ('work_editions', 'edition_id'),
+        ('work_aliases', 'alias_id'),
+        ('review_queue', 'review_id'),
+    ):
+        catalog[collection].sort(key=lambda row: row[id_field])
+    catalog['fetish_work_links'].sort(
+        key=lambda row: (int(row['fetish_id']), int(row['position']), row['link_id'])
+    )
+    catalog['compound_work_links'].sort(
+        key=lambda row: (int(row['id_a']), int(row['id_b']), int(row['position']), row['link_id'])
+    )
+
+
+def replace_fetish_works(catalog, fetish_id, raw_works):
+    """Return a catalog copy with one fetish's ordered links replaced."""
+    editor = _catalog_editor(catalog)
+    updated = editor[0]
+    fetish_id = int(fetish_id)
+    previous_links = {
+        row['link_id']: row
+        for row in updated['fetish_work_links']
+        if int(row['fetish_id']) == fetish_id
+    }
+    updated['fetish_work_links'] = [
+        row for row in updated['fetish_work_links'] if int(row['fetish_id']) != fetish_id
+    ]
+    identities = set()
+    for position, raw_work in enumerate(raw_works or []):
+        work_id, edition_id, alias_id = _register_catalog_work(editor, raw_work)
+        identity = (work_id, edition_id)
+        if identity in identities:
+            raise ValueError('duplicate work identity in fetish recommendations')
+        identities.add(identity)
+        link_id = _stable_id('fwl', fetish_id, work_id, edition_id, alias_id)
+        previous = previous_links.get(link_id, {})
+        updated['fetish_work_links'].append(
+            {
+                'link_id': link_id,
+                'fetish_id': fetish_id,
+                'work_id': work_id,
+                'edition_id': edition_id,
+                'alias_id': alias_id,
+                'position': position,
+                'context_label': previous.get('context_label', ''),
+                'recommendation_reason': previous.get('recommendation_reason', ''),
+            }
+        )
+    _sort_catalog_rows(updated)
+    validate_catalog(updated)
+    return updated
+
+
+def replace_compound_works(catalog, id_a, id_b, raw_works):
+    """Return a catalog copy with one canonical compound pair replaced."""
+    editor = _catalog_editor(catalog)
+    updated = editor[0]
+    id_a, id_b = sorted((int(id_a), int(id_b)))
+    if id_a == id_b:
+        raise ValueError('compound link must reference two different fetishes')
+    previous_links = {
+        row['link_id']: row
+        for row in updated['compound_work_links']
+        if (int(row['id_a']), int(row['id_b'])) == (id_a, id_b)
+    }
+    updated['compound_work_links'] = [
+        row
+        for row in updated['compound_work_links']
+        if (int(row['id_a']), int(row['id_b'])) != (id_a, id_b)
+    ]
+    identities = set()
+    for position, raw_work in enumerate(raw_works or []):
+        work_id, edition_id, alias_id = _register_catalog_work(editor, raw_work)
+        identity = (work_id, edition_id)
+        if identity in identities:
+            raise ValueError('duplicate work identity in compound recommendations')
+        identities.add(identity)
+        link_id = _stable_id('cwl', id_a, id_b, work_id, edition_id, alias_id)
+        previous = previous_links.get(link_id, {})
+        updated['compound_work_links'].append(
+            {
+                'link_id': link_id,
+                'id_a': id_a,
+                'id_b': id_b,
+                'work_id': work_id,
+                'edition_id': edition_id,
+                'alias_id': alias_id,
+                'position': position,
+                'context_label': previous.get('context_label', ''),
+                'recommendation_reason': previous.get('recommendation_reason', ''),
+            }
+        )
+    _sort_catalog_rows(updated)
+    validate_catalog(updated)
+    return updated

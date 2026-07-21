@@ -140,15 +140,22 @@ class Engine:
         self._lock = threading.RLock()
         self.questions = self._load_json('questions.json')
         if not _use_db():
-            journal_path = os.path.join(DATA_DIR, 'matrix_restore_journal.json')
-            with _settings_file_lock(journal_path):
+            catalog_path = os.path.join(DATA_DIR, 'work_catalog.json')
+            with _settings_file_lock(catalog_path):
+                engine_persistence.recover_work_catalog_mutation(
+                    os.path.join(DATA_DIR, 'work_catalog_mutation_journal.json'),
+                    os.path.join(DATA_DIR, 'fetishes.json'),
+                    os.path.join(DATA_DIR, 'compound_works.json'),
+                    catalog_path,
+                    atomic_write=self._atomic_write,
+                )
                 engine_persistence.recover_matrix_restore(
-                    journal_path,
+                    os.path.join(DATA_DIR, 'matrix_restore_journal.json'),
                     os.path.join(DATA_DIR, 'fetishes.json'),
                     os.path.join(DATA_DIR, 'matrix.json'),
                     len(self.questions),
                     atomic_write=self._atomic_write,
-                    work_catalog_path=os.path.join(DATA_DIR, 'work_catalog.json'),
+                    work_catalog_path=catalog_path,
                 )
         if _use_db():
             self._ensure_db()
@@ -261,6 +268,84 @@ class Engine:
             key = f'{min(int(id_a), int(id_b))},{max(int(id_a), int(id_b))}'
             return copy.deepcopy(materialized[1].get(key, []))
         return copy.deepcopy(get_compound_works(id_a, id_b))
+
+    def list_compound_work_rows(self):
+        materialized = self._materialized_work_catalog()
+        if materialized is None:
+            return list_compound_works()
+        rows = []
+        for key, works in sorted(materialized[1].items()):
+            id_a, id_b = (int(value) for value in key.split(',', 1))
+            rows.append({'key': key, 'id_a': id_a, 'id_b': id_b, 'works': copy.deepcopy(works)})
+        return rows
+
+    def set_compound_work_rows(self, id_a, id_b, works):
+        id_a, id_b = sorted((int(id_a), int(id_b)))
+        if id_a == id_b or self.index_of(id_a) is None or self.index_of(id_b) is None:
+            raise ValueError('compound recommendations require two known, different fetishes')
+        key = engine_compound_works.pair_key(id_a, id_b)
+        with self._lock:
+            if _use_db():
+                engine_db.replace_compound_work_rows(
+                    id_a,
+                    id_b,
+                    works,
+                    get_conn=_get_conn,
+                    put_conn=_put_conn,
+                    execute_values=psycopg2.extras.execute_values,
+                )
+            else:
+                before = self._local_work_catalog_state()
+                next_compounds = copy.deepcopy(before['compound_works'])
+                next_compounds[key] = copy.deepcopy(works)
+                next_catalog = engine_work_catalog.replace_compound_works(
+                    before['work_catalog'], id_a, id_b, works
+                )
+                after = self._local_work_catalog_state(
+                    fetishes=before['fetishes'],
+                    compound_works=next_compounds,
+                    work_catalog=next_catalog,
+                )
+                self._commit_local_work_catalog_state(before, after)
+            self._invalidate_work_catalog_cache()
+        return key
+
+    def delete_compound_work_rows(self, id_a, id_b):
+        id_a, id_b = sorted((int(id_a), int(id_b)))
+        key = engine_compound_works.pair_key(id_a, id_b)
+        with self._lock:
+            if _use_db():
+                changed = engine_db.replace_compound_work_rows(
+                    id_a,
+                    id_b,
+                    [],
+                    get_conn=_get_conn,
+                    put_conn=_put_conn,
+                    execute_values=psycopg2.extras.execute_values,
+                )
+                if not changed:
+                    return False
+            else:
+                before = self._local_work_catalog_state()
+                current_links = before['work_catalog']['compound_work_links']
+                if not any(
+                    int(row['id_a']) == id_a and int(row['id_b']) == id_b
+                    for row in current_links
+                ):
+                    return False
+                next_compounds = copy.deepcopy(before['compound_works'])
+                next_compounds.pop(key, None)
+                next_catalog = engine_work_catalog.replace_compound_works(
+                    before['work_catalog'], id_a, id_b, []
+                )
+                after = self._local_work_catalog_state(
+                    fetishes=before['fetishes'],
+                    compound_works=next_compounds,
+                    work_catalog=next_catalog,
+                )
+                self._commit_local_work_catalog_state(before, after)
+            self._invalidate_work_catalog_cache()
+        return True
 
     def _save_matrix_file(self):
         _acquire_file_engine_process_lock()
@@ -1105,6 +1190,30 @@ class Engine:
             execute_values=psycopg2.extras.execute_values,
         )
 
+    def _local_work_catalog_state(self, *, fetishes=None, compound_works=None, work_catalog=None):
+        return {
+            'fetishes': copy.deepcopy(self.fetishes if fetishes is None else fetishes),
+            'compound_works': copy.deepcopy(
+                self._load_json('compound_works.json') if compound_works is None else compound_works
+            ),
+            'work_catalog': copy.deepcopy(
+                self._work_catalog_snapshot() if work_catalog is None else work_catalog
+            ),
+        }
+
+    def _commit_local_work_catalog_state(self, before, after):
+        catalog_path = os.path.join(DATA_DIR, 'work_catalog.json')
+        with _settings_file_lock(catalog_path):
+            engine_persistence.commit_work_catalog_mutation(
+                os.path.join(DATA_DIR, 'work_catalog_mutation_journal.json'),
+                os.path.join(DATA_DIR, 'fetishes.json'),
+                os.path.join(DATA_DIR, 'compound_works.json'),
+                catalog_path,
+                before=before,
+                after=after,
+                atomic_write=self._atomic_write,
+            )
+
     def edit_fetish(self, fetish_id, name=None, desc=None, works=None):
         """性癖の名前・説明文・作品リストを更新する。変更したフィールドのみ渡す。"""
         with self._lock:
@@ -1112,17 +1221,38 @@ class Engine:
             if idx is None:
                 return False
             if _use_db():
-                engine_db.update_fetish_fields(
-                    fetish_id,
-                    name=name,
-                    desc=desc,
-                    works=works,
-                    get_conn=_get_conn,
-                    put_conn=_put_conn,
+                db_update_kwargs = {
+                    'name': name,
+                    'desc': desc,
+                    'works': works,
+                    'get_conn': _get_conn,
+                    'put_conn': _put_conn,
+                }
+                if works is not None:
+                    db_update_kwargs['execute_values'] = psycopg2.extras.execute_values
+                engine_db.update_fetish_fields(fetish_id, **db_update_kwargs)
+                engine_mutations.apply_fetish_edits(self.fetishes[idx], name=name, desc=desc, works=works)
+            elif works is not None:
+                before = self._local_work_catalog_state()
+                next_fetishes = copy.deepcopy(self.fetishes)
+                engine_mutations.apply_fetish_edits(
+                    next_fetishes[idx], name=name, desc=desc, works=works
                 )
-            engine_mutations.apply_fetish_edits(self.fetishes[idx], name=name, desc=desc, works=works)
-            if not _use_db():
+                next_catalog = engine_work_catalog.replace_fetish_works(
+                    before['work_catalog'], fetish_id, works
+                )
+                after = self._local_work_catalog_state(
+                    fetishes=next_fetishes,
+                    compound_works=before['compound_works'],
+                    work_catalog=next_catalog,
+                )
+                self._commit_local_work_catalog_state(before, after)
+                self.fetishes = next_fetishes
+            else:
+                engine_mutations.apply_fetish_edits(self.fetishes[idx], name=name, desc=desc)
                 self._save_fetishes_file()
+            if works is not None:
+                self._invalidate_work_catalog_cache()
         return True
 
     def delete_fetish(self, fetish_id):

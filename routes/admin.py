@@ -1174,6 +1174,8 @@ def set_compound_works(ctx):
         return ctx.jsonify({'status': 'error', 'message': 'id_a と id_b が必要です'}), 400
     if id_a == id_b:
         return ctx.jsonify({'status': 'error', 'message': '同じIDは指定できません'}), 400
+    if ctx.engine.index_of(id_a) is None or ctx.engine.index_of(id_b) is None:
+        return ctx.jsonify({'status': 'error', 'message': '存在しない性癖IDです'}), 400
     raw = data.get('works', [])
     if isinstance(raw, str):
         raw = [work.strip() for work in raw.split(',') if work.strip()]
@@ -1182,7 +1184,16 @@ def set_compound_works(ctx):
         return ctx.jsonify({'status': 'error', 'message': '作品を1件以上入力してください'}), 400
     if len(works) > 10:
         return ctx.jsonify({'status': 'error', 'message': '作品は10件以内'}), 400
-    key = ctx.set_compound_works(id_a, id_b, works)
+    try:
+        key = ctx.set_compound_works(id_a, id_b, works)
+    except ValueError as exc:
+        return ctx.jsonify({'status': 'error', 'message': str(exc)}), 400
+    ctx.write_audit(
+        'compound_works_update',
+        'ok',
+        {'id_a': min(id_a, id_b), 'id_b': max(id_a, id_b), 'work_count': len(works)},
+        ctx.request,
+    )
     return ctx.jsonify({'status': 'ok', 'key': key, 'works': works})
 
 
@@ -1197,6 +1208,12 @@ def delete_compound_works(ctx, key):
     ok = ctx.delete_compound_works(id_a, id_b)
     if not ok:
         return ctx.jsonify({'status': 'error', 'message': '見つかりません'}), 404
+    ctx.write_audit(
+        'compound_works_delete',
+        'ok',
+        {'id_a': min(id_a, id_b), 'id_b': max(id_a, id_b)},
+        ctx.request,
+    )
     return ctx.jsonify({'status': 'deleted', 'key': key})
 
 
@@ -1436,6 +1453,20 @@ def edit_fetish(ctx, fetish_id):
         return ctx.jsonify({'status': 'error', 'message': '見つかりません'}), 404
     idx = ctx.engine.index_of(fetish_id)
     fetish = ctx.engine.fetishes[idx]
+    ctx.write_audit(
+        'fetish_update',
+        'ok',
+        {
+            'fetish_id': fetish_id,
+            'updated_fields': [
+                field
+                for field, value in (('name', name), ('desc', desc), ('works', works))
+                if value is not None
+            ],
+            'work_count': len(works) if works is not None else None,
+        },
+        ctx.request,
+    )
     return ctx.jsonify(
         {'status': 'ok', 'name': fetish['name'], 'desc': fetish['desc'], 'works': fetish.get('works', [])}
     )

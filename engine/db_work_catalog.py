@@ -2,7 +2,12 @@
 
 import json
 
-from .work_catalog import build_catalog_from_inline, validate_catalog
+from .work_catalog import (
+    build_catalog_from_inline,
+    replace_compound_works,
+    replace_fetish_works,
+    validate_catalog,
+)
 
 _CATALOG_LOCK_SQL = "SELECT pg_advisory_xact_lock(hashtext('recommended_work_catalog_write'))"
 
@@ -371,6 +376,24 @@ def load_catalog_from_cursor(cur):
     }
     validate_catalog(catalog)
     return catalog
+
+
+def replace_fetish_works_in_transaction(cur, fetish_id, works, *, execute_values, acquire_lock=True):
+    """Replace one fetish owner inside the caller-owned DB transaction."""
+    if acquire_lock:
+        lock_catalog(cur)
+    current = load_catalog_from_cursor(cur)
+    updated = replace_fetish_works(current, fetish_id, works)
+    return replace_catalog(cur, updated, execute_values=execute_values)
+
+
+def replace_compound_works_in_transaction(cur, id_a, id_b, works, *, execute_values, acquire_lock=True):
+    """Replace one compound owner inside the caller-owned DB transaction."""
+    if acquire_lock:
+        lock_catalog(cur)
+    current = load_catalog_from_cursor(cur)
+    updated = replace_compound_works(current, id_a, id_b, works)
+    return replace_catalog(cur, updated, execute_values=execute_values)
 
 
 def load_catalog(*, get_conn, put_conn):

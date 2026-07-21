@@ -99,9 +99,9 @@ class TestCompoundWorks(FileSnapshotMixin, unittest.TestCase):
         self.assertEqual(res.status_code, 400)
 
     def test_api_list_compound_works(self):
-        from engine import set_compound_works
+        from app import engine as app_engine
 
-        set_compound_works(0, 1, ['テスト作品'])
+        app_engine.set_compound_work_rows(0, 1, ['テスト作品'])
         headers = self._admin_headers()
         res = self.client.get('/api/admin/compound_works', headers=headers)
         self.assertEqual(res.status_code, 200)
@@ -115,9 +115,9 @@ class TestCompoundWorks(FileSnapshotMixin, unittest.TestCase):
         self.assertIn('name_b', item)
 
     def test_api_delete_compound_works(self):
-        from engine import set_compound_works
+        from app import engine as app_engine
 
-        set_compound_works(0, 1, ['作品'])
+        app_engine.set_compound_work_rows(0, 1, ['作品'])
         headers = self._admin_headers()
         res = self.client.delete('/api/admin/compound_works/0,1', headers=headers)
         self.assertEqual(res.status_code, 200)
