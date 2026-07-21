@@ -3,6 +3,7 @@
 import json
 
 from . import db_work_catalog
+from . import work_catalog as engine_work_catalog
 from .db_config import load_config, save_config_value
 from .db_matrix import (
     IMPORT_MATRIX_SQL,
@@ -349,7 +350,7 @@ def delete_fetish_rows(fetish_id, *, get_conn, put_conn, execute_values=None):
             if execute_values is not None:
                 db_work_catalog.lock_catalog(cur)
                 current = db_work_catalog.load_catalog_from_cursor(cur)
-                updated = db_work_catalog.delete_fetish_references(current, fetish_id)
+                updated = engine_work_catalog.delete_fetish_references(current, fetish_id)
                 db_work_catalog.replace_catalog(cur, updated, execute_values=execute_values)
             cur.execute('DELETE FROM fetishes WHERE id = %s', (fetish_id,))
             cur.execute('DELETE FROM matrix WHERE fetish_id = %s', (fetish_id,))
@@ -376,7 +377,7 @@ def merge_fetish_rows_db(
             if execute_values is not None:
                 db_work_catalog.lock_catalog(cur)
                 current = db_work_catalog.load_catalog_from_cursor(cur)
-                updated = db_work_catalog.delete_fetish_references(current, id_remove, replacement_id=id_keep)
+                updated = engine_work_catalog.delete_fetish_references(current, id_remove, replacement_id=id_keep)
             cur.execute(
                 """
                 UPDATE matrix AS m
@@ -453,7 +454,7 @@ def promote_player_fetish_to_seed(old_id, *, player_base_id, get_conn, put_conn,
             new_id = int(row[0])
             if execute_values is not None:
                 current = db_work_catalog.load_catalog_from_cursor(cur)
-                updated = db_work_catalog.promote_fetish_references(current, old_id, new_id)
+                updated = engine_work_catalog.promote_fetish_references(current, old_id, new_id)
                 cur.execute(
                     'INSERT INTO fetishes (id, name, "desc", works) '
                     'SELECT %s, name, "desc", works FROM fetishes WHERE id = %s',

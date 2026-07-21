@@ -4,8 +4,6 @@ import json
 
 from .work_catalog import (
     build_catalog_from_inline,
-    delete_fetish_references,
-    promote_fetish_references,
     replace_compound_works,
     replace_fetish_works,
     validate_catalog,

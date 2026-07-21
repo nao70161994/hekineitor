@@ -477,7 +477,7 @@ class TestEngineDbMutationAdapters(unittest.TestCase):
         with (
             patch.object(engine_db.db_work_catalog, 'lock_catalog') as lock_catalog,
             patch.object(engine_db.db_work_catalog, 'load_catalog_from_cursor', return_value=current),
-            patch.object(engine_db.db_work_catalog, 'delete_fetish_references', return_value=updated) as remove,
+            patch.object(engine_db.engine_work_catalog, 'delete_fetish_references', return_value=updated) as remove,
             patch.object(engine_db.db_work_catalog, 'replace_catalog') as replace_catalog,
         ):
             engine_db.delete_fetish_rows(
@@ -514,7 +514,7 @@ class TestEngineDbMutationAdapters(unittest.TestCase):
         with (
             patch.object(engine_db.db_work_catalog, 'lock_catalog'),
             patch.object(engine_db.db_work_catalog, 'load_catalog_from_cursor', return_value=current),
-            patch.object(engine_db.db_work_catalog, 'delete_fetish_references', return_value=updated) as remap,
+            patch.object(engine_db.engine_work_catalog, 'delete_fetish_references', return_value=updated) as remap,
             patch.object(engine_db.db_work_catalog, 'replace_catalog') as replace_catalog,
         ):
             engine_db.merge_fetish_rows_db(
@@ -630,7 +630,7 @@ class TestEngineDbMutationAdapters(unittest.TestCase):
         with (
             patch.object(engine_db.db_work_catalog, 'lock_catalog') as lock_catalog,
             patch.object(engine_db.db_work_catalog, 'load_catalog_from_cursor', return_value=current),
-            patch.object(engine_db.db_work_catalog, 'promote_fetish_references', return_value=updated) as promote,
+            patch.object(engine_db.engine_work_catalog, 'promote_fetish_references', return_value=updated) as promote,
             patch.object(engine_db.db_work_catalog, 'replace_catalog') as replace_catalog,
         ):
             new_id = engine_db.promote_player_fetish_to_seed(
