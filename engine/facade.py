@@ -7,8 +7,9 @@ from contextlib import contextmanager
 from analytics import build_quality_report
 from config import get_fetish_log_path
 from matrix_service import collect_matrix_updates, matrix_validation_report
-from storage import DATA_DIR, DATABASE_URL, HAS_PSYCOPG2, atomic_write_json, data_path, load_json_file
+from storage import DATA_DIR, DATABASE_URL, HAS_PSYCOPG2, atomic_write_json, data_path
 from storage import get_conn as _storage_get_conn
+from storage import load_json_file
 from storage import put_conn as _storage_put_conn
 from storage import use_db as _storage_use_db
 from work_utils import parse_work_item, parse_works_list, work_title
@@ -17,6 +18,7 @@ from . import admin_reports as engine_admin_reports
 from . import compound_works as engine_compound_works
 from . import correlation as engine_correlation
 from . import db as engine_db
+from . import db_work_catalog
 from . import facade_locks as engine_facade_locks
 from . import facade_settings as engine_facade_settings
 from . import inference as engine_inference
@@ -27,6 +29,7 @@ from . import question_selection as engine_question_selection
 from . import reporting as engine_reporting
 from . import runtime as engine_runtime
 from . import stats as engine_stats
+from . import work_catalog as engine_work_catalog
 from .constants import (
     AXIS_INDIRECT_BONUS,
     EARLY_RANDOM_DEPTH,
@@ -43,12 +46,7 @@ try:
 except ImportError:
     pass
 
-from .data import (
-    DOMAIN_PRIORS,
-    FETISH_PRIOR_WEIGHTS,
-    FETISH_RELATIONS,
-    QUESTION_AXES,
-)
+from .data import DOMAIN_PRIORS, FETISH_PRIOR_WEIGHTS, FETISH_RELATIONS, QUESTION_AXES
 
 
 def _use_db():
@@ -151,6 +149,7 @@ class Engine:
                     os.path.join(DATA_DIR, 'matrix.json'),
                     len(self.questions),
                     atomic_write=self._atomic_write,
+                    work_catalog_path=os.path.join(DATA_DIR, 'work_catalog.json'),
                 )
         if _use_db():
             self._ensure_db()
@@ -209,6 +208,14 @@ class Engine:
                 'yes': [list(row) for row in self.matrix.get('yes', [])],
                 'total': [list(row) for row in self.matrix.get('total', [])],
             }
+
+    def _work_catalog_snapshot(self):
+        with self._lock:
+            if _use_db():
+                return db_work_catalog.load_catalog(get_conn=_get_conn, put_conn=_put_conn)
+            catalog = copy.deepcopy(self._load_json('work_catalog.json'))
+            engine_work_catalog.validate_catalog(catalog)
+            return catalog
 
     def _save_matrix_file(self):
         _acquire_file_engine_process_lock()
@@ -851,10 +858,13 @@ class Engine:
             self._dynamic_prior_time = 0.0
         return missing
 
-    def restore_matrix_snapshot(self, exported_fetishes, matrix_rows):
+    def restore_matrix_snapshot(self, exported_fetishes, matrix_rows, *, work_catalog=None):
         """Restore player fetishes and matrix values as one logical operation."""
         _acquire_file_engine_process_lock()
         with self._lock:
+            if work_catalog is not None:
+                engine_work_catalog.validate_catalog(work_catalog)
+                work_catalog = copy.deepcopy(work_catalog)
             missing = self._sanitize_restored_player_fetishes(exported_fetishes)
             prospective = self.fetishes + missing
             updates, _meta = collect_matrix_updates(prospective, self.questions, matrix_rows)
@@ -886,15 +896,23 @@ class Engine:
                     get_conn=_get_conn,
                     put_conn=_put_conn,
                     execute_values=psycopg2.extras.execute_values,
+                    work_catalog=work_catalog,
                 )
             else:
                 journal_path = os.path.join(DATA_DIR, 'matrix_restore_journal.json')
                 fetishes_path = os.path.join(DATA_DIR, 'fetishes.json')
                 matrix_path = os.path.join(DATA_DIR, 'matrix.json')
+                work_catalog_path = os.path.join(DATA_DIR, 'work_catalog.json')
+                old_work_catalog = self._work_catalog_snapshot() if work_catalog is not None else None
+                before = {'fetishes': old_fetishes, 'matrix': old_matrix}
+                after = {'fetishes': new_fetishes, 'matrix': new_matrix}
+                if work_catalog is not None:
+                    before['work_catalog'] = old_work_catalog
+                    after['work_catalog'] = work_catalog
                 journal = {
-                    'format_version': 1,
-                    'before': {'fetishes': old_fetishes, 'matrix': old_matrix},
-                    'after': {'fetishes': new_fetishes, 'matrix': new_matrix},
+                    'format_version': 2 if work_catalog is not None else 1,
+                    'before': before,
+                    'after': after,
                 }
                 with _settings_file_lock(journal_path):
                     journal_written = False
@@ -911,6 +929,8 @@ class Engine:
                             new_matrix,
                             atomic_write=self._atomic_write,
                         )
+                        if work_catalog is not None:
+                            self._atomic_write(work_catalog_path, work_catalog, ensure_ascii=False, indent=2)
                         engine_persistence.durable_unlink(journal_path)
                     except BaseException:
                         if journal_written:
@@ -925,6 +945,10 @@ class Engine:
                                     old_matrix,
                                     atomic_write=self._atomic_write,
                                 )
+                                if old_work_catalog is not None:
+                                    self._atomic_write(
+                                        work_catalog_path, old_work_catalog, ensure_ascii=False, indent=2
+                                    )
                                 engine_persistence.durable_unlink(journal_path)
                             except BaseException as rollback_error:
                                 raise RuntimeError(

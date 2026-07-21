@@ -1,6 +1,9 @@
+import copy
+
+
 def snapshot_current_matrix(engine, reason, *, data_path, atomic_write_json, time_module, prune_fn, os_module):
     rows = []
-    fetishes = [{'id': fetish['id'], 'name': fetish['name']} for fetish in engine.fetishes]
+    fetishes = copy.deepcopy(engine.fetishes)
     for fetish_index, fetish in enumerate(engine.fetishes):
         for question_index, question in enumerate(engine.questions):
             rows.append(
@@ -13,11 +16,21 @@ def snapshot_current_matrix(engine, reason, *, data_path, atomic_write_json, tim
                     'total': round(engine.matrix['total'][fetish_index][question_index], 4),
                 }
             )
+    created_at = int(time_module.time())
     snapshot = {
-        'created_at': int(time_module.time()),
+        'created_at': created_at,
         'reason': reason,
+        'metadata': {
+            'backup_format_version': 3,
+            'created_at': created_at,
+            'fetish_count': len(fetishes),
+            'question_count': len(engine.questions),
+            'matrix_row_count': len(rows),
+        },
         'fetishes': fetishes,
+        'questions': [dict(question, matrix_index=index) for index, question in enumerate(engine.questions)],
         'matrix_rows': rows,
+        'work_catalog': engine._work_catalog_snapshot(),
     }
     backup_dir = data_path('matrix_import_backups')
     os_module.makedirs(backup_dir, exist_ok=True)
@@ -33,14 +46,17 @@ def expected_rows(engine):
 
 def completeness_error(report, expected_row_count, jsonify):
     if report.get('skipped_rows') != 0 or report.get('valid_rows') != expected_row_count:
-        return jsonify(
-            {
-                'status': 'error',
-                'message': 'matrix_rows は現在の全 fetish/question 組み合わせを含む必要があります',
-                **report,
-                'expected_rows': expected_row_count,
-            }
-        ), 400
+        return (
+            jsonify(
+                {
+                    'status': 'error',
+                    'message': 'matrix_rows は現在の全 fetish/question 組み合わせを含む必要があります',
+                    **report,
+                    'expected_rows': expected_row_count,
+                }
+            ),
+            400,
+        )
     return None
 
 

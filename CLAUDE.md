@@ -242,7 +242,7 @@ gunicorn app:app --workers 2 --threads 4
 
 | ファイル | トリガー | 内容 |
 |---|---|---|
-| `matrix_backup.yml` | 毎日JST11時 / 手動 | v2 matrixバックアップのschema・完全性・鮮度検証、artifact保存、DB期限チェック、通知 |
+| `matrix_backup.yml` | 毎日JST11時 / 手動 | v3 matrix・作品catalogバックアップのschema・完全性・鮮度検証、artifact保存、DB期限チェック、通知 |
 | `restore_matrix.yml` | 手動（`restore`とrun ID入力必須） | 30日以内のartifactを検証して本番DBへ復元。削除済み質問行の無視はboolean入力で明示許可 |
 
 ### DB期限切れ対応フロー（Render無料PostgreSQL）

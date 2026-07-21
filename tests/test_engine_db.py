@@ -364,6 +364,38 @@ class TestEngineDbLoadAndConfigHelpers(unittest.TestCase):
         self.assertEqual(returned, [conn])
 
 
+class TestEngineDbCatalogRestore(unittest.TestCase):
+    def test_restore_matrix_and_catalog_share_one_transaction(self):
+        cursor = FakeCursor()
+        conn = FakeConn(cursor)
+        returned = []
+        inserts = []
+        catalog = {
+            'schema_version': 1,
+            'works_master': [],
+            'work_editions': [],
+            'work_aliases': [],
+            'fetish_work_links': [],
+            'compound_work_links': [],
+            'review_queue': [],
+        }
+        engine_db.restore_matrix_snapshot(
+            [],
+            [{'fetish_id': 1, 'question_id': 0, 'yes': 1, 'total': 2}],
+            get_conn=lambda: conn,
+            put_conn=returned.append,
+            execute_values=lambda cur, sql, rows: inserts.append((cur, sql, list(rows))),
+            work_catalog=catalog,
+        )
+        sql = '\n'.join(statement for statement, _params in cursor.executed)
+        self.assertTrue(conn.entered)
+        self.assertIn('pg_advisory_xact_lock', sql)
+        self.assertIn('DELETE FROM works_master', sql)
+        self.assertEqual(inserts[0][0], cursor)
+        self.assertIn('INSERT INTO matrix', inserts[0][1])
+        self.assertEqual(returned, [conn])
+
+
 class TestEngineDbMutationAdapters(unittest.TestCase):
     def test_insert_fetish_with_matrix_keeps_id_query_and_matrix_insert_contract(self):
         cursor = FakeCursor(fetchone_values=[(10002,)])

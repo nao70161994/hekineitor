@@ -4,12 +4,7 @@ import hashlib
 import re
 from collections import defaultdict
 
-from work_utils import (
-    normalized_work_title,
-    safe_work_url,
-    work_title,
-    work_title_candidate_key,
-)
+from work_utils import normalized_work_title, safe_work_url, work_title, work_title_candidate_key
 
 CATALOG_SCHEMA_VERSION = 1
 _ASIN_RE = re.compile(r'/dp/([A-Z0-9]{10})', re.IGNORECASE)
@@ -250,6 +245,14 @@ def validate_catalog(catalog):
             raise ValueError('work alias references unknown work_id')
         alias_work_ids[alias['alias_id']] = alias['work_id']
 
+    for review in catalog['review_queue']:
+        review_work_ids = review.get('work_ids')
+        if not isinstance(review_work_ids, list) or not set(review_work_ids).issubset(work_ids):
+            raise ValueError('review queue references unknown work_id')
+        target_work_id = review.get('target_work_id')
+        if target_work_id and target_work_id not in work_ids:
+            raise ValueError('review queue target references unknown work_id')
+
     for table in ('fetish_work_links', 'compound_work_links'):
         seen_positions = set()
         for link in catalog[table]:
@@ -263,10 +266,26 @@ def validate_catalog(catalog):
             if alias_id and alias_work_ids.get(alias_id) != work_id:
                 raise ValueError(f'{table} alias does not belong to work')
             owner = (link.get('fetish_id'),) if table == 'fetish_work_links' else (link.get('id_a'), link.get('id_b'))
-            position_key = (*owner, int(link.get('position', -1)))
+            position = int(link.get('position', -1))
+            if position < 0:
+                raise ValueError(f'{table} contains a negative position')
+            if table == 'compound_work_links' and int(link.get('id_a', -1)) >= int(link.get('id_b', -1)):
+                raise ValueError('compound_work_links contains a non-canonical pair')
+            position_key = (*owner, position)
             if position_key in seen_positions:
                 raise ValueError(f'{table} contains duplicate owner position')
             seen_positions.add(position_key)
+    return True
+
+
+def validate_catalog_fetish_references(catalog, fetish_ids):
+    validate_catalog(catalog)
+    known_ids = {int(value) for value in fetish_ids}
+    referenced_ids = {int(link['fetish_id']) for link in catalog['fetish_work_links']}
+    referenced_ids.update(int(link[field]) for link in catalog['compound_work_links'] for field in ('id_a', 'id_b'))
+    missing_ids = sorted(referenced_ids - known_ids)
+    if missing_ids:
+        raise ValueError(f'work catalog references unknown fetish ids: {missing_ids}')
     return True
 
 

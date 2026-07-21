@@ -327,7 +327,7 @@ class ReviewFixTests(unittest.TestCase):
         headers = {'Authorization': f'Basic {credentials}'}
         with patch.dict(os.environ, {'ADMIN_PASS': 'testpass'}):
             exported = client.get('/api/admin/export_matrix', headers=headers).get_json()
-            self.assertEqual(exported['metadata']['backup_format_version'], 2)
+            self.assertEqual(exported['metadata']['backup_format_version'], 3)
             self.assertTrue(exported['questions'])
             legacy = json.loads(json.dumps(exported))
             legacy.pop('questions')
@@ -540,6 +540,22 @@ class ReviewFixTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_matrix_backup.validate(future)
 
+        v3 = json.loads(json.dumps(payload))
+        v3['metadata']['backup_format_version'] = 3
+        v3['work_catalog'] = {
+            'schema_version': 1,
+            'works_master': [],
+            'work_editions': [],
+            'work_aliases': [],
+            'fetish_work_links': [],
+            'compound_work_links': [],
+            'review_queue': [],
+        }
+        self.assertEqual(validate_matrix_backup.validate(v3)['version'], 3)
+        v3.pop('work_catalog')
+        with self.assertRaisesRegex(ValueError, 'work_catalog'):
+            validate_matrix_backup.validate(v3)
+
     def test_matrix_dry_run_rejects_missing_counts_and_unmapped_v2_schema(self):
         app_module.app.config['TESTING'] = True
         client = app_module.app.test_client()
@@ -648,6 +664,42 @@ class ReviewFixTests(unittest.TestCase):
                 self.assertEqual(json.load(source), after['fetishes'])
             with open(matrix_path, encoding='utf-8') as source:
                 self.assertEqual(json.load(source), after['matrix'])
+
+    def test_matrix_restore_journal_v2_rolls_catalog_forward(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            journal_path = os.path.join(tmp, 'journal.json')
+            fetishes_path = os.path.join(tmp, 'fetishes.json')
+            matrix_path = os.path.join(tmp, 'matrix.json')
+            catalog_path = os.path.join(tmp, 'work_catalog.json')
+            empty_catalog = {
+                'schema_version': 1,
+                'works_master': [],
+                'work_editions': [],
+                'work_aliases': [],
+                'fetish_work_links': [],
+                'compound_work_links': [],
+                'review_queue': [],
+            }
+            after_catalog = copy.deepcopy(empty_catalog)
+            snapshot = {
+                'fetishes': [{'id': 1, 'name': 'A'}],
+                'matrix': {'yes': [[1.0]], 'total': [[2.0]]},
+            }
+            before = {**snapshot, 'work_catalog': empty_catalog}
+            after = {**snapshot, 'work_catalog': after_catalog}
+            atomic_write_json(journal_path, {'format_version': 2, 'before': before, 'after': after})
+            self.assertTrue(
+                engine_persistence.recover_matrix_restore(
+                    journal_path,
+                    fetishes_path,
+                    matrix_path,
+                    1,
+                    atomic_write=atomic_write_json,
+                    work_catalog_path=catalog_path,
+                )
+            )
+            with open(catalog_path, encoding='utf-8') as source:
+                self.assertEqual(json.load(source), after_catalog)
 
     def test_sqlite_hot_shard_can_use_the_full_global_capacity(self):
         with tempfile.TemporaryDirectory() as tmp:

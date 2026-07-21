@@ -42,6 +42,33 @@ class TestEnginePersistenceRegression(unittest.TestCase):
             },
         )
 
+    def test_work_catalog_snapshot_uses_valid_deep_local_copy(self):
+        e = minimal_engine()
+        catalog = {
+            'schema_version': 1,
+            'works_master': [],
+            'work_editions': [],
+            'work_aliases': [],
+            'fetish_work_links': [],
+            'compound_work_links': [],
+            'review_queue': [],
+        }
+        e._load_json = lambda name: catalog
+        with patch.object(engine_module, '_use_db', return_value=False):
+            snapshot = e._work_catalog_snapshot()
+        snapshot['works_master'].append({'work_id': 'changed'})
+        self.assertEqual(catalog['works_master'], [])
+
+    def test_work_catalog_snapshot_uses_database_repository(self):
+        e = minimal_engine()
+        expected = {'schema_version': 1}
+        with (
+            patch.object(engine_module, '_use_db', return_value=True),
+            patch.object(engine_module.db_work_catalog, 'load_catalog', return_value=expected) as load_catalog,
+        ):
+            self.assertIs(e._work_catalog_snapshot(), expected)
+        load_catalog.assert_called_once()
+
     def test_validate_matrix_rows_reports_valid_skipped_and_input_counts(self):
         e = minimal_engine()
         report = e.validate_matrix_rows(

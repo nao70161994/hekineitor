@@ -4,6 +4,8 @@ import json
 import math
 from datetime import datetime, timezone
 
+from engine.work_catalog import validate_catalog, validate_catalog_fetish_references
+
 
 def _integer(value, label):
     if isinstance(value, bool):
@@ -32,8 +34,16 @@ def validate(payload, max_age_days=None):
         questions = payload['questions']
         if not isinstance(questions, list) or not questions:
             raise ValueError('questions must be a non-empty list')
-        if version != 2:
-            raise ValueError('question schema requires backup_format_version=2')
+        if version not in (2, 3):
+            raise ValueError('question schema requires backup_format_version=2 or 3')
+        if version == 3:
+            catalog = payload.get('work_catalog')
+            if not isinstance(catalog, dict):
+                raise ValueError('v3 backup requires work_catalog')
+            try:
+                validate_catalog(catalog)
+            except ValueError as exc:
+                raise ValueError(f'invalid work_catalog: {exc}')
         has_questions = True
     else:
         questions = None
@@ -59,6 +69,11 @@ def validate(payload, max_age_days=None):
         if fetish_id in fetish_ids:
             raise ValueError('duplicate fetish id')
         fetish_ids.add(fetish_id)
+    if version == 3:
+        try:
+            validate_catalog_fetish_references(payload['work_catalog'], fetish_ids)
+        except ValueError as exc:
+            raise ValueError(f'invalid work_catalog: {exc}')
 
     question_indexes = set()
     stable_ids = set()
@@ -115,7 +130,7 @@ def validate(payload, max_age_days=None):
             raise ValueError('backup is outside the allowed age')
 
     return {
-        'version': 2 if has_questions else 1,
+        'version': version if has_questions else 1,
         'fetishes': len(fetish_ids),
         'questions': len(question_indexes),
         'rows': len(rows),

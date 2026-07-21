@@ -121,6 +121,24 @@ class WorkCatalogMigrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'duplicate owner position'):
             work_catalog.validate_catalog(duplicate_position)
 
+        broken_review = copy.deepcopy(catalog)
+        broken_review['review_queue'] = [
+            {
+                'review_id': 'wrv_broken',
+                'work_ids': ['wrk_missing'],
+            }
+        ]
+        with self.assertRaisesRegex(ValueError, 'review queue references unknown work_id'):
+            work_catalog.validate_catalog(broken_review)
+
+        negative_position = copy.deepcopy(catalog)
+        negative_position['fetish_work_links'][0]['position'] = -1
+        with self.assertRaisesRegex(ValueError, 'negative position'):
+            work_catalog.validate_catalog(negative_position)
+
+        with self.assertRaisesRegex(ValueError, 'unknown fetish ids'):
+            work_catalog.validate_catalog_fetish_references(catalog, {999})
+
     def test_unsafe_url_is_not_materialized(self):
         catalog = work_catalog.build_catalog_from_inline(
             [{'id': 1, 'works': [{'title': 'A', 'url': 'javascript:alert(1)'}]}]

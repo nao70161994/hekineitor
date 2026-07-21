@@ -65,7 +65,7 @@ Pythonの設定とcoverage閾値は`pyproject.toml`、JavaScriptのcommandと固
 
 - `/health`: ストレージ種別、DB 接続状態、matrix サイズ整合性、バックアップ mtime、起動時刻、エラー件数、保存時刻を返します。
 - `/admin`: 管理画面。`ADMIN_PASS` が未設定の場合は利用できません。
-- `/api/admin/export_matrix`: stable question ID、`matrix_index`、format versionを含むv2 matrix backup JSONを出力します。
+- `/api/admin/export_matrix`: stable question ID、`matrix_index`、format versionと正規化作品catalogを含むv3 backup JSONを出力します。
 - `/api/admin/import_matrix`: backup JSONをatomicに復元します。実行前に現在のmatrixを自動バックアップし、不完全な直積、重複・小数ID、`0 <= yes <= total`を満たさない行を拒否します。
 - `/api/admin/import_matrix/dry_run`: matrix backup JSONを保存せず検証し、変換・無視・保持される行数を返します。
 - `/api/admin/matrix_backups`: import/restore 前バックアップ一覧を返します。

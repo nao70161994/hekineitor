@@ -4,6 +4,8 @@ import math
 import os
 import shutil
 
+from .work_catalog import validate_catalog
+
 
 def valid_matrix_shape(matrix, nf, nq):
     if not isinstance(matrix, dict):
@@ -70,7 +72,9 @@ def durable_unlink(path):
         os.close(dir_fd)
 
 
-def recover_matrix_restore(journal_path, fetishes_path, matrix_path, question_count, *, atomic_write):
+def recover_matrix_restore(
+    journal_path, fetishes_path, matrix_path, question_count, *, atomic_write, work_catalog_path=None
+):
     if not os.path.exists(journal_path):
         return False
     try:
@@ -78,14 +82,25 @@ def recover_matrix_restore(journal_path, fetishes_path, matrix_path, question_co
             journal = json.load(source)
     except (OSError, json.JSONDecodeError) as exc:
         raise RuntimeError('matrix restore journal is unreadable') from exc
-    if not isinstance(journal, dict) or journal.get('format_version') != 1:
+    version = journal.get('format_version') if isinstance(journal, dict) else None
+    if version not in (1, 2):
         raise RuntimeError('matrix restore journal has an unsupported format')
     before = journal.get('before')
     after = journal.get('after')
     if not _valid_restore_snapshot(before, question_count) or not _valid_restore_snapshot(after, question_count):
         raise RuntimeError('matrix restore journal is invalid')
+    if version == 2:
+        if not work_catalog_path:
+            raise RuntimeError('matrix restore journal requires a work catalog path')
+        try:
+            validate_catalog(before.get('work_catalog'))
+            validate_catalog(after.get('work_catalog'))
+        except (AttributeError, TypeError, ValueError) as exc:
+            raise RuntimeError('matrix restore journal has an invalid work catalog') from exc
     atomic_write(fetishes_path, after['fetishes'], ensure_ascii=False, indent=2)
     atomic_write(matrix_path, after['matrix'])
+    if version == 2:
+        atomic_write(work_catalog_path, after['work_catalog'], ensure_ascii=False, indent=2)
     durable_unlink(journal_path)
     return True
 

@@ -2,6 +2,8 @@
 
 import json
 
+from . import db_work_catalog
+
 SAVE_MATRIX_SQL = """
     INSERT INTO matrix (fetish_id, question_id, yes_count, total_count)
     VALUES (%s, %s, %s, %s)
@@ -73,7 +75,7 @@ def import_matrix_rows(updates, idx_map, *, get_conn, put_conn, execute_values):
         put_conn(conn)
 
 
-def restore_matrix_snapshot(fetishes, matrix_rows, *, get_conn, put_conn, execute_values):
+def restore_matrix_snapshot(fetishes, matrix_rows, *, get_conn, put_conn, execute_values, work_catalog=None):
     conn = get_conn()
     try:
         with conn:
@@ -92,6 +94,10 @@ def restore_matrix_snapshot(fetishes, matrix_rows, *, get_conn, put_conn, execut
                         for fetish in fetishes
                     ],
                 )
+            if work_catalog is not None:
+                db_work_catalog.ensure_schema(cur)
+                db_work_catalog.lock_catalog(cur)
+                db_work_catalog.replace_catalog(cur, work_catalog, execute_values=execute_values)
             rows = [
                 (
                     int(row['fetish_id']),

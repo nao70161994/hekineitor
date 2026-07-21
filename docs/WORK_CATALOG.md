@@ -13,7 +13,7 @@
 - `compound_work_links`
 - `review_queue`
 
-現在はshadow catalogとして、既存の`data/fetishes.json`と`data/compound_works.json`から決定的に生成します。
+ローカル/seedではこのファイルが正規化catalogのsnapshotです。PostgreSQLでは同じcollectionを外部キー付きtableへ初回起動時に決定的に移行します。移行判定と全catalog writeは共通のtransaction advisory lockで直列化され、既存catalogがある場合は起動時に置換しません。
 
 ```sh
 PYTHONPATH=. python scripts/build_work_catalog.py --write
@@ -48,3 +48,18 @@ resolverはlinkを表示順に解決し、次の互換shapeを返します。
 - `normalization_conflict`: 複数ASINを持つ候補。必ず人手確認する。
 
 管理者が判断するまでは別`work_id`のまま保持します。
+
+
+## Backup and restore
+
+`/api/admin/export_matrix`とimport/restore前snapshotは`backup_format_version: 3`として、matrix、全fetish metadata、question schema、`work_catalog`を一つのpayloadへ保存します。
+
+- v3 importはcatalogのschemaと参照整合性をwrite前に検証します。
+- PostgreSQLでは不足player fetish、catalog、matrixを同一transactionで復元します。
+- ローカルではrestore journal version 2にcatalogのbefore/afterも保存し、途中停止時は3ファイルを同じ世代へroll-forwardします。
+- 旧v1/v2 matrix backupはcatalogを変更せず、従来どおりimportできます。
+- review queueの`decision`、`target_work_id`、`version`、`updated_at`もDB snapshotとrestoreで保持します。
+
+## Migration safety
+
+初回DB移行はlegacy `fetishes.works`のURL補正後に、同一transaction内でcatalog tableへ展開します。ASINまたは厳密な正規化titleだけを自動identityに使い、緩い候補はreview queueへ残します。存在しないfetish IDや同一ID pairを参照するcompound linkは生成時に拒否します。

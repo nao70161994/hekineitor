@@ -522,6 +522,17 @@ class TestServiceRuntimeAdmin(unittest.TestCase):
             questions = [{'text': 'Q'}]
             matrix = {'yes': [[0.75]], 'total': [[1.0]]}
 
+            def _work_catalog_snapshot(self):
+                return {
+                    'schema_version': 1,
+                    'works_master': [],
+                    'work_editions': [],
+                    'work_aliases': [],
+                    'fetish_work_links': [],
+                    'compound_work_links': [],
+                    'review_queue': [],
+                }
+
         writes = []
         removed = []
 
@@ -575,6 +586,9 @@ class TestServiceRuntimeAdmin(unittest.TestCase):
         path = ops.snapshot_current_matrix('test')
         self.assertEqual(path, 'matrix_import_backups/matrix_before_123000.json')
         self.assertEqual(writes[0][1]['matrix_rows'][0]['fetish_id'], 1)
+        self.assertEqual(writes[0][1]['metadata']['backup_format_version'], 3)
+        self.assertEqual(writes[0][1]['questions'][0]['matrix_index'], 0)
+        self.assertEqual(writes[0][1]['work_catalog']['schema_version'], 1)
         self.assertEqual(removed, ['matrix_import_backups/b0.json'])
         self.assertIsNone(ops.completeness_error({'skipped_rows': 0, 'valid_rows': 1}))
         self.assertEqual(ops.completeness_error({'skipped_rows': 0, 'valid_rows': 0})[1], 400)
@@ -584,6 +598,17 @@ class TestServiceRuntimeAdmin(unittest.TestCase):
             fetishes = [{'id': 1, 'name': 'A'}]
             questions = [{'text': 'Q'}]
             matrix = {'yes': [[0.75]], 'total': [[1.0]]}
+
+            def _work_catalog_snapshot(self):
+                return {
+                    'schema_version': 1,
+                    'works_master': [],
+                    'work_editions': [],
+                    'work_aliases': [],
+                    'fetish_work_links': [],
+                    'compound_work_links': [],
+                    'review_queue': [],
+                }
 
         writes = []
 

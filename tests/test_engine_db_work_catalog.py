@@ -111,6 +111,51 @@ class TestDbWorkCatalog(unittest.TestCase):
             [' '.join(sql.split()) for sql, _params in cursor.executed],
         )
 
+    def test_load_catalog_reads_a_valid_repeatable_snapshot(self):
+        results = iter(
+            [
+                [('wrk_1', 'Work', 'work', '', 'active')],
+                [('wed_1', 'wrk_1', 'B000000001', 'https://www.amazon.co.jp/dp/B000000001', '', 'active')],
+                [],
+                [('fwl_1', 1, 'wrk_1', 'wed_1', None, 0, '', '')],
+                [],
+                [],
+            ]
+        )
+
+        class Cursor:
+            def __init__(self):
+                self.executed = []
+                self.rows = []
+
+            def execute(self, sql, params=None):
+                self.executed.append((sql, params))
+                if not sql.startswith('SET TRANSACTION'):
+                    self.rows = next(results)
+
+            def fetchall(self):
+                return self.rows
+
+        cursor = Cursor()
+
+        class Conn:
+            def cursor(self):
+                return cursor
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+        conn = Conn()
+        returned = []
+        catalog = db_work_catalog.load_catalog(get_conn=lambda: conn, put_conn=returned.append)
+        self.assertEqual(catalog['works_master'][0]['work_id'], 'wrk_1')
+        self.assertEqual(catalog['fetish_work_links'][0]['edition_id'], 'wed_1')
+        self.assertIn('REPEATABLE READ READ ONLY', cursor.executed[0][0])
+        self.assertEqual(returned, [conn])
+
     def test_replace_catalog_deletes_children_before_parents(self):
         cursor = RoutingCursor()
         catalog = {

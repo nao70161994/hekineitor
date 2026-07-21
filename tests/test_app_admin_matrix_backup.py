@@ -14,8 +14,55 @@ class TestAdminMatrixBackup(APITestCase):
         self.assertIn('matrix_rows', data)
         self.assertIn('exported_at', data)
         self.assertIn('metadata', data)
+        self.assertEqual(data['metadata']['backup_format_version'], 3)
+        self.assertEqual(data['work_catalog']['schema_version'], 1)
         self.assertEqual(data['metadata']['matrix_row_count'], len(data['matrix_rows']))
         self.assertGreater(len(data['matrix_rows']), 0)
+
+    def test_v3_backup_requires_a_valid_work_catalog(self):
+        headers = self._admin_headers()
+        exported = self.client.get('/api/admin/export_matrix', headers=headers).get_json()
+        missing = json.loads(json.dumps(exported))
+        missing.pop('work_catalog')
+        response = self.client.post('/api/admin/import_matrix/dry_run', json=missing, headers=headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('work_catalog', response.get_json()['message'])
+
+        broken = json.loads(json.dumps(exported))
+        broken['work_catalog']['fetish_work_links'][0]['work_id'] = 'wrk_missing'
+        response = self.client.post('/api/admin/import_matrix/dry_run', json=broken, headers=headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('work_catalog', response.get_json()['message'])
+
+    def test_import_v3_passes_catalog_to_transactional_restore(self):
+        headers = self._admin_headers()
+        from app import engine as app_engine
+
+        exported = self.client.get('/api/admin/export_matrix', headers=headers).get_json()
+        exported['confirm_text'] = 'IMPORT'
+        snapshot = unittest.mock.Mock(return_value=os.path.join(DATA_DIR, 'matrix_import_backups', 'test.json'))
+        ops = type(
+            'Ops',
+            (),
+            {
+                'snapshot_current_matrix': snapshot,
+                'completeness_error': lambda self, report: None,
+                'expected_rows': lambda self: len(exported['matrix_rows']),
+                'list_backups': lambda self, limit=50: [],
+            },
+        )()
+        with (
+            patch('app._matrix_operations', return_value=ops),
+            patch.object(
+                app_engine,
+                'restore_matrix_snapshot',
+                return_value=(len(exported['matrix_rows']), []),
+            ) as restore,
+        ):
+            response = self.client.post('/api/admin/import_matrix', json=exported, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(restore.call_args.kwargs['work_catalog'], exported['work_catalog'])
+        snapshot.assert_called_once()
 
     def test_import_matrix_rejects_invalid_counts(self):
         headers = self._admin_headers()

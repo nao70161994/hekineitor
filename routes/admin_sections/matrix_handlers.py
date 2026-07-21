@@ -2,6 +2,7 @@
 
 import math
 
+from engine.work_catalog import validate_catalog, validate_catalog_fetish_references
 from matrix_service import matrix_validation_report
 
 
@@ -69,11 +70,19 @@ def _matrix_backup_format_version(payload):
         questions = payload['questions']
         if not isinstance(questions, list) or not questions:
             raise ValueError('questions は空でないリストで指定してください')
-        if version != 2:
-            raise ValueError('questions を含むバックアップは backup_format_version=2 が必要です')
+        if version not in (2, 3):
+            raise ValueError('questions を含むバックアップは backup_format_version=2 または 3 が必要です')
         if 'fetishes' not in payload:
-            raise ValueError('v2バックアップには fetishes が必要です')
-        result = 2
+            raise ValueError('v2/v3バックアップには fetishes が必要です')
+        if version == 3:
+            catalog = payload.get('work_catalog')
+            if not isinstance(catalog, dict):
+                raise ValueError('v3バックアップには work_catalog が必要です')
+            try:
+                validate_catalog(catalog)
+            except ValueError as exc:
+                raise ValueError(f'work_catalog が不正です: {exc}')
+        result = version
     else:
         if version not in (None, 1):
             raise ValueError('未対応の backup_format_version です')
@@ -98,6 +107,11 @@ def _matrix_backup_format_version(payload):
             if not isinstance(name, str) or not name.strip():
                 raise ValueError('fetishes の各要素に空でない name が必要です')
             seen.add(fetish_id)
+    if result == 3:
+        try:
+            validate_catalog_fetish_references(payload['work_catalog'], seen)
+        except ValueError as exc:
+            raise ValueError(f'work_catalog が不正です: {exc}')
     return result
 
 
@@ -264,14 +278,17 @@ def _import_validation_report(ctx, rows, fetishes_to_restore):
 
 def _matrix_import_completeness_error(ctx, report, expected_rows):
     if report.get('skipped_rows') != 0 or report.get('valid_rows') != expected_rows:
-        return ctx.jsonify(
-            {
-                'status': 'error',
-                'message': 'matrix_rows は現在の全 fetish/question 組み合わせを含む必要があります',
-                **report,
-                'expected_rows': expected_rows,
-            }
-        ), 400
+        return (
+            ctx.jsonify(
+                {
+                    'status': 'error',
+                    'message': 'matrix_rows は現在の全 fetish/question 組み合わせを含む必要があります',
+                    **report,
+                    'expected_rows': expected_rows,
+                }
+            ),
+            400,
+        )
     return None
 
 
@@ -302,11 +319,12 @@ def export_matrix(ctx):
                 'fetish_count': len(fetishes),
                 'question_count': len(questions),
                 'matrix_row_count': len(rows),
-                'backup_format_version': 2,
+                'backup_format_version': 3,
             },
             'fetishes': fetishes,
             'questions': [dict(question, matrix_index=index) for index, question in enumerate(questions)],
             'matrix_rows': rows,
+            'work_catalog': ctx.engine._work_catalog_snapshot(),
         },
         ensure_ascii=False,
         indent=2,
@@ -325,7 +343,7 @@ def import_matrix(ctx):
         return ctx.jsonify({'status': 'error', 'message': 'matrix_rows が空です'}), 400
     fetishes_to_restore = _export_player_fetishes_to_restore(ctx, data.get('fetishes'))
     try:
-        _matrix_backup_format_version(data)
+        backup_version = _matrix_backup_format_version(data)
         rows, adaptation = _adapt_matrix_rows_to_current_questions(
             ctx, rows, data.get('questions'), data.get('fetishes'), fetishes_to_restore
         )
@@ -339,7 +357,11 @@ def import_matrix(ctx):
         if confirm_error:
             return confirm_error
         backup_path = ctx.snapshot_current_matrix('before_import_matrix')
-        count, restored_fetishes = ctx.engine.restore_matrix_snapshot(fetishes_to_restore, rows)
+        count, restored_fetishes = ctx.engine.restore_matrix_snapshot(
+            fetishes_to_restore,
+            rows,
+            work_catalog=data.get('work_catalog') if backup_version == 3 else None,
+        )
     except ValueError as exc:
         ctx.write_audit('import_matrix', 'error', {'message': str(exc)}, ctx.request)
         return ctx.jsonify({'status': 'error', 'message': str(exc)}), 400
@@ -426,7 +448,7 @@ def restore_matrix_backup(ctx, name):
         ctx, payload.get('fetishes') if isinstance(payload, dict) else []
     )
     try:
-        _matrix_backup_format_version(payload)
+        backup_version = _matrix_backup_format_version(payload)
         rows, adaptation = _adapt_matrix_rows_to_current_questions(
             ctx,
             rows,
@@ -444,7 +466,11 @@ def restore_matrix_backup(ctx, name):
         if confirm_error:
             return confirm_error
         snapshot = ctx.snapshot_current_matrix('before_restore_matrix_backup')
-        count, restored_fetishes = ctx.engine.restore_matrix_snapshot(fetishes_to_restore, rows)
+        count, restored_fetishes = ctx.engine.restore_matrix_snapshot(
+            fetishes_to_restore,
+            rows,
+            work_catalog=payload.get('work_catalog') if backup_version == 3 else None,
+        )
     except ValueError as exc:
         ctx.write_audit('restore_matrix_backup', 'error', {'name': safe_name, 'message': str(exc)}, ctx.request)
         return ctx.jsonify({'status': 'error', 'message': str(exc)}), 400
