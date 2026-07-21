@@ -108,8 +108,14 @@ class TestEngineMutations(unittest.TestCase):
         self.assertEqual(self.engine.fetishes[keep_idx]['name'], '統合名')
         self.assertEqual(self.engine.matrix['yes'][keep_idx], [a + b for a, b in zip(yes_keep, yes_remove)])
         self.assertEqual(self.engine.matrix['total'][keep_idx], [a + b for a, b in zip(total_keep, total_remove)])
-        after = commit_catalog.call_args.args[1]
-        self.assertEqual(after['fetish_log'][str(id_keep)], {'guessed': 0, 'correct': 0, 'wrong': 0})
+        before, after = commit_catalog.call_args.args
+        keep_log = before['fetish_log'].get(str(id_keep), {})
+        remove_log = before['fetish_log'].get(str(id_remove), {})
+        self.assertEqual(
+            after['fetish_log'][str(id_keep)],
+            {key: keep_log.get(key, 0) + remove_log.get(key, 0) for key in ('guessed', 'correct', 'wrong')},
+        )
+        self.assertNotIn(str(id_remove), after['fetish_log'])
 
     def test_promote_fetish_local_moves_player_id_to_first_free_seed_id(self):
         with (
