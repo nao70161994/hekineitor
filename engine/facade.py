@@ -15,22 +15,24 @@ from storage import put_conn as _storage_put_conn
 from storage import use_db as _storage_use_db
 from work_utils import parse_work_item, parse_works_list, work_title
 
-from . import db_work_catalog
-from . import admin_reports as engine_admin_reports
-from . import compound_works as engine_compound_works
-from . import correlation as engine_correlation
-from . import db as engine_db
-from . import facade_locks as engine_facade_locks
-from . import facade_settings as engine_facade_settings
-from . import inference as engine_inference
-from . import learning as engine_learning
-from . import mutations as engine_mutations
-from . import persistence as engine_persistence
-from . import question_selection as engine_question_selection
-from . import reporting as engine_reporting
-from . import runtime as engine_runtime
-from . import stats as engine_stats
-from . import work_catalog as engine_work_catalog
+from . import (
+    admin_reports as engine_admin_reports,
+    compound_works as engine_compound_works,
+    correlation as engine_correlation,
+    db as engine_db,
+    db_work_catalog,
+    facade_locks as engine_facade_locks,
+    facade_settings as engine_facade_settings,
+    inference as engine_inference,
+    learning as engine_learning,
+    mutations as engine_mutations,
+    persistence as engine_persistence,
+    question_selection as engine_question_selection,
+    reporting as engine_reporting,
+    runtime as engine_runtime,
+    stats as engine_stats,
+    work_catalog as engine_work_catalog,
+)
 from .constants import (
     AXIS_INDIRECT_BONUS,
     EARLY_RANDOM_DEPTH,

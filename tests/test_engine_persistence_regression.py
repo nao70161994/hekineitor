@@ -7,8 +7,7 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import engine as engine_module
-from engine import Engine
-from engine import work_catalog
+from engine import Engine, work_catalog
 
 
 def minimal_engine():
