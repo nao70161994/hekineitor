@@ -15,6 +15,8 @@ window.HekiShare = (() => {
       channel: options.channel || '',
       success: Object.prototype.hasOwnProperty.call(options, 'success') ? options.success : null,
       work_title: options.workTitle || '',
+      work_id: options.workId || '',
+      edition_id: options.editionId || '',
       page: options.page || '',
     };
     try {
@@ -159,6 +161,8 @@ document.addEventListener('click', event => {
     channel: link.dataset.workChannel || 'work',
     success: true,
     workTitle: link.dataset.workTitle || link.textContent || '',
+    workId: link.dataset.workId || '',
+    editionId: link.dataset.editionId || '',
     page: link.dataset.workPage || '',
   });
 }, {capture: true});

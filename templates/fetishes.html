@@ -90,7 +90,7 @@ h1 { color:#e94560; font-size:1.55rem; line-height:1.35; margin-bottom:8px; }
         {% for w in f.works %}
           {% if loop.index > 1 %} / {% endif %}
           {% if w.url %}
-          <a class="work-link" href="{{ w.url }}" target="_blank" rel="noopener sponsored" data-work-title="{{ w.title }}" data-result-name="{{ f.name }}" data-work-channel="fetishes_list" data-work-page="fetishes_list">{{ w.title }}</a>
+          <a class="work-link" href="{{ w.url }}" target="_blank" rel="noopener sponsored" data-work-title="{{ w.title }}" data-work-id="{{ w.work_id or '' }}" data-edition-id="{{ w.edition_id or '' }}" data-result-name="{{ f.name }}" data-work-channel="fetishes_list" data-work-page="fetishes_list">{{ w.title }}</a>
           {% else %}
           <span class="work-text">{{ w.title }}</span>
           {% endif %}

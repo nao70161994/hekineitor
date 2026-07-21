@@ -145,6 +145,17 @@ def compute_guess(ctx, answers):
     cross_works = []
     merged_works = []
 
+    def fetish_works(fetish_id):
+        provider = getattr(engine, 'get_recommended_works', None)
+        if callable(provider):
+            return provider(fetish_id)
+        fetish_index = engine.index_of(fetish_id) if hasattr(engine, 'index_of') else None
+        if fetish_index is None:
+            fetish_index = next(
+                (index for index, fetish in enumerate(engine.fetishes) if fetish.get('id') == fetish_id), None
+            )
+        return engine.fetishes[fetish_index].get('works', []) if fetish_index is not None else []
+
     def add_work(work, target):
         title = ctx.work_title(work)
         if title and title not in seen_titles:
@@ -161,12 +172,12 @@ def compute_guess(ctx, answers):
                 for work in ctx.get_compound_works(compound_ids[i], compound_ids[j]):
                     add_work(work, cross_works)
 
-    for work in best_f.get('works', []):
+    for work in fetish_works(best_db):
         add_work(work, merged_works)
     for item in compound:
         candidate_index = engine.index_of(item['fetish_id'])
         if candidate_index is not None:
-            for work in engine.fetishes[candidate_index].get('works', []):
+            for work in fetish_works(item['fetish_id']):
                 add_work(work, merged_works)
 
     return {

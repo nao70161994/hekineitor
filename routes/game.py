@@ -938,6 +938,8 @@ def share_event(ctx):
         channel=data.get('channel', ''),
         success=data.get('success') if 'success' in data else None,
         work_title=data.get('work_title', ''),
+        work_id=data.get('work_id', ''),
+        edition_id=data.get('edition_id', ''),
         page=data.get('page', ''),
     )
     return ctx.jsonify({'status': 'ok', 'recorded': bool(event)})

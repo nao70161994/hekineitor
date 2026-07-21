@@ -79,6 +79,8 @@ EXPECTED_PUBLIC_METHOD_SIGNATURES = {
     'promote_fetish': '(self, old_id)',
     'capture_learned_priors': '(self)',
     'get_related': '(self, fetish_id)',
+    'get_recommended_works': '(self, fetish_id)',
+    'get_compound_recommended_works': '(self, id_a, id_b)',
 }
 
 EXPECTED_STATE_ATTRIBUTES = {

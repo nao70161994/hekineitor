@@ -17,6 +17,16 @@ describe('HekiRenderers screen transitions', () => {
     window.eval(source);
   });
 
+  it('renders stable work identity attributes', () => {
+    const html = window.HekiRenderers.renderWorkTag(
+      {title: 'Work', url: 'https://example.test/work', work_id: 'wrk_1', edition_id: 'wed_1'},
+      '',
+      {escapeHtml: String, safeExternalUrl: String, resultName: 'Result'},
+    );
+    expect(html).toContain('data-work-id="wrk_1"');
+    expect(html).toContain('data-edition-id="wed_1"');
+  });
+
   it.each([
     ['question-screen', 'question-text'],
     ['result-screen', 'result-name'],

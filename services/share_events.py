@@ -62,7 +62,18 @@ def _clean_bool(value):
     return bool(value)
 
 
-def build_event(event_name, *, result_name='', channel='', success=None, work_title='', page='', now_fn=None):
+def build_event(
+    event_name,
+    *,
+    result_name='',
+    channel='',
+    success=None,
+    work_title='',
+    work_id='',
+    edition_id='',
+    page='',
+    now_fn=None,
+):
     event_name = _clean_text(event_name, 40)
     channel = _clean_text(channel, 32)
     if event_name not in _ALLOWED_EVENTS:
@@ -80,6 +91,10 @@ def build_event(event_name, *, result_name='', channel='', success=None, work_ti
     clean_work_title = _clean_result_name(work_title, 100)
     if clean_work_title:
         event['work_title'] = clean_work_title
+    for field, value in (('work_id', work_id), ('edition_id', edition_id)):
+        clean_id = _clean_text(value, 64)
+        if clean_id and re.fullmatch(r'[A-Za-z0-9_-]+', clean_id):
+            event[field] = clean_id
     clean_page = _clean_text(page, 40)
     if clean_page:
         event['page'] = clean_page
@@ -108,6 +123,8 @@ def record_event(
     channel='',
     success=None,
     work_title='',
+    work_id='',
+    edition_id='',
     page='',
     path=None,
     environ=None,
@@ -120,6 +137,8 @@ def record_event(
         channel=channel,
         success=success,
         work_title=work_title,
+        work_id=work_id,
+        edition_id=edition_id,
         page=page,
         now_fn=now_fn,
     )
@@ -405,13 +424,18 @@ def work_ranking(events, limit=20, allowed_result_names=None):
         result_name = _clean_result_name(event.get('result_name'), 80)
         if result_name and not _is_allowed_result_name(result_name, allowed_names):
             continue
-        key = (title, result_name, _clean_text(event.get('channel'), 32))
+        work_id = _clean_text(event.get('work_id'), 64)
+        edition_id = _clean_text(event.get('edition_id'), 64)
+        identity = work_id or f'title:{title}'
+        key = (identity, edition_id, result_name, _clean_text(event.get('channel'), 32))
         row = ranking.setdefault(
             key,
             {
+                'work_id': work_id,
+                'edition_id': edition_id,
                 'work_title': title,
-                'result_name': key[1],
-                'channel': key[2],
+                'result_name': key[2],
+                'channel': key[3],
                 'clicks': 0,
             },
         )

@@ -224,6 +224,8 @@ class TestShareAndSEO(APITestCase):
                         'channel': 'work',
                         'success': True,
                         'work_title': 'おすすめ作品',
+                        'work_id': 'wrk_example-1',
+                        'edition_id': 'wed_example-1',
                         'page': 'result_works',
                         'url': 'https://example.com/secret',
                     },
@@ -233,6 +235,8 @@ class TestShareAndSEO(APITestCase):
             event = share_events_service.read_events(path=path, limit=10)[0]
         self.assertEqual(event['event_name'], 'work_click')
         self.assertEqual(event['work_title'], 'おすすめ作品')
+        self.assertEqual(event['work_id'], 'wrk_example-1')
+        self.assertEqual(event['edition_id'], 'wed_example-1')
         self.assertEqual(event['page'], 'result_works')
         self.assertNotIn('url', event)
         self.assertNotIn('ip', event)
@@ -321,16 +325,22 @@ class TestShareAndSEO(APITestCase):
         from app import BOOTSTRAP
         from app import engine as app_engine
 
-        original_works = app_engine.fetishes[0].get('works', [])
+        fid = app_engine.fetishes[0]['id']
+        original_provider = app_engine.get_recommended_works
+        test_works = [
+            {'title': 'ListDirect', 'url': 'https://www.amazon.co.jp/dp/B000000000'},
+            'ListSearch',
+            {'title': 'UnsafeList', 'url': 'javascript:alert(1)'},
+        ]
         original_associate_id = BOOTSTRAP.amazon_associate_id
         try:
             BOOTSTRAP.amazon_associate_id = 'hekinator-22'
-            app_engine.fetishes[0]['works'] = [
-                {'title': 'ListDirect', 'url': 'https://www.amazon.co.jp/dp/B000000000'},
-                'ListSearch',
-                {'title': 'UnsafeList', 'url': 'javascript:alert(1)'},
-            ]
-            res = self.client.get('/fetishes')
+            with patch.object(
+                app_engine,
+                'get_recommended_works',
+                side_effect=lambda fetish_id: test_works if fetish_id == fid else original_provider(fetish_id),
+            ):
+                res = self.client.get('/fetishes')
             self.assertEqual(res.status_code, 200)
             body = res.data.decode('utf-8')
             self.assertIn('href="https://www.amazon.co.jp/dp/B000000000?tag=hekinator-22"', body)
@@ -340,7 +350,6 @@ class TestShareAndSEO(APITestCase):
             self.assertIn('rel="noopener sponsored"', body)
         finally:
             BOOTSTRAP.amazon_associate_id = original_associate_id
-            app_engine.fetishes[0]['works'] = original_works
 
     def test_stats_page_has_seo_metadata(self):
         res = self.client.get('/stats')
@@ -388,12 +397,11 @@ class TestShareAndSEO(APITestCase):
         from app import engine as app_engine
 
         fid = app_engine.fetishes[0]['id']
-        original_works = app_engine.fetishes[0].get('works', [])
         original_associate_id = BOOTSTRAP.amazon_associate_id
         try:
             BOOTSTRAP.amazon_associate_id = 'hekinator-22'
-            app_engine.fetishes[0]['works'] = []
-            res = self.client.get(f'/fetish/{fid}')
+            with patch.object(app_engine, 'get_recommended_works', return_value=[]):
+                res = self.client.get(f'/fetish/{fid}')
             self.assertEqual(res.status_code, 200)
             body = res.data.decode('utf-8')
             self.assertNotIn('<h2 class="section-title">おすすめ作品</h2>', body)
@@ -406,23 +414,22 @@ class TestShareAndSEO(APITestCase):
             )
         finally:
             BOOTSTRAP.amazon_associate_id = original_associate_id
-            app_engine.fetishes[0]['works'] = original_works
 
     def test_fetish_detail_drops_unsafe_work_url(self):
         from app import engine as app_engine
 
         fid = app_engine.fetishes[0]['id']
-        original_works = app_engine.fetishes[0].get('works', [])
-        try:
-            app_engine.fetishes[0]['works'] = [{'title': 'Unsafe', 'url': 'javascript:alert(1)'}]
+        with patch.object(
+            app_engine,
+            'get_recommended_works',
+            return_value=[{'title': 'Unsafe', 'url': 'javascript:alert(1)'}],
+        ):
             res = self.client.get(f'/fetish/{fid}')
-            self.assertEqual(res.status_code, 200)
-            body = res.data.decode('utf-8')
-            self.assertIn('Unsafe', body)
-            self.assertNotIn('javascript:alert', body)
-            self.assertNotIn('href=""', body)
-        finally:
-            app_engine.fetishes[0]['works'] = original_works
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        self.assertIn('Unsafe', body)
+        self.assertNotIn('javascript:alert', body)
+        self.assertNotIn('href=""', body)
 
     def test_fetish_detail_uses_feedback_accuracy(self):
         from app import engine as app_engine

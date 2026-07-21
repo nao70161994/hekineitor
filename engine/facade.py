@@ -1,4 +1,5 @@
 import copy
+import logging
 import os
 import threading
 import time
@@ -14,11 +15,11 @@ from storage import put_conn as _storage_put_conn
 from storage import use_db as _storage_use_db
 from work_utils import parse_work_item, parse_works_list, work_title
 
+from . import db_work_catalog
 from . import admin_reports as engine_admin_reports
 from . import compound_works as engine_compound_works
 from . import correlation as engine_correlation
 from . import db as engine_db
-from . import db_work_catalog
 from . import facade_locks as engine_facade_locks
 from . import facade_settings as engine_facade_settings
 from . import inference as engine_inference
@@ -171,6 +172,9 @@ class Engine:
         self._question_balance_time = 0.0
         self.config = self._load_config()
         self._settings_config_snapshot = copy.deepcopy(self.config)
+        self._work_catalog_cache = None
+        self._work_catalog_cache_time = 0.0
+        self._work_catalog_failure_time = 0.0
 
     # ── JSON ローカル ──────────────────────────────────────
     def _load_json(self, fname):
@@ -216,6 +220,49 @@ class Engine:
             catalog = copy.deepcopy(self._load_json('work_catalog.json'))
             engine_work_catalog.validate_catalog(catalog)
             return catalog
+
+    def _materialized_work_catalog(self):
+        now = time.monotonic()
+        cached = getattr(self, '_work_catalog_cache', None)
+        if cached is not None and now - getattr(self, '_work_catalog_cache_time', 0.0) < 5.0:
+            return cached
+        if now - getattr(self, '_work_catalog_failure_time', 0.0) < 5.0:
+            return None
+        try:
+            catalog = self._work_catalog_snapshot()
+            materialized = (
+                engine_work_catalog.materialize_fetish_works(catalog),
+                engine_work_catalog.materialize_compound_works(catalog),
+            )
+        except Exception:
+            logging.getLogger(__name__).exception('work catalog unavailable; using legacy recommendation fallback')
+            self._work_catalog_failure_time = now
+            return None
+        self._work_catalog_cache = materialized
+        self._work_catalog_cache_time = now
+        self._work_catalog_failure_time = 0.0
+        return materialized
+
+    def _invalidate_work_catalog_cache(self):
+        self._work_catalog_cache = None
+        self._work_catalog_cache_time = 0.0
+        self._work_catalog_failure_time = 0.0
+
+    def get_recommended_works(self, fetish_id):
+        materialized = self._materialized_work_catalog()
+        if materialized is not None:
+            return copy.deepcopy(materialized[0].get(int(fetish_id), []))
+        fetish_index = self.index_of(int(fetish_id))
+        if fetish_index is None:
+            return []
+        return copy.deepcopy(self.fetishes[fetish_index].get('works') or [])
+
+    def get_compound_recommended_works(self, id_a, id_b):
+        materialized = self._materialized_work_catalog()
+        if materialized is not None:
+            key = f'{min(int(id_a), int(id_b))},{max(int(id_a), int(id_b))}'
+            return copy.deepcopy(materialized[1].get(key, []))
+        return copy.deepcopy(get_compound_works(id_a, id_b))
 
     def _save_matrix_file(self):
         _acquire_file_engine_process_lock()
@@ -957,6 +1004,8 @@ class Engine:
                         raise
             self.fetishes = new_fetishes
             self.matrix = new_matrix
+            if work_catalog is not None:
+                self._invalidate_work_catalog_cache()
             self._disc_cache = None
             self._dynamic_prior_time = 0.0
             return sum(len(value) for value in updates.values()), missing

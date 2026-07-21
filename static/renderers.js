@@ -25,8 +25,10 @@ window.HekiRenderers = (() => {
     const safeUrl = safeExternalUrl(url);
     if (safeUrl) {
       const resultName = helpers.resultName || '';
+      const workId = (typeof work === 'object' && work !== null && work.work_id) ? work.work_id : '';
+      const editionId = (typeof work === 'object' && work !== null && work.edition_id) ? work.edition_id : '';
       const page = extraClass === 'cross' ? 'result_cross_works' : 'result_works';
-      return `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener sponsored" class="${escapeHtml(className)}" data-work-title="${escapeHtml(title)}" data-result-name="${escapeHtml(resultName)}" data-work-channel="work" data-work-page="${escapeHtml(page)}">${escapeHtml(title)}</a>`;
+      return `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener sponsored" class="${escapeHtml(className)}" data-work-title="${escapeHtml(title)}" data-work-id="${escapeHtml(workId)}" data-edition-id="${escapeHtml(editionId)}" data-result-name="${escapeHtml(resultName)}" data-work-channel="work" data-work-page="${escapeHtml(page)}">${escapeHtml(title)}</a>`;
     }
     return `<span class="${escapeHtml(className)}">${escapeHtml(title)}</span>`;
   }

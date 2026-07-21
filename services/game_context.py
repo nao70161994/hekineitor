@@ -44,7 +44,7 @@ def build(
             engine=engine,
             session=session,
             work_title=work_title,
-            get_compound_works=get_compound_works,
+            get_compound_works=getattr(engine, 'get_compound_recommended_works', get_compound_works),
             profile_min_ratio=PROFILE_MIN_RATIO,
             profile_min_prob=PROFILE_MIN_PROB,
             compound_ratio=COMPOUND_RATIO,

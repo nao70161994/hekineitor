@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import engine as engine_module
 from engine import Engine
+from engine import work_catalog
 
 
 def minimal_engine():
@@ -68,6 +69,39 @@ class TestEnginePersistenceRegression(unittest.TestCase):
         ):
             self.assertIs(e._work_catalog_snapshot(), expected)
         load_catalog.assert_called_once()
+
+    def test_recommended_works_are_catalog_first_without_legacy_mixing(self):
+        e = minimal_engine()
+        e.fetishes[0]['works'] = ['legacy A']
+        e.fetishes[1]['works'] = ['legacy B']
+        catalog = work_catalog.build_catalog_from_inline(
+            [
+                {
+                    'id': 10,
+                    'works': [
+                        {
+                            'title': 'Catalog A',
+                            'url': 'https://www.amazon.co.jp/dp/B000000001',
+                        }
+                    ],
+                },
+                {'id': 20, 'works': []},
+            ]
+        )
+        e._work_catalog_snapshot = lambda: catalog
+        works = e.get_recommended_works(10)
+        self.assertEqual(works[0]['title'], 'Catalog A')
+        self.assertTrue(works[0]['work_id'].startswith('wrk_'))
+        works[0]['title'] = 'mutated'
+        self.assertEqual(e.get_recommended_works(10)[0]['title'], 'Catalog A')
+        self.assertEqual(e.get_recommended_works(20), [])
+
+    def test_recommended_works_fall_back_to_legacy_when_catalog_is_unavailable(self):
+        e = minimal_engine()
+        e.fetishes[0]['works'] = ['legacy A']
+        e._work_catalog_snapshot = lambda: (_ for _ in ()).throw(ValueError('unavailable'))
+        with self.assertLogs('engine.facade', level='ERROR'):
+            self.assertEqual(e.get_recommended_works(10), ['legacy A'])
 
     def test_validate_matrix_rows_reports_valid_skipped_and_input_counts(self):
         e = minimal_engine()

@@ -74,13 +74,21 @@ def work_link(ctx, work):
     if url and ctx.amazon_associate_id and 'tag=' not in url:
         separator = '&' if '?' in url else '?'
         url = url + f'{separator}tag={urllib.parse.quote(ctx.amazon_associate_id)}'
-    return {'title': title, 'url': url, 'fallback': False}
+    return {
+        'title': title,
+        'url': url,
+        'work_id': work.get('work_id', '') if isinstance(work, dict) else '',
+        'edition_id': work.get('edition_id', '') if isinstance(work, dict) else '',
+        'fallback': False,
+    }
 
 
 def fallback_work_link(ctx, fetish_name):
     return {
         'title': f'{fetish_name}の関連作品を探す',
         'url': affiliate_search_url(ctx, fetish_name),
+        'work_id': '',
+        'edition_id': '',
         'fallback': True,
     }
 
@@ -93,6 +101,11 @@ def work_links(ctx, works, fallback_name=None):
     return links
 
 
+def recommended_works(engine, fetish):
+    provider = getattr(engine, 'get_recommended_works', None)
+    return provider(fetish['id']) if callable(provider) else fetish.get('works') or []
+
+
 def fetish_index(ctx):
     base_url = ctx.public_base_url()
     fetish_log = ctx.engine.get_fetish_log()
@@ -101,7 +114,7 @@ def fetish_index(ctx):
         if fetish['id'] >= ctx.player_fetish_base_id:
             continue
         category, category_label = _dominant_fetish_category(ctx.engine, fetish_index)
-        works = work_links(ctx, (fetish.get('works') or [])[:3])
+        works = work_links(ctx, recommended_works(ctx.engine, fetish)[:3])
         log = fetish_log.get(fetish['id'], {'guessed': 0, 'correct': 0, 'wrong': 0})
         rows.append(
             {
@@ -146,9 +159,12 @@ def fetish_index(ctx):
 def fetish_detail(ctx, fetish_id):
     idx = ctx.engine.index_of(fetish_id)
     if idx is None:
-        return ctx.error_page.format(
-            title='見つかりません', emoji='🔍', code='404', message='その性癖は存在しないか、削除されました。'
-        ), 404
+        return (
+            ctx.error_page.format(
+                title='見つかりません', emoji='🔍', code='404', message='その性癖は存在しないか、削除されました。'
+            ),
+            404,
+        )
     fetish = ctx.engine.fetishes[idx]
 
     related = []
@@ -157,7 +173,7 @@ def fetish_detail(ctx, fetish_id):
         if related_idx is not None:
             related.append({'id': related_id, 'name': ctx.engine.fetishes[related_idx]['name']})
 
-    works = work_links(ctx, fetish.get('works'))
+    works = work_links(ctx, recommended_works(ctx.engine, fetish))
     fallback_work = fallback_work_link(ctx, fetish['name']) if not works else None
 
     char_qs = []
@@ -259,9 +275,12 @@ def result_share_by_id(ctx, share_id):
             return limited
     payload = share_links.resolve_link(share_id, environ=ctx.environ)
     if not payload:
-        return ctx.error_page.format(
-            title='見つかりません', emoji='🔍', code='404', message='共有リンクが存在しないか、期限切れです。'
-        ), 404
+        return (
+            ctx.error_page.format(
+                title='見つかりません', emoji='🔍', code='404', message='共有リンクが存在しないか、期限切れです。'
+            ),
+            404,
+        )
     name = payload.get('name', '')[:60]
     probability = ctx.clean_probability(payload.get('probability', ''))
     desc = payload.get('desc', '')[:120]

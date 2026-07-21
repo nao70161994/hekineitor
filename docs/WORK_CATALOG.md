@@ -40,6 +40,8 @@ resolverはlinkを表示順に解決し、次の互換shapeを返します。
 
 `title`と`url`は従来の推薦表示、SEO、affiliate linkを維持します。新しいIDは管理・分析・重複排除に使います。
 
+公開結果とSEOはcatalogを優先して読み、catalog全体を読めない場合だけlegacy inline dataへfallbackします。同じownerについてcatalogとlegacyを結合しません。materialized IDは結果JSON、作品linkのDOM属性、クリックeventへ渡され、旧eventはtitle identityで集計できます。
+
 ## Review policy
 
 `review_queue`は緩いタイトル正規化で近い候補を示すだけで、自動mergeはしません。

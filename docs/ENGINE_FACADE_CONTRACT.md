@@ -113,6 +113,8 @@ The following public `Engine` methods are route/script contract. Their names, ca
 - `promote_fetish(old_id)` -> new id or `None`.
 - `capture_learned_priors()` -> snapshot side effect.
 - `get_related(fetish_id)` -> related fetish ids/names.
+- `get_recommended_works(fetish_id)` -> catalog-first normalized work links; legacy inline fallback only when the catalog is unavailable.
+- `get_compound_recommended_works(id_a, id_b)` -> catalog-first normalized pair links with the same fallback rule.
 
 ## Package Conversion Rules
 

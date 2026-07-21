@@ -516,6 +516,31 @@ class TestServiceEvents(unittest.TestCase):
         self.assertEqual(direct['work_ranking'][0]['work_title'], '作品A')
         self.assertEqual(direct['work_ranking'][0]['clicks'], 2)
 
+    def test_work_ranking_uses_stable_ids_and_keeps_title_fallback(self):
+        events = [
+            {
+                'event_name': 'work_click',
+                'work_id': 'wrk_1',
+                'edition_id': 'wed_1',
+                'work_title': 'Old title',
+            },
+            {
+                'event_name': 'work_click',
+                'work_id': 'wrk_1',
+                'edition_id': 'wed_1',
+                'work_title': 'New title',
+            },
+            {'event_name': 'work_click', 'work_title': 'Legacy title'},
+            {'event_name': 'work_click', 'work_title': 'Legacy title'},
+        ]
+        ranking = share_events.work_ranking(events)
+        stable = next(row for row in ranking if row['work_id'] == 'wrk_1')
+        legacy = next(row for row in ranking if not row['work_id'])
+        self.assertEqual(stable['clicks'], 2)
+        self.assertEqual(stable['edition_id'], 'wed_1')
+        self.assertEqual(legacy['work_title'], 'Legacy title')
+        self.assertEqual(legacy['clicks'], 2)
+
     def test_share_events_result_ranking_groups_by_result_name(self):
         events = [
             {'result_name': 'A', 'event_name': 'share_button_click'},
