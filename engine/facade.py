@@ -19,7 +19,6 @@ from . import admin_reports as engine_admin_reports
 from . import compound_works as engine_compound_works
 from . import correlation as engine_correlation
 from . import db as engine_db
-from . import db_work_catalog as engine_db_work_catalog
 from . import facade_locks as engine_facade_locks
 from . import facade_settings as engine_facade_settings
 from . import inference as engine_inference
@@ -216,7 +215,7 @@ class Engine:
     def _work_catalog_snapshot(self):
         with self._lock:
             if _use_db():
-                return engine_db_work_catalog.load_catalog(get_conn=_get_conn, put_conn=_put_conn)
+                return engine_db.db_work_catalog.load_catalog(get_conn=_get_conn, put_conn=_put_conn)
             catalog = copy.deepcopy(self._load_json('work_catalog.json'))
             engine_work_catalog.validate_catalog(catalog)
             return catalog
