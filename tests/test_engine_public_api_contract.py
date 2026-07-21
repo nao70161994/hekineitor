@@ -81,6 +81,9 @@ EXPECTED_PUBLIC_METHOD_SIGNATURES = {
     'get_related': '(self, fetish_id)',
     'get_recommended_works': '(self, fetish_id)',
     'get_compound_recommended_works': '(self, id_a, id_b)',
+    'list_compound_work_rows': '(self)',
+    'set_compound_work_rows': '(self, id_a, id_b, works)',
+    'delete_compound_work_rows': '(self, id_a, id_b)',
 }
 
 EXPECTED_STATE_ATTRIBUTES = {

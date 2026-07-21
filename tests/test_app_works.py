@@ -24,6 +24,14 @@ class TestCompoundWorks(FileSnapshotMixin, unittest.TestCase):
         em._COMPOUND_WORKS = {}
         self._save_patch.stop()
 
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        from app import engine as app_engine
+
+        app_engine.fetishes = app_engine._load_json('fetishes.json')
+        app_engine._invalidate_work_catalog_cache()
+
     def _admin_read_headers(self):
         return {'Authorization': 'Bearer read-token'}
 

@@ -59,14 +59,16 @@ class TestEngineMutations(unittest.TestCase):
         original_desc = self.engine.fetishes[0]['desc']
         with (
             patch.object(engine_module, '_use_db', return_value=False),
-            patch.object(self.engine, '_save_fetishes_file', return_value=None) as save_fetishes,
+            patch.object(self.engine, '_commit_local_work_catalog_state', return_value=None) as commit_catalog,
         ):
             ok = self.engine.edit_fetish(self.engine.fetishes[0]['id'], name='編集名', works=['W'])
         self.assertTrue(ok)
         self.assertEqual(self.engine.fetishes[0]['name'], '編集名')
         self.assertEqual(self.engine.fetishes[0]['desc'], original_desc)
         self.assertEqual(self.engine.fetishes[0]['works'], ['W'])
-        save_fetishes.assert_called_once_with()
+        commit_catalog.assert_called_once()
+        before, after = commit_catalog.call_args.args
+        self.assertNotEqual(before['work_catalog'], after['work_catalog'])
 
     def test_delete_fetish_local_rejects_seed_and_removes_player_rows(self):
         seed_id = self.engine.fetishes[0]['id']
