@@ -1459,9 +1459,7 @@ def edit_fetish(ctx, fetish_id):
         {
             'fetish_id': fetish_id,
             'updated_fields': [
-                field
-                for field, value in (('name', name), ('desc', desc), ('works', works))
-                if value is not None
+                field for field, value in (('name', name), ('desc', desc), ('works', works)) if value is not None
             ],
             'work_count': len(works) if works is not None else None,
         },

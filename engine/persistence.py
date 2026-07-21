@@ -129,9 +129,7 @@ def _validate_work_catalog_mutation_snapshot(snapshot):
     return True
 
 
-def recover_work_catalog_mutation(
-    journal_path, fetishes_path, compound_path, catalog_path, *, atomic_write
-):
+def recover_work_catalog_mutation(journal_path, fetishes_path, compound_path, catalog_path, *, atomic_write):
     if not os.path.exists(journal_path):
         return False
     try:

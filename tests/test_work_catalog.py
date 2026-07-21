@@ -147,7 +147,6 @@ class WorkCatalogMigrationTests(unittest.TestCase):
         self.assertEqual(materialized[1][0]['url'], '')
         self.assertIsNone(materialized[1][0]['edition_id'])
 
-
     def test_replace_fetish_works_only_replaces_target_owner(self):
         original = work_catalog.build_catalog_from_inline(
             [

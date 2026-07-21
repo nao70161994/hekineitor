@@ -428,9 +428,7 @@ def _register_catalog_work(editor, raw_work):
         candidate_titles = {
             row['canonical_title'] for row in updated['works_master'] if row['work_id'] in candidate_ids
         }
-        candidate_titles.update(
-            row['alias'] for row in updated['work_aliases'] if row['work_id'] in candidate_ids
-        )
+        candidate_titles.update(row['alias'] for row in updated['work_aliases'] if row['work_id'] in candidate_ids)
         asins = sorted({row.get('asin') for row in candidate_editions if row.get('asin')})
         review = next((row for row in updated['review_queue'] if row['review_id'] == review_id), None)
         if candidate_key and review is None:
@@ -461,9 +459,7 @@ def _sort_catalog_rows(catalog):
         ('review_queue', 'review_id'),
     ):
         catalog[collection].sort(key=lambda row: row[id_field])
-    catalog['fetish_work_links'].sort(
-        key=lambda row: (int(row['fetish_id']), int(row['position']), row['link_id'])
-    )
+    catalog['fetish_work_links'].sort(key=lambda row: (int(row['fetish_id']), int(row['position']), row['link_id']))
     catalog['compound_work_links'].sort(
         key=lambda row: (int(row['id_a']), int(row['id_b']), int(row['position']), row['link_id'])
     )
@@ -474,14 +470,8 @@ def replace_fetish_works(catalog, fetish_id, raw_works):
     editor = _catalog_editor(catalog)
     updated = editor[0]
     fetish_id = int(fetish_id)
-    previous_links = {
-        row['link_id']: row
-        for row in updated['fetish_work_links']
-        if int(row['fetish_id']) == fetish_id
-    }
-    updated['fetish_work_links'] = [
-        row for row in updated['fetish_work_links'] if int(row['fetish_id']) != fetish_id
-    ]
+    previous_links = {row['link_id']: row for row in updated['fetish_work_links'] if int(row['fetish_id']) == fetish_id}
+    updated['fetish_work_links'] = [row for row in updated['fetish_work_links'] if int(row['fetish_id']) != fetish_id]
     identities = set()
     for position, raw_work in enumerate(raw_works or []):
         work_id, edition_id, alias_id = _register_catalog_work(editor, raw_work)
@@ -521,9 +511,7 @@ def replace_compound_works(catalog, id_a, id_b, raw_works):
         if (int(row['id_a']), int(row['id_b'])) == (id_a, id_b)
     }
     updated['compound_work_links'] = [
-        row
-        for row in updated['compound_work_links']
-        if (int(row['id_a']), int(row['id_b'])) != (id_a, id_b)
+        row for row in updated['compound_work_links'] if (int(row['id_a']), int(row['id_b'])) != (id_a, id_b)
     ]
     identities = set()
     for position, raw_work in enumerate(raw_works or []):

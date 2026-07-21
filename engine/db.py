@@ -289,9 +289,7 @@ def insert_fetish_with_matrix(name, desc, yes_row, total_row, *, get_conn, put_c
         put_conn(conn)
 
 
-def update_fetish_fields(
-    fetish_id, *, name=None, desc=None, works=None, get_conn, put_conn, execute_values=None
-):
+def update_fetish_fields(fetish_id, *, name=None, desc=None, works=None, get_conn, put_conn, execute_values=None):
     conn = get_conn()
     try:
         with conn:
@@ -332,8 +330,7 @@ def replace_compound_work_rows(id_a, id_b, works, *, get_conn, put_conn, execute
             current = db_work_catalog.load_catalog_from_cursor(cur)
             id_a, id_b = sorted((int(id_a), int(id_b)))
             existed = any(
-                int(row['id_a']) == id_a and int(row['id_b']) == id_b
-                for row in current['compound_work_links']
+                int(row['id_a']) == id_a and int(row['id_b']) == id_b for row in current['compound_work_links']
             )
             if not works and not existed:
                 return False

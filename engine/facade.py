@@ -298,9 +298,7 @@ class Engine:
                 before = self._local_work_catalog_state()
                 next_compounds = copy.deepcopy(before['compound_works'])
                 next_compounds[key] = copy.deepcopy(works)
-                next_catalog = engine_work_catalog.replace_compound_works(
-                    before['work_catalog'], id_a, id_b, works
-                )
+                next_catalog = engine_work_catalog.replace_compound_works(before['work_catalog'], id_a, id_b, works)
                 after = self._local_work_catalog_state(
                     fetishes=before['fetishes'],
                     compound_works=next_compounds,
@@ -328,16 +326,11 @@ class Engine:
             else:
                 before = self._local_work_catalog_state()
                 current_links = before['work_catalog']['compound_work_links']
-                if not any(
-                    int(row['id_a']) == id_a and int(row['id_b']) == id_b
-                    for row in current_links
-                ):
+                if not any(int(row['id_a']) == id_a and int(row['id_b']) == id_b for row in current_links):
                     return False
                 next_compounds = copy.deepcopy(before['compound_works'])
                 next_compounds.pop(key, None)
-                next_catalog = engine_work_catalog.replace_compound_works(
-                    before['work_catalog'], id_a, id_b, []
-                )
+                next_catalog = engine_work_catalog.replace_compound_works(before['work_catalog'], id_a, id_b, [])
                 after = self._local_work_catalog_state(
                     fetishes=before['fetishes'],
                     compound_works=next_compounds,
@@ -1196,9 +1189,7 @@ class Engine:
             'compound_works': copy.deepcopy(
                 self._load_json('compound_works.json') if compound_works is None else compound_works
             ),
-            'work_catalog': copy.deepcopy(
-                self._work_catalog_snapshot() if work_catalog is None else work_catalog
-            ),
+            'work_catalog': copy.deepcopy(self._work_catalog_snapshot() if work_catalog is None else work_catalog),
         }
 
     def _commit_local_work_catalog_state(self, before, after):
@@ -1235,12 +1226,8 @@ class Engine:
             elif works is not None:
                 before = self._local_work_catalog_state()
                 next_fetishes = copy.deepcopy(self.fetishes)
-                engine_mutations.apply_fetish_edits(
-                    next_fetishes[idx], name=name, desc=desc, works=works
-                )
-                next_catalog = engine_work_catalog.replace_fetish_works(
-                    before['work_catalog'], fetish_id, works
-                )
+                engine_mutations.apply_fetish_edits(next_fetishes[idx], name=name, desc=desc, works=works)
+                next_catalog = engine_work_catalog.replace_fetish_works(before['work_catalog'], fetish_id, works)
                 after = self._local_work_catalog_state(
                     fetishes=next_fetishes,
                     compound_works=before['compound_works'],
