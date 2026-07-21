@@ -16,11 +16,8 @@ from engine import (
     _get_conn,
     _put_conn,
     _use_db,
-    delete_compound_works,
     get_compound_works,
-    list_compound_works,
     parse_works_list,
-    set_compound_works,
 )
 from routes import admin as admin_routes
 from routes import game as game_routes
