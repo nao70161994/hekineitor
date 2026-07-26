@@ -2,6 +2,7 @@
 
 import copy
 import hashlib
+import json
 import re
 from collections import defaultdict
 
@@ -333,6 +334,71 @@ def materialize_compound_works(catalog):
     return dict(result)
 
 
+def _effective_signature(raw_work):
+    title = work_title(raw_work)
+    raw_url = raw_work.get('url', '') if isinstance(raw_work, dict) else ''
+    return [title, safe_work_url(raw_url)]
+
+
+def catalog_parity_report(catalog, fetishes, *, compound_rows=(), sample_limit=20):
+    """Compare effective ordered legacy projections with catalog materialization."""
+    validate_catalog(catalog)
+    catalog_fetishes = materialize_fetish_works(catalog)
+    catalog_compounds = materialize_compound_works(catalog)
+    legacy_fetishes = {
+        int(row['id']): [_effective_signature(work) for work in row.get('works') or []] for row in fetishes
+    }
+    legacy_compounds = {}
+    if isinstance(compound_rows, dict):
+        compound_rows = [{'key': key, 'works': works} for key, works in compound_rows.items()]
+    for row in compound_rows or []:
+        if 'id_a' in row and 'id_b' in row:
+            key = f'{min(int(row["id_a"]), int(row["id_b"]))},{max(int(row["id_a"]), int(row["id_b"]))}'
+        else:
+            key = str(row.get('key') or '')
+        if key:
+            legacy_compounds[key] = [_effective_signature(work) for work in row.get('works') or []]
+    effective_fetishes = {
+        owner: [_effective_signature(work) for work in works] for owner, works in catalog_fetishes.items()
+    }
+    effective_compounds = {
+        owner: [_effective_signature(work) for work in works] for owner, works in catalog_compounds.items()
+    }
+    mismatches = []
+    counts = {'fetish': 0, 'compound': 0}
+    for source, legacy, effective in (
+        ('fetish', legacy_fetishes, effective_fetishes),
+        ('compound', legacy_compounds, effective_compounds),
+    ):
+        for owner in sorted(set(legacy) | set(effective), key=str):
+            if legacy.get(owner, []) == effective.get(owner, []):
+                continue
+            counts[source] += 1
+            if len(mismatches) < max(0, min(int(sample_limit), 100)):
+                mismatches.append(
+                    {
+                        'source': source,
+                        'owner_id': owner,
+                        'legacy_count': len(legacy.get(owner, [])),
+                        'catalog_count': len(effective.get(owner, [])),
+                        'legacy': legacy.get(owner, []),
+                        'catalog': effective.get(owner, []),
+                    }
+                )
+    mismatch_count = counts['fetish'] + counts['compound']
+    return {
+        'status': 'ok',
+        'fetish_owner_count': len(set(legacy_fetishes) | set(effective_fetishes)),
+        'compound_owner_count': len(set(legacy_compounds) | set(effective_compounds)),
+        'fetish_mismatch_count': counts['fetish'],
+        'compound_mismatch_count': counts['compound'],
+        'mismatch_count': mismatch_count,
+        'mismatches': mismatches,
+        'pending_review_count': sum(row.get('status', 'pending') == 'pending' for row in catalog['review_queue']),
+        'automated_parity_ok': mismatch_count == 0,
+    }
+
+
 def _catalog_editor(catalog):
     updated = copy.deepcopy(catalog)
     validate_catalog(updated)
@@ -392,8 +458,15 @@ def _register_catalog_work(editor, raw_work):
 
     alias = None
     if title != work['canonical_title']:
-        alias_id = _stable_id('wal', work['work_id'], normalized_title)
-        alias = aliases.get(alias_id)
+        alias = next(
+            (
+                row
+                for row in updated['work_aliases']
+                if row['work_id'] == work['work_id'] and row.get('normalized_alias') == normalized_title
+            ),
+            None,
+        )
+        alias_id = alias['alias_id'] if alias is not None else _stable_id('wal', work['work_id'], normalized_title)
         if alias is None:
             alias = {
                 'alias_id': alias_id,
@@ -465,6 +538,319 @@ def _sort_catalog_rows(catalog):
     )
 
 
+def catalog_digest(catalog):
+    """Return a stable optimistic-concurrency token for a snapshot."""
+    validate_catalog(catalog)
+    payload = json.dumps(catalog, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+    return hashlib.sha256(payload.encode('utf-8')).hexdigest()
+
+
+def _admin_text(value, field, limit, *, required=False):
+    value = str(value or '').strip()
+    if required and not value:
+        raise ValueError(f'{field} is required')
+    if len(value) > limit:
+        raise ValueError(f'{field} must be at most {limit} characters')
+    return value
+
+
+def _row_by_id(rows, field, value, label):
+    row = next((item for item in rows if item.get(field) == value), None)
+    if row is None:
+        raise ValueError(f'{label} not found')
+    return row
+
+
+def admin_create_master(catalog, values):
+    updated = copy.deepcopy(catalog)
+    validate_catalog(updated)
+    title = _admin_text(values.get('canonical_title'), 'canonical_title', 200, required=True)
+    media_type = _admin_text(values.get('media_type'), 'media_type', 40)
+    normalized = normalized_work_title(title)
+    if not normalized:
+        raise ValueError('canonical_title cannot normalize to empty')
+    work_id = _stable_id('wrk', 'admin', normalized, media_type)
+    if any(row['work_id'] == work_id for row in updated['works_master']):
+        raise ValueError('work master already exists')
+    updated['works_master'].append(
+        {
+            'work_id': work_id,
+            'canonical_title': title,
+            'normalized_title': normalized,
+            'media_type': media_type,
+            'status': 'active',
+        }
+    )
+    _sort_catalog_rows(updated)
+    validate_catalog(updated)
+    return updated, work_id
+
+
+def admin_update_master(catalog, work_id, values):
+    updated = copy.deepcopy(catalog)
+    validate_catalog(updated)
+    row = _row_by_id(updated['works_master'], 'work_id', str(work_id), 'work master')
+    if 'canonical_title' in values:
+        title = _admin_text(values['canonical_title'], 'canonical_title', 200, required=True)
+        row.update(canonical_title=title, normalized_title=normalized_work_title(title))
+    if 'media_type' in values:
+        row['media_type'] = _admin_text(values['media_type'], 'media_type', 40)
+    if 'status' in values:
+        status = str(values['status'] or '')
+        if status not in {'active', 'inactive', 'archived'}:
+            raise ValueError('invalid work status')
+        row['status'] = status
+    validate_catalog(updated)
+    return updated
+
+
+def admin_delete_master(catalog, work_id):
+    updated = copy.deepcopy(catalog)
+    validate_catalog(updated)
+    work_id = str(work_id)
+    _row_by_id(updated['works_master'], 'work_id', work_id, 'work master')
+    if any(
+        row['work_id'] == work_id for table in ('fetish_work_links', 'compound_work_links') for row in updated[table]
+    ):
+        raise ValueError('work master is still referenced by recommendation links')
+    if any(work_id in row.get('work_ids', []) for row in updated['review_queue']):
+        raise ValueError('work master is still referenced by review queue')
+    updated['works_master'] = [row for row in updated['works_master'] if row['work_id'] != work_id]
+    updated['work_editions'] = [row for row in updated['work_editions'] if row['work_id'] != work_id]
+    updated['work_aliases'] = [row for row in updated['work_aliases'] if row['work_id'] != work_id]
+    validate_catalog(updated)
+    return updated
+
+
+def admin_upsert_edition(catalog, values, *, edition_id=None):
+    updated = copy.deepcopy(catalog)
+    validate_catalog(updated)
+    work_id = str(values.get('work_id') or '')
+    _row_by_id(updated['works_master'], 'work_id', work_id, 'work master')
+    url = safe_work_url(_admin_text(values.get('canonical_url'), 'canonical_url', 1000, required=True))
+    if not url:
+        raise ValueError('canonical_url is unsafe')
+    key = _edition_key(url)
+    duplicate = next((row for row in updated['work_editions'] if _edition_key(row.get('canonical_url')) == key), None)
+    if duplicate is not None and duplicate['edition_id'] != edition_id:
+        raise ValueError('edition URL or ASIN already exists')
+    if edition_id is None:
+        edition_id = _stable_id('wed', key)
+        row = {'edition_id': edition_id}
+        updated['work_editions'].append(row)
+    else:
+        edition_id = str(edition_id)
+        row = _row_by_id(updated['work_editions'], 'edition_id', edition_id, 'work edition')
+        if row['work_id'] != work_id and any(
+            link.get('edition_id') == edition_id
+            for table in ('fetish_work_links', 'compound_work_links')
+            for link in updated[table]
+        ):
+            raise ValueError('referenced edition cannot move to another work master')
+    status = str(values.get('status', row.get('status', 'active')) or '')
+    if status not in {'active', 'inactive', 'archived'}:
+        raise ValueError('invalid edition status')
+    row.update(
+        work_id=work_id,
+        asin=extract_asin(url),
+        canonical_url=url,
+        format=_admin_text(values.get('format', row.get('format', '')), 'format', 40),
+        status=status,
+    )
+    _sort_catalog_rows(updated)
+    validate_catalog(updated)
+    return updated, edition_id
+
+
+def admin_delete_edition(catalog, edition_id):
+    updated = copy.deepcopy(catalog)
+    validate_catalog(updated)
+    edition_id = str(edition_id)
+    _row_by_id(updated['work_editions'], 'edition_id', edition_id, 'work edition')
+    if any(
+        link.get('edition_id') == edition_id
+        for table in ('fetish_work_links', 'compound_work_links')
+        for link in updated[table]
+    ):
+        raise ValueError('work edition is still referenced by recommendation links')
+    updated['work_editions'] = [row for row in updated['work_editions'] if row['edition_id'] != edition_id]
+    validate_catalog(updated)
+    return updated
+
+
+def admin_upsert_alias(catalog, values, *, alias_id=None):
+    updated = copy.deepcopy(catalog)
+    validate_catalog(updated)
+    work_id = str(values.get('work_id') or '')
+    _row_by_id(updated['works_master'], 'work_id', work_id, 'work master')
+    alias = _admin_text(values.get('alias'), 'alias', 200, required=True)
+    normalized = normalized_work_title(alias)
+    if not normalized:
+        raise ValueError('alias cannot normalize to empty')
+    duplicate = next(
+        (row for row in updated['work_aliases'] if row['work_id'] == work_id and row['normalized_alias'] == normalized),
+        None,
+    )
+    if duplicate is not None and duplicate['alias_id'] != alias_id:
+        raise ValueError('alias already exists for work master')
+    if alias_id is None:
+        alias_id = _stable_id('wal', work_id, normalized)
+        row = {'alias_id': alias_id}
+        updated['work_aliases'].append(row)
+    else:
+        alias_id = str(alias_id)
+        row = _row_by_id(updated['work_aliases'], 'alias_id', alias_id, 'work alias')
+        if row['work_id'] != work_id and any(
+            link.get('alias_id') == alias_id
+            for table in ('fetish_work_links', 'compound_work_links')
+            for link in updated[table]
+        ):
+            raise ValueError('referenced alias cannot move to another work master')
+    row.update(work_id=work_id, alias=alias, normalized_alias=normalized)
+    _sort_catalog_rows(updated)
+    validate_catalog(updated)
+    return updated, alias_id
+
+
+def admin_delete_alias(catalog, alias_id):
+    updated = copy.deepcopy(catalog)
+    validate_catalog(updated)
+    alias_id = str(alias_id)
+    _row_by_id(updated['work_aliases'], 'alias_id', alias_id, 'work alias')
+    if any(
+        link.get('alias_id') == alias_id
+        for table in ('fetish_work_links', 'compound_work_links')
+        for link in updated[table]
+    ):
+        raise ValueError('work alias is still referenced by recommendation links')
+    updated['work_aliases'] = [row for row in updated['work_aliases'] if row['alias_id'] != alias_id]
+    validate_catalog(updated)
+    return updated
+
+
+def admin_update_link(catalog, link_id, values):
+    updated = copy.deepcopy(catalog)
+    validate_catalog(updated)
+    link = next(
+        (
+            row
+            for table in ('fetish_work_links', 'compound_work_links')
+            for row in updated[table]
+            if row['link_id'] == str(link_id)
+        ),
+        None,
+    )
+    if link is None:
+        raise ValueError('recommendation link not found')
+    if 'context_label' in values:
+        link['context_label'] = _admin_text(values['context_label'], 'context_label', 100)
+    if 'recommendation_reason' in values:
+        link['recommendation_reason'] = _admin_text(values['recommendation_reason'], 'recommendation_reason', 500)
+    validate_catalog(updated)
+    return updated
+
+
+def admin_decide_review(catalog, review_id, values):
+    updated = copy.deepcopy(catalog)
+    validate_catalog(updated)
+    review = _row_by_id(updated['review_queue'], 'review_id', str(review_id), 'work review')
+    try:
+        expected_version = int(values.get('expected_version'))
+    except (TypeError, ValueError):
+        raise ValueError('expected_version is required')
+    if expected_version != int(review.get('version', 0)):
+        raise ValueError('review version conflict')
+    decision = str(values.get('decision') or '')
+    if decision not in {'keep_separate', 'merge'}:
+        raise ValueError('decision must be keep_separate or merge')
+    target_id = None
+    if decision == 'merge':
+        target_id = str(values.get('target_work_id') or '')
+        source_ids = set(review.get('work_ids', [])) - {target_id}
+        if not target_id or target_id not in review.get('work_ids', []):
+            raise ValueError('target_work_id must be one of review work_ids')
+        masters = {row['work_id']: row for row in updated['works_master']}
+        target_aliases = {
+            row['normalized_alias']: row for row in updated['work_aliases'] if row['work_id'] == target_id
+        }
+        canonical_aliases = {}
+        alias_replacements = {}
+        remove_alias_ids = set()
+        for source_id in source_ids:
+            source = masters[source_id]
+            normalized = normalized_work_title(source['canonical_title'])
+            if normalized == masters[target_id]['normalized_title']:
+                continue
+            alias = target_aliases.get(normalized)
+            if alias is None:
+                alias = {
+                    'alias_id': _stable_id('wal', target_id, normalized),
+                    'work_id': target_id,
+                    'alias': source['canonical_title'],
+                    'normalized_alias': normalized,
+                }
+                updated['work_aliases'].append(alias)
+                target_aliases[normalized] = alias
+            canonical_aliases[source_id] = alias['alias_id']
+        for alias in updated['work_aliases']:
+            if alias['work_id'] not in source_ids:
+                continue
+            existing = target_aliases.get(alias['normalized_alias'])
+            if existing is not None:
+                alias_replacements[alias['alias_id']] = existing['alias_id']
+                remove_alias_ids.add(alias['alias_id'])
+            else:
+                alias['work_id'] = target_id
+                target_aliases[alias['normalized_alias']] = alias
+        updated['work_aliases'] = [row for row in updated['work_aliases'] if row['alias_id'] not in remove_alias_ids]
+        for row in updated['work_editions']:
+            if row['work_id'] in source_ids:
+                row['work_id'] = target_id
+        for table in ('fetish_work_links', 'compound_work_links'):
+            for row in updated[table]:
+                if row['work_id'] in source_ids:
+                    if not row.get('alias_id'):
+                        row['alias_id'] = canonical_aliases.get(row['work_id'])
+                    row['work_id'] = target_id
+                if row.get('alias_id') in alias_replacements:
+                    row['alias_id'] = alias_replacements[row['alias_id']]
+        for table in ('fetish_work_links', 'compound_work_links'):
+            owner_fields = ('fetish_id',) if table == 'fetish_work_links' else ('id_a', 'id_b')
+            seen, kept, positions = set(), [], defaultdict(int)
+            for row in sorted(
+                updated[table],
+                key=lambda item: (
+                    *[int(item[field]) for field in owner_fields],
+                    int(item['position']),
+                    item['link_id'],
+                ),
+            ):
+                owner = tuple(int(row[field]) for field in owner_fields)
+                identity = (*owner, row['work_id'], row.get('edition_id'), row.get('alias_id'))
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                row['position'] = positions[owner]
+                positions[owner] += 1
+                kept.append(row)
+            updated[table] = kept
+        updated['works_master'] = [row for row in updated['works_master'] if row['work_id'] not in source_ids]
+        for item in updated['review_queue']:
+            item['work_ids'] = sorted(
+                {target_id if work_id in source_ids else work_id for work_id in item.get('work_ids', [])}
+            )
+            if item.get('target_work_id') in source_ids:
+                item['target_work_id'] = target_id
+    review['status'] = 'resolved'
+    review['decision'] = decision
+    review['target_work_id'] = target_id
+    review['version'] = expected_version + 1
+    review['updated_at'] = _admin_text(values.get('updated_at'), 'updated_at', 64)
+    _sort_catalog_rows(updated)
+    validate_catalog(updated)
+    return updated
+
+
 def replace_fetish_works(catalog, fetish_id, raw_works):
     """Return a catalog copy with one fetish's ordered links replaced."""
     editor = _catalog_editor(catalog)
@@ -493,6 +879,40 @@ def replace_fetish_works(catalog, fetish_id, raw_works):
                 'recommendation_reason': previous.get('recommendation_reason', ''),
             }
         )
+    _sort_catalog_rows(updated)
+    validate_catalog(updated)
+    return updated
+
+
+def sanitize_restored_works(raw_works):
+    """Drop malformed and duplicate legacy entries instead of blocking an old backup restore."""
+    sanitized = []
+    seen = set()
+    for raw_work in raw_works or []:
+        title = work_title(raw_work)
+        raw_url = raw_work.get('url', '') if isinstance(raw_work, dict) else ''
+        identity = _identity_key(title, safe_work_url(raw_url))
+        if not title or not identity or identity in seen:
+            continue
+        seen.add(identity)
+        sanitized.append(copy.deepcopy(raw_work))
+    return sanitized
+
+
+def merge_restored_fetish_works(catalog, restored_fetishes):
+    """Add links for restored legacy owners without replacing curated catalog data."""
+    updated = copy.deepcopy(catalog)
+    validate_catalog(updated)
+    owners = {int(row['fetish_id']) for row in updated['fetish_work_links']}
+    preserved_reviews = {row['review_id']: copy.deepcopy(row) for row in updated['review_queue']}
+    for fetish in restored_fetishes or []:
+        fetish_id = int(fetish['id'])
+        works = sanitize_restored_works(fetish.get('works') if isinstance(fetish.get('works'), list) else [])
+        if fetish_id in owners or not works:
+            continue
+        updated = replace_fetish_works(updated, fetish_id, works)
+        owners.add(fetish_id)
+    updated['review_queue'] = [preserved_reviews.get(review['review_id'], review) for review in updated['review_queue']]
     _sort_catalog_rows(updated)
     validate_catalog(updated)
     return updated

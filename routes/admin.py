@@ -739,11 +739,14 @@ def works_health(ctx):
     maintenance = ctx.build_admin_maintenance_checklist().get('works', {})
     queue = works_link_queue_payload(ctx, sample_limit=50)
     seed_backfill = seed_works_backfill_payload(ctx, sample_limit=50, apply=False).get_json()
+    compound_rows = ctx.list_compound_works()
+    legacy_compound_rows = ctx.engine.list_legacy_compound_work_rows()
     catalog = build_work_catalog_report(
         ctx.engine.fetishes,
-        compound_rows=ctx.list_compound_works(),
+        compound_rows=compound_rows,
         sample_limit=50,
     )
+    migration = ctx.engine.work_catalog_migration_report(compound_rows=legacy_compound_rows)
     return ctx.jsonify(
         {
             'status': 'ok',
@@ -751,6 +754,7 @@ def works_health(ctx):
             'link_queue': queue,
             'seed_backfill': seed_backfill,
             'catalog': catalog,
+            'migration': migration,
         }
     )
 
@@ -1544,6 +1548,54 @@ def merge_fetishes(ctx):
     return ctx.jsonify({'status': 'merged', 'id_keep': id_keep, 'name': name})
 
 
+def work_catalog_admin(ctx):
+    snapshot = ctx.engine.work_catalog_admin_snapshot()
+    return ctx.jsonify({'status': 'ok', **snapshot})
+
+
+def mutate_work_catalog_admin(ctx):
+    data = ctx.request.get_json(silent=True) or {}
+    operation = str(data.get('operation') or '')
+    allowed = {
+        'master_create',
+        'master_update',
+        'master_delete',
+        'edition_create',
+        'edition_update',
+        'edition_delete',
+        'alias_create',
+        'alias_update',
+        'alias_delete',
+        'link_update',
+        'review_decide',
+    }
+    if operation not in allowed:
+        return ctx.jsonify({'status': 'error', 'message': '不正な作品catalog操作です'}), 400
+    payload = data.get('payload')
+    if not isinstance(payload, dict):
+        return ctx.jsonify({'status': 'error', 'message': 'payloadはobjectで指定してください'}), 400
+    expected_digest = str(data.get('expected_digest') or '')
+    if len(expected_digest) != 64:
+        return ctx.jsonify({'status': 'error', 'message': 'expected_digestが必要です'}), 400
+    destructive = operation.endswith('_delete') or (operation == 'review_decide' and payload.get('decision') == 'merge')
+    if destructive:
+        confirm_error = ctx.require_confirm('WORK_CATALOG')
+        if confirm_error:
+            return confirm_error
+    try:
+        result = ctx.engine.mutate_work_catalog(operation, payload, expected_digest=expected_digest)
+    except ValueError as exc:
+        message = str(exc)
+        status = 409 if 'conflict' in message else 400
+        return ctx.jsonify({'status': 'error', 'message': message}), status
+    audit_payload = {'operation': operation}
+    for key in ('work_id', 'edition_id', 'alias_id', 'link_id', 'review_id'):
+        if payload.get(key):
+            audit_payload[key] = str(payload[key])[:80]
+    ctx.write_audit('work_catalog_mutation', 'ok', audit_payload, ctx.request)
+    return ctx.jsonify({'status': 'ok', **result})
+
+
 def works_review(ctx):
     rows = []
     for fetish in ctx.engine.fetishes:
@@ -1641,6 +1693,8 @@ def create_blueprint(ctx_factory, require_admin, require_admin_or_read=None):
         set_compound_works=lambda ctx: set_compound_works(ctx),
         delete_compound_works=lambda ctx, key: delete_compound_works(ctx, key),
         works_review=lambda ctx: works_review(ctx),
+        work_catalog_admin=lambda ctx: work_catalog_admin(ctx),
+        mutate_work_catalog_admin=lambda ctx: mutate_work_catalog_admin(ctx),
         works_link_queue_payload=lambda ctx, **kwargs: works_link_queue_payload(ctx, **kwargs),
         seed_works_backfill_payload=lambda ctx, **kwargs: seed_works_backfill_payload(ctx, **kwargs),
     )

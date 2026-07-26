@@ -82,6 +82,10 @@ EXPECTED_PUBLIC_METHOD_SIGNATURES = {
     'get_recommended_works': '(self, fetish_id)',
     'get_compound_recommended_works': '(self, id_a, id_b)',
     'list_compound_work_rows': '(self)',
+    'list_legacy_compound_work_rows': '(self)',
+    'work_catalog_admin_snapshot': '(self)',
+    'mutate_work_catalog': '(self, operation, payload, *, expected_digest)',
+    'work_catalog_migration_report': '(self, *, compound_rows=())',
     'set_compound_work_rows': '(self, id_a, id_b, works)',
     'delete_compound_work_rows': '(self, id_a, id_b)',
 }

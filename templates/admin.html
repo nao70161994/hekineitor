@@ -1097,6 +1097,20 @@ window.ADMIN_CONFIG = {
 <div id="cw-list" style="font-size:0.82rem;"></div>
 </details>
 
+<details style="margin-top:24px;" id="work-catalog-section">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;" data-action="load-work-catalog">作品catalog（master・販売版・別名・review）</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">安定ID付き作品を編集します。更新競合は自動的に拒否され、再読込できます。</p>
+<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+  <input id="wc-title" type="text" maxlength="200" placeholder="新しい作品の正式タイトル" style="min-width:240px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;">
+  <input id="wc-media" type="text" maxlength="40" placeholder="種別（任意）" style="width:140px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;">
+  <button class="btn-action" data-action="catalog-create-master">master追加</button>
+  <button class="btn-toggle" data-action="catalog-refresh">再読込</button>
+</div>
+<p id="wc-msg" style="font-size:0.78rem;color:#888;"></p>
+<div id="wc-list" style="font-size:0.78rem;overflow-x:auto;"></div>
+</details>
+
+
 <details style="margin-top:24px;" id="similarity-section">
 <summary style="color:#888;font-size:0.85rem;cursor:pointer;">性癖類似度チェック（2つの性癖IDを比較）</summary>
 <p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">matrixベースのコサイン類似度と、2性癖の差異が大きい質問TOP5を表示します。</p>

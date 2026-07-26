@@ -104,6 +104,48 @@ class TestEnginePersistenceRegression(unittest.TestCase):
         with self.assertLogs('engine.facade', level='ERROR'):
             self.assertEqual(e.get_recommended_works(10), ['legacy A'])
 
+    def test_database_catalog_revision_refreshes_other_worker_cache_immediately(self):
+        e = minimal_engine()
+        old = work_catalog.build_catalog_from_inline([{'id': 10, 'works': ['Old']}])
+        new = work_catalog.build_catalog_from_inline([{'id': 10, 'works': ['New']}])
+        e._work_catalog_cache = (
+            work_catalog.materialize_fetish_works(old),
+            work_catalog.materialize_compound_works(old),
+        )
+        e._work_catalog_cache_revision = 1
+        e._work_catalog_failure_time = 0.0
+        e._work_catalog_catalog_reads = e._work_catalog_fallback_reads = e._work_catalog_load_failures = 0
+        with (
+            patch.object(engine_module, '_use_db', return_value=True),
+            patch.object(engine_module.engine_db.db_work_catalog, 'catalog_revision', return_value=2),
+            patch.object(
+                engine_module.engine_db.db_work_catalog, 'load_catalog_with_revision', return_value=(new, 2)
+            ) as reload_catalog,
+        ):
+            self.assertEqual(e.get_recommended_works(10)[0]['title'], 'New')
+        reload_catalog.assert_called_once()
+        self.assertEqual(e._work_catalog_cache_revision, 2)
+
+    def test_database_revision_probe_failure_never_serves_unverified_stale_cache(self):
+        e = minimal_engine()
+        e.fetishes[0]['works'] = ['Legacy']
+        stale = work_catalog.build_catalog_from_inline([{'id': 10, 'works': ['Stale']}])
+        e._work_catalog_cache = (
+            work_catalog.materialize_fetish_works(stale),
+            work_catalog.materialize_compound_works(stale),
+        )
+        e._work_catalog_cache_revision = 1
+        e._work_catalog_failure_time = 0.0
+        e._work_catalog_catalog_reads = e._work_catalog_fallback_reads = e._work_catalog_load_failures = 0
+        with (
+            patch.object(engine_module, '_use_db', return_value=True),
+            patch.object(engine_module.engine_db.db_work_catalog, 'catalog_revision', side_effect=RuntimeError),
+            self.assertLogs('engine.facade', level='ERROR'),
+        ):
+            self.assertEqual(e.get_recommended_works(10), ['Legacy'])
+        self.assertEqual(e._work_catalog_fallback_reads, 1)
+        self.assertEqual(e._work_catalog_load_failures, 1)
+
     def test_validate_matrix_rows_reports_valid_skipped_and_input_counts(self):
         e = minimal_engine()
         report = e.validate_matrix_rows(

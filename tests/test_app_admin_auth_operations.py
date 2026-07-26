@@ -30,6 +30,7 @@ class TestAdminAuthOperations(APITestCase):
                 '/api/admin/operations_snapshot',
                 '/api/admin/quality_report',
                 '/api/admin/works_health',
+                '/api/admin/work_catalog',
                 '/api/admin/audit_log',
                 '/api/admin/maintenance_checklist',
                 '/api/admin/matrix_health',
@@ -539,6 +540,40 @@ class TestAdminAuthOperations(APITestCase):
                 os.environ.pop('RATE_LIMIT_API_START_WINDOW', None)
             else:
                 os.environ['RATE_LIMIT_API_START_WINDOW'] = old_window
+
+    def test_admin_work_catalog_mutation_requires_digest_and_confirmation(self):
+        from app import engine as app_engine
+
+        headers = self._admin_headers()
+        response = self.client.post(
+            '/api/admin/work_catalog/mutate',
+            headers=headers,
+            json={'operation': 'master_create', 'payload': {'canonical_title': 'Managed'}},
+        )
+        self.assertEqual(response.status_code, 400)
+        digest = 'a' * 64
+        with patch.object(
+            app_engine, 'mutate_work_catalog', return_value={'result': 'wrk_test', 'digest': 'b' * 64}
+        ) as mutate:
+            response = self.client.post(
+                '/api/admin/work_catalog/mutate',
+                headers=headers,
+                json={
+                    'operation': 'master_create',
+                    'expected_digest': digest,
+                    'payload': {'canonical_title': 'Managed'},
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        mutate.assert_called_once_with('master_create', {'canonical_title': 'Managed'}, expected_digest=digest)
+
+        response = self.client.post(
+            '/api/admin/work_catalog/mutate',
+            headers=headers,
+            json={'operation': 'master_delete', 'expected_digest': digest, 'payload': {'work_id': 'wrk_test'}},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()['required_confirm_text'], 'WORK_CATALOG')
 
     def test_admin_csrf_token_expires_when_enabled(self):
         app.config['ENFORCE_CSRF'] = True

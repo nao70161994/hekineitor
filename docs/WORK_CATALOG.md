@@ -46,15 +46,25 @@ resolverはlinkを表示順に解決し、次の互換shapeを返します。
 
 管理画面からの性癖作品・複合作品更新は`Engine`のcatalog repositoryを唯一のproduction入口として扱います。対象ownerのlinkだけcopy-on-writeで差し替えるため、他owner、作品master、販売版metadata、review判断は保持されます。同一ASINは既存`work_id`/`edition_id`を再利用し、異なるASINや曖昧な同名候補は自動統合しません。
 
-- PostgreSQL: catalog advisory lockを最初に取得し、`fetishes.works`と正規化tableを一つのtransactionで更新します。compoundは正規化tableをruntime source of truthとし、worker間の書き込みを同じlockで直列化します。各workerのread cacheは更新workerでは即時破棄され、他workerでは最大5秒のTTL後に追従します。
+- PostgreSQL: catalog advisory lockを最初に取得し、`fetishes.works`と正規化tableを一つのtransactionで更新します。compoundは正規化tableをruntime source of truthとし、worker間の書き込みを同じlockで直列化します。全catalog transactionは`work_catalog_meta.revision`を増分し、各workerはread前にrevisionを照合します。変更を検出したworkerはcatalogとrevisionを同じrepeatable-read snapshotから再取得するため、古いcacheをTTL終了まで返しません。
 - Local JSON: `fetishes.json`、`compound_works.json`、`work_catalog.json`のbefore/afterを`work_catalog_mutation_journal.json`へ先にdurable保存します。全ファイルの置換成功後だけjournalを削除し、途中停止時は次回起動でafterへroll-forwardします。通常の書き込み失敗時はbeforeへrollbackします。
 - 管理API: 既存のadmin認証・CSRFを維持し、成功した作品更新は件数とowner IDだけを監査ログへ記録します。
 - 性癖lifecycle: deleteはその性癖の直接linkとcompound pairを削除し、promoteは新IDへ全ownerをrekeyします。mergeは削除側の直接作品を破棄し、compound pairは保持側へ統合して、既存pairを先・削除側pairを後の順で重複排除します。
 - lifecycleのPostgreSQL更新はcatalog、matrix、fetish log、fetish rowを同じtransactionに置きます。ローカル更新はjournal version 2でmatrixとfetish logもbefore/afterへ含め、成功後だけin-memory state/cacheを切り替えます。
 
+## Admin catalog API
+
+`GET /api/admin/work_catalog`は全正規化collectionとSHA-256 `digest`を返します。更新は`POST /api/admin/work_catalog/mutate`へ`operation`、`payload`、取得時の`expected_digest`を送り、古いdigestはHTTP 409で拒否されます。master、edition、alias、推薦link metadata、review判断を操作でき、参照中のmaster/edition/alias削除は拒否します。削除とreview mergeには`confirm_text: WORK_CATALOG`も必要です。全mutationは既存admin認証、CSRF、監査ログの対象です。
+
+reviewの`keep_separate`または`merge`には現在の`expected_version`が必須です。merge先は候補`work_ids`の一つに限定されます。URLは安全なcanonical URLだけを許可し、タイトル・媒体・context・推薦理由には長さ制限があります。
+
+旧形式をsource of truthから外す判定とrollback手順は[`WORK_CATALOG_MIGRATION.md`](WORK_CATALOG_MIGRATION.md)を参照してください。
+
+
 ## Review policy
 
 `review_queue`は緩いタイトル正規化で近い候補を示すだけで、自動mergeはしません。
+
 
 - `normalization_candidate`: ASIN衝突がない候補。
 - `normalization_conflict`: 複数ASINを持つ候補。必ず人手確認する。
@@ -70,7 +80,7 @@ resolverはlinkを表示順に解決し、次の互換shapeを返します。
 - PostgreSQLでは不足player fetish、catalog、matrixを同一transactionで復元します。
 - ローカルではrestore journal version 2にcatalogのbefore/afterも保存し、途中停止時は3ファイルを同じ世代へroll-forwardします。
 - 通常の作品編集journal version 1は3つの作品data fileを、性癖lifecycle journal version 2はさらにmatrixとfetish logを同じ世代へ復旧します。
-- 旧v1/v2 matrix backupはcatalogを変更せず、従来どおりimportできます。
+- 旧v1/v2 matrix backupも従来どおりimportでき、復元されたplayer-added fetishにinline作品がある場合は既存の管理済みID・metadata・review判断を保持したまま、その新規ownerのcatalog linkを同じtransaction/journalへ追加します。
 - review queueの`decision`、`target_work_id`、`version`、`updated_at`もDB snapshotとrestoreで保持します。
 
 ## Migration safety

@@ -116,6 +116,10 @@ The following public `Engine` methods are route/script contract. Their names, ca
 - `get_recommended_works(fetish_id)` -> catalog-first normalized work links; legacy inline fallback only when the catalog is unavailable.
 - `get_compound_recommended_works(id_a, id_b)` -> catalog-first normalized pair links with the same fallback rule.
 - `list_compound_work_rows()` -> catalog-backed compound owner rows for administration.
+- `list_legacy_compound_work_rows()` -> explicit legacy JSON projection used only for migration parity evidence.
+- `work_catalog_admin_snapshot()` -> normalized catalog plus optimistic-concurrency digest.
+- `mutate_work_catalog(operation, payload, *, expected_digest)` -> transactional validated admin mutation result.
+- `work_catalog_migration_report(*, compound_rows=())` -> per-worker parity, revision, fallback, and retirement blockers.
 - `set_compound_work_rows(id_a, id_b, works)` -> canonical pair key; transactionally updates the normalized catalog and the local legacy projection when applicable.
 - `delete_compound_work_rows(id_a, id_b)` -> bool; transactionally removes the pair links.
 

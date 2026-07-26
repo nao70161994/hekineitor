@@ -188,7 +188,12 @@ class Engine:
         self._settings_config_snapshot = copy.deepcopy(self.config)
         self._work_catalog_cache = None
         self._work_catalog_cache_time = 0.0
+        self._work_catalog_cache_revision = None
         self._work_catalog_failure_time = 0.0
+
+        self._work_catalog_catalog_reads = 0
+        self._work_catalog_fallback_reads = 0
+        self._work_catalog_load_failures = 0
 
     # ── JSON ローカル ──────────────────────────────────────
     def _load_json(self, fname):
@@ -238,12 +243,24 @@ class Engine:
     def _materialized_work_catalog(self):
         now = time.monotonic()
         cached = getattr(self, '_work_catalog_cache', None)
-        if cached is not None and now - getattr(self, '_work_catalog_cache_time', 0.0) < 5.0:
-            return cached
         if now - getattr(self, '_work_catalog_failure_time', 0.0) < 5.0:
+            self._work_catalog_fallback_reads = getattr(self, '_work_catalog_fallback_reads', 0) + 1
             return None
         try:
-            catalog = self._work_catalog_snapshot()
+            if _use_db():
+                revision = engine_db.db_work_catalog.catalog_revision(get_conn=_get_conn, put_conn=_put_conn)
+                if cached is not None and revision == getattr(self, '_work_catalog_cache_revision', None):
+                    self._work_catalog_catalog_reads = getattr(self, '_work_catalog_catalog_reads', 0) + 1
+                    return cached
+                catalog, revision = engine_db.db_work_catalog.load_catalog_with_revision(
+                    get_conn=_get_conn, put_conn=_put_conn
+                )
+            else:
+                if cached is not None and now - getattr(self, '_work_catalog_cache_time', 0.0) < 5.0:
+                    self._work_catalog_catalog_reads = getattr(self, '_work_catalog_catalog_reads', 0) + 1
+                    return cached
+                catalog = self._work_catalog_snapshot()
+                revision = None
             materialized = (
                 engine_work_catalog.materialize_fetish_works(catalog),
                 engine_work_catalog.materialize_compound_works(catalog),
@@ -251,16 +268,88 @@ class Engine:
         except Exception:
             logging.getLogger(__name__).exception('work catalog unavailable; using legacy recommendation fallback')
             self._work_catalog_failure_time = now
+            self._work_catalog_load_failures = getattr(self, '_work_catalog_load_failures', 0) + 1
+            self._work_catalog_fallback_reads = getattr(self, '_work_catalog_fallback_reads', 0) + 1
             return None
         self._work_catalog_cache = materialized
+        self._work_catalog_cache_revision = revision
         self._work_catalog_cache_time = now
         self._work_catalog_failure_time = 0.0
+        self._work_catalog_catalog_reads = getattr(self, '_work_catalog_catalog_reads', 0) + 1
         return materialized
 
     def _invalidate_work_catalog_cache(self):
         self._work_catalog_cache = None
+        self._work_catalog_cache_revision = None
         self._work_catalog_cache_time = 0.0
         self._work_catalog_failure_time = 0.0
+
+    def work_catalog_migration_report(self, *, compound_rows=()):
+        """Return conservative evidence for retiring legacy inline work storage."""
+        try:
+            snapshot_revision = None
+            database_revision = None
+            if _use_db():
+                catalog, snapshot_revision = engine_db.db_work_catalog.load_catalog_with_revision(
+                    get_conn=_get_conn, put_conn=_put_conn
+                )
+                database_revision = engine_db.db_work_catalog.catalog_revision(get_conn=_get_conn, put_conn=_put_conn)
+            else:
+                catalog = self._work_catalog_snapshot()
+            parity = engine_work_catalog.catalog_parity_report(catalog, self.fetishes, compound_rows=compound_rows)
+            cached_revision = getattr(self, '_work_catalog_cache_revision', None)
+            catalog_reads = getattr(self, '_work_catalog_catalog_reads', 0)
+            fallback_reads = getattr(self, '_work_catalog_fallback_reads', 0)
+            load_failures = getattr(self, '_work_catalog_load_failures', 0)
+            revision_matches = not _use_db() or (
+                snapshot_revision == database_revision and cached_revision == database_revision
+            )
+            blockers = []
+            if not parity['automated_parity_ok']:
+                blockers.append('catalog_inline_mismatch')
+            if parity['pending_review_count']:
+                blockers.append('pending_identity_reviews')
+            if fallback_reads:
+                blockers.append('legacy_fallback_observed')
+            if load_failures:
+                blockers.append('catalog_load_failure_observed')
+            if not catalog_reads:
+                blockers.append('no_catalog_reads_observed')
+            if _use_db() and not revision_matches:
+                blockers.append('worker_catalog_revision_mismatch')
+            worker_id = f'{os.environ.get("DYNO") or os.environ.get("HOSTNAME") or "local"}:{os.getpid()}'
+            return {
+                **parity,
+                'worker_id': worker_id,
+                'snapshot_revision': snapshot_revision,
+                'database_revision': database_revision,
+                'cached_revision': cached_revision,
+                'cache_revision_matches_database': revision_matches,
+                'runtime_observation': {
+                    'catalog_reads_since_start': catalog_reads,
+                    'legacy_fallback_reads_since_start': fallback_reads,
+                    'catalog_load_failures_since_start': load_failures,
+                },
+                'retirement': {
+                    'automated_eligible': not blockers,
+                    'blockers': blockers,
+                    'policy': 'keep_inline_until_manual_signoff',
+                    'observation_scope': 'current_worker_since_start',
+                },
+            }
+        except Exception:
+            worker_id = f'{os.environ.get("DYNO") or os.environ.get("HOSTNAME") or "local"}:{os.getpid()}'
+            return {
+                'status': 'error',
+                'message': 'work catalog migration report unavailable',
+                'worker_id': worker_id,
+                'retirement': {
+                    'automated_eligible': False,
+                    'blockers': ['catalog_report_unavailable'],
+                    'policy': 'keep_inline_until_manual_signoff',
+                    'observation_scope': 'current_worker_since_start',
+                },
+            }
 
     def get_recommended_works(self, fetish_id):
         materialized = self._materialized_work_catalog()
@@ -287,6 +376,9 @@ class Engine:
             id_a, id_b = (int(value) for value in key.split(',', 1))
             rows.append({'key': key, 'id_a': id_a, 'id_b': id_b, 'works': copy.deepcopy(works)})
         return rows
+
+    def list_legacy_compound_work_rows(self):
+        return copy.deepcopy(list_compound_works())
 
     def set_compound_work_rows(self, id_a, id_b, works):
         id_a, id_b = sorted((int(id_a), int(id_b)))
@@ -348,6 +440,61 @@ class Engine:
                 self._commit_local_work_catalog_state(before, after)
             self._invalidate_work_catalog_cache()
         return True
+
+    def work_catalog_admin_snapshot(self):
+        """Return the complete admin model with an optimistic concurrency token."""
+        catalog = self._work_catalog_snapshot()
+        return {'catalog': catalog, 'digest': engine_work_catalog.catalog_digest(catalog)}
+
+    def mutate_work_catalog(self, operation, payload, *, expected_digest):
+        """Apply a validated catalog-only admin mutation atomically."""
+        payload = copy.deepcopy(payload or {})
+
+        def apply(current):
+            if operation == 'master_create':
+                return engine_work_catalog.admin_create_master(current, payload)
+            if operation == 'master_update':
+                return engine_work_catalog.admin_update_master(current, payload.get('work_id'), payload), None
+            if operation == 'master_delete':
+                return engine_work_catalog.admin_delete_master(current, payload.get('work_id')), None
+            if operation == 'edition_create':
+                return engine_work_catalog.admin_upsert_edition(current, payload)
+            if operation == 'edition_update':
+                return engine_work_catalog.admin_upsert_edition(current, payload, edition_id=payload.get('edition_id'))
+            if operation == 'edition_delete':
+                return engine_work_catalog.admin_delete_edition(current, payload.get('edition_id')), None
+            if operation == 'alias_create':
+                return engine_work_catalog.admin_upsert_alias(current, payload)
+            if operation == 'alias_update':
+                return engine_work_catalog.admin_upsert_alias(current, payload, alias_id=payload.get('alias_id'))
+            if operation == 'alias_delete':
+                return engine_work_catalog.admin_delete_alias(current, payload.get('alias_id')), None
+            if operation == 'link_update':
+                return engine_work_catalog.admin_update_link(current, payload.get('link_id'), payload), None
+            if operation == 'review_decide':
+                return engine_work_catalog.admin_decide_review(current, payload.get('review_id'), payload), None
+            raise ValueError('unsupported work catalog operation')
+
+        with self._lock:
+            if _use_db():
+                updated, result = engine_db.mutate_work_catalog(
+                    apply,
+                    expected_digest=expected_digest,
+                    get_conn=_get_conn,
+                    put_conn=_put_conn,
+                    execute_values=psycopg2.extras.execute_values,
+                )
+            else:
+                before = self._local_work_catalog_state()
+                if engine_work_catalog.catalog_digest(before['work_catalog']) != str(expected_digest or ''):
+                    raise ValueError('work catalog version conflict')
+                updated, result = apply(before['work_catalog'])
+                after = self._local_work_catalog_state(
+                    fetishes=before['fetishes'], compound_works=before['compound_works'], work_catalog=updated
+                )
+                self._commit_local_work_catalog_state(before, after)
+            self._invalidate_work_catalog_cache()
+        return {'result': result, 'digest': engine_work_catalog.catalog_digest(updated)}
 
     def _save_matrix_file(self):
         _acquire_file_engine_process_lock()
@@ -944,6 +1091,7 @@ class Engine:
                 continue
             desc = str(raw.get('desc') or name).strip()[:500] or name
             works = raw.get('works') if isinstance(raw.get('works'), list) else []
+            works = engine_work_catalog.sanitize_restored_works(works)
             restored.append({'id': fetish_id, 'name': name, 'desc': desc, 'works': works})
             seen.add(fetish_id)
         return restored
@@ -954,41 +1102,8 @@ class Engine:
         Matrix values are initialized neutral first and overwritten by import_matrix().
         Seed fetishes and existing ids are ignored.
         """
-        missing = self._sanitize_restored_player_fetishes(exported_fetishes)
-        if not missing:
-            return []
-        nq = len(self.questions)
-        neutral_yes = [2.0] * nq
-        neutral_total = [4.0] * nq
-        with self._lock:
-            missing = self._sanitize_restored_player_fetishes(missing)
-            if not missing:
-                return []
-            if _use_db():
-                engine_db.insert_fetishes_with_neutral_matrix(
-                    missing,
-                    nq,
-                    get_conn=_get_conn,
-                    put_conn=_put_conn,
-                    execute_values=psycopg2.extras.execute_values,
-                )
-            for fetish in missing:
-                engine_mutations.append_fetish(
-                    self.fetishes,
-                    self.matrix,
-                    db_id=fetish['id'],
-                    name=fetish['name'],
-                    desc=fetish['desc'],
-                    yes_row=list(neutral_yes),
-                    total_row=list(neutral_total),
-                )
-                self.fetishes[-1]['works'] = fetish.get('works', [])
-            if not _use_db():
-                self._save_fetishes_file()
-                self._save_matrix_file()
-            self._disc_cache = None
-            self._dynamic_prior_time = 0.0
-        return missing
+        _count, restored = self.restore_matrix_snapshot(exported_fetishes, [])
+        return restored
 
     def restore_matrix_snapshot(self, exported_fetishes, matrix_rows, *, work_catalog=None):
         """Restore player fetishes and matrix values as one logical operation."""
@@ -998,6 +1113,14 @@ class Engine:
                 engine_work_catalog.validate_catalog(work_catalog)
                 work_catalog = copy.deepcopy(work_catalog)
             missing = self._sanitize_restored_player_fetishes(exported_fetishes)
+            restored_inline_fetishes = (
+                missing if work_catalog is None and any(row.get('works') for row in missing) else None
+            )
+            old_work_catalog = None
+            if not _use_db() and restored_inline_fetishes and any(row.get('works') for row in missing):
+                old_work_catalog = self._work_catalog_snapshot()
+                work_catalog = engine_work_catalog.merge_restored_fetish_works(old_work_catalog, missing)
+
             prospective = self.fetishes + missing
             updates, _meta = collect_matrix_updates(prospective, self.questions, matrix_rows)
             old_fetishes = copy.deepcopy(self.fetishes)
@@ -1029,13 +1152,16 @@ class Engine:
                     put_conn=_put_conn,
                     execute_values=psycopg2.extras.execute_values,
                     work_catalog=work_catalog,
+                    restored_inline_fetishes=restored_inline_fetishes,
                 )
             else:
                 journal_path = os.path.join(DATA_DIR, 'matrix_restore_journal.json')
                 fetishes_path = os.path.join(DATA_DIR, 'fetishes.json')
                 matrix_path = os.path.join(DATA_DIR, 'matrix.json')
                 work_catalog_path = os.path.join(DATA_DIR, 'work_catalog.json')
-                old_work_catalog = self._work_catalog_snapshot() if work_catalog is not None else None
+                old_work_catalog = old_work_catalog or (
+                    self._work_catalog_snapshot() if work_catalog is not None else None
+                )
                 before = {'fetishes': old_fetishes, 'matrix': old_matrix}
                 after = {'fetishes': new_fetishes, 'matrix': new_matrix}
                 if work_catalog is not None:
@@ -1090,7 +1216,7 @@ class Engine:
                         raise
             self.fetishes = new_fetishes
             self.matrix = new_matrix
-            if work_catalog is not None:
+            if work_catalog is not None or (restored_inline_fetishes and any(row.get('works') for row in missing)):
                 self._invalidate_work_catalog_cache()
             self._disc_cache = None
             self._dynamic_prior_time = 0.0

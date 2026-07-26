@@ -342,6 +342,24 @@ def replace_compound_work_rows(id_a, id_b, works, *, get_conn, put_conn, execute
         put_conn(conn)
 
 
+def mutate_work_catalog(mutator, *, expected_digest, get_conn, put_conn, execute_values):
+    """Apply one optimistic admin mutation under the global catalog lock."""
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            db_work_catalog.lock_catalog(cur)
+            current = db_work_catalog.load_catalog_from_cursor(cur)
+            if engine_work_catalog.catalog_digest(current) != str(expected_digest or ''):
+                raise ValueError('work catalog version conflict')
+            updated, result = mutator(current)
+            engine_work_catalog.validate_catalog(updated)
+            db_work_catalog.replace_catalog(cur, updated, execute_values=execute_values)
+            return updated, result
+    finally:
+        put_conn(conn)
+
+
 def delete_fetish_rows(fetish_id, *, get_conn, put_conn, execute_values=None):
     conn = get_conn()
     try:

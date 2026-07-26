@@ -11,6 +11,8 @@ def register_routes(
     set_compound_works,
     delete_compound_works,
     works_review,
+    work_catalog_admin,
+    mutate_work_catalog_admin,
     works_link_queue_payload,
     seed_works_backfill_payload,
 ):
@@ -35,6 +37,16 @@ def register_routes(
     @require_admin_or_read
     def works_review_route():
         return works_review(ctx_factory())
+
+    @bp.route('/api/admin/work_catalog', methods=['GET'])
+    @require_admin_or_read
+    def work_catalog_admin_route():
+        return work_catalog_admin(ctx_factory())
+
+    @bp.route('/api/admin/work_catalog/mutate', methods=['POST'])
+    @require_admin
+    def mutate_work_catalog_admin_route():
+        return mutate_work_catalog_admin(ctx_factory())
 
     @bp.route('/api/admin/works_link_queue', methods=['GET'])
     @require_admin_or_read

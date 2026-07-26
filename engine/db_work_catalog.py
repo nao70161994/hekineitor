@@ -4,6 +4,7 @@ import json
 
 from .work_catalog import (
     build_catalog_from_inline,
+    merge_restored_fetish_works,
     replace_compound_works,
     replace_fetish_works,
     validate_catalog,
@@ -12,6 +13,16 @@ from .work_catalog import (
 _CATALOG_LOCK_SQL = "SELECT pg_advisory_xact_lock(hashtext('recommended_work_catalog_write'))"
 
 _SCHEMA_STATEMENTS = (
+    """
+    CREATE TABLE IF NOT EXISTS work_catalog_meta (
+        singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
+        revision BIGINT NOT NULL DEFAULT 0
+    )
+    """,
+    """
+    INSERT INTO work_catalog_meta (singleton, revision) VALUES (TRUE, 0)
+    ON CONFLICT (singleton) DO NOTHING
+    """,
     """
     CREATE TABLE IF NOT EXISTS works_master (
         work_id TEXT PRIMARY KEY,
@@ -235,6 +246,7 @@ def replace_catalog(cur, catalog, *, execute_values):
     for statement, rows in batches:
         if rows:
             execute_values(cur, statement, rows)
+    cur.execute('UPDATE work_catalog_meta SET revision = revision + 1 WHERE singleton = TRUE')
     return {
         'works_master': len(catalog['works_master']),
         'work_editions': len(catalog['work_editions']),
@@ -394,6 +406,36 @@ def replace_compound_works_in_transaction(cur, id_a, id_b, works, *, execute_val
     current = load_catalog_from_cursor(cur)
     updated = replace_compound_works(current, id_a, id_b, works)
     return replace_catalog(cur, updated, execute_values=execute_values)
+
+
+def catalog_revision_from_cursor(cur):
+    cur.execute('SELECT revision FROM work_catalog_meta WHERE singleton = TRUE')
+    row = cur.fetchone()
+    return int(row[0]) if row else 0
+
+
+def catalog_revision(*, get_conn, put_conn):
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            return catalog_revision_from_cursor(cur)
+    finally:
+        put_conn(conn)
+
+
+def load_catalog_with_revision(*, get_conn, put_conn):
+    """Load catalog and revision from the same repeatable-read snapshot."""
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+            catalog = load_catalog_from_cursor(cur)
+            revision = catalog_revision_from_cursor(cur)
+            return catalog, revision
+    finally:
+        put_conn(conn)
 
 
 def load_catalog(*, get_conn, put_conn):

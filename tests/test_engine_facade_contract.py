@@ -290,6 +290,8 @@ class TestEnginePersistenceFacadeContract(unittest.TestCase):
         self._patches = [
             patch.object(Engine, '_save_matrix_file', return_value=None),
             patch.object(Engine, '_save_fetishes_file', return_value=None),
+            patch.object(Engine, '_atomic_write', return_value=None),
+            patch('engine.facade.engine_persistence.durable_unlink', return_value=None),
             patch.object(Engine, '_save_to_db', return_value=None),
             patch.object(Engine, '_load_matrix_file', new=lambda self: self._init_matrix_file()),
         ]

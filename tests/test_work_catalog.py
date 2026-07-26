@@ -297,6 +297,120 @@ class WorkCatalogMigrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'duplicate work identity'):
             work_catalog.replace_fetish_works(catalog, 1, ['Same', 'Same'])
 
+    def test_admin_crud_requires_unreferenced_children_and_preserves_metadata(self):
+        catalog = work_catalog.build_catalog_from_inline([{'id': 1, 'works': []}])
+        catalog, work_id = work_catalog.admin_create_master(
+            catalog, {'canonical_title': 'Managed', 'media_type': 'manga'}
+        )
+        catalog, edition_id = work_catalog.admin_upsert_edition(
+            catalog, {'work_id': work_id, 'canonical_url': 'https://www.amazon.co.jp/dp/B000000001', 'format': 'kindle'}
+        )
+        catalog, alias_id = work_catalog.admin_upsert_alias(catalog, {'work_id': work_id, 'alias': 'Managed Alias'})
+        catalog = work_catalog.replace_fetish_works(
+            catalog, 1, [{'title': 'Managed Alias', 'url': 'https://www.amazon.co.jp/dp/B000000001'}]
+        )
+        link_id = catalog['fetish_work_links'][0]['link_id']
+        catalog = work_catalog.admin_update_link(
+            catalog, link_id, {'context_label': '入門', 'recommendation_reason': '理由'}
+        )
+        self.assertEqual(catalog['fetish_work_links'][0]['context_label'], '入門')
+        self.assertEqual(catalog['fetish_work_links'][0]['recommendation_reason'], '理由')
+        self.assertEqual(catalog['fetish_work_links'][0]['edition_id'], edition_id)
+        self.assertEqual(catalog['fetish_work_links'][0]['alias_id'], alias_id)
+        with self.assertRaisesRegex(ValueError, 'still referenced'):
+            work_catalog.admin_delete_master(catalog, work_id)
+        with self.assertRaisesRegex(ValueError, 'still referenced'):
+            work_catalog.admin_delete_edition(catalog, edition_id)
+        with self.assertRaisesRegex(ValueError, 'still referenced'):
+            work_catalog.admin_delete_alias(catalog, alias_id)
+
+    def test_restored_legacy_owner_reuses_curated_ids_and_keeps_review_rows(self):
+        catalog = work_catalog.build_catalog_from_inline(
+            [{'id': 1, 'works': [{'title': 'Original', 'url': 'https://www.amazon.co.jp/dp/B000000001'}]}]
+        )
+        catalog['works_master'][0]['media_type'] = 'manga'
+        catalog['work_editions'][0]['format'] = 'kindle'
+        catalog['review_queue'] = [
+            {
+                'review_id': 'wrv_manual',
+                'review_type': 'normalization_candidate',
+                'candidate_key': 'manual',
+                'work_ids': [catalog['works_master'][0]['work_id']],
+                'titles': ['Original'],
+                'asins': [],
+                'status': 'resolved',
+                'decision': 'keep_separate',
+                'target_work_id': None,
+                'version': 4,
+                'updated_at': '2026-01-01T00:00:00+00:00',
+            }
+        ]
+        before = copy.deepcopy(catalog)
+        updated = work_catalog.merge_restored_fetish_works(
+            catalog,
+            [{'id': 10000, 'works': [{'title': 'Alias', 'url': 'https://www.amazon.co.jp/dp/B000000001'}, 'New Work']}],
+        )
+        self.assertEqual(catalog, before)
+        self.assertEqual(updated['review_queue'][0], before['review_queue'][0])
+        restored = work_catalog.materialize_fetish_works(updated)[10000]
+        self.assertEqual(restored[0]['work_id'], before['works_master'][0]['work_id'])
+        self.assertEqual(restored[0]['edition_id'], before['work_editions'][0]['edition_id'])
+        self.assertEqual(updated['works_master'][0]['media_type'], 'manga')
+        self.assertEqual(updated['work_editions'][0]['format'], 'kindle')
+
+    def test_catalog_parity_report_checks_effective_order_and_pending_reviews(self):
+        fetishes = [{'id': 1, 'works': ['First', 'Second']}]
+        catalog = work_catalog.build_catalog_from_inline(fetishes)
+        report = work_catalog.catalog_parity_report(catalog, fetishes)
+        self.assertTrue(report['automated_parity_ok'])
+        changed = copy.deepcopy(fetishes)
+        changed[0]['works'].reverse()
+        report = work_catalog.catalog_parity_report(catalog, changed)
+        self.assertFalse(report['automated_parity_ok'])
+        self.assertEqual(report['fetish_mismatch_count'], 1)
+
+    def test_review_merge_preserves_each_source_display_title_as_alias(self):
+        catalog = work_catalog.build_catalog_from_inline(
+            [
+                {
+                    'id': 1,
+                    'works': [
+                        {'title': '作品（漫画）', 'url': 'https://www.amazon.co.jp/dp/B000000001'},
+                        {'title': '作品', 'url': 'https://www.amazon.co.jp/dp/B000000002'},
+                    ],
+                }
+            ]
+        )
+        before_titles = [row['title'] for row in work_catalog.materialize_fetish_works(catalog)[1]]
+        review = catalog['review_queue'][0]
+        target_id = review['work_ids'][0]
+        updated = work_catalog.admin_decide_review(
+            catalog,
+            review['review_id'],
+            {
+                'expected_version': 0,
+                'decision': 'merge',
+                'target_work_id': target_id,
+                'updated_at': '2026-01-01T00:00:00+00:00',
+            },
+        )
+        self.assertEqual(len(updated['works_master']), 1)
+        self.assertEqual([row['title'] for row in work_catalog.materialize_fetish_works(updated)[1]], before_titles)
+        work_catalog.validate_catalog(updated)
+
+    def test_old_backup_work_sanitization_skips_invalid_and_duplicate_rows(self):
+        rows = work_catalog.sanitize_restored_works(
+            [
+                '',
+                {'title': ''},
+                'Same',
+                'Same',
+                {'title': 'Alias A', 'url': 'https://www.amazon.co.jp/dp/B000000001'},
+                {'title': 'Alias B', 'url': 'https://www.amazon.co.jp/dp/B000000001'},
+            ]
+        )
+        self.assertEqual(rows, ['Same', {'title': 'Alias A', 'url': 'https://www.amazon.co.jp/dp/B000000001'}])
+
 
 if __name__ == '__main__':
     unittest.main()

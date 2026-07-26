@@ -75,11 +75,26 @@ def import_matrix_rows(updates, idx_map, *, get_conn, put_conn, execute_values):
         put_conn(conn)
 
 
-def restore_matrix_snapshot(fetishes, matrix_rows, *, get_conn, put_conn, execute_values, work_catalog=None):
+def restore_matrix_snapshot(
+    fetishes,
+    matrix_rows,
+    *,
+    get_conn,
+    put_conn,
+    execute_values,
+    work_catalog=None,
+    restored_inline_fetishes=None,
+):
     conn = get_conn()
     try:
         with conn:
             cur = conn.cursor()
+            if work_catalog is not None or restored_inline_fetishes:
+                db_work_catalog.ensure_schema(cur)
+                db_work_catalog.lock_catalog(cur)
+            if work_catalog is None and restored_inline_fetishes:
+                current = db_work_catalog.load_catalog_from_cursor(cur)
+                work_catalog = db_work_catalog.merge_restored_fetish_works(current, restored_inline_fetishes)
             if fetishes:
                 execute_values(
                     cur,
@@ -95,8 +110,6 @@ def restore_matrix_snapshot(fetishes, matrix_rows, *, get_conn, put_conn, execut
                     ],
                 )
             if work_catalog is not None:
-                db_work_catalog.ensure_schema(cur)
-                db_work_catalog.lock_catalog(cur)
                 db_work_catalog.replace_catalog(cur, work_catalog, execute_values=execute_values)
             rows = [
                 (

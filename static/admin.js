@@ -758,6 +758,111 @@ async function deleteCompoundWorks(key, id_a, id_b) {
   if (row) row.remove();
 }
 
+let _workCatalog = null;
+let _workCatalogDigest = '';
+
+function catalogButton(label, op, idName = '', id = '') {
+  const attrs = idName ? ` data-${idName}="${escapeHtml(id)}"` : '';
+  return `<button class="btn-toggle" data-action="catalog-mutate" data-op="${op}"${attrs}>${label}</button>`;
+}
+
+function renderWorkCatalog() {
+  const root = document.getElementById('wc-list');
+  if (!root || !_workCatalog) return;
+  const masters = _workCatalog.works_master.map(row => `<tr><td>${escapeHtml(row.canonical_title)}</td><td>${escapeHtml(row.media_type || '')}</td><td>${escapeHtml(row.status)}</td><td>${catalogButton('編集', 'master_update', 'work-id', row.work_id)} ${catalogButton('販売版追加', 'edition_create', 'work-id', row.work_id)} ${catalogButton('別名追加', 'alias_create', 'work-id', row.work_id)} ${catalogButton('削除', 'master_delete', 'work-id', row.work_id)}</td></tr>`).join('');
+  const editions = _workCatalog.work_editions.map(row => `<tr><td>${escapeHtml(row.asin || '-')}</td><td>${escapeHtml(row.canonical_url)}</td><td>${escapeHtml(row.format || '')}</td><td>${catalogButton('編集', 'edition_update', 'edition-id', row.edition_id)} ${catalogButton('削除', 'edition_delete', 'edition-id', row.edition_id)}</td></tr>`).join('');
+  const aliases = _workCatalog.work_aliases.map(row => `<tr><td>${escapeHtml(row.alias)}</td><td>${escapeHtml(row.work_id)}</td><td>${catalogButton('編集', 'alias_update', 'alias-id', row.alias_id)} ${catalogButton('削除', 'alias_delete', 'alias-id', row.alias_id)}</td></tr>`).join('');
+  const reviews = _workCatalog.review_queue.map(row => `<tr><td>${escapeHtml(row.review_type)}</td><td>${escapeHtml((row.titles || []).join(' / '))}</td><td>${escapeHtml(row.status || 'pending')}</td><td>${row.status === 'pending' ? `${catalogButton('別作品を維持', 'review_keep', 'review-id', row.review_id)} ${catalogButton('統合', 'review_merge', 'review-id', row.review_id)}` : escapeHtml(row.decision || '-')}</td></tr>`).join('');
+  const links = [..._workCatalog.fetish_work_links, ..._workCatalog.compound_work_links].map(row => `<tr><td>${escapeHtml(row.link_id)}</td><td>${escapeHtml(row.context_label || '')}</td><td>${escapeHtml(row.recommendation_reason || '')}</td><td>${catalogButton('文脈・理由', 'link_update', 'link-id', row.link_id)}</td></tr>`).join('');
+  const table = (title, heads, body) => `<h4 style="color:#aaa;margin:12px 0 4px;">${title}</h4><table style="width:100%;border-collapse:collapse;"><tr>${heads.map(head => `<th style="text-align:left;color:#777;padding:4px;">${head}</th>`).join('')}</tr>${body || `<tr><td colspan="${heads.length}" style="color:#555;padding:4px;">なし</td></tr>`}</table>`;
+  root.innerHTML = table('Master', ['正式名', '種別', '状態', '操作'], masters)
+    + table('販売版', ['ASIN', 'URL', '形式', '操作'], editions)
+    + table('別名', ['別名', 'work_id', '操作'], aliases)
+    + table('Review', ['種別', '候補', '状態', '判断'], reviews)
+    + table('推薦link metadata', ['link_id', 'context', '理由', '操作'], links);
+}
+
+async function loadWorkCatalog(force = false) {
+  if (_workCatalog && !force) return;
+  const res = await adminFetch('/api/admin/work_catalog', {method: 'GET', headers: {}});
+  if (!res || !res.ok) return;
+  const data = await res.json();
+  _workCatalog = data.catalog;
+  _workCatalogDigest = data.digest;
+  renderWorkCatalog();
+}
+
+async function mutateWorkCatalog(operation, payload, destructive = false) {
+  let confirmText;
+  if (destructive) {
+    confirmText = prompt('続行するには WORK_CATALOG と入力してください。');
+    if (confirmText !== 'WORK_CATALOG') return false;
+  }
+  const res = await adminFetch('/api/admin/work_catalog/mutate', {
+    method: 'POST',
+    body: JSON.stringify({operation, payload, expected_digest: _workCatalogDigest, confirm_text: confirmText}),
+  });
+  if (!res) return false;
+  const data = await res.json();
+  const msg = document.getElementById('wc-msg');
+  if (!res.ok) {
+    msg.style.color = '#e74c3c';
+    msg.textContent = data.message || '更新に失敗しました。再読込してください。';
+    return false;
+  }
+  msg.style.color = '#27ae60';
+  msg.textContent = '保存しました';
+  _workCatalog = null;
+  await loadWorkCatalog(true);
+  return true;
+}
+
+async function createCatalogMaster() {
+  const canonicalTitle = document.getElementById('wc-title').value.trim();
+  const mediaType = document.getElementById('wc-media').value.trim();
+  if (!canonicalTitle) return;
+  await mutateWorkCatalog('master_create', {canonical_title: canonicalTitle, media_type: mediaType});
+}
+
+async function catalogMutationAction(el) {
+  const op = el.dataset.op;
+  const workId = el.dataset.workId;
+  const editionId = el.dataset.editionId;
+  const aliasId = el.dataset.aliasId;
+  const linkId = el.dataset.linkId;
+  const reviewId = el.dataset.reviewId;
+  if (op === 'master_update') {
+    const row = _workCatalog.works_master.find(item => item.work_id === workId);
+    const title = prompt('正式タイトル', row.canonical_title);
+    if (title !== null) await mutateWorkCatalog('master_update', {work_id: workId, canonical_title: title, media_type: prompt('種別', row.media_type || '') ?? row.media_type});
+  } else if (op === 'master_delete') await mutateWorkCatalog(op, {work_id: workId}, true);
+  else if (op === 'edition_create') {
+    const url = prompt('canonical URL');
+    if (url) await mutateWorkCatalog(op, {work_id: workId, canonical_url: url, format: prompt('形式', '') || ''});
+  } else if (op === 'edition_update') {
+    const row = _workCatalog.work_editions.find(item => item.edition_id === editionId);
+    const url = prompt('canonical URL', row.canonical_url);
+    if (url) await mutateWorkCatalog(op, {...row, canonical_url: url});
+  } else if (op === 'edition_delete') await mutateWorkCatalog(op, {edition_id: editionId}, true);
+  else if (op === 'alias_create') {
+    const alias = prompt('別名');
+    if (alias) await mutateWorkCatalog(op, {work_id: workId, alias});
+  } else if (op === 'alias_update') {
+    const row = _workCatalog.work_aliases.find(item => item.alias_id === aliasId);
+    const alias = prompt('別名', row.alias);
+    if (alias) await mutateWorkCatalog(op, {...row, alias});
+  } else if (op === 'alias_delete') await mutateWorkCatalog(op, {alias_id: aliasId}, true);
+  else if (op === 'link_update') {
+    const row = [..._workCatalog.fetish_work_links, ..._workCatalog.compound_work_links].find(item => item.link_id === linkId);
+    await mutateWorkCatalog(op, {link_id: linkId, context_label: prompt('context', row.context_label || '') ?? row.context_label, recommendation_reason: prompt('推薦理由', row.recommendation_reason || '') ?? row.recommendation_reason});
+  } else if (op === 'review_keep' || op === 'review_merge') {
+    const row = _workCatalog.review_queue.find(item => item.review_id === reviewId);
+    const merge = op === 'review_merge';
+    const target = merge ? prompt(`統合先work_id\n${row.work_ids.join('\n')}`, row.work_ids[0]) : null;
+    if (!merge || target) await mutateWorkCatalog('review_decide', {review_id: reviewId, expected_version: row.version || 0, decision: merge ? 'merge' : 'keep_separate', target_work_id: target}, merge);
+  }
+}
+
 async function toggleQuestion(qId) {
   const res  = await adminFetch(`/api/admin/toggle_question/${qId}`, {method: 'POST'});
   if (!res || !res.ok) { alert('エラーが発生しました'); return; }
@@ -819,6 +924,10 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (action === 'load-compound-works') loadCompoundWorks();
     else if (action === 'save-compound-works') saveCompoundWorks();
     else if (action === 'delete-compound-works') deleteCompoundWorks(el.dataset.key, parseInt(el.dataset.idA, 10), parseInt(el.dataset.idB, 10));
+    else if (action === 'load-work-catalog') loadWorkCatalog();
+    else if (action === 'catalog-refresh') loadWorkCatalog(true);
+    else if (action === 'catalog-create-master') createCatalogMaster();
+    else if (action === 'catalog-mutate') catalogMutationAction(el);
     else if (action === 'check-similarity') checkSimilarity();
     else if (action === 'merge-fetishes') mergeFetishes();
   });

@@ -34,6 +34,7 @@ class TestDbWorkCatalog(unittest.TestCase):
         db_work_catalog.ensure_schema(cursor)
         sql = '\n'.join(statement for statement, _params in cursor.executed)
         for table in (
+            'work_catalog_meta',
             'works_master',
             'work_editions',
             'work_aliases',
@@ -178,6 +179,7 @@ class TestDbWorkCatalog(unittest.TestCase):
                 'DELETE FROM work_aliases',
                 'DELETE FROM work_editions',
                 'DELETE FROM works_master',
+                'UPDATE work_catalog_meta SET revision = revision + 1 WHERE singleton = TRUE',
             ],
         )
         self.assertEqual(counts['works_master'], 0)
