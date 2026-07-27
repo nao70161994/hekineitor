@@ -55,6 +55,8 @@ jobs:
           echo "バックアップサイズ: $(wc -c < data/matrix_backup.json) bytes"
 
       - name: Validate backup payload
+        env:
+          PYTHONPATH: .
         run: python scripts/validate_matrix_backup.py data/matrix_backup.json --max-age-days 30
 
       - name: Import matrix to Render

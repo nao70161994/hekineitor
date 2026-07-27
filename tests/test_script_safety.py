@@ -347,6 +347,11 @@ class RestoreMatrixWorkflowTests(unittest.TestCase):
     def test_workflow_requires_backup_freshness_metadata(self):
         workflow = (ROOT / '.github' / 'workflows' / 'restore_matrix.yml').read_text(encoding='utf-8')
         validator = (ROOT / 'scripts' / 'validate_matrix_backup.py').read_text(encoding='utf-8')
+        self.assertRegex(
+            workflow,
+            r'name: Validate backup payload\n        env:\n          PYTHONPATH: \.\n'
+            r'        run: python scripts/validate_matrix_backup.py',
+        )
 
         self.assertIn('validate_matrix_backup.py data/matrix_backup.json --max-age-days 30', workflow)
         self.assertIn('exported_at', validator)

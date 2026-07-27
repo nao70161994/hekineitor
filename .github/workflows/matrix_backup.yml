@@ -29,6 +29,8 @@ jobs:
           echo "Backup size: $(wc -c < data/matrix_backup.json) bytes"
 
       - name: Validate backup payload
+        env:
+          PYTHONPATH: .
         run: python scripts/validate_matrix_backup.py data/matrix_backup.json --max-age-days 1
 
       - name: Upload backup artifact

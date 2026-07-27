@@ -782,6 +782,11 @@ class ReviewFixTests(unittest.TestCase):
         self.assertNotIn("created_str = data.get('createdAt'", backup)
         self.assertIn('curl --fail-with-body', backup)
         self.assertIn('validate_matrix_backup.py data/matrix_backup.json --max-age-days 1', backup)
+        self.assertRegex(
+            backup,
+            r'name: Validate backup payload\n        env:\n          PYTHONPATH: \.\n'
+            r'        run: python scripts/validate_matrix_backup.py',
+        )
         self.assertLess(backup.index('Validate backup payload'), backup.index('Upload backup artifact'))
         self.assertIn('validate_matrix_backup.py', restore)
         self.assertIn('validate_matrix_backup.py data/matrix_backup.json --max-age-days 30', restore)
