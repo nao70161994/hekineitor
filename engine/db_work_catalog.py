@@ -4,7 +4,7 @@ import json
 
 from .work_catalog import (
     build_catalog_from_inline,
-    merge_restored_fetish_works as merge_restored_fetish_works,
+    merge_restored_fetish_works,  # noqa: F401 - compatibility re-export for db_matrix
     replace_compound_works,
     replace_fetish_works,
     validate_catalog,
