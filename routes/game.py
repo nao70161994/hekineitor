@@ -1,4 +1,5 @@
 from contextlib import nullcontext
+
 from flask import Blueprint
 
 from services import share, share_links
