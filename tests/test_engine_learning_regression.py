@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from engine import Engine
 import engine.facade as engine_facade
+from engine import Engine
 
 
 class TestEngineLearningRegression(unittest.TestCase):
