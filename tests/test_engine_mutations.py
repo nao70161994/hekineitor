@@ -172,3 +172,56 @@ class TestEngineMutations(unittest.TestCase):
 
         self.assertIsNone(new_id)
         self.assertIsNotNone(self.engine.index_of(player_id))
+
+    def test_review_manifest_local_mutation_commits_complete_resolved_catalog(self):
+        fetish_id = self.engine.fetishes[0]['id']
+        fetishes = [
+            {
+                'id': fetish_id,
+                'name': 'Review target',
+                'desc': '',
+                'works': ['Same（A）', 'Same（B）'],
+            }
+        ]
+        catalog = engine_module.work_catalog.build_catalog_from_inline(fetishes)
+        review = catalog['review_queue'][0]
+        manifest = {
+            'schema_version': 1,
+            'reviewed_at': '2026-07-28',
+            'decisions': [
+                {
+                    'review_id': review['review_id'],
+                    'candidate_key': review['candidate_key'],
+                    'work_ids': review['work_ids'],
+                    'decision': 'merge',
+                    'target_work_id': review['work_ids'][0],
+                }
+            ],
+        }
+        before = {'fetishes': fetishes, 'compound_works': {}, 'work_catalog': catalog}
+
+        def local_state(**values):
+            if not values:
+                return before
+            return {
+                'fetishes': values['fetishes'],
+                'compound_works': values['compound_works'],
+                'work_catalog': values['work_catalog'],
+            }
+
+        with (
+            patch.object(engine_module, '_use_db', return_value=False),
+            patch.object(self.engine, '_local_work_catalog_state', side_effect=local_state),
+            patch.object(self.engine, '_commit_local_work_catalog_state', return_value=None) as commit_catalog,
+        ):
+            result = self.engine.mutate_work_catalog(
+                'review_apply_manifest',
+                {'decision_manifest': manifest},
+                expected_digest=engine_module.work_catalog.catalog_digest(catalog),
+            )
+
+        self.assertEqual(result['result'], {'resolved_count': 1, 'pending_count': 0})
+        commit_catalog.assert_called_once()
+        committed = commit_catalog.call_args.args[1]['work_catalog']
+        self.assertEqual(len(committed['works_master']), 1)
+        self.assertEqual(committed['review_queue'][0]['status'], 'resolved')

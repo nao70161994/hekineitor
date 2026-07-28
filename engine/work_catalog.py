@@ -851,6 +851,160 @@ def admin_decide_review(catalog, review_id, values):
     return updated
 
 
+def apply_review_decisions(catalog, decision_manifest):
+    """Apply a complete, input-locked set of human identity decisions."""
+    validate_catalog(catalog)
+    if not isinstance(decision_manifest, dict):
+        raise ValueError('unsupported work review decision schema_version')
+    try:
+        schema_version = int(decision_manifest.get('schema_version', 0))
+    except (TypeError, ValueError):
+        raise ValueError('unsupported work review decision schema_version')
+    if schema_version != 1:
+        raise ValueError('unsupported work review decision schema_version')
+    decisions = decision_manifest.get('decisions')
+    if not isinstance(decisions, list) or not all(isinstance(row, dict) for row in decisions):
+        raise ValueError('work review decisions must be a list')
+
+    decision_ids = [str(row.get('review_id') or '') for row in decisions]
+    if not all(decision_ids) or len(decision_ids) != len(set(decision_ids)):
+        raise ValueError('work review decisions contain missing or duplicate review ids')
+
+    catalog = copy.deepcopy(catalog)
+    original_reviews = {row['review_id']: row for row in catalog['review_queue']}
+    masters = {row['work_id']: row for row in catalog['works_master']}
+    editions_by_work = defaultdict(list)
+    for edition in catalog['work_editions']:
+        editions_by_work[edition['work_id']].append(edition)
+    for decision in decisions:
+        review_id = str(decision['review_id'])
+        if review_id in original_reviews or decision.get('review_type') != 'identity_override':
+            continue
+        candidate_key = str(decision.get('candidate_key') or '')
+        work_ids = sorted(str(value) for value in decision.get('work_ids') or [])
+        if (
+            not candidate_key.startswith('identity_override:')
+            or review_id != _stable_id('wrv', candidate_key)
+            or len(work_ids) < 2
+            or len(work_ids) != len(set(work_ids))
+            or not set(work_ids).issubset(masters)
+        ):
+            raise ValueError(f'invalid identity override: {review_id}')
+        asins = sorted(
+            {
+                edition.get('asin')
+                for work_id in work_ids
+                for edition in editions_by_work[work_id]
+                if edition.get('asin')
+            }
+        )
+        review = {
+            'review_id': review_id,
+            'review_type': 'identity_override',
+            'candidate_key': candidate_key,
+            'work_ids': work_ids,
+            'titles': sorted({masters[work_id]['canonical_title'] for work_id in work_ids}),
+            'asins': asins,
+            'status': 'pending',
+        }
+        catalog['review_queue'].append(review)
+        original_reviews[review_id] = review
+    _sort_catalog_rows(catalog)
+    validate_catalog(catalog)
+    if set(decision_ids) != set(original_reviews):
+        raise ValueError('work review decisions must cover the complete review queue')
+    reviewed_at = _admin_text(decision_manifest.get('reviewed_at'), 'reviewed_at', 64, required=True)
+
+    expected_replacements = {}
+
+    def expected_resolved_id(work_id):
+        seen = set()
+        while work_id in expected_replacements and work_id not in seen:
+            seen.add(work_id)
+            work_id = expected_replacements[work_id]
+        return work_id
+
+    for decision in decisions:
+        review = original_reviews[decision['review_id']]
+        if str(decision.get('candidate_key') or '') != str(review.get('candidate_key') or ''):
+            raise ValueError(f'work review candidate changed: {decision["review_id"]}')
+        if decision.get('review_type') and decision.get('review_type') != review.get('review_type'):
+            raise ValueError(f'work review type changed: {decision["review_id"]}')
+        expected_ids = sorted(str(value) for value in decision.get('work_ids') or [])
+        if not expected_ids or len(expected_ids) != len(set(expected_ids)):
+            raise ValueError(f'invalid work review candidates: {decision["review_id"]}')
+        if decision.get('decision') not in {'merge', 'keep_separate'}:
+            raise ValueError(f'invalid work review decision: {decision["review_id"]}')
+        target_id = decision.get('target_work_id')
+        if decision['decision'] == 'merge' and target_id not in expected_ids:
+            raise ValueError(f'invalid work review target: {decision["review_id"]}')
+        if decision['decision'] == 'keep_separate' and target_id:
+            raise ValueError(f'keep_separate review cannot have a target: {decision["review_id"]}')
+        if decision['decision'] == 'merge':
+            resolved_target = expected_resolved_id(target_id)
+            for work_id in expected_ids:
+                resolved_source = expected_resolved_id(work_id)
+                if resolved_source != resolved_target:
+                    expected_replacements[resolved_source] = resolved_target
+
+    already_applied = all(review.get('status') == 'resolved' for review in original_reviews.values())
+    if already_applied:
+        for decision in decisions:
+            review = original_reviews[decision['review_id']]
+            expected_ids = sorted({expected_resolved_id(str(value)) for value in decision.get('work_ids') or []})
+            expected_target = (
+                expected_resolved_id(decision['target_work_id']) if decision['decision'] == 'merge' else None
+            )
+            if (
+                review.get('decision') != decision['decision']
+                or sorted(review.get('work_ids') or []) != expected_ids
+                or review.get('target_work_id') != expected_target
+            ):
+                already_applied = False
+                break
+        if already_applied:
+            return copy.deepcopy(catalog)
+
+    for decision in decisions:
+        review = original_reviews[decision['review_id']]
+        expected_ids = sorted(str(value) for value in decision.get('work_ids') or [])
+        if expected_ids != sorted(review.get('work_ids') or []):
+            raise ValueError(f'work review candidates changed: {decision["review_id"]}')
+
+    updated = copy.deepcopy(catalog)
+    replacements = {}
+
+    def resolved_id(work_id):
+        seen = set()
+        while work_id in replacements and work_id not in seen:
+            seen.add(work_id)
+            work_id = replacements[work_id]
+        return work_id
+
+    for decision in decisions:
+        review_id = decision['review_id']
+        review = _row_by_id(updated['review_queue'], 'review_id', review_id, 'work review')
+        values = {
+            'decision': decision['decision'],
+            'updated_at': reviewed_at,
+            'expected_version': int(review.get('version', 0)),
+        }
+        if decision['decision'] == 'merge':
+            target_id = resolved_id(decision['target_work_id'])
+            if target_id not in review.get('work_ids', []):
+                raise ValueError(f'work review target was removed by an inconsistent earlier decision: {review_id}')
+            values['target_work_id'] = target_id
+            source_ids = set(review.get('work_ids', [])) - {target_id}
+            updated = admin_decide_review(updated, review_id, values)
+            for source_id in source_ids:
+                replacements[source_id] = target_id
+        else:
+            updated = admin_decide_review(updated, review_id, values)
+
+    validate_catalog(updated)
+    return updated
+
+
 def replace_fetish_works(catalog, fetish_id, raw_works):
     """Return a catalog copy with one fetish's ordered links replaced."""
     editor = _catalog_editor(catalog)

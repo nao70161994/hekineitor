@@ -1,3 +1,5 @@
+import hashlib
+import json
 import urllib.parse
 from datetime import date, timedelta
 
@@ -1587,6 +1589,7 @@ def mutate_work_catalog_admin(ctx):
         'alias_delete',
         'link_update',
         'review_decide',
+        'review_apply_manifest',
     }
     if operation not in allowed:
         return ctx.jsonify({'status': 'error', 'message': '不正な作品catalog操作です'}), 400
@@ -1596,7 +1599,11 @@ def mutate_work_catalog_admin(ctx):
     expected_digest = str(data.get('expected_digest') or '')
     if len(expected_digest) != 64:
         return ctx.jsonify({'status': 'error', 'message': 'expected_digestが必要です'}), 400
-    destructive = operation.endswith('_delete') or (operation == 'review_decide' and payload.get('decision') == 'merge')
+    destructive = (
+        operation.endswith('_delete')
+        or operation == 'review_apply_manifest'
+        or (operation == 'review_decide' and payload.get('decision') == 'merge')
+    )
     if destructive:
         confirm_error = ctx.require_confirm('WORK_CATALOG')
         if confirm_error:
@@ -1611,6 +1618,19 @@ def mutate_work_catalog_admin(ctx):
     for key in ('work_id', 'edition_id', 'alias_id', 'link_id', 'review_id'):
         if payload.get(key):
             audit_payload[key] = str(payload[key])[:80]
+    if operation == 'review_apply_manifest':
+        manifest = payload.get('decision_manifest', {})
+        decisions = manifest.get('decisions', [])
+        encoded_manifest = json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode(
+            'utf-8'
+        )
+        audit_payload.update(
+            decision_count=len(decisions),
+            merge_count=sum(row.get('decision') == 'merge' for row in decisions),
+            keep_separate_count=sum(row.get('decision') == 'keep_separate' for row in decisions),
+            manifest_sha256=hashlib.sha256(encoded_manifest).hexdigest(),
+            reviewed_by=str(manifest.get('reviewed_by') or '')[:80],
+        )
     ctx.write_audit('work_catalog_mutation', 'ok', audit_payload, ctx.request)
     return ctx.jsonify({'status': 'ok', **result})
 

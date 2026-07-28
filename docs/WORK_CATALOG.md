@@ -22,6 +22,8 @@ PYTHONPATH=. python scripts/build_work_catalog.py
 
 2つ目のコマンドはchecked-in snapshotが入力と一致することを検証し、`scripts/check.sh`とCIでも実行されます。手動でIDを変更せず、移行・管理repositoryを通して更新します。
 
+`data/work_catalog_review_decisions.json`はraw inline入力に対する人手判断を固定するmanifestです。buildは候補keyと元`work_ids`が一致する場合だけ全判断を適用し、同じmanifestの再適用はno-opになります。英題・略称など緩い正規化では拾えない明白な同一作品は、`identity_override`として元IDを固定したreviewを追加してから統合します。
+
 ## Compatibility projection
 
 resolverはlinkを表示順に解決し、次の互換shapeを返します。
@@ -54,23 +56,23 @@ resolverはlinkを表示順に解決し、次の互換shapeを返します。
 
 ## Admin catalog API
 
-`GET /api/admin/work_catalog`は全正規化collectionとSHA-256 `digest`を返します。更新は`POST /api/admin/work_catalog/mutate`へ`operation`、`payload`、取得時の`expected_digest`を送り、古いdigestはHTTP 409で拒否されます。master、edition、alias、推薦link metadata、review判断を操作でき、参照中のmaster/edition/alias削除は拒否します。削除とreview mergeには`confirm_text: WORK_CATALOG`も必要です。全mutationは既存admin認証、CSRF、監査ログの対象です。
+`GET /api/admin/work_catalog`は全正規化collectionとSHA-256 `digest`を返します。更新は`POST /api/admin/work_catalog/mutate`へ`operation`、`payload`、取得時の`expected_digest`を送り、古いdigestはHTTP 409で拒否されます。master、edition、alias、推薦link metadata、review判断を操作でき、参照中のmaster/edition/alias削除は拒否します。削除、review merge、bulk manifest適用には`confirm_text: WORK_CATALOG`も必要です。全mutationは既存admin認証、CSRF、監査ログの対象です。
+
+review一括適用は`operation: review_apply_manifest`、`payload.decision_manifest`にchecked-in manifest全体を指定します。DBではcatalog lockと一つのtransaction内で全件を適用し、途中の不整合は全体をrollbackします。ローカルでは既存mutation journalを使います。監査ログにはmanifest SHA-256、reviewer、総件数、merge件数、keep件数を保存し、manifest本文は保存しません。
 
 reviewの`keep_separate`または`merge`には現在の`expected_version`が必須です。merge先は候補`work_ids`の一つに限定されます。URLは安全なcanonical URLだけを許可し、タイトル・媒体・context・推薦理由には長さ制限があります。
 
 旧形式をsource of truthから外す判定とrollback手順は[`WORK_CATALOG_MIGRATION.md`](WORK_CATALOG_MIGRATION.md)を参照してください。
 
-
 ## Review policy
 
-`review_queue`は緩いタイトル正規化で近い候補を示すだけで、自動mergeはしません。
+`review_queue`は自動統合の根拠ではなく、候補と人手判断の監査証跡です。
 
+- `normalization_candidate`: 緩いタイトル正規化で近く、ASIN衝突がない候補。
+- `normalization_conflict`: 緩いタイトル正規化で近く、複数ASINを持つ候補。
+- `identity_override`: 英題・和題・略称など、機械的な候補抽出では結び付かないが人手で同一と確認した候補。
 
-- `normalization_candidate`: ASIN衝突がない候補。
-- `normalization_conflict`: 複数ASINを持つ候補。必ず人手確認する。
-
-管理者が判断するまでは別`work_id`のまま保持します。
-
+未判断の候補は別`work_id`のまま保持します。2026-07-28のseed reviewでは74件すべてを解決し、72件をmerge、2件を`keep_separate`としました。結果は328 master、239 edition、122 alias、376 fetish link、189 compound link、pending 0で、legacy公開projectionとのmismatchは0です。判断根拠と保留事項は[`WORK_CATALOG_REVIEW_2026-07-28.md`](WORK_CATALOG_REVIEW_2026-07-28.md)に記録します。
 
 ## Backup and restore
 

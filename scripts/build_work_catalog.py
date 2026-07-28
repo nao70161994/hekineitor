@@ -7,10 +7,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / 'data'
 CATALOG_PATH = DATA_DIR / 'work_catalog.json'
+DECISIONS_PATH = DATA_DIR / 'work_catalog_review_decisions.json'
 
 
 def build_catalog():
-    from engine.work_catalog import build_catalog_from_inline
+    from engine.work_catalog import apply_review_decisions, build_catalog_from_inline
 
     fetishes = json.loads((DATA_DIR / 'fetishes.json').read_text(encoding='utf-8'))
     compound_data = json.loads((DATA_DIR / 'compound_works.json').read_text(encoding='utf-8'))
@@ -18,7 +19,9 @@ def build_catalog():
     for key, works in sorted(compound_data.items()):
         id_a, id_b = key.split(',', 1)
         compound_rows.append({'key': key, 'id_a': int(id_a), 'id_b': int(id_b), 'works': works})
-    return build_catalog_from_inline(fetishes, compound_rows=compound_rows)
+    catalog = build_catalog_from_inline(fetishes, compound_rows=compound_rows)
+    decisions = json.loads(DECISIONS_PATH.read_text(encoding='utf-8'))
+    return apply_review_decisions(catalog, decisions)
 
 
 def main(argv=None):

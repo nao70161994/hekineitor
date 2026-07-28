@@ -574,6 +574,42 @@ class TestAdminAuthOperations(APITestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.get_json()['required_confirm_text'], 'WORK_CATALOG')
+        manifest = {
+            'schema_version': 1,
+            'reviewed_at': '2026-07-28',
+            'reviewed_by': 'test reviewer',
+            'decisions': [],
+        }
+        bulk_payload = {'decision_manifest': manifest}
+        response = self.client.post(
+            '/api/admin/work_catalog/mutate',
+            headers=headers,
+            json={
+                'operation': 'review_apply_manifest',
+                'expected_digest': digest,
+                'payload': bulk_payload,
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()['required_confirm_text'], 'WORK_CATALOG')
+
+        with patch.object(
+            app_engine,
+            'mutate_work_catalog',
+            return_value={'result': {'resolved_count': 0, 'pending_count': 0}, 'digest': 'c' * 64},
+        ) as mutate:
+            response = self.client.post(
+                '/api/admin/work_catalog/mutate',
+                headers=headers,
+                json={
+                    'operation': 'review_apply_manifest',
+                    'expected_digest': digest,
+                    'confirm_text': 'WORK_CATALOG',
+                    'payload': bulk_payload,
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        mutate.assert_called_once_with('review_apply_manifest', bulk_payload, expected_digest=digest)
 
     def test_admin_csrf_token_expires_when_enabled(self):
         app.config['ENFORCE_CSRF'] = True

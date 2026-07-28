@@ -411,6 +411,132 @@ class WorkCatalogMigrationTests(unittest.TestCase):
         )
         self.assertEqual(rows, ['Same', {'title': 'Alias A', 'url': 'https://www.amazon.co.jp/dp/B000000001'}])
 
+    def test_review_decision_manifest_resolves_complete_queue_and_preserves_projection(self):
+        catalog = work_catalog.build_catalog_from_inline(
+            [
+                {
+                    'id': 1,
+                    'works': [
+                        {'title': 'Same（人物A）', 'url': 'https://www.amazon.co.jp/dp/B000000001'},
+                        {'title': 'Same（人物B）'},
+                    ],
+                }
+            ]
+        )
+        review = catalog['review_queue'][0]
+        before = work_catalog.materialize_fetish_works(catalog)
+        target = next(row['work_id'] for row in catalog['work_editions'] if row.get('asin') == 'B000000001')
+        manifest = {
+            'schema_version': 1,
+            'reviewed_at': '2026-07-28',
+            'decisions': [
+                {
+                    'review_id': review['review_id'],
+                    'candidate_key': review['candidate_key'],
+                    'work_ids': review['work_ids'],
+                    'decision': 'merge',
+                    'target_work_id': target,
+                }
+            ],
+        }
+
+        updated = work_catalog.apply_review_decisions(catalog, manifest)
+
+        self.assertEqual(len(updated['works_master']), 1)
+        self.assertEqual(updated['review_queue'][0]['status'], 'resolved')
+        self.assertEqual(
+            [(row['title'], row['url']) for row in work_catalog.materialize_fetish_works(updated)[1]],
+            [(row['title'], row['url']) for row in before[1]],
+        )
+        self.assertEqual(work_catalog.apply_review_decisions(updated, manifest), updated)
+
+    def test_review_manifest_can_add_audited_identity_override(self):
+        catalog = work_catalog.build_catalog_from_inline(
+            [
+                {
+                    'id': 1,
+                    'works': [
+                        {'title': 'Given', 'url': 'https://www.amazon.co.jp/dp/B000000001'},
+                        {'title': 'ギヴン', 'url': 'https://www.amazon.co.jp/dp/B000000002'},
+                    ],
+                }
+            ]
+        )
+        self.assertEqual(catalog['review_queue'], [])
+        before = work_catalog.materialize_fetish_works(catalog)
+        by_title = {row['canonical_title']: row['work_id'] for row in catalog['works_master']}
+        candidate_key = 'identity_override:given-ja-en'
+        manifest = {
+            'schema_version': 1,
+            'reviewed_at': '2026-07-28',
+            'decisions': [
+                {
+                    'review_id': work_catalog._stable_id('wrv', candidate_key),
+                    'review_type': 'identity_override',
+                    'candidate_key': candidate_key,
+                    'work_ids': sorted(by_title.values()),
+                    'decision': 'merge',
+                    'target_work_id': by_title['ギヴン'],
+                }
+            ],
+        }
+
+        updated = work_catalog.apply_review_decisions(catalog, manifest)
+
+        self.assertEqual(len(updated['works_master']), 1)
+        self.assertEqual(updated['review_queue'][0]['review_type'], 'identity_override')
+        self.assertEqual(updated['review_queue'][0]['status'], 'resolved')
+        self.assertEqual(
+            [(row['title'], row['url']) for row in work_catalog.materialize_fetish_works(updated)[1]],
+            [(row['title'], row['url']) for row in before[1]],
+        )
+        self.assertEqual(work_catalog.apply_review_decisions(updated, manifest), updated)
+
+    def test_review_manifest_rejects_malformed_schema_and_decision_rows(self):
+        catalog = work_catalog.build_catalog_from_inline([])
+        for manifest in (
+            {'schema_version': None, 'decisions': []},
+            {'schema_version': {}, 'decisions': []},
+            {'schema_version': 1, 'decisions': [None]},
+        ):
+            with self.assertRaises(ValueError):
+                work_catalog.apply_review_decisions(catalog, manifest)
+
+    def test_review_decision_manifest_rejects_input_drift_and_incomplete_coverage(self):
+        catalog = work_catalog.build_catalog_from_inline(
+            [{'id': 1, 'works': ['Same（A）', 'Same（B）', 'Other（A）', 'Other（B）']}]
+        )
+        review = catalog['review_queue'][0]
+        decision = {
+            'review_id': review['review_id'],
+            'candidate_key': review['candidate_key'],
+            'work_ids': review['work_ids'],
+            'decision': 'keep_separate',
+            'target_work_id': None,
+        }
+        with self.assertRaisesRegex(ValueError, 'complete review queue'):
+            work_catalog.apply_review_decisions(
+                catalog,
+                {'schema_version': 1, 'reviewed_at': '2026-07-28', 'decisions': [decision]},
+            )
+        decision['work_ids'] = decision['work_ids'][:-1]
+        decisions = [decision]
+        for remaining in catalog['review_queue'][1:]:
+            decisions.append(
+                {
+                    'review_id': remaining['review_id'],
+                    'candidate_key': remaining['candidate_key'],
+                    'work_ids': remaining['work_ids'],
+                    'decision': 'keep_separate',
+                    'target_work_id': None,
+                }
+            )
+        with self.assertRaisesRegex(ValueError, 'candidates changed'):
+            work_catalog.apply_review_decisions(
+                catalog,
+                {'schema_version': 1, 'reviewed_at': '2026-07-28', 'decisions': decisions},
+            )
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -480,6 +480,12 @@ class Engine:
                 return engine_work_catalog.admin_delete_alias(current, payload.get('alias_id')), None
             if operation == 'link_update':
                 return engine_work_catalog.admin_update_link(current, payload.get('link_id'), payload), None
+            if operation == 'review_apply_manifest':
+                updated = engine_work_catalog.apply_review_decisions(current, payload.get('decision_manifest'))
+                return updated, {
+                    'resolved_count': sum(row.get('status') == 'resolved' for row in updated['review_queue']),
+                    'pending_count': sum(row.get('status') == 'pending' for row in updated['review_queue']),
+                }
             if operation == 'review_decide':
                 return engine_work_catalog.admin_decide_review(current, payload.get('review_id'), payload), None
             raise ValueError('unsupported work catalog operation')
@@ -606,13 +612,28 @@ class Engine:
             try:
                 self._save_to_db(all_updates, idx_to_db_id)
             except BaseException:
-                # DB writes are transactional. Undo only this call's deltas so
-                # concurrent successful learning retained in memory is preserved.
+                # DB writes are transactional. Restore exact pre-update values
+                # when no other learner touched the cell; otherwise subtract only
+                # this call's delta so concurrent successful learning is retained.
                 with self._lock:
                     for fetish_idx, rows in all_updates.items():
-                        for question_idx, delta_yes, delta_total in rows:
-                            self.matrix['yes'][fetish_idx][question_idx] -= delta_yes
-                            self.matrix['total'][fetish_idx][question_idx] -= delta_total
+                        for update in rows:
+                            question_idx, delta_yes, delta_total = update[:3]
+                            if len(update) >= 5:
+                                before_yes, before_total = update[3:5]
+                                expected_yes = before_yes + delta_yes
+                                expected_total = before_total + delta_total
+                            else:
+                                before_yes = before_total = expected_yes = expected_total = None
+                            if (
+                                self.matrix['yes'][fetish_idx][question_idx] == expected_yes
+                                and self.matrix['total'][fetish_idx][question_idx] == expected_total
+                            ):
+                                self.matrix['yes'][fetish_idx][question_idx] = before_yes
+                                self.matrix['total'][fetish_idx][question_idx] = before_total
+                            else:
+                                self.matrix['yes'][fetish_idx][question_idx] -= delta_yes
+                                self.matrix['total'][fetish_idx][question_idx] -= delta_total
                 raise
         else:
             self._save_matrix_file()

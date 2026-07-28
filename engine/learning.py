@@ -20,9 +20,11 @@ def learn(engine, answers, fetish_idx, strength_factor=1.0, *, pseudo):
             effective = strength * scale * strength_factor * disc_scales[q]
 
             delta_yes = effective if ans > 0 else 0.0
+            before_yes = engine.matrix['yes'][fetish_idx][q]
+            before_total = engine.matrix['total'][fetish_idx][q]
             engine.matrix['total'][fetish_idx][q] += effective
             engine.matrix['yes'][fetish_idx][q] += delta_yes
-            all_updates.setdefault(fetish_idx, []).append((q, delta_yes, effective))
+            all_updates.setdefault(fetish_idx, []).append((q, delta_yes, effective, before_yes, before_total))
 
         idx_to_db_id = {i: fetish['id'] for i, fetish in enumerate(engine.fetishes)}
 
@@ -55,9 +57,11 @@ def learn_cooccurrence(engine, answers, idx_a, idx_b, factor=0.25, *, pseudo):
                 if effective < 0.005:
                     continue
                 delta_yes = effective if synthetic_ans > 0 else 0.0
+                before_yes = engine.matrix['yes'][target][q]
+                before_total = engine.matrix['total'][target][q]
                 engine.matrix['yes'][target][q] += delta_yes
                 engine.matrix['total'][target][q] += effective
-                all_updates.setdefault(target, []).append((q, delta_yes, effective))
+                all_updates.setdefault(target, []).append((q, delta_yes, effective, before_yes, before_total))
         idx_to_db_id = {i: fetish['id'] for i, fetish in enumerate(engine.fetishes)}
 
     engine._save_async(all_updates, idx_to_db_id)
@@ -84,9 +88,11 @@ def learn_near_miss(engine, answers, fetish_idx, strength_factor=1.0, *, pseudo)
             scale = min(1.0, pseudo / max(engine.matrix['total'][fetish_idx][q], pseudo))
             effective = strength * scale * disc_scales[q]
             delta_yes = effective if ans > 0 else 0.0
+            before_yes = engine.matrix['yes'][fetish_idx][q]
+            before_total = engine.matrix['total'][fetish_idx][q]
             engine.matrix['yes'][fetish_idx][q] += delta_yes
             engine.matrix['total'][fetish_idx][q] += effective
-            all_updates.setdefault(fetish_idx, []).append((q, delta_yes, effective))
+            all_updates.setdefault(fetish_idx, []).append((q, delta_yes, effective, before_yes, before_total))
         idx_to_db_id = {i: fetish['id'] for i, fetish in enumerate(engine.fetishes)}
 
     engine._save_async(all_updates, idx_to_db_id)
@@ -113,9 +119,11 @@ def learn_negative(engine, answers, fetish_idx, strength_factor=1.0, *, pseudo):
             scale = min(1.0, pseudo / max(engine.matrix['total'][fetish_idx][q], pseudo))
             effective = strength * scale
             delta_yes = 0.0 if ans > 0 else effective
+            before_yes = engine.matrix['yes'][fetish_idx][q]
+            before_total = engine.matrix['total'][fetish_idx][q]
             engine.matrix['yes'][fetish_idx][q] += delta_yes
             engine.matrix['total'][fetish_idx][q] += effective
-            all_updates.setdefault(fetish_idx, []).append((q, delta_yes, effective))
+            all_updates.setdefault(fetish_idx, []).append((q, delta_yes, effective, before_yes, before_total))
         idx_to_db_id = {i: fetish['id'] for i, fetish in enumerate(engine.fetishes)}
 
     engine._save_async(all_updates, idx_to_db_id)
@@ -146,9 +154,11 @@ def learn_silent(engine, answers, fetish_idx, cold_start=False, *, pseudo):
             effective = strength * scale
 
             delta_yes = effective if ans > 0 else 0.0
+            before_yes = engine.matrix['yes'][fetish_idx][q]
+            before_total = engine.matrix['total'][fetish_idx][q]
             engine.matrix['total'][fetish_idx][q] += effective
             engine.matrix['yes'][fetish_idx][q] += delta_yes
-            all_updates.setdefault(fetish_idx, []).append((q, delta_yes, effective))
+            all_updates.setdefault(fetish_idx, []).append((q, delta_yes, effective, before_yes, before_total))
 
         idx_to_db_id = {i: fetish['id'] for i, fetish in enumerate(engine.fetishes)}
 

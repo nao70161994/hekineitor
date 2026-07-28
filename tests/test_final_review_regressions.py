@@ -111,7 +111,10 @@ class FinalReviewRegressionTests(unittest.TestCase):
             patch.object(engine, '_save_to_db', side_effect=RuntimeError('db')),
         ):
             with self.assertRaises(RuntimeError):
-                engine._save_async({0: [(0, 1.0, 2.0)]}, {0: engine.fetishes[0]['id']})
+                engine._save_async(
+                    {0: [(0, 1.0, 2.0, before_yes, before_total)]},
+                    {0: engine.fetishes[0]['id']},
+                )
         self.assertEqual(engine.matrix['yes'][0][0], before_yes)
         self.assertEqual(engine.matrix['total'][0][0], before_total)
 

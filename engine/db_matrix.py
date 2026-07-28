@@ -32,7 +32,8 @@ def build_save_matrix_rows(all_updates, idx_to_db_id=None, fetishes=None):
             db_id = None
         if db_id is None:
             continue
-        for question_idx, delta_yes, delta_total in updates:
+        for update in updates:
+            question_idx, delta_yes, delta_total = update[:3]
             rows.append((db_id, question_idx, delta_yes, delta_total))
     return rows
 
