@@ -480,6 +480,13 @@ class Engine:
                 return engine_work_catalog.admin_delete_alias(current, payload.get('alias_id')), None
             if operation == 'link_update':
                 return engine_work_catalog.admin_update_link(current, payload.get('link_id'), payload), None
+            if operation == 'seed_overrides_apply_manifest':
+                manifest = payload.get('seed_overrides')
+                updated = engine_work_catalog.apply_seed_overrides(current, manifest)
+                return updated, {
+                    'normalized_title_count': len(manifest.get('title_normalizations', [])),
+                    'removed_work_count': len(current['works_master']) - len(updated['works_master']),
+                }
             if operation == 'review_apply_manifest':
                 updated = engine_work_catalog.apply_review_decisions(current, payload.get('decision_manifest'))
                 return updated, {

@@ -54,9 +54,51 @@ def _empty_catalog():
     }
 
 
-def build_catalog_from_inline(fetishes, *, compound_rows=()):
+def _seed_title_normalizations(seed_overrides):
+    if seed_overrides is None:
+        return {}
+    if not isinstance(seed_overrides, dict):
+        raise ValueError('unsupported work catalog seed overrides schema_version')
+    try:
+        schema_version = int(seed_overrides.get('schema_version', 0))
+    except (TypeError, ValueError):
+        raise ValueError('unsupported work catalog seed overrides schema_version')
+    if schema_version != 1:
+        raise ValueError('unsupported work catalog seed overrides schema_version')
+    rows = seed_overrides.get('title_normalizations')
+    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+        raise ValueError('work catalog title_normalizations must be a list')
+    result = {}
+    for row in rows:
+        display_title = str(row.get('display_title') or '').strip()
+        canonical_title = str(row.get('canonical_title') or '').strip()
+        context_label = str(row.get('context_label') or '').strip()
+        if not display_title or not canonical_title:
+            raise ValueError('work catalog title normalization requires display and canonical titles')
+        if display_title in result:
+            raise ValueError(f'duplicate work catalog title normalization: {display_title}')
+        result[display_title] = {
+            'canonical_title': canonical_title,
+            'context_label': context_label,
+        }
+    return result
+
+
+def _seed_removal_titles(seed_overrides):
+    rows = seed_overrides.get('remove_display_titles', []) if isinstance(seed_overrides, dict) else []
+    if not isinstance(rows, list):
+        raise ValueError('work catalog remove_display_titles must be a list')
+    titles = [str(value or '').strip() for value in rows]
+    if not all(titles) or len(titles) != len(set(titles)):
+        raise ValueError('work catalog remove_display_titles contains blank or duplicate titles')
+    return titles
+
+
+def build_catalog_from_inline(fetishes, *, compound_rows=(), seed_overrides=None):
     """Build a deterministic normalized catalog without guessing ambiguous identities."""
     catalog = _empty_catalog()
+    title_normalizations = _seed_title_normalizations(seed_overrides)
+    removal_titles = set(_seed_removal_titles(seed_overrides))
     works_by_identity = {}
     editions_by_key = {}
     aliases_by_key = {}
@@ -64,8 +106,15 @@ def build_catalog_from_inline(fetishes, *, compound_rows=()):
 
     def register_work(raw_work):
         title = work_title(raw_work)
+        if title in removal_titles:
+            return None
+        normalization = title_normalizations.get(title, {})
+        canonical_title = normalization.get('canonical_title', title)
         raw_url = raw_work.get('url', '') if isinstance(raw_work, dict) else ''
         url = safe_work_url(raw_url)
+        # Keep the legacy display title in the stable identity input. Seed
+        # normalizations improve catalog responsibility without changing
+        # published work IDs or reviewed identity decisions.
         identity = _identity_key(title, url)
         if not identity or not title:
             return None
@@ -75,8 +124,8 @@ def build_catalog_from_inline(fetishes, *, compound_rows=()):
             work_id = _stable_id('wrk', identity)
             work = {
                 'work_id': work_id,
-                'canonical_title': title,
-                'normalized_title': normalized_work_title(title),
+                'canonical_title': canonical_title,
+                'normalized_title': normalized_work_title(canonical_title),
                 'media_type': '',
                 'status': 'active',
             }
@@ -128,7 +177,7 @@ def build_catalog_from_inline(fetishes, *, compound_rows=()):
                     'asin': extract_asin(url),
                 }
             )
-        return work_id, edition_id, alias_id
+        return work_id, edition_id, alias_id, normalization.get('context_label', '')
 
     for fetish in sorted(fetishes, key=lambda row: int(row.get('id', 0))):
         fetish_id = int(fetish['id'])
@@ -136,7 +185,7 @@ def build_catalog_from_inline(fetishes, *, compound_rows=()):
             registered = register_work(raw_work)
             if registered is None:
                 continue
-            work_id, edition_id, alias_id = registered
+            work_id, edition_id, alias_id, context_label = registered
             link = {
                 'link_id': _stable_id('fwl', fetish_id, work_id, edition_id, alias_id),
                 'fetish_id': fetish_id,
@@ -144,7 +193,7 @@ def build_catalog_from_inline(fetishes, *, compound_rows=()):
                 'edition_id': edition_id,
                 'alias_id': alias_id,
                 'position': position,
-                'context_label': '',
+                'context_label': context_label,
                 'recommendation_reason': '',
             }
             catalog['fetish_work_links'].append(link)
@@ -166,7 +215,7 @@ def build_catalog_from_inline(fetishes, *, compound_rows=()):
             registered = register_work(raw_work)
             if registered is None:
                 continue
-            work_id, edition_id, alias_id = registered
+            work_id, edition_id, alias_id, context_label = registered
             link = {
                 'link_id': _stable_id('cwl', id_a, id_b, work_id, edition_id, alias_id),
                 'id_a': id_a,
@@ -175,7 +224,7 @@ def build_catalog_from_inline(fetishes, *, compound_rows=()):
                 'edition_id': edition_id,
                 'alias_id': alias_id,
                 'position': position,
-                'context_label': '',
+                'context_label': context_label,
                 'recommendation_reason': '',
             }
             catalog['compound_work_links'].append(link)
@@ -538,6 +587,36 @@ def _sort_catalog_rows(catalog):
     )
 
 
+
+def _canonicalize_alias_and_link_ids(catalog, *, reindex_positions=False):
+    alias_replacements = {}
+    for alias in catalog['work_aliases']:
+        old_id = alias['alias_id']
+        alias['alias_id'] = _stable_id('wal', alias['work_id'], alias['normalized_alias'])
+        alias_replacements[old_id] = alias['alias_id']
+    for table in ('fetish_work_links', 'compound_work_links'):
+        owner_fields = ('fetish_id',) if table == 'fetish_work_links' else ('id_a', 'id_b')
+        positions = defaultdict(int)
+        for link in sorted(
+            catalog[table],
+            key=lambda row: (*[int(row[field]) for field in owner_fields], int(row['position']), row['link_id']),
+        ):
+            if link.get('alias_id'):
+                link['alias_id'] = alias_replacements.get(link['alias_id'], link['alias_id'])
+            owner = tuple(int(link[field]) for field in owner_fields)
+            if reindex_positions:
+                link['position'] = positions[owner]
+            positions[owner] += 1
+            prefix = 'fwl' if table == 'fetish_work_links' else 'cwl'
+            link['link_id'] = _stable_id(
+                prefix,
+                *owner,
+                link['work_id'],
+                link.get('edition_id'),
+                link.get('alias_id'),
+            )
+    _sort_catalog_rows(catalog)
+
 def catalog_digest(catalog):
     """Return a stable optimistic-concurrency token for a snapshot."""
     validate_catalog(catalog)
@@ -851,6 +930,123 @@ def admin_decide_review(catalog, review_id, values):
     return updated
 
 
+
+def apply_seed_overrides(catalog, seed_overrides):
+    """Apply reviewed seed cleanup to an existing catalog, failing closed on drift."""
+    validate_catalog(catalog)
+    normalizations = _seed_title_normalizations(seed_overrides)
+    removal_titles = _seed_removal_titles(seed_overrides)
+    updated = copy.deepcopy(catalog)
+    masters = {row['work_id']: row for row in updated['works_master']}
+    aliases = {row['alias_id']: row for row in updated['work_aliases']}
+    links = updated['fetish_work_links'] + updated['compound_work_links']
+    original_display = {
+        row['link_id']: (
+            aliases[row['alias_id']]['alias'] if row.get('alias_id') else masters[row['work_id']]['canonical_title']
+        )
+        for row in links
+    }
+    represented = defaultdict(set)
+    for work in masters.values():
+        represented[work['canonical_title']].add(work['work_id'])
+    for alias in aliases.values():
+        represented[alias['alias']].add(alias['work_id'])
+
+    aliases_by_work_title = {
+        (row['work_id'], row['normalized_alias']): row for row in updated['work_aliases']
+    }
+    for display_title, values in normalizations.items():
+        work_ids = represented.get(display_title, set())
+        if len(work_ids) != 1:
+            raise ValueError(f'work catalog seed override display drift: {display_title}')
+        work_id = next(iter(work_ids))
+        canonical_title = values['canonical_title']
+        normalized_title = normalized_work_title(canonical_title)
+        collisions = {
+            row['work_id']
+            for row in updated['works_master']
+            if row['normalized_title'] == normalized_title and row['work_id'] != work_id
+        }
+        if collisions:
+            raise ValueError(f'work catalog seed override canonical collision: {display_title}')
+        alias_key = (work_id, normalized_work_title(display_title))
+        alias = aliases_by_work_title.get(alias_key)
+        if alias is None:
+            alias = {
+                'alias_id': _stable_id('wal', work_id, alias_key[1]),
+                'work_id': work_id,
+                'alias': display_title,
+                'normalized_alias': alias_key[1],
+            }
+            updated['work_aliases'].append(alias)
+            aliases[alias['alias_id']] = alias
+            aliases_by_work_title[alias_key] = alias
+        matching_links = [
+            row
+            for row in links
+            if row['work_id'] == work_id and original_display[row['link_id']] == display_title
+        ]
+        if not matching_links:
+            raise ValueError(f'work catalog seed override link drift: {display_title}')
+        masters[work_id]['canonical_title'] = canonical_title
+        masters[work_id]['normalized_title'] = normalized_title
+        for link in matching_links:
+            link['alias_id'] = alias['alias_id']
+            link['context_label'] = values['context_label']
+
+    for display_title in removal_titles:
+        work_ids = represented.get(display_title, set())
+        if not work_ids:
+            continue
+        matching_links = {
+            row['link_id'] for row in links if original_display[row['link_id']] == display_title
+        }
+        if not matching_links:
+            raise ValueError(f'work catalog seed removal link drift: {display_title}')
+        updated['fetish_work_links'] = [
+            row for row in updated['fetish_work_links'] if row['link_id'] not in matching_links
+        ]
+        updated['compound_work_links'] = [
+            row for row in updated['compound_work_links'] if row['link_id'] not in matching_links
+        ]
+        remaining_work_ids = {
+            row['work_id'] for row in updated['fetish_work_links'] + updated['compound_work_links']
+        }
+        blocked = work_ids & remaining_work_ids
+        if blocked:
+            raise ValueError(f'work catalog seed removal still referenced: {display_title}')
+        if any(set(row.get('work_ids') or []) & work_ids for row in updated['review_queue']):
+            raise ValueError(f'work catalog seed removal is review referenced: {display_title}')
+        updated['work_editions'] = [row for row in updated['work_editions'] if row['work_id'] not in work_ids]
+        updated['work_aliases'] = [row for row in updated['work_aliases'] if row['work_id'] not in work_ids]
+        updated['works_master'] = [row for row in updated['works_master'] if row['work_id'] not in work_ids]
+
+    master_normalized_titles = {
+        row['work_id']: row['normalized_title'] for row in updated['works_master']
+    }
+    canonical_alias_ids = {
+        row['alias_id']
+        for row in updated['work_aliases']
+        if row['normalized_alias'] == master_normalized_titles[row['work_id']]
+    }
+    if canonical_alias_ids:
+        for link in updated['fetish_work_links'] + updated['compound_work_links']:
+            if link.get('alias_id') in canonical_alias_ids:
+                link['alias_id'] = None
+        updated['work_aliases'] = [
+            row for row in updated['work_aliases'] if row['alias_id'] not in canonical_alias_ids
+        ]
+
+    for review in updated['review_queue']:
+        if review.get('review_type') == 'identity_override':
+            review['titles'] = sorted(
+                {normalizations.get(title, {}).get('canonical_title', title) for title in review.get('titles', [])}
+            )
+    _canonicalize_alias_and_link_ids(updated, reindex_positions=True)
+    validate_catalog(updated)
+    return updated
+
+
 def apply_review_decisions(catalog, decision_manifest):
     """Apply a complete, input-locked set of human identity decisions."""
     validate_catalog(catalog)
@@ -868,6 +1064,7 @@ def apply_review_decisions(catalog, decision_manifest):
 
     decision_ids = [str(row.get('review_id') or '') for row in decisions]
     if not all(decision_ids) or len(decision_ids) != len(set(decision_ids)):
+
         raise ValueError('work review decisions contain missing or duplicate review ids')
 
     catalog = copy.deepcopy(catalog)
@@ -1001,6 +1198,7 @@ def apply_review_decisions(catalog, decision_manifest):
         else:
             updated = admin_decide_review(updated, review_id, values)
 
+    _canonicalize_alias_and_link_ids(updated, reindex_positions=True)
     validate_catalog(updated)
     return updated
 

@@ -611,6 +611,42 @@ class TestAdminAuthOperations(APITestCase):
         self.assertEqual(response.status_code, 200)
         mutate.assert_called_once_with('review_apply_manifest', bulk_payload, expected_digest=digest)
 
+        seed_payload = {
+            'seed_overrides': {
+                'schema_version': 1,
+                'remove_display_titles': [],
+                'title_normalizations': [],
+            }
+        }
+        response = self.client.post(
+            '/api/admin/work_catalog/mutate',
+            headers=headers,
+            json={
+                'operation': 'seed_overrides_apply_manifest',
+                'expected_digest': digest,
+                'payload': seed_payload,
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()['required_confirm_text'], 'WORK_CATALOG')
+        with patch.object(
+            app_engine,
+            'mutate_work_catalog',
+            return_value={'result': {'normalized_title_count': 0, 'removed_work_count': 0}, 'digest': 'd' * 64},
+        ) as mutate:
+            response = self.client.post(
+                '/api/admin/work_catalog/mutate',
+                headers=headers,
+                json={
+                    'operation': 'seed_overrides_apply_manifest',
+                    'expected_digest': digest,
+                    'confirm_text': 'WORK_CATALOG',
+                    'payload': seed_payload,
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        mutate.assert_called_once_with('seed_overrides_apply_manifest', seed_payload, expected_digest=digest)
+
     def test_admin_csrf_token_expires_when_enabled(self):
         app.config['ENFORCE_CSRF'] = True
         old_ttl = os.environ.get('ADMIN_CSRF_TTL_SECONDS')

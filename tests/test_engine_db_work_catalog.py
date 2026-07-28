@@ -97,6 +97,47 @@ class TestDbWorkCatalog(unittest.TestCase):
         )
         self.assertEqual(captured, repeated)
 
+    def test_migrate_legacy_catalog_applies_seed_title_responsibilities(self):
+        legacy_rows = [
+            (
+                7,
+                'Example',
+                'Desc',
+                json.dumps(
+                    [
+                        {
+                            'title': '作品名（人物）',
+                            'url': 'https://www.amazon.co.jp/dp/B000000001',
+                        }
+                    ]
+                ),
+            )
+        ]
+        captured = []
+
+        db_work_catalog.migrate_legacy_catalog(
+            RoutingCursor(legacy_rows=legacy_rows),
+            compound_data={},
+            seed_overrides={
+                'schema_version': 1,
+                'title_normalizations': [
+                    {
+                        'display_title': '作品名（人物）',
+                        'canonical_title': '作品名',
+                        'context_label': '人物',
+                    }
+                ],
+            },
+            execute_values=lambda _cur, sql, rows: captured.append((sql, list(rows))),
+        )
+
+        masters = next(rows for sql, rows in captured if 'INSERT INTO works_master' in sql)
+        aliases = next(rows for sql, rows in captured if 'INSERT INTO work_aliases' in sql)
+        links = next(rows for sql, rows in captured if 'INSERT INTO fetish_work_links' in sql)
+        self.assertEqual(masters[0][1], '作品名')
+        self.assertEqual(aliases[0][2], '作品名（人物）')
+        self.assertEqual(links[0][6], '人物')
+
     def test_migration_does_not_replace_an_existing_catalog(self):
         cursor = RoutingCursor(catalog_count=1, legacy_rows=[(1, 'Ignored', '', '["Ignored"]')])
         inserts = []

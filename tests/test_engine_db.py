@@ -230,6 +230,10 @@ class FakeEngine:
             return [{'id': 0, 'name': 'Seed', 'desc': 'Desc', 'works': ['Work']}]
         if name == 'compound_works.json':
             return {}
+        if name == 'work_catalog_seed_overrides.json':
+            return {'schema_version': 1, 'title_normalizations': []}
+        if name == 'work_catalog_review_decisions.json':
+            return {'schema_version': 1, 'reviewed_at': '2026-07-28', 'decisions': []}
         raise AssertionError(name)
 
     def _seed_db(self, cur, fetishes):

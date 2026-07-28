@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / 'data'
 CATALOG_PATH = DATA_DIR / 'work_catalog.json'
 DECISIONS_PATH = DATA_DIR / 'work_catalog_review_decisions.json'
+SEED_OVERRIDES_PATH = DATA_DIR / 'work_catalog_seed_overrides.json'
 
 
 def build_catalog():
@@ -19,7 +20,8 @@ def build_catalog():
     for key, works in sorted(compound_data.items()):
         id_a, id_b = key.split(',', 1)
         compound_rows.append({'key': key, 'id_a': int(id_a), 'id_b': int(id_b), 'works': works})
-    catalog = build_catalog_from_inline(fetishes, compound_rows=compound_rows)
+    seed_overrides = json.loads(SEED_OVERRIDES_PATH.read_text(encoding='utf-8'))
+    catalog = build_catalog_from_inline(fetishes, compound_rows=compound_rows, seed_overrides=seed_overrides)
     decisions = json.loads(DECISIONS_PATH.read_text(encoding='utf-8'))
     return apply_review_decisions(catalog, decisions)
 

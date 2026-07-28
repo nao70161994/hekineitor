@@ -225,3 +225,45 @@ class TestEngineMutations(unittest.TestCase):
         committed = commit_catalog.call_args.args[1]['work_catalog']
         self.assertEqual(len(committed['works_master']), 1)
         self.assertEqual(committed['review_queue'][0]['status'], 'resolved')
+
+    def test_seed_override_manifest_commits_catalog_atomically(self):
+        fetishes = [{"id": 1, "name": "Target", "desc": "", "works": ["作品名（人物）"]}]
+        catalog = engine_module.work_catalog.build_catalog_from_inline(fetishes)
+        before = {"fetishes": fetishes, "compound_works": {}, "work_catalog": catalog}
+        manifest = {
+            "schema_version": 1,
+            "remove_display_titles": [],
+            "title_normalizations": [
+                {
+                    "display_title": "作品名（人物）",
+                    "canonical_title": "作品名",
+                    "context_label": "人物",
+                }
+            ],
+        }
+
+        def local_state(**values):
+            if not values:
+                return before
+            return {
+                "fetishes": values["fetishes"],
+                "compound_works": values["compound_works"],
+                "work_catalog": values["work_catalog"],
+            }
+
+        with (
+            patch.object(engine_module, "_use_db", return_value=False),
+            patch.object(self.engine, "_local_work_catalog_state", side_effect=local_state),
+            patch.object(self.engine, "_commit_local_work_catalog_state", return_value=None) as commit_catalog,
+        ):
+            result = self.engine.mutate_work_catalog(
+                "seed_overrides_apply_manifest",
+                {"seed_overrides": manifest},
+                expected_digest=engine_module.work_catalog.catalog_digest(catalog),
+            )
+
+        self.assertEqual(result["result"], {"normalized_title_count": 1, "removed_work_count": 0})
+        commit_catalog.assert_called_once()
+        committed = commit_catalog.call_args.args[1]["work_catalog"]
+        self.assertEqual(committed["works_master"][0]["canonical_title"], "作品名")
+        self.assertEqual(committed["fetish_work_links"][0]["context_label"], "人物")

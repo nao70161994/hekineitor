@@ -1590,6 +1590,7 @@ def mutate_work_catalog_admin(ctx):
         'link_update',
         'review_decide',
         'review_apply_manifest',
+        'seed_overrides_apply_manifest',
     }
     if operation not in allowed:
         return ctx.jsonify({'status': 'error', 'message': '不正な作品catalog操作です'}), 400
@@ -1602,6 +1603,7 @@ def mutate_work_catalog_admin(ctx):
     destructive = (
         operation.endswith('_delete')
         or operation == 'review_apply_manifest'
+        or operation == 'seed_overrides_apply_manifest'
         or (operation == 'review_decide' and payload.get('decision') == 'merge')
     )
     if destructive:
@@ -1618,6 +1620,16 @@ def mutate_work_catalog_admin(ctx):
     for key in ('work_id', 'edition_id', 'alias_id', 'link_id', 'review_id'):
         if payload.get(key):
             audit_payload[key] = str(payload[key])[:80]
+    if operation == 'seed_overrides_apply_manifest':
+        manifest = payload.get('seed_overrides', {})
+        encoded_manifest = json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode(
+            'utf-8'
+        )
+        audit_payload.update(
+            normalization_count=len(manifest.get('title_normalizations', [])),
+            removal_count=len(manifest.get('remove_display_titles', [])),
+            manifest_sha256=hashlib.sha256(encoded_manifest).hexdigest(),
+        )
     if operation == 'review_apply_manifest':
         manifest = payload.get('decision_manifest', {})
         decisions = manifest.get('decisions', [])
