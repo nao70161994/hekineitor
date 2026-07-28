@@ -535,9 +535,9 @@ def save_feedback_batch(
                 if column not in allowed_log_columns:
                     raise ValueError(f'不正な列名: {column}')
                 cur.execute(
-                    f'''INSERT INTO fetish_log (fetish_id, {column}) VALUES (%s, %s)
+                    f"""INSERT INTO fetish_log (fetish_id, {column}) VALUES (%s, %s)
                     ON CONFLICT (fetish_id) DO UPDATE
-                    SET {column} = fetish_log.{column} + EXCLUDED.{column}''',
+                    SET {column} = fetish_log.{column} + EXCLUDED.{column}""",
                     (fetish_id, amount),
                 )
             for key, amount in stat_increments.items():

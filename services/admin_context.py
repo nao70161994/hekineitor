@@ -38,7 +38,7 @@ def build(
     disable_test_play,
     is_test_play,
 ):
-    gameplay_event_report = gameplay_event_report or (lambda **kwargs: {"total": 0, "by_event": {}})
+    gameplay_event_report = gameplay_event_report or (lambda **kwargs: {'total': 0, 'by_event': {}})
 
     request = flask_runtime.request
     jsonify = flask_runtime.jsonify

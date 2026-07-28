@@ -77,7 +77,7 @@ def best_question(
     balance_max_penalty = engine.config.get('question_yes_balance_max_penalty', 0.6)
     question_balance_stats = (
         engine._question_balance_stats()
-        if question_balance_stats is None and hasattr(engine, "_question_balance_stats")
+        if question_balance_stats is None and hasattr(engine, '_question_balance_stats')
         else question_balance_stats
     ) or {}
     top_p = max(probs)
@@ -216,7 +216,7 @@ def best_question(
 
 
 def _fallback_best_question(engine, answers, asked, *, idk_streak=0, exclude_ids=None):
-    if exclude_ids and hasattr(engine, "_best_question_with_exclusions"):
+    if exclude_ids and hasattr(engine, '_best_question_with_exclusions'):
         return engine._best_question_with_exclusions(answers, asked, idk_streak=idk_streak, exclude_ids=exclude_ids)
     return engine.best_question(answers, asked, idk_streak=idk_streak)
 
@@ -260,7 +260,7 @@ def best_disambiguating_question(
         vectors[old_q] = (vector, math.sqrt(sum(value * value for value in vector)) or 1e-9)
     question_balance_stats = (
         engine._question_balance_stats()
-        if question_balance_stats is None and hasattr(engine, "_question_balance_stats")
+        if question_balance_stats is None and hasattr(engine, '_question_balance_stats')
         else question_balance_stats
     ) or {}
 
