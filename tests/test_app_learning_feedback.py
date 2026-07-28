@@ -616,3 +616,127 @@ class TestLearningFeedbackFlow(APITestCase):
         self.assertEqual(app_engine.matrix['yes'][idx][q], before_yes)
         self.assertEqual(app_engine.matrix['total'][idx][q], before_total)
         self.assertEqual(app_engine.get_fetish_log().get(0, {}), before_log)
+
+    def test_mixed_compound_feedback_is_processed_once_as_one_atomic_batch(self):
+        from app import engine as app_engine
+
+        question_id = 8
+        indexes = [app_engine.index_of(fetish_id) for fetish_id in (0, 1, 10)]
+        before = [
+            (app_engine.matrix['yes'][index][question_id], app_engine.matrix['total'][index][question_id])
+            for index in indexes
+        ]
+        with self.client.session_transaction() as sess:
+            sess['answers'] = {str(question_id): 1.0}
+        response = self.client.post(
+            '/api/confirm',
+            json={
+                'correct': False,
+                'fetish_id': 0,
+                'compound_ids': [1, 10],
+                'correct_ids': [0],
+                'maybe_ids': [1],
+                'wrong_ids': [10],
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()['atomic'])
+        self.assertEqual(response.get_json()['processed_count'], 3)
+        after_first = [
+            (app_engine.matrix['yes'][index][question_id], app_engine.matrix['total'][index][question_id])
+            for index in indexes
+        ]
+        self.assertNotEqual(after_first, before)
+
+        duplicate = self.client.post(
+            '/api/confirm',
+            json={
+                'correct': False,
+                'fetish_id': 0,
+                'compound_ids': [1, 10],
+                'correct_ids': [0],
+                'maybe_ids': [1],
+                'wrong_ids': [10],
+            },
+        )
+        self.assertEqual(duplicate.status_code, 409)
+        self.assertEqual(
+            [
+                (app_engine.matrix['yes'][index][question_id], app_engine.matrix['total'][index][question_id])
+                for index in indexes
+            ],
+            after_first,
+        )
+        for index, (yes, total) in zip(indexes, before):
+            app_engine.matrix['yes'][index][question_id] = yes
+            app_engine.matrix['total'][index][question_id] = total
+
+    def test_mixed_compound_feedback_validation_rejects_partial_or_overlapping_sets_without_learning(self):
+        from app import engine as app_engine
+
+        question_id = 8
+        index = app_engine.index_of(0)
+        before = (app_engine.matrix['yes'][index][question_id], app_engine.matrix['total'][index][question_id])
+        with self.client.session_transaction() as sess:
+            sess['answers'] = {str(question_id): 1.0}
+        partial = self.client.post(
+            '/api/confirm',
+            json={
+                'correct': False,
+                'fetish_id': 0,
+                'compound_ids': [1, 10],
+                'correct_ids': [0],
+                'maybe_ids': [1],
+                'wrong_ids': [],
+            },
+        )
+        self.assertEqual(partial.status_code, 400)
+        self.assertIn('すべて', partial.get_json()['message'])
+        overlapping = self.client.post(
+            '/api/confirm',
+            json={
+                'correct': False,
+                'fetish_id': 0,
+                'compound_ids': [1, 10],
+                'correct_ids': [0, 1],
+                'maybe_ids': [1],
+                'wrong_ids': [10],
+            },
+        )
+        self.assertEqual(overlapping.status_code, 400)
+        self.assertEqual(
+            (app_engine.matrix['yes'][index][question_id], app_engine.matrix['total'][index][question_id]),
+            before,
+        )
+
+    def test_mixed_compound_feedback_rolls_back_first_update_when_a_later_update_fails(self):
+        from app import engine as app_engine
+
+        question_id = 8
+        indexes = [app_engine.index_of(fetish_id) for fetish_id in (0, 1, 10)]
+        before = [
+            (app_engine.matrix['yes'][index][question_id], app_engine.matrix['total'][index][question_id])
+            for index in indexes
+        ]
+        with self.client.session_transaction() as sess:
+            sess['answers'] = {str(question_id): 1.0}
+        with patch('services.game_context.learning.learn_near_miss', side_effect=RuntimeError('later update failed')):
+            with self.assertRaisesRegex(RuntimeError, 'later update failed'):
+                self.client.post(
+                    '/api/confirm',
+                    json={
+                        'correct': False,
+                        'fetish_id': 0,
+                        'compound_ids': [1, 10],
+                        'correct_ids': [0],
+                        'maybe_ids': [1],
+                        'wrong_ids': [10],
+                    },
+                )
+        self.assertEqual(
+            [
+                (app_engine.matrix['yes'][index][question_id], app_engine.matrix['total'][index][question_id])
+                for index in indexes
+            ],
+            before,
+        )

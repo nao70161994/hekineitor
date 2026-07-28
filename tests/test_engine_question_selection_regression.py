@@ -9,6 +9,38 @@ from engine import Engine
 from engine import question_selection as engine_question_selection
 
 
+class _DisambiguationEngine:
+    """Small deterministic engine for testing one ranking penalty at a time."""
+
+    def __init__(self, probabilities, *, categories=None, axes=None):
+        self._probabilities = probabilities
+        self.fetishes = [{'id': index + 1} for index in range(len(probabilities[0]))]
+        self.questions = [
+            {'category': (categories or {}).get(index, f'category-{index}')}
+            for index in range(len(probabilities))
+        ]
+        self.disabled_questions = set()
+        self._axes = axes or {}
+
+    def posteriors(self, _answers):
+        return [1.0 / len(self.fetishes)] * len(self.fetishes)
+
+    def _prob(self, fetish_index, question_id):
+        return self._probabilities[question_id][fetish_index]
+
+    def _question_category(self, question_id):
+        return self.questions[question_id]['category']
+
+    def _question_axis(self, question_id):
+        return self._axes.get(question_id, f'axis-{question_id}')
+
+    def _question_balance_stats(self):
+        return {}
+
+    def best_question(self, _answers, _asked, *, idk_streak=0):
+        raise AssertionError(f'unexpected fallback (idk_streak={idk_streak})')
+
+
 class TestEngineQuestionSelectionRegression(unittest.TestCase):
     def setUp(self):
         self._patches = [
@@ -172,3 +204,108 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
                     ),
                     expected_question,
                 )
+
+    def test_exclusion_normalizes_remaining_candidates_and_falls_back_when_all_are_excluded(self):
+        probabilities = [0.6, 0.3, 0.1]
+        first_id = self.engine.fetishes[0]['id']
+        second_id = self.engine.fetishes[1]['id']
+        third_id = self.engine.fetishes[2]['id']
+        normalized = engine_question_selection._exclude_and_normalize(
+            self.engine,
+            probabilities,
+            {first_id},
+        )
+        self.assertEqual(normalized[0], 0.0)
+        self.assertAlmostEqual(sum(normalized), 1.0)
+        self.assertAlmostEqual(normalized[1], 0.75)
+        self.assertAlmostEqual(normalized[2], 0.25)
+        fallback = engine_question_selection._exclude_and_normalize(
+            self.engine,
+            probabilities,
+            {fetish['id'] for fetish in self.engine.fetishes},
+        )
+        self.assertEqual(fallback, probabilities)
+        self.assertNotIn(second_id, {first_id, third_id})
+
+
+class TestBestDisambiguatingQuestionPenalties(unittest.TestCase):
+    def test_penalizes_similarity_to_an_asked_question(self):
+        engine = _DisambiguationEngine(
+            [
+                [0.9, 0.1],  # already asked
+                [0.9, 0.1],  # equally discriminating, but repeats the same direction
+                [0.1, 0.9],  # equally discriminating in the opposite direction
+            ]
+        )
+
+        question_id = engine_question_selection.best_disambiguating_question(
+            engine,
+            {},
+            [0],
+            candidate_count=2,
+        )
+
+        self.assertEqual(question_id, 2)
+
+    def test_penalizes_a_recently_repeated_category(self):
+        engine = _DisambiguationEngine(
+            [
+                [0.5, 0.5],  # neutral asked questions avoid a similarity side effect
+                [0.5, 0.5],
+                [0.9, 0.1],  # same raw score as question 3, repeated category
+                [0.9, 0.1],  # fresh category
+            ],
+            categories={0: 'relation', 1: 'relation', 2: 'relation', 3: 'world'},
+        )
+
+        question_id = engine_question_selection.best_disambiguating_question(
+            engine,
+            {},
+            [0, 1],
+            candidate_count=2,
+        )
+
+        self.assertEqual(question_id, 3)
+
+    def test_penalizes_extreme_answer_balance_stats(self):
+        engine = _DisambiguationEngine(
+            [
+                [0.9, 0.1],  # same raw score, but observed answers are one-sided
+                [0.9, 0.1],
+            ]
+        )
+
+        question_id = engine_question_selection.best_disambiguating_question(
+            engine,
+            {},
+            [],
+            candidate_count=2,
+            question_balance_stats={
+                0: {'answered': 20, 'yes_rate': 100.0},
+                1: {'answered': 20, 'yes_rate': 50.0},
+            },
+        )
+
+        self.assertEqual(question_id, 1)
+
+    def test_avoids_the_axis_of_a_recent_idk_streak(self):
+        engine = _DisambiguationEngine(
+            [
+                [0.5, 0.5],  # neutral asked questions avoid a similarity side effect
+                [0.5, 0.5],
+                [0.9, 0.1],  # same raw score, same axis as the idk streak
+                [0.9, 0.1],  # fresh axis
+            ],
+            categories={0: 'asked-a', 1: 'asked-b', 2: 'candidate-a', 3: 'candidate-b'},
+            axes={0: 'content', 1: 'content', 2: 'content', 3: 'personality'},
+        )
+
+        question_id = engine_question_selection.best_disambiguating_question(
+            engine,
+            {'0': 0, '1': 0},
+            [0, 1],
+            candidate_count=2,
+            idk_streak=2,
+        )
+
+        self.assertEqual(question_id, 3)

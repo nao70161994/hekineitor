@@ -578,6 +578,13 @@
   .reasons-label { color:#666; font-size:0.75rem; text-align:center; margin-bottom:6px; }
   .reason-item { display:flex; justify-content:space-between; font-size:0.8rem; color:#999; padding:3px 4px; }
   .reason-item .ans-badge { font-size:0.7rem; padding:1px 6px; border-radius:6px; background:#1a4a8a; color:#7ab3f0; white-space:nowrap; margin-left:6px; }
+  .compound-reasons-section { margin-bottom:14px; border-top:1px solid #333; padding-top:10px; }
+  #compound-reasons-list { display:grid; gap:7px; }
+  .compound-reason-card { border:1px solid #30354a; background:#151829; border-radius:9px; padding:8px 9px; }
+  .compound-reason-card h3 { color:#f0b45b; font-size:0.8rem; margin:0 0 5px; }
+  .compound-reason-row { display:flex; justify-content:space-between; align-items:flex-start; gap:7px; color:#aaa; font-size:0.76rem; padding:2px 0; }
+  .compound-reason-row .ans-badge { flex:none; font-size:0.68rem; padding:1px 6px; border-radius:6px; background:#1a4a8a; color:#7ab3f0; white-space:nowrap; }
+  .compound-reason-empty { color:#777; font-size:0.74rem; }
 
   /* 機能3: 診断履歴 */
   .history-btn { background:none; border:1px solid #333; color:#666; font-size:0.75rem; padding:5px 12px; border-radius:8px; cursor:pointer; margin-top:8px; position:relative; }

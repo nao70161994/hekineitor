@@ -128,6 +128,7 @@ window.HekiRenderers = (() => {
       [...(data.contrastive_reasons || []), ...(data.reasons || [])].slice(0, 5),
       escapeHtml,
     );
+    renderCompoundReasons(data, escapeHtml);
     renderWorks(data, {escapeHtml, safeExternalUrl, amazonAssociateId, resultName: displayName});
 
     const retryBtn = document.getElementById('btn-quick-retry');
@@ -270,12 +271,38 @@ window.HekiRenderers = (() => {
       section.classList.add('hidden');
     }
   }
+  function renderCompoundReasons(data, escapeHtml) {
+    const section = document.getElementById('compound-reasons-section');
+    const list = document.getElementById('compound-reasons-list');
+    if (!section || !list) return;
+    const compound = data.compound || [];
+    if (!compound.length) {
+      list.innerHTML = '';
+      section.classList.add('hidden');
+      return;
+    }
+    const ansText = {1:'はい', 0.5:'どちらかといえばはい', '-0.5':'どちらかといえばいいえ', '-1':'いいえ'};
+    const components = [
+      {fetish_name: data.fetish_name, reasons: data.reasons || []},
+      ...compound,
+    ];
+    list.innerHTML = components.map(item => {
+      const reasons = (item.reasons || []).filter(row => row && row.text).slice(0, 3);
+      const reasonHtml = reasons.length
+        ? reasons.map(row => `<div class="compound-reason-row"><span>${escapeHtml(row.text)}</span><span class="ans-badge">${escapeHtml(ansText[row.ans] || row.ans)}</span></div>`).join('')
+        : '<div class="compound-reason-empty">個別の決め手はまだ十分に絞れていません。</div>';
+      return `<article class="compound-reason-card"><h3>${escapeHtml(item.fetish_name)}</h3>${reasonHtml}</article>`;
+    }).join('');
+    section.classList.remove('hidden');
+  }
 
-  function workReason(work, isCross, resultName) {
+
+  function workReason(work, isCross, resultName, suppliedReason = '') {
     if (typeof work === 'object' && work !== null) {
       const supplied = work.reason || work.recommendation_reason || work.match_reason;
       if (supplied) return String(supplied);
     }
+    if (suppliedReason) return String(suppliedReason);
     return isCross
       ? `${resultName || '今回の結果'}の組み合わせ要素を楽しめる作品です。`
       : `${resultName || '今回の結果'}との関連から選びました。`;
@@ -284,7 +311,7 @@ window.HekiRenderers = (() => {
   function renderWorkRecommendation(item, helpers, featured = false) {
     const escapeHtml = helpers.escapeHtml || (value => String(value ?? ''));
     const tag = renderWorkTag(item.work, item.isCross ? 'cross' : '', helpers);
-    const reason = workReason(item.work, item.isCross, helpers.resultName);
+    const reason = workReason(item.work, item.isCross, helpers.resultName, item.reason);
     return `<article class="work-recommendation${featured ? ' featured' : ''}">${tag}<p>${escapeHtml(reason)}</p></article>`;
   }
 
@@ -303,6 +330,9 @@ window.HekiRenderers = (() => {
         ...(data.cross_works || []).map(work => ({work, isCross: true})),
         ...(data.works || []).map(work => ({work, isCross: false})),
       ];
+      allWorks.forEach((item, index) => {
+        item.reason = data.work_recommendations?.[index]?.reason || '';
+      });
       const featured = allWorks.slice(0, 3);
       const remaining = allWorks.slice(3);
       crossTagsEl.innerHTML = `<div class="works-cross-label">今回の結果から選んだ${featured.length}作品</div>`
@@ -334,6 +364,8 @@ window.HekiRenderers = (() => {
     showToast,
     renderGuess,
     toggleMoreWorks,
+    renderCompoundReasons,
+    renderWorks,
     renderResultDrama,
   };
 })();

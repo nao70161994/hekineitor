@@ -45,6 +45,56 @@ describe('HekiRenderers screen transitions', () => {
     window.HekiRenderers.showScreen(screenId);
     const heading = document.getElementById(headingId);
     expect(heading.scrollIntoView).toHaveBeenCalledWith({block: 'start', behavior: 'auto'});
+
     expect(document.activeElement).toBe(heading);
+
+  });
+  it('renders the deciding answers for every compound component', () => {
+    document.body.innerHTML += `
+      <section id="compound-reasons-section" class="hidden">
+        <div id="compound-reasons-list"></div>
+      </section>`;
+    window.HekiRenderers.renderCompoundReasons(
+      {
+        fetish_name: '本命',
+        reasons: [{text: '本命の決め手', ans: 1}],
+        compound: [
+          {fetish_name: '要素A', reasons: [{text: '要素Aの決め手', ans: -0.5}]},
+          {fetish_name: '要素B', reasons: []},
+        ],
+      },
+      String,
+    );
+    const section = document.getElementById('compound-reasons-section');
+    expect(section.classList.contains('hidden')).toBe(false);
+    expect(section.textContent).toContain('本命の決め手');
+    expect(section.textContent).toContain('要素Aの決め手');
+    expect(section.textContent).toContain('どちらかといえばいいえ');
+    expect(section.textContent).toContain('個別の決め手はまだ十分に絞れていません');
+  });
+
+  it('uses server-provided recommendation reasons and preserves link-specific reasons', () => {
+    document.body.innerHTML += `
+      <section id="works-section" class="hidden">
+        <div id="works-label"></div>
+        <div id="cross-works-tags"></div>
+        <div id="works-tags"></div>
+      </section>`;
+    window.HekiRenderers.renderWorks(
+      {
+        compound: [{fetish_name: '要素A'}],
+        cross_works: [{title: '作品A'}],
+        works: [{title: '作品B', recommendation_reason: '作品固有の理由'}],
+        work_recommendations: [
+          {reason: '組み合わせに基づく理由'},
+          {reason: 'サーバーの通常理由'},
+        ],
+      },
+      {escapeHtml: String, safeExternalUrl: value => value, resultName: '本命 × 要素A'},
+    );
+    const featured = document.getElementById('cross-works-tags');
+    expect(featured.textContent).toContain('組み合わせに基づく理由');
+    expect(featured.textContent).toContain('作品固有の理由');
+    expect(featured.textContent).not.toContain('サーバーの通常理由');
   });
 });
