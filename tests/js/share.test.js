@@ -19,6 +19,16 @@ describe('HekiShare', () => {
     window.eval(source);
     window.HekiShare.setDiagnosedName('NTR');
   });
+  it('falls back to clipboard when native sharing fails', async () => {
+    Object.defineProperty(navigator, 'share', {
+      value: vi.fn().mockRejectedValue(new Error('share failed')),
+      configurable: true,
+    });
+    window.HekiShare.shareResult();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(writeText).toHaveBeenCalledOnce();
+  });
 
   it('copies through the secondary share action without opening X', async () => {
     window.HekiShare.shareResult();

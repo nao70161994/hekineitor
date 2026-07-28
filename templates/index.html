@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#e94560">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -140,15 +140,25 @@
     <p style="margin-bottom:20px;color:#aaa;font-size:0.95rem;line-height:1.7;">
       あなたの性癖を暴きます。<br>
       質問に正直に答えてください。<br>
-      遊ぶほど賢くなります。
+      あなたのフィードバックで、診断結果が改善されます。
     </p>
+    <div class="play-guide" aria-label="診断について">
+      <strong>約20問・3〜5分</strong>
+      <span>回答は戻って直せます</span>
+      <span>途中経過はこの端末に7日間保存されます</span>
+    </div>
     {% include '_adsense_slot.html' with context %}
     <button class="btn btn-start" data-action="start-game">スタート</button>
     <a class="catalog-link" href="/fetishes">性癖一覧を見る</a>
-    <button class="history-btn" id="history-btn" data-action="toggle-history">📜 診断履歴<span id="history-badge" class="history-badge hidden"></span></button>
-    <div id="history-panel" class="history-panel hidden"></div>
-    <div id="resume-banner" class="hidden" style="margin-top:12px;">
-      <button class="btn btn-idk" style="width:100%;font-size:0.85rem;" data-action="resume-game">途中から再開する（<span id="resume-count">0</span>問回答済み）</button>
+    <button class="history-btn" id="history-btn" data-action="toggle-history" aria-expanded="false" aria-controls="history-panel">📜 診断履歴<span id="history-badge" class="history-badge hidden"></span></button>
+    <div id="history-panel" class="history-panel hidden" aria-live="polite"></div>
+    <div id="resume-banner" class="resume-banner hidden">
+      <p><strong><span id="resume-count">0</span>問回答済みの診断があります</strong></p>
+      <p class="resume-meta">最終回答: <time id="resume-updated-at"></time><br>保存期限: <time id="resume-expires-at"></time></p>
+      <div class="resume-actions">
+        <button class="btn btn-idk" data-action="resume-game">続行する</button>
+        <button class="btn btn-quiet" data-action="discard-draft">破棄する</button>
+      </div>
     </div>
   </div>
 
@@ -170,12 +180,13 @@
     <div id="question-hint" style="text-align:center;font-size:0.78rem;color:#f5a623;margin-top:6px;min-height:1em;"></div>
     <div id="contradiction-hint" class="hidden" style="font-size:0.72rem;color:#e67e22;margin-top:4px;text-align:center;padding:4px 8px;border-radius:6px;background:rgba(230,126,34,0.1);"></div>
     <div class="btn-group">
-      <button class="btn btn-yes"      data-action="send-answer" data-answer="1">はい</button>
-      <button class="btn btn-prob-yes" data-action="send-answer" data-answer="0.5">どちらかといえばはい</button>
-      <button class="btn btn-idk"      data-action="send-answer" data-answer="0">わからない</button>
-      <button class="btn btn-prob-no"  data-action="send-answer" data-answer="-0.5">どちらかといえばいいえ</button>
-      <button class="btn btn-no"       data-action="send-answer" data-answer="-1">いいえ</button>
+      <button class="btn btn-yes"      data-action="send-answer" data-answer="1" aria-pressed="false">はい</button>
+      <button class="btn btn-prob-yes" data-action="send-answer" data-answer="0.5" aria-pressed="false">どちらかといえばはい</button>
+      <button class="btn btn-idk"      data-action="send-answer" data-answer="0" aria-pressed="false">わからない</button>
+      <button class="btn btn-prob-no"  data-action="send-answer" data-answer="-0.5" aria-pressed="false">どちらかといえばいいえ</button>
+      <button class="btn btn-no"       data-action="send-answer" data-answer="-1" aria-pressed="false">いいえ</button>
     </div>
+    <div id="answer-status" class="answer-status" role="status" aria-live="polite"></div>
   </div>
 
   <!-- 結果画面 -->
@@ -225,10 +236,11 @@
       <div id="confirm-items"></div>
       <button class="btn btn-correct" style="width:100%;margin-top:4px;" data-action="submit-confirm">確定して学習</button>
     </div>
-    <button class="btn btn-idk" style="width:100%;margin-top:6px;font-size:0.82rem;" data-action="continue-game">もう少し続ける</button>
-    <button class="btn btn-idk" style="width:100%;margin-top:6px;font-size:0.82rem;" data-action="show-start">タイトルに戻る</button>
-    <button class="btn btn-idk btn-exclude" style="width:100%;margin-top:4px;font-size:0.82rem;opacity:0.75;" data-action="start-excluding">別の性癖を探す →</button>
-    <button id="btn-quick-retry" class="btn btn-idk" style="width:100%;margin-top:4px;font-size:0.82rem;background:linear-gradient(135deg,#1a4a8a,#0f3460);display:none;" data-action="quick-retry">⚡ すぐ再挑戦（今の診断を除外）</button>
+    <div class="result-primary-actions" aria-label="次にすること">
+      <button class="btn btn-continue" data-action="continue-game">追加質問で精度を上げる</button>
+      <button id="btn-quick-retry" class="btn btn-retry-result btn-exclude" data-action="quick-retry">当て直す</button>
+    </div>
+    <button class="result-home-link" data-action="show-start">タイトルに戻る</button>
     {% set placement = 'result' %}
     {% include '_adsense_slot.html' with context %}
   </div>
@@ -277,18 +289,31 @@
 
 </div>
 
-<div class="toast hidden" id="toast"></div>
+<div class="toast hidden" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
-<div class="modal-overlay hidden" id="modal-restart">
-  <div class="modal-box">
-    <p>最初からやり直しますか？<br>現在の進行状況は失われます。</p>
+<div class="modal-overlay hidden" id="modal-restart" role="dialog" aria-modal="true" aria-labelledby="modal-restart-title" aria-describedby="modal-restart-desc">
+  <div class="modal-box" tabindex="-1">
+    <h2 id="modal-restart-title">タイトルへ戻りますか？</h2>
+    <p id="modal-restart-desc">回答はこの端末に7日間保存できます。</p>
     <div class="modal-btns">
       <button class="modal-cancel" data-action="close-modal" data-modal-id="modal-restart">キャンセル</button>
-      <button class="modal-confirm" data-action="do-restart">やり直す</button>
+      <button class="modal-save" data-action="do-restart">保存してタイトルへ</button>
+      <button class="modal-confirm" data-action="discard-restart">破棄してタイトルへ</button>
     </div>
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="modal-share-fallback" role="dialog" aria-modal="true" aria-labelledby="share-fallback-title" aria-describedby="share-fallback-desc">
+  <div class="modal-box" tabindex="-1">
+    <h2 id="share-fallback-title">共有テキスト</h2>
+    <p id="share-fallback-desc">自動で共有できませんでした。下の内容を選択してコピーしてください。</p>
+    <textarea id="share-fallback-text" rows="7" readonly></textarea>
+    <div class="modal-btns">
+      <button class="modal-cancel" data-action="close-modal" data-modal-id="modal-share-fallback">閉じる</button>
+      <button class="modal-save" data-action="select-share-fallback">テキストを選択</button>
+    </div>
+  </div>
+</div>
 <div style="text-align:center;color:#333;font-size:0.68rem;padding:8px 0 4px;">
   へきネイター {{ display_version }} ・ <a href="/fetishes" style="color:#555;">性癖一覧</a> ・ <a href="/stats" style="color:#555;">診断統計</a>
 </div>

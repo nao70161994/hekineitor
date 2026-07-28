@@ -28,6 +28,7 @@ from services import app_meta as app_meta_service
 from services import bootstrap as bootstrap_service
 from services import filesystem_context as filesystem_context_service
 from services import game_context as game_context_service
+from services import gameplay_events as gameplay_events_service
 from services import matrix_backups as matrix_backup_service
 from services import question_events as question_events_service
 from services import response_hooks as response_hooks_service
@@ -170,6 +171,9 @@ def _game_context():
         work_title=work_title,
         get_compound_works=get_compound_works,
         record_share_event=_record_valid_share_event,
+        record_gameplay_event=lambda *args, **kwargs: gameplay_events_service.safe_record_event(
+            *args, environ=os.environ, **kwargs
+        ),
         record_question_event=lambda *args, **kwargs: question_events_service.safe_record_event(
             *args, environ=os.environ, **kwargs
         ),
@@ -192,6 +196,17 @@ def _admin_share_event_report(**kwargs):
     return share_events_service.event_report(
         environ=os.environ,
         allowed_result_names=_share_event_allowed_result_names(),
+        **kwargs,
+    )
+
+
+def _admin_gameplay_event_report(**kwargs):
+    share_report = _admin_share_event_report(limit=kwargs.get('limit', 5000))
+    question_report = question_events_service.event_report(engine, environ=os.environ, limit=kwargs.get('limit', 5000))
+    return gameplay_events_service.event_report(
+        environ=os.environ,
+        work_clicks=share_report.get('metrics', {}).get('work_clicks', 0),
+        questions_shown=question_report.get('metrics', {}).get('shown', 0),
         **kwargs,
     )
 
@@ -224,6 +239,7 @@ def _admin_context():
         write_audit=write_audit,
         filesystem=_filesystem_context(),
         share_event_report=_admin_share_event_report,
+        gameplay_event_report=_admin_gameplay_event_report,
         question_event_report=lambda **kwargs: question_events_service.event_report(
             engine, environ=os.environ, **kwargs
         ),

@@ -159,6 +159,30 @@ class TestEngineDbHelpers(unittest.TestCase):
         self.assertEqual([work['url'] for work in works], [direct_url, other_url, direct_url])
         self.assertEqual(works[-1]['title'], '同一作品（別版）')
 
+    def test_feedback_batch_uses_one_transaction_for_matrix_and_counters(self):
+        cursor = FakeCursor()
+        conn = FakeConn(cursor)
+        returned = []
+
+        engine_db.save_feedback_batch(
+            {0: [(1, 0.5, 1.0)]},
+            {0: 10},
+            [{'id': 10}],
+            {(10, 'correct'): 1},
+            {'learn_count': 1},
+            {'learn': 1},
+            '2026-07-28',
+            get_conn=lambda: conn,
+            put_conn=returned.append,
+        )
+
+        self.assertTrue(conn.entered)
+        self.assertEqual(returned, [conn])
+        self.assertEqual(cursor.executed[0], (engine_db.SAVE_MATRIX_SQL, [(10, 1, 0.5, 1.0)]))
+        self.assertIn('INSERT INTO fetish_log', cursor.executed[1][0])
+        self.assertIn('INSERT INTO stats ', cursor.executed[2][0])
+        self.assertIn('INSERT INTO stats_history', cursor.executed[3][0])
+
 
 class FakeCursor:
     def __init__(self, *, fetchone_values=None, fetchall_values=None):
@@ -591,8 +615,7 @@ class TestEngineDbMutationAdapters(unittest.TestCase):
         self.assertEqual(cursor.executed[2][1][1], 'f_guessed_10000')
         self.assertEqual(cursor.executed[3][0], 'DELETE FROM stats_history WHERE key = %s')
         self.assertEqual(cursor.executed[3][1], ('f_guessed_10000',))
-        self.assertIn('INSERT INTO stats_history', executed_sql[8])
-        self.assertEqual(cursor.executed[8][1], ('f_guessed_3', temp_key))
+        self.assertTrue(any(params == ('f_guessed_3', temp_key) for _sql, params in cursor.executed))
 
     def test_promote_fetish_id_updates_all_id_references(self):
         cursor = FakeCursor()
@@ -610,8 +633,8 @@ class TestEngineDbMutationAdapters(unittest.TestCase):
             ],
         )
         self.assertEqual([call[1] for call in cursor.executed[:3]], [(3, 10000), (3, 10000), (3, 10000)])
-        self.assertEqual(len(cursor.executed), 9)
-        for idx, prefix in enumerate(('f_guessed_', 'f_correct_', 'f_wrong_')):
+        self.assertEqual(len(cursor.executed), 11)
+        for idx, prefix in enumerate(('f_guessed_', 'f_correct_', 'f_wrong_', 'f_correction_selected_')):
             insert_sql, insert_params = cursor.executed[3 + idx * 2]
             delete_sql, delete_params = cursor.executed[4 + idx * 2]
             self.assertIn('INSERT INTO stats_history', insert_sql)
@@ -797,7 +820,7 @@ class TestEngineDbStatsAdapters(unittest.TestCase):
         )
 
     def test_disabled_questions_and_fetish_log_adapters_keep_contracts(self):
-        cursor = FakeCursor(fetchall_values=[[('disabled_q_2',), ('disabled_q_5',)], [(10, 1, 2, 3)]])
+        cursor = FakeCursor(fetchall_values=[[('disabled_q_2',), ('disabled_q_5',)], [(10, 1, 2, 3, 0)]])
         conn = FakeConn(cursor)
 
         self.assertEqual(engine_db.load_disabled_questions(get_conn=lambda: conn, put_conn=lambda _conn: None), {2, 5})
@@ -805,14 +828,14 @@ class TestEngineDbStatsAdapters(unittest.TestCase):
         engine_db.increment_fetish_log(10, 'correct', get_conn=lambda: conn, put_conn=lambda _conn: None)
         self.assertEqual(
             engine_db.load_fetish_log(get_conn=lambda: conn, put_conn=lambda _conn: None),
-            {10: {'guessed': 1, 'correct': 2, 'wrong': 3}},
+            {10: {'guessed': 1, 'correct': 2, 'wrong': 3, 'correction_selected': 0}},
         )
 
         sqls = [sql for sql, _params in cursor.executed]
         self.assertIn("SELECT key FROM stats WHERE key LIKE 'disabled_q_%'", sqls)
         self.assertIn("DELETE FROM stats WHERE key LIKE 'disabled_q_%'", sqls)
         self.assertTrue(any('INSERT INTO fetish_log' in sql for sql in sqls))
-        self.assertIn('SELECT fetish_id, guessed, correct, wrong FROM fetish_log', sqls)
+        self.assertIn('SELECT fetish_id, guessed, correct, wrong, correction_selected FROM fetish_log', sqls)
         with self.assertRaises(ValueError):
             engine_db.increment_fetish_log(10, 'bad', get_conn=lambda: conn, put_conn=lambda _conn: None)
 

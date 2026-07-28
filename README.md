@@ -2,6 +2,8 @@
 
 Flask 製の診断アプリです。質問への回答から性癖候補を推定し、フィードバックで matrix を学習します。
 
+- 匿名ゲームプレイ指標と管理レポート: [`docs/GAMEPLAY_METRICS.md`](docs/GAMEPLAY_METRICS.md)
+
 ## ローカル実行
 
 ```sh

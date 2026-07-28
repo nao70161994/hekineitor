@@ -1,14 +1,15 @@
-def best_question(engine, answers, asked, *, idk_streak=0):
+def best_question(engine, answers, asked, *, idk_streak=0, exclude_ids=None):
+    if exclude_ids and hasattr(engine, '_best_question_with_exclusions'):
+        return engine._best_question_with_exclusions(answers, asked, idk_streak=idk_streak, exclude_ids=exclude_ids)
     return engine.best_question(answers, asked, idk_streak=idk_streak)
 
 
-def best_disambiguating_question(engine, answers, asked, *, candidate_count=3, idk_streak=0):
-    return engine.best_disambiguating_question(
-        answers,
-        asked,
-        candidate_count=candidate_count,
-        idk_streak=idk_streak,
-    )
+def best_disambiguating_question(engine, answers, asked, *, candidate_count=3, idk_streak=0, exclude_ids=None):
+    if exclude_ids and hasattr(engine, '_best_disambiguating_question_with_exclusions'):
+        return engine._best_disambiguating_question_with_exclusions(
+            answers, asked, candidate_count=candidate_count, idk_streak=idk_streak, exclude_ids=exclude_ids
+        )
+    return engine.best_disambiguating_question(answers, asked, candidate_count=candidate_count, idk_streak=idk_streak)
 
 
 HEAVY_RESULT_NAMES = {'共依存', '激重感情', '共生関係', '執着'}
@@ -35,9 +36,17 @@ def should_probe_low_exposure_axis(engine, answers, asked, *, count, top_p, seco
     return True
 
 
-def best_low_exposure_axis_question(engine, answers, asked, *, preferred_categories=None):
+def best_low_exposure_axis_question(engine, answers, asked, *, preferred_categories=None, exclude_ids=None):
     preferred_categories = preferred_categories or LOW_EXPOSURE_DIVERSIFYING_CATEGORIES
     probs = engine.posteriors(answers)
+    excluded = {int(value) for value in (exclude_ids or ())}
+    if excluded:
+        probs = [
+            probability if engine.fetishes[index].get('id') not in excluded else 0.0
+            for index, probability in enumerate(probs)
+        ]
+        total = sum(probs)
+        probs = [probability / total for probability in probs] if total > 0 else engine.posteriors(answers)
     h0 = engine._entropy(probs)
     best_q, best_score = None, -1.0
     recent_categories = [engine._question_category(q) for q in list(asked)[-3:]]
@@ -70,6 +79,27 @@ def best_low_exposure_axis_question(engine, answers, asked, *, preferred_categor
         if score > best_score:
             best_q, best_score = question_id, score
     return best_q
+
+
+def best_idk_recovery_question(engine, answers, asked, *, exclude_ids=None):
+    """Choose a concrete, different-feeling axis after repeated unknown answers."""
+    concrete = {'attribute', 'world', 'aesthetic', 'value', 'role'}
+    question_id = best_low_exposure_axis_question(
+        engine,
+        answers,
+        list(dict.fromkeys(asked)),
+        preferred_categories=concrete,
+        exclude_ids=exclude_ids,
+    )
+    if question_id is not None:
+        return question_id
+    return best_question(engine, answers, list(dict.fromkeys(asked)), idk_streak=4, exclude_ids=exclude_ids)
+
+
+def make_idk_recovery_selector(engine):
+    return lambda answers, asked, exclude_ids=None: best_idk_recovery_question(
+        engine, answers, asked, exclude_ids=exclude_ids
+    )
 
 
 def question_total_for_count(count, soft_max_questions, hard_max_questions):
@@ -114,25 +144,38 @@ def make_low_confidence_extender(soft_max_questions, hard_max_questions):
     )
 
 
-def select_next_question(engine, answers, asked, *, idk_streak=0, disambiguate=False):
+def select_next_question(engine, answers, asked, *, idk_streak=0, disambiguate=False, exclude_ids=None):
     asked_in_order = list(dict.fromkeys(asked))
     if disambiguate:
-        return best_disambiguating_question(engine, answers, asked_in_order, idk_streak=idk_streak)
-    return best_question(engine, answers, asked_in_order, idk_streak=idk_streak)
+        return best_disambiguating_question(
+            engine,
+            answers,
+            asked_in_order,
+            idk_streak=idk_streak,
+            exclude_ids=exclude_ids,
+        )
+    return best_question(
+        engine,
+        answers,
+        asked_in_order,
+        idk_streak=idk_streak,
+        exclude_ids=exclude_ids,
+    )
 
 
 def make_next_question_selector(engine):
-    return lambda answers, asked, idk_streak=0, disambiguate=False: select_next_question(
+    return lambda answers, asked, idk_streak=0, disambiguate=False, exclude_ids=None: select_next_question(
         engine,
         answers,
         asked,
         idk_streak=idk_streak,
         disambiguate=disambiguate,
+        exclude_ids=exclude_ids,
     )
 
 
 def make_low_exposure_axis_probe(engine, hard_max_questions):
-    def probe(answers, asked, *, count, top_p, second_p):
+    def probe(answers, asked, *, count, top_p, second_p, exclude_ids=None):
         asked_in_order = list(dict.fromkeys(asked))
         if not should_probe_low_exposure_axis(
             engine,
@@ -144,6 +187,6 @@ def make_low_exposure_axis_probe(engine, hard_max_questions):
             hard_max_questions=hard_max_questions,
         ):
             return None
-        return best_low_exposure_axis_question(engine, answers, asked_in_order)
+        return best_low_exposure_axis_question(engine, answers, asked_in_order, exclude_ids=exclude_ids)
 
     return probe

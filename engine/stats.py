@@ -58,7 +58,7 @@ def increment_fetish_log_file(path, fetish_db_id, column, *, lock, atomic_write)
     with lock:
         data = read_json_path(path, {})
         key = str(fetish_db_id)
-        entry = data.get(key, {'guessed': 0, 'correct': 0, 'wrong': 0})
+        entry = data.get(key, {'guessed': 0, 'correct': 0, 'wrong': 0, 'correction_selected': 0})
         entry[column] = entry.get(column, 0) + 1
         data[key] = entry
         atomic_write(path, data)

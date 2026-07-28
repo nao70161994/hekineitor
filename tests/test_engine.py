@@ -149,7 +149,7 @@ class TestEngine(unittest.TestCase):
                 0: [0.9, 0.1, 0.5],
                 1: [0.6, 0.55, 0.5],
             }
-            return values[q][f] if f < 3 else 0.5
+            return values.get(q, [0.5, 0.5, 0.5])[f] if f < 3 else 0.5
 
         with (
             patch.object(self.e, 'posteriors', return_value=probs),

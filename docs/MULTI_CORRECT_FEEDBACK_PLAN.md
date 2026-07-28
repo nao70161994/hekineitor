@@ -1,42 +1,24 @@
-# Multi-Correct Feedback Plan
+# Multi-Correct Feedback
 
-Hekineitor differs from Akinator: multiple nearby results can be acceptable answers. A single "correct" feedback should therefore not always mean only the displayed result deserves strong positive learning.
+Hekineitorでは近い複数の診断結果が同時に正解になり得ます。結果カードの詳細フィードバックは、表示された全項目を○・△・×のいずれかへ分類し、1回の`/api/confirm` requestで送信します。
 
-## Current risk
+## 現在の学習契約
 
-- If one result is displayed often, it receives more correct feedback opportunities.
-- Correct feedback happens more often than wrong feedback, so popular displayed results can self-reinforce.
-- Nearby results may be valid but receive no learning signal because they were not displayed.
+- ○は選択対象へ正の学習を行い、複数の○には弱い共起学習も行う。
+- △はnear-missとして○より弱い正の学習を行う。
+- ×は表示対象へ負の学習を行う。
+- 未知ID、分類の重複、表示項目の不足は、学習を始める前にHTTP 400で拒否する。
+- test-playと学習無効時は、分類を受理しても行列・統計を更新しない。
+- 表示結果、feedback target、share target、analytics target、session resultの対応を回帰テストで固定する。
 
-## Current safeguards already in place
+## 原子性と障害復旧
 
-- Correct feedback is scaled down relative to wrong feedback.
-- Wrong feedback is strengthened to offset high correct-feedback volume.
-- Result exposure balancing reduces repeated display of overexposed results.
-- Displayed result, feedback target, share target, analytics target, and session result are contract-tested.
+1回の詳細フィードバックで生じる行列、診断ログ、累積統計、日次統計の変更はまとめて確定します。PostgreSQLでは単一transaction、ローカルJSONではwrite-ahead journalを使います。途中で失敗した場合は全変更をrollbackし、process停止でjournalが残った場合は次回起動時にroll-forwardします。APIは保存完了後にだけ成功を返します。
 
-## Proposed next PR
+## 回帰テスト
 
-Treat result feedback as a weighted neighborhood signal:
-
-1. Keep the displayed result as the primary feedback target.
-2. For `correct`, add small positive credit to top related candidates when their posterior is close to the displayed result.
-3. For `wrong`, apply stronger negative signal to the displayed result, but do not punish all nearby candidates equally.
-4. For `near miss`, ask the player to select the closer result and use that as the positive target.
-5. Cap all neighborhood learning so it cannot overpower explicit selected feedback.
-
-## Safety rules
-
-- No DB schema change.
-- No matrix reset or bulk correction.
-- Preserve existing API responses.
-- Add behavior-lock tests before changing learning deltas.
-- Roll out with smaller coefficients first and monitor result_exposures.
-
-## Suggested tests
-
-- Correct feedback on a popular result does not increase only that result when a close related result is selected.
-- Wrong feedback on an overexposed result reduces its future rank without collapsing unrelated candidates.
-- Near-miss selected target receives stronger positive signal than the originally displayed result.
-- Existing confirm/finalize_added behavior remains unchanged in normal mode.
-- Learning-off test play still skips all learning writes.
+- ○・△・×の混在と全件○が1 requestで処理される。
+- 重複・不足・未知IDでは行列も統計も変化しない。
+- ローカル保存失敗時に全ファイルとmemory上の行列が元へ戻る。
+- PostgreSQLでは行列と各counterが同じtransactionを使う。
+- 通常の単一正解、追加登録、学習無効の既存挙動を維持する。

@@ -4,6 +4,20 @@ from tests._app_test_support import *
 
 
 class TestGameSessionFlow(APITestCase):
+    def test_gameplay_event_endpoint_accepts_only_allowlisted_anonymous_events(self):
+        with patch(
+            'services.gameplay_events.safe_record_event', return_value={'event_name': 'history_reopened'}
+        ) as record:
+            response = self.client.post(
+                '/api/gameplay_event',
+                json={'event_name': 'history_reopened', 'source': 'history', 'outcome': 'success', 'result_id': 3},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()['recorded'])
+        record.assert_called_once()
+        rejected = self.client.post('/api/gameplay_event', json={'event_name': 'arbitrary', 'source': 'history'})
+        self.assertEqual(rejected.status_code, 400)
+
     def test_start_returns_question(self):
         data = self._start()
         self.assertIn('question_id', data)
@@ -382,7 +396,7 @@ class TestGameSessionFlow(APITestCase):
             sess['exclude_ids'] = [app_module.engine.fetishes[0]['id']]
         with (
             patch('services.game_context.result_exposure.adjusted_scores', side_effect=adjusted_scores),
-            patch.object(app_module.engine, 'best_question', return_value=5) as best_question,
+            patch.object(app_module.engine, '_best_question_with_exclusions', return_value=5) as best_question,
         ):
             res = self.client.post('/api/answer', json={'question_id': 4, 'answer': 1.0})
 

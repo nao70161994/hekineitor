@@ -51,7 +51,7 @@ test('covers continue, feedback, history, and mobile transitions', async ({page}
     profile: [],
     related: [],
     reasons: [],
-    works: [],
+    works: [1, 2, 3, 4, 5].map(id => ({title: `作品${id}`, url: `https://example.test/${id}`, reason: `理由${id}`})),
     cross_works: [],
   };
   let answerCount = 0;
@@ -76,8 +76,12 @@ test('covers continue, feedback, history, and mobile transitions', async ({page}
   await page.getByRole('button', {name: 'はい', exact: true}).click();
   await expect(page.locator('#result-name')).toHaveText('NTR（寝取られ）');
   await expect(page.locator('#result-name')).toBeInViewport();
+  await expect(page.locator('.work-recommendation.featured')).toHaveCount(3);
+  await expect(page.locator('.works-more')).toBeHidden();
+  await page.getByRole('button', {name: 'ほか2作品を見る'}).click();
+  await expect(page.locator('.works-more')).toBeVisible();
 
-  await page.getByRole('button', {name: 'もう少し続ける'}).click();
+  await page.getByRole('button', {name: '追加質問で精度を上げる'}).click();
   await expect(page.locator('#question-text')).toHaveText('追加の質問');
   await expect(page.locator('#question-stage-label')).toHaveText('追加質問 1/10');
   const savedPairs = await page.evaluate(() => JSON.parse(localStorage.getItem('heki_draft')).pairs);
@@ -91,4 +95,6 @@ test('covers continue, feedback, history, and mobile transitions', async ({page}
   await page.getByRole('button', {name: 'タイトルに戻る'}).click();
   await page.getByRole('button', {name: /診断履歴/}).click();
   await expect(page.locator('#history-panel')).toContainText('NTR（寝取られ）');
+  await page.getByRole('button', {name: '結果を見る'}).click();
+  await expect(page.locator('#result-name')).toHaveText('NTR（寝取られ）');
 });

@@ -3,7 +3,40 @@ window.HekiGameFlow = (() => {
   let answeredCount = 0;
   let resultShown = false;
   let dropoffSent = false;
+  let pendingAnswerTimer = null;
   const axisLabels = {content: 'コンテンツ軸', abstract: '抽象軸', personality: 'パーソナリティ軸'};
+
+
+function resetAnswerPending(failed = false) {
+  clearTimeout(pendingAnswerTimer);
+  pendingAnswerTimer = null;
+  const selected = document.querySelector('#question-screen [data-action="send-answer"].answer-selected');
+  document.querySelectorAll('#question-screen [data-action="send-answer"]').forEach(button => {
+    button.classList.remove('answer-selected');
+    button.setAttribute('aria-pressed', 'false');
+  });
+  const status = document.getElementById('answer-status');
+  if (status) status.textContent = failed ? '送信できませんでした。回答を選び直してください。' : '';
+  if (failed) {
+    setAnswerButtons(false);
+    setGenieState('idle');
+    selected?.focus();
+  }
+}
+
+function setAnswerPending(answer) {
+  resetAnswerPending();
+  const selected = [...document.querySelectorAll('#question-screen [data-action="send-answer"]')]
+    .find(button => Number(button.dataset.answer) === Number(answer));
+  selected?.classList.add('answer-selected');
+  selected?.setAttribute('aria-pressed', 'true');
+  const status = document.getElementById('answer-status');
+  if (status) status.textContent = '回答を受け取りました。考え中…';
+  setGenieState('thinking');
+  pendingAnswerTimer = setTimeout(() => {
+    if (status) status.textContent = 'まだ考えています。もう少しお待ちください…';
+  }, 1000);
+}
 
 function startExcluding() {
   if (_fetching) return;
@@ -56,6 +89,7 @@ async function startGame(excludeIds) {
 }
 
 function showQuestion(data) {
+  resetAnswerPending();
   currentQuestionId = data.question_id;
   answeredCount = Number(data.count || 0);
   resultShown = false;
@@ -102,7 +136,7 @@ function showQuestion(data) {
   }
   document.getElementById('btn-back').style.visibility = data.count > 0 ? 'visible' : 'hidden';
   show('question-screen');
-  setGenieState('thinking');
+  setGenieState('idle');
   const contEl = document.getElementById('contradiction-hint');
   if (data.contradictions && data.contradictions.length) {
     const c = data.contradictions[0];
@@ -135,8 +169,10 @@ async function sendAnswer(ans) {
   if (_fetching) return;
   setFetching(true);
   setAnswerButtons(true);
+  setAnswerPending(ans);
   try {
     const data = await apiFetch('/api/answer', {question_id: currentQuestionId, answer: ans});
+    resetAnswerPending();
     _pushDraft(currentQuestionId, ans);
     _saveDraft();
     if (data.action === 'question') {
@@ -145,6 +181,8 @@ async function sendAnswer(ans) {
       _pauseDraft();
       showGuess(data);
     }
+  } catch {
+    resetAnswerPending(true);
   } finally {
     setFetching(false);
     setAnswerButtons(false);
@@ -186,7 +224,7 @@ function showGuess(data) {
   }
 
   if (window.HekiShare?.prepareSharePayload) window.HekiShare.prepareSharePayload();
-  saveHistory(renderedName, data.probability, data.fetish_id, window._compoundIds);
+  if (!data._historyReplay) saveHistory(renderedName, data.probability, data.fetish_id, window._compoundIds, data);
   show('result-screen');
 }
 
@@ -246,7 +284,17 @@ async function continueGame() {
 }
 
 
-  return {startExcluding, startGame, showQuestion, goBack, sendAnswer, showGuess, quickRetry, continueGame};
+  return {
+    startExcluding,
+    startGame,
+    showQuestion,
+    goBack,
+    sendAnswer,
+    showGuess,
+    quickRetry,
+    continueGame,
+    resetAnswerPending,
+  };
 })();
 
 window.startExcluding = () => window.HekiGameFlow.startExcluding();

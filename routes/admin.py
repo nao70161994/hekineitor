@@ -75,18 +75,22 @@ def _parse_dry_run_answers(raw):
 def dry_run_guess(ctx):
     answers, errors = _parse_dry_run_answers(ctx.request.args.get('answers', ''))
     if errors:
-        return ctx.jsonify(
-            {'status': 'error', 'message': 'answers は q:answer のカンマ区切りで指定してください', 'errors': errors}
-        ), 400
+        return (
+            ctx.jsonify(
+                {'status': 'error', 'message': 'answers は q:answer のカンマ区切りで指定してください', 'errors': errors}
+            ),
+            400,
+        )
     if not answers:
         return ctx.jsonify({'status': 'error', 'message': 'answers が空です'}), 400
     invalid_ids = [
         int(question_id) for question_id in answers if not (0 <= int(question_id) < len(ctx.engine.questions))
     ]
     if invalid_ids:
-        return ctx.jsonify(
-            {'status': 'error', 'message': '不正な質問IDです', 'invalid_question_ids': invalid_ids[:20]}
-        ), 400
+        return (
+            ctx.jsonify({'status': 'error', 'message': '不正な質問IDです', 'invalid_question_ids': invalid_ids[:20]}),
+            400,
+        )
     inference_ctx = context_service.build_inference_context(
         engine=ctx.engine,
         session={},
@@ -168,12 +172,14 @@ def analysis_log_status(ctx, *, stats_history=None, share_events=None, question_
         'sources': {
             'result_distribution': 'Engine stats_history / fetish_log',
             'feedback': 'Engine fetish_log / stats_history',
-            'share_analytics': 'Postgres analytics_events'
-            if share_storage.get('storage') == 'postgres'
-            else 'JSONL share_events',
-            'question_analytics': 'Postgres analytics_events'
-            if question_storage.get('storage') == 'postgres'
-            else 'JSONL question_events',
+            'share_analytics': (
+                'Postgres analytics_events' if share_storage.get('storage') == 'postgres' else 'JSONL share_events'
+            ),
+            'question_analytics': (
+                'Postgres analytics_events'
+                if question_storage.get('storage') == 'postgres'
+                else 'JSONL question_events'
+            ),
         },
     }
 
@@ -611,6 +617,11 @@ def share_events_report(ctx):
     return ctx.jsonify({'status': 'ok', **ctx.share_event_report(**share_event_query(ctx))})
 
 
+def gameplay_events_report(ctx):
+    limit = ctx.bounded_int(ctx.request.args.get('limit'), 5000, 1, 50000)
+    return ctx.jsonify({'status': 'ok', **ctx.gameplay_event_report(limit=limit)})
+
+
 def question_events_report(ctx):
     limit = ctx.bounded_int(ctx.request.args.get('limit'), 1000, 1, 50000)
     target_date = (ctx.request.args.get('date') or '').strip()[:10]
@@ -952,6 +963,7 @@ def operations_snapshot(ctx):
     dropoff_summary = ctx.engine.get_dropoff_summary(days=30)
     question_events = ctx.question_event_report(limit=1000)
     share_events = ctx.share_event_report(**share_event_query(ctx, default_limit=1000))
+    gameplay_events = ctx.gameplay_event_report(limit=1000)
     audit_rows = ctx.recent_audit(ctx.bounded_int(ctx.request.args.get('audit_limit'), 50, 1, 200))
     return ctx.jsonify(
         {
@@ -975,6 +987,7 @@ def operations_snapshot(ctx):
             'analysis_logs': analysis_log_status(
                 ctx, stats_history=stats_history, share_events=share_events, question_events=question_events
             ),
+            'gameplay_events_summary': gameplay_events,
             'share_events_summary': {
                 'total': share_events.get('total', 0),
                 'invalid_result_events': share_events.get('invalid_result_events', 0),
@@ -1363,13 +1376,16 @@ def move_stats_history(ctx):
     data = ctx.request.get_json(silent=True) or {}
     mappings = _manual_stats_history_mappings_from_request(ctx)
     if not mappings:
-        return ctx.jsonify(
-            {
-                'status': 'error',
-                'message': 'mappings に正式ID同士の old_id/new_id を指定してください',
-                'required_confirm_text': 'MOVE_STATS_HISTORY',
-            }
-        ), 400
+        return (
+            ctx.jsonify(
+                {
+                    'status': 'error',
+                    'message': 'mappings に正式ID同士の old_id/new_id を指定してください',
+                    'required_confirm_text': 'MOVE_STATS_HISTORY',
+                }
+            ),
+            400,
+        )
     if data.get('dry_run') is True:
         report = ctx.engine.promoted_stats_history_repair_report(mappings)
         return ctx.jsonify({'status': 'ok', 'mode': 'dry_run', 'required_confirm_text': 'MOVE_STATS_HISTORY', **report})
@@ -1394,13 +1410,16 @@ def repair_promoted_stats_history(ctx):
     data = ctx.request.get_json(silent=True) or {}
     mappings = _repair_mappings_from_request(ctx)
     if not mappings:
-        return ctx.jsonify(
-            {
-                'status': 'error',
-                'message': 'mappings に old_id/new_id を指定してください',
-                'required_confirm_text': 'REPAIR_PROMOTED_STATS',
-            }
-        ), 400
+        return (
+            ctx.jsonify(
+                {
+                    'status': 'error',
+                    'message': 'mappings に old_id/new_id を指定してください',
+                    'required_confirm_text': 'REPAIR_PROMOTED_STATS',
+                }
+            ),
+            400,
+        )
     if ctx.request.method == 'GET' or data.get('dry_run') is True:
         report = ctx.engine.promoted_stats_history_repair_report(mappings)
         return ctx.jsonify(

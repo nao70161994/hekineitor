@@ -260,3 +260,7 @@ The response contains daily `total`, `heavy_total`, `heavy_result_ratio`, and to
 ## Retry Policy
 
 GitHub Actions checks retry read-only admin API calls with `NTFY_ADMIN_RETRIES` attempts. This is only for transient GET/timeout failures. It does not call POST endpoints and does not include secrets in notification text.
+
+## ゲームプレイループ
+
+匿名ゲームプレイ指標は `/api/admin/gameplay_events` と operations snapshot の `gameplay_events_summary` で確認します。再挑戦率、除外再挑戦率、追加質問率、feedback完了率、作品クリック率、質問重複率を、母数と一緒に週次確認します。個人識別情報・回答値・自由記述は保存しません。詳細は [GAMEPLAY_METRICS.md](GAMEPLAY_METRICS.md) を参照してください。

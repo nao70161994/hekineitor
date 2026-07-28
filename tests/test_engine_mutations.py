@@ -113,7 +113,10 @@ class TestEngineMutations(unittest.TestCase):
         remove_log = before['fetish_log'].get(str(id_remove), {})
         self.assertEqual(
             after['fetish_log'][str(id_keep)],
-            {key: keep_log.get(key, 0) + remove_log.get(key, 0) for key in ('guessed', 'correct', 'wrong')},
+            {
+                key: keep_log.get(key, 0) + remove_log.get(key, 0)
+                for key in ('guessed', 'correct', 'wrong', 'correction_selected')
+            },
         )
         self.assertNotIn(str(id_remove), after['fetish_log'])
 

@@ -216,6 +216,64 @@ def commit_work_catalog_mutation(
         raise
 
 
+def recover_feedback_batch(journal_path, matrix_path, fetish_log_path, stats_path, history_path, *, atomic_write):
+    if not os.path.exists(journal_path):
+        return False
+    try:
+        with open(journal_path, encoding='utf-8') as source:
+            journal = json.load(source)
+        if journal.get('format_version') != 1:
+            raise ValueError('unsupported format')
+        after = journal['after']
+        if not isinstance(after.get('matrix'), dict):
+            raise ValueError('invalid matrix snapshot')
+        for key in ('fetish_log', 'stats', 'stats_history'):
+            if not isinstance(after.get(key), dict):
+                raise ValueError(f'invalid {key} snapshot')
+    except (KeyError, OSError, json.JSONDecodeError, ValueError) as exc:
+        raise RuntimeError('feedback batch journal is invalid') from exc
+    atomic_write(matrix_path, after['matrix'])
+    atomic_write(fetish_log_path, after['fetish_log'], ensure_ascii=False, indent=2)
+    atomic_write(stats_path, after['stats'], ensure_ascii=False, indent=2)
+    atomic_write(history_path, after['stats_history'], ensure_ascii=False, indent=2)
+    durable_unlink(journal_path)
+    return True
+
+
+def commit_feedback_batch(
+    journal_path,
+    matrix_path,
+    fetish_log_path,
+    stats_path,
+    history_path,
+    *,
+    before,
+    after,
+    atomic_write,
+):
+    journal = {'format_version': 1, 'before': before, 'after': after}
+    journal_written = False
+    try:
+        atomic_write(journal_path, journal, ensure_ascii=False, indent=2)
+        journal_written = True
+        atomic_write(matrix_path, after['matrix'])
+        atomic_write(fetish_log_path, after['fetish_log'], ensure_ascii=False, indent=2)
+        atomic_write(stats_path, after['stats'], ensure_ascii=False, indent=2)
+        atomic_write(history_path, after['stats_history'], ensure_ascii=False, indent=2)
+        durable_unlink(journal_path)
+    except BaseException:
+        if journal_written:
+            try:
+                atomic_write(matrix_path, before['matrix'])
+                atomic_write(fetish_log_path, before['fetish_log'], ensure_ascii=False, indent=2)
+                atomic_write(stats_path, before['stats'], ensure_ascii=False, indent=2)
+                atomic_write(history_path, before['stats_history'], ensure_ascii=False, indent=2)
+                durable_unlink(journal_path)
+            except BaseException as rollback_error:
+                raise RuntimeError('feedback batch rollback failed; recovery journal retained') from rollback_error
+        raise
+
+
 def apply_learned_priors(yes, total, fetishes, questions, learned, *, pseudo):
     id_to_idx = {fetish['id']: idx for idx, fetish in enumerate(fetishes)}
     nq = len(questions)

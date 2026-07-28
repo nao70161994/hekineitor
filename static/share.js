@@ -120,13 +120,15 @@ window.HekiShare = (() => {
 
   function openXShare(name = diagnosedName, trackButton = true) {
     const payload = sharePayloadImmediate(name);
-    if (trackButton) trackShareEvent('share_button_click', {resultName: name, channel: 'x', success: true});
-    trackShareEvent('x_share_click', {resultName: name, channel: 'x', success: true});
-    window.open(
+    const popup = window.open(
       'https://twitter.com/intent/tweet?text=' + encodeURIComponent(payload.text) + '&url=' + encodeURIComponent(payload.url),
       '_blank',
-      'noopener'
+      'noopener',
     );
+    const success = Boolean(popup);
+    if (trackButton) trackShareEvent('share_button_click', {resultName: name, channel: 'x', success});
+    trackShareEvent('x_share_click', {resultName: name, channel: 'x', success});
+    if (!success) copyOrShowFallback(payload, name);
   }
 
   function shareResult(name = diagnosedName) {
@@ -135,23 +137,50 @@ window.HekiShare = (() => {
     if (navigator.share) {
       navigator.share({title: `あなたの『癖』は…… 『${name || '???'}』`, text: payload.text, url: payload.url})
         .then(() => trackShareEvent('web_share_success', {resultName: name, channel: 'web_share', success: true}))
-        .catch(() => trackShareEvent('web_share_failure', {resultName: name, channel: 'web_share', success: false}));
+        .catch(error => {
+          if (error?.name === 'AbortError') return;
+          trackShareEvent('web_share_failure', {resultName: name, channel: 'web_share', success: false});
+          copyOrShowFallback(payload, name);
+        });
       return;
     }
+    copyOrShowFallback(payload, name);
+  }
+
+  function copyOrShowFallback(payload, name = diagnosedName) {
+    const text = `${payload.text}\n${payload.url}`;
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(`${payload.text}\n${payload.url}`)
+      navigator.clipboard.writeText(text)
         .then(() => {
           showToast('クリップボードにコピーしました', '#27ae60');
           trackShareEvent('copy_success', {resultName: name, channel: 'clipboard', success: true});
         })
-        .catch(() => trackShareEvent('copy_failure', {resultName: name, channel: 'clipboard', success: false}));
+        .catch(() => {
+          trackShareEvent('copy_failure', {resultName: name, channel: 'clipboard', success: false});
+          showFallbackText(text);
+        });
       return;
     }
-    showToast('この環境では共有テキストをコピーできません', '#c0392b');
     trackShareEvent('copy_failure', {resultName: name, channel: 'clipboard', success: false});
+    showFallbackText(text);
   }
 
+  function showFallbackText(text) {
+    const textarea = document.getElementById('share-fallback-text');
+    if (!textarea) {
+      showToast('この環境では共有テキストをコピーできません', '#c0392b');
+      return;
+    }
+    textarea.value = text;
+    if (window.openModal) openModal('modal-share-fallback');
+    else document.getElementById('modal-share-fallback')?.classList.remove('hidden');
+  }
 
+  function selectFallbackText() {
+    const textarea = document.getElementById('share-fallback-text');
+    textarea?.focus();
+    textarea?.select();
+  }
 
 document.addEventListener('click', event => {
   const link = event.target.closest('a[data-work-title]');
@@ -178,6 +207,7 @@ document.addEventListener('click', event => {
     openXShare,
     trackShareEvent,
     legacyShareUrl,
+    selectFallbackText,
   };
 })();
 

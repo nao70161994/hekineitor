@@ -145,6 +145,7 @@ class Engine:
         _acquire_file_engine_process_lock()
         self._lock = threading.RLock()
         self.questions = self._load_json('questions.json')
+        self._feedback_batch_state = None
         if not _use_db():
             catalog_path = os.path.join(DATA_DIR, 'work_catalog.json')
             with _settings_file_lock(catalog_path):
@@ -157,6 +158,14 @@ class Engine:
                     matrix_path=os.path.join(DATA_DIR, 'matrix.json'),
                     fetish_log_path=get_fetish_log_path(),
                     question_count=len(self.questions),
+                )
+                engine_persistence.recover_feedback_batch(
+                    os.path.join(DATA_DIR, 'feedback_batch_journal.json'),
+                    os.path.join(DATA_DIR, 'matrix.json'),
+                    get_fetish_log_path(),
+                    os.path.join(DATA_DIR, 'stats.json'),
+                    os.path.join(DATA_DIR, 'stats_history.json'),
+                    atomic_write=self._atomic_write,
                 )
                 engine_persistence.recover_matrix_restore(
                     os.path.join(DATA_DIR, 'matrix_restore_journal.json'),
@@ -504,6 +513,82 @@ class Engine:
             atomic_write=self._atomic_write,
         )
 
+    @contextmanager
+    def feedback_batch(self):
+        """Commit all matrix and counter changes from one feedback request together."""
+        from datetime import date as _date
+
+        with self._lock:
+            if self._feedback_batch_state is not None:
+                raise RuntimeError('nested feedback batch is not supported')
+            before_matrix = copy.deepcopy(self.matrix)
+            if _use_db():
+                before_files = None
+            else:
+                before_files = {
+                    'matrix': copy.deepcopy(before_matrix),
+                    'fetish_log': engine_stats.read_json_path(get_fetish_log_path(), {}),
+                    'stats': engine_stats.read_json_path(os.path.join(DATA_DIR, 'stats.json'), {}),
+                    'stats_history': engine_stats.read_json_path(os.path.join(DATA_DIR, 'stats_history.json'), {}),
+                }
+            state = {
+                'updates': {},
+                'idx_to_db_id': {},
+                'log': {},
+                'stats': {},
+                'daily': {},
+            }
+            self._feedback_batch_state = state
+            try:
+                yield
+                if _use_db():
+                    engine_db.save_feedback_batch(
+                        state['updates'],
+                        state['idx_to_db_id'],
+                        self.fetishes,
+                        state['log'],
+                        state['stats'],
+                        state['daily'],
+                        _date.today().isoformat(),
+                        get_conn=_get_conn,
+                        put_conn=_put_conn,
+                    )
+                else:
+                    after = {
+                        'matrix': self._matrix_snapshot(),
+                        'fetish_log': copy.deepcopy(before_files['fetish_log']),
+                        'stats': copy.deepcopy(before_files['stats']),
+                        'stats_history': copy.deepcopy(before_files['stats_history']),
+                    }
+                    for (fetish_id, column), amount in state['log'].items():
+                        row = after['fetish_log'].setdefault(
+                            str(fetish_id),
+                            {'guessed': 0, 'correct': 0, 'wrong': 0, 'correction_selected': 0},
+                        )
+                        row[column] = row.get(column, 0) + amount
+                    for key, amount in state['stats'].items():
+                        after['stats'][key] = after['stats'].get(key, 0) + amount
+                    today = _date.today().isoformat()
+                    daily = after['stats_history'].setdefault(today, {})
+                    for key, amount in state['daily'].items():
+                        daily[key] = daily.get(key, 0) + amount
+                    engine_persistence.commit_feedback_batch(
+                        os.path.join(DATA_DIR, 'feedback_batch_journal.json'),
+                        os.path.join(DATA_DIR, 'matrix.json'),
+                        get_fetish_log_path(),
+                        os.path.join(DATA_DIR, 'stats.json'),
+                        os.path.join(DATA_DIR, 'stats_history.json'),
+                        before=before_files,
+                        after=after,
+                        atomic_write=self._atomic_write,
+                    )
+            except BaseException:
+                self.matrix = before_matrix
+                raise
+            finally:
+                self._feedback_batch_state = None
+            self._dynamic_prior_time = 0.0
+
     def _save_async(self, all_updates, idx_to_db_id):
         """Persist matrix updates before reporting learning success.
 
@@ -511,6 +596,12 @@ class Engine:
         wrappers, but DB writes are synchronous so a successful API response does
         not race with worker shutdown or stale reloads.
         """
+        batch = getattr(self, '_feedback_batch_state', None)
+        if batch is not None:
+            for fetish_idx, rows in all_updates.items():
+                batch['updates'].setdefault(fetish_idx, []).extend(rows)
+            batch['idx_to_db_id'].update(idx_to_db_id or {})
+            return
         if _use_db():
             try:
                 self._save_to_db(all_updates, idx_to_db_id)
@@ -563,6 +654,10 @@ class Engine:
         return engine_db.load_matrix(self.fetishes, self.questions, get_conn=_get_conn, put_conn=_put_conn)
 
     def _increment_stat(self, key):
+        if self._feedback_batch_state is not None:
+            pending = self._feedback_batch_state['stats']
+            pending[key] = pending.get(key, 0) + 1
+            return
         if _use_db():
             engine_db.increment_stat(key, get_conn=_get_conn, put_conn=_put_conn)
         else:
@@ -573,6 +668,10 @@ class Engine:
         from datetime import date as _date
 
         today = _date.today().isoformat()
+        if self._feedback_batch_state is not None:
+            pending = self._feedback_batch_state['daily']
+            pending[key] = pending.get(key, 0) + 1
+            return
         if _use_db():
             engine_db.record_daily_stat(key, today, get_conn=_get_conn, put_conn=_put_conn)
         else:
@@ -758,8 +857,13 @@ class Engine:
 
     # ── 診断ログ ──────────────────────────────────────────
     def _increment_fetish_log(self, fetish_db_id, col):
-        if col not in ('guessed', 'correct', 'wrong'):
+        if col not in ('guessed', 'correct', 'wrong', 'correction_selected'):
             raise ValueError(f'不正な列名: {col}')
+        if self._feedback_batch_state is not None:
+            pending = self._feedback_batch_state['log']
+            log_key = (int(fetish_db_id), col)
+            pending[log_key] = pending.get(log_key, 0) + 1
+            return
         if _use_db():
             engine_db.increment_fetish_log(fetish_db_id, col, get_conn=_get_conn, put_conn=_put_conn)
         else:
@@ -777,6 +881,10 @@ class Engine:
         self._record_daily_stat('correct')
         self._record_daily_stat(f'f_correct_{fetish_db_id}')
 
+    def log_correction_selected(self, fetish_db_id):
+        self._increment_fetish_log(fetish_db_id, 'correction_selected')
+        self._record_daily_stat(f'f_correction_selected_{fetish_db_id}')
+
     def log_wrong(self, fetish_db_id):
         self._increment_fetish_log(fetish_db_id, 'wrong')
         self._record_daily_stat('wrong')
@@ -789,6 +897,9 @@ class Engine:
         else:
             path = get_fetish_log_path()
             return engine_stats.load_fetish_log_file(path)
+
+    def get_dynamic_prior_shadow_report(self):
+        return engine_runtime.dynamic_prior_shadow_report(self.fetishes, self.get_fetish_log(), FETISH_PRIOR_WEIGHTS)
 
     def _save_to_db(self, all_updates, idx_to_db_id=None):
         if not all_updates:
@@ -945,6 +1056,9 @@ class Engine:
         return stats
 
     def best_question(self, answers, asked, idk_streak=0):
+        return self._best_question_with_exclusions(answers, asked, idk_streak=idk_streak)
+
+    def _best_question_with_exclusions(self, answers, asked, idk_streak=0, exclude_ids=None):
         self._reload_settings_if_stale()
         return engine_question_selection.best_question(
             self,
@@ -959,9 +1073,17 @@ class Engine:
             early_random_top_k=EARLY_RANDOM_TOP_K,
             axis_indirect_bonus=AXIS_INDIRECT_BONUS,
             question_balance_stats=self._question_balance_stats(),
+            exclude_ids=exclude_ids,
         )
 
     def best_disambiguating_question(self, answers, asked, candidate_count=3, idk_streak=0):
+        return self._best_disambiguating_question_with_exclusions(
+            answers, asked, candidate_count=candidate_count, idk_streak=idk_streak
+        )
+
+    def _best_disambiguating_question_with_exclusions(
+        self, answers, asked, candidate_count=3, idk_streak=0, exclude_ids=None
+    ):
         self._reload_settings_if_stale()
         return engine_question_selection.best_disambiguating_question(
             self,
@@ -969,6 +1091,8 @@ class Engine:
             asked,
             candidate_count=candidate_count,
             idk_streak=idk_streak,
+            exclude_ids=exclude_ids,
+            question_balance_stats=self._question_balance_stats(),
         )
 
     def get_matrix_heatmap(self, n_fetishes=20, n_questions=20):
@@ -1006,6 +1130,9 @@ class Engine:
 
     def get_answer_contributions(self, answers, fetish_idx, top_n=3):
         return engine_inference.answer_contributions(self, answers, fetish_idx, top_n=top_n)
+
+    def get_contrastive_answer_contributions(self, answers, winner_idx, runner_idx, top_n=3):
+        return engine_inference.contrastive_answer_contributions(self, answers, winner_idx, runner_idx, top_n=top_n)
 
     def detect_contradictions(self, answers):
         """高相関な質問ペアで逆方向の回答があれば最大2件返す。"""

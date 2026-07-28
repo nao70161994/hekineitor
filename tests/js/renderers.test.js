@@ -16,6 +16,17 @@ describe('HekiRenderers screen transitions', () => {
     Element.prototype.scrollIntoView = vi.fn();
     window.eval(source);
   });
+  it('renders low-information results as provisional', () => {
+    document.body.innerHTML += '<div id="result-kicker"></div><div id="result-badges"></div><div id="result-rival" class="hidden"></div>';
+    window.HekiRenderers.renderResultDrama(
+      {provisional: true, provisional_message: 'まだ読み切れません', probability: 30},
+      '結果',
+      String,
+    );
+    expect(document.getElementById('result-kicker').textContent).toBe('まだ読み切れません');
+    expect(document.getElementById('result-rival').textContent).toContain('追加質問に答えると');
+    expect(document.getElementById('result-rival').classList.contains('hidden')).toBe(false);
+  });
 
   it('renders stable work identity attributes', () => {
     const html = window.HekiRenderers.renderWorkTag(

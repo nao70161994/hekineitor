@@ -108,9 +108,13 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                     fetish_id INTEGER PRIMARY KEY,
                     guessed   INTEGER NOT NULL DEFAULT 0,
                     correct   INTEGER NOT NULL DEFAULT 0,
-                    wrong     INTEGER NOT NULL DEFAULT 0
+                    wrong     INTEGER NOT NULL DEFAULT 0,
+                    correction_selected INTEGER NOT NULL DEFAULT 0
                 )
             """)
+            cur.execute(
+                'ALTER TABLE fetish_log ADD COLUMN IF NOT EXISTS correction_selected INTEGER NOT NULL DEFAULT 0'
+            )
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS sessions (
                     session_id TEXT PRIMARY KEY,
@@ -413,12 +417,13 @@ def merge_fetish_rows_db(
             cur.execute('DELETE FROM matrix WHERE fetish_id = %s', (id_remove,))
             cur.execute(
                 """
-                INSERT INTO fetish_log (fetish_id, guessed, correct, wrong)
-                SELECT %s, guessed, correct, wrong FROM fetish_log WHERE fetish_id = %s
+                INSERT INTO fetish_log (fetish_id, guessed, correct, wrong, correction_selected)
+                SELECT %s, guessed, correct, wrong, correction_selected FROM fetish_log WHERE fetish_id = %s
                 ON CONFLICT (fetish_id) DO UPDATE
                 SET guessed = fetish_log.guessed + EXCLUDED.guessed,
                     correct = fetish_log.correct + EXCLUDED.correct,
-                    wrong   = fetish_log.wrong   + EXCLUDED.wrong
+                    wrong   = fetish_log.wrong   + EXCLUDED.wrong,
+                    correction_selected = fetish_log.correction_selected + EXCLUDED.correction_selected
             """,
                 (id_keep, id_remove),
             )
@@ -503,3 +508,49 @@ def build_seed_matrix_rows(fetishes, question_count, *, build_initial_matrix):
 def seed_matrix(cur, fetishes, question_count, *, execute_values, build_initial_matrix):
     rows = build_seed_matrix_rows(fetishes, question_count, build_initial_matrix=build_initial_matrix)
     execute_values(cur, 'INSERT INTO matrix (fetish_id, question_id, yes_count, total_count) VALUES %s', rows)
+
+
+def save_feedback_batch(
+    all_updates,
+    idx_to_db_id,
+    fetishes,
+    log_increments,
+    stat_increments,
+    daily_increments,
+    today,
+    *,
+    get_conn,
+    put_conn,
+):
+    """Persist every matrix/counter change from one feedback submission transactionally."""
+    allowed_log_columns = {'guessed', 'correct', 'wrong', 'correction_selected'}
+    rows = build_save_matrix_rows(all_updates, idx_to_db_id=idx_to_db_id, fetishes=fetishes)
+    conn = get_conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            if rows:
+                cur.executemany(SAVE_MATRIX_SQL, rows)
+            for (fetish_id, column), amount in log_increments.items():
+                if column not in allowed_log_columns:
+                    raise ValueError(f'不正な列名: {column}')
+                cur.execute(
+                    f'''INSERT INTO fetish_log (fetish_id, {column}) VALUES (%s, %s)
+                    ON CONFLICT (fetish_id) DO UPDATE
+                    SET {column} = fetish_log.{column} + EXCLUDED.{column}''',
+                    (fetish_id, amount),
+                )
+            for key, amount in stat_increments.items():
+                cur.execute(
+                    'INSERT INTO stats (key, value) VALUES (%s, %s) '
+                    'ON CONFLICT (key) DO UPDATE SET value = stats.value + EXCLUDED.value',
+                    (key, amount),
+                )
+            for key, amount in daily_increments.items():
+                cur.execute(
+                    'INSERT INTO stats_history (date, key, value) VALUES (%s, %s, %s) '
+                    'ON CONFLICT (date, key) DO UPDATE SET value = stats_history.value + EXCLUDED.value',
+                    (today, key, amount),
+                )
+    finally:
+        put_conn(conn)

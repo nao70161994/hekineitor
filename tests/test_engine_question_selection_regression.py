@@ -158,8 +158,8 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
     def test_best_disambiguating_question_snapshots(self):
         cases = [
             ({}, set(), 0, 2),
-            ({'0': 0, '1': 0}, {0, 1}, 2, 2),
-            ({'8': 1, '6': 1, '0': 1, '40': 1}, {0, 6, 8, 40}, 0, 2),
+            ({'0': 0, '1': 0}, {0, 1}, 2, 91),
+            ({'8': 1, '6': 1, '0': 1, '40': 1}, {0, 6, 8, 40}, 0, 7),
         ]
         for answers, asked, idk_streak, expected_question in cases:
             with self.subTest(expected_question=expected_question):

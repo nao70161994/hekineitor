@@ -15,13 +15,21 @@ describe('HekiDraft', () => {
       removeItem: key => storage.delete(key),
       clear: () => storage.clear(),
     });
-    document.body.innerHTML = '<div id="resume-banner" class="hidden"></div><span id="resume-count"></span>';
+    document.body.innerHTML = '<div id="resume-banner" class="hidden"></div><span id="resume-count"></span><time id="resume-updated-at"></time><time id="resume-expires-at"></time>';
     window.gameState = {fetching: false};
     window.setFetching = vi.fn(value => { window.gameState.fetching = value; });
     window.apiFetch = vi.fn();
     window.showQuestion = vi.fn();
     window.showGuess = vi.fn();
     window.eval(source);
+  });
+  it('keeps a two-day-old draft and exposes update and expiry times', () => {
+    const updatedAt = Date.now() - 2 * 24 * 3600 * 1000;
+    localStorage.setItem('heki_draft', JSON.stringify({pairs: [{q_id: 4, answer: 1}], ts: updatedAt}));
+    window.HekiDraft.checkDraft();
+    expect(document.getElementById('resume-banner').classList.contains('hidden')).toBe(false);
+    expect(document.getElementById('resume-updated-at').dateTime).toBe(new Date(updatedAt).toISOString());
+    expect(document.getElementById('resume-expires-at').dateTime).toBe(new Date(updatedAt + 7 * 24 * 3600 * 1000).toISOString());
   });
 
   it('keeps answers ordered and replaces a repeated question instead of duplicating it', () => {

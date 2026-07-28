@@ -1,4 +1,6 @@
 window.HekiUi = (() => {
+let activeModal = null;
+let modalReturnFocus = null;
 function show(id) {
   if (window.HekiRenderers?.showScreen) {
     window.HekiRenderers.showScreen(id, shownId => {
@@ -81,18 +83,64 @@ async function skipTeach() {
 
 function confirmRestart() {
   const n = window._excludedIds && window._excludedIds.length;
-  const modal = document.getElementById('modal-restart');
-  modal.querySelector('p').innerHTML = n > 0
-    ? `最初からやり直しますか？<br>進行状況と除外リスト（${n}件）は失われます。`
-    : '最初からやり直しますか？<br>現在の進行状況は失われます。';
-  modal.classList.remove('hidden');
+  const desc = document.getElementById('modal-restart-desc');
+  if (desc) {
+    desc.textContent = n > 0
+      ? `回答は7日間保存できます。破棄すると除外リスト（${n}件）も失われます。`
+      : '回答はこの端末に7日間保存できます。保存するか破棄するか選んでください。';
+  }
+  openModal('modal-restart');
 }
+
 function closeModal(id) {
-  document.getElementById(id).classList.add('hidden');
+  document.getElementById(id)?.classList.add('hidden');
+  activeModal = null;
+  modalReturnFocus?.focus();
+  modalReturnFocus = null;
 }
+
 function doRestart() {
+  if (window._saveDraft) window._saveDraft();
   closeModal('modal-restart');
   showStart();
+}
+
+function discardRestart() {
+  if (window._clearDraft) window._clearDraft();
+  closeModal('modal-restart');
+  showStart();
+}
+
+function openModal(id) {
+  const modal = document.getElementById(id);
+  if (!modal) return;
+  modalReturnFocus = document.activeElement;
+  activeModal = modal;
+  modal.classList.remove('hidden');
+  requestAnimationFrame(() => modal.querySelector('button, textarea, [tabindex="-1"]')?.focus());
+}
+
+function handleModalKeydown(event) {
+  if (!activeModal || activeModal.classList.contains('hidden')) return;
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeModal(activeModal.id);
+    return;
+  }
+  if (event.key !== 'Tab') return;
+  const focusable = [...activeModal.querySelectorAll(
+    'button:not(:disabled), textarea, [href], [tabindex]:not([tabindex="-1"])',
+  )];
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable.at(-1);
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
 }
 
 function showToast(msg, color, durationMs = 3000) {
@@ -112,7 +160,9 @@ function showToast(msg, color, durationMs = 3000) {
 function updateExcludeButtons() {
   const n = (window._excludedIds || []).length;
   const label = n > 0 ? `別の性癖を探す (${n}件除外済み) →` : '別の性癖を探す →';
-  document.querySelectorAll('.btn-exclude').forEach(button => { button.textContent = label; });
+  document.querySelectorAll('.btn-exclude:not(#btn-quick-retry)').forEach(button => { button.textContent = label; });
+  const retry = document.getElementById('btn-quick-retry');
+  if (retry) retry.textContent = n > 0 ? `当て直す（${n}件除外済み）` : '当て直す';
 }
 
 
@@ -125,6 +175,9 @@ function updateExcludeButtons() {
     confirmRestart,
     closeModal,
     doRestart,
+    discardRestart,
+    openModal,
+    handleModalKeydown,
     showToast,
     updateExcludeButtons,
   };
@@ -137,5 +190,7 @@ window.showSessionExpired = () => window.HekiUi.showSessionExpired();
 window.confirmRestart = () => window.HekiUi.confirmRestart();
 window.closeModal = id => window.HekiUi.closeModal(id);
 window.doRestart = () => window.HekiUi.doRestart();
+window.discardRestart = () => window.HekiUi.discardRestart();
+window.openModal = id => window.HekiUi.openModal(id);
 window.showToast = (msg, color, durationMs = 3000) => window.HekiUi.showToast(msg, color, durationMs);
 window._updateExcludeButtons = () => window.HekiUi.updateExcludeButtons();

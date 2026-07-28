@@ -159,13 +159,13 @@ class TestEngine(FileSnapshotMixin, unittest.TestCase):
                 self.eng.matrix['total'].pop(new_idx)
                 self.eng._save_fetishes_file()
 
-    def test_idk_streak_triggers_guess(self):
+    def test_idk_recovery_then_streak_triggers_provisional_guess(self):
         from app import app as flask_app
 
         client = flask_app.test_client()
         res = client.post('/api/start')
         q = res.get_json()['question_id']
-        for _ in range(4):
+        for _ in range(6):
             r = client.post('/api/answer', json={'question_id': q, 'answer': 0})
             d = r.get_json()
             if d.get('action') == 'guess':

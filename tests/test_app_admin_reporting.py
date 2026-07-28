@@ -4,6 +4,18 @@ from tests._app_test_support import *
 
 
 class TestAdminReporting(APITestCase):
+    def test_gameplay_events_report_is_available_to_read_admin(self):
+        headers = self._admin_headers()
+        with patch(
+            'app._admin_gameplay_event_report',
+            return_value={'total': 2, 'by_event': {'result_shown': 2}, 'metrics': {'retry_rate': 50.0}},
+        ):
+            response = self.client.get('/api/admin/gameplay_events', headers=headers)
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload['status'], 'ok')
+        self.assertEqual(payload['metrics']['retry_rate'], 50.0)
+
     def test_admin_promote_fetish_reassigns_result_exposure_events(self):
         import app as app_module
 

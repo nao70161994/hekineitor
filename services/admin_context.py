@@ -27,6 +27,7 @@ def build(
     filesystem,
     share_event_report,
     question_event_report,
+    gameplay_event_report=None,
     share_event_count,
     question_event_count,
     share_event_storage_status,
@@ -37,6 +38,8 @@ def build(
     disable_test_play,
     is_test_play,
 ):
+    gameplay_event_report = gameplay_event_report or (lambda **kwargs: {"total": 0, "by_event": {}})
+
     request = flask_runtime.request
     jsonify = flask_runtime.jsonify
     response_cls = flask_runtime.response_cls
@@ -76,6 +79,7 @@ def build(
         gmtime=gmtime,
         share_event_report=share_event_report,
         question_event_report=question_event_report,
+        gameplay_event_report=gameplay_event_report,
         share_event_count=share_event_count,
         question_event_count=question_event_count,
         share_event_storage_status=share_event_storage_status,

@@ -1,5 +1,19 @@
+window.trackGameplayEvent = (eventName, details = {}) => {
+  try {
+    fetch('/api/gameplay_event', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({event_name: eventName, ...details}),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // Product metrics must never block gameplay.
+  }
+};
+
 window.HekiEvents = (() => {
   function handleKeydown(event) {
+    if (document.querySelector('.modal-overlay:not(.hidden)')) return;
     const questionScreen = document.getElementById('question-screen');
     if (!questionScreen || questionScreen.classList.contains('hidden')) return;
     if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
@@ -18,6 +32,7 @@ window.HekiEvents = (() => {
     if (action === 'start-game') startGame();
     else if (action === 'toggle-history') toggleHistory();
     else if (action === 'resume-game') resumeGame();
+    else if (action === 'discard-draft') discardDraft();
     else if (action === 'go-back') goBack();
     else if (action === 'confirm-restart') confirmRestart();
     else if (action === 'send-answer') sendAnswer(parseFloat(el.dataset.answer));
@@ -39,9 +54,13 @@ window.HekiEvents = (() => {
     else if (action === 'share-x-result') shareResultX();
     else if (action === 'close-modal') closeModal(el.dataset.modalId);
     else if (action === 'do-restart') doRestart();
+    else if (action === 'discard-restart') discardRestart();
+    else if (action === 'toggle-more-works') window.HekiRenderers?.toggleMoreWorks(el);
+    else if (action === 'select-share-fallback') window.HekiShare?.selectFallbackText();
     else if (action === 'dismiss-install') dismissInstall();
     else if (action === 'set-item-state') setItemState(parseInt(el.dataset.id, 10), el.dataset.state, el);
     else if (action === 'retry-excluding') retryExcluding(parseInt(el.dataset.index, 10));
+    else if (action === 'view-history') viewHistory(parseInt(el.dataset.index, 10));
   }
 
   function bind() {
@@ -51,6 +70,7 @@ window.HekiEvents = (() => {
       handleAction(el);
     });
     document.addEventListener('keydown', handleKeydown);
+    document.addEventListener('keydown', event => window.HekiUi?.handleModalKeydown(event));
     _checkDraft();
     _updateHistoryBadge();
   }

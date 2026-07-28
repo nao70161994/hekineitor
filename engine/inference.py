@@ -57,6 +57,34 @@ def top_guess(engine, answers, n=1):
     return [(fetish_idx, probs[fetish_idx]) for fetish_idx in top]
 
 
+def contrastive_answer_contributions(engine, answers, winner_idx, runner_idx, top_n=3):
+    rows = []
+    for question_key, raw_answer in answers.items():
+        try:
+            question_id = int(question_key)
+            answer = float(raw_answer)
+        except (TypeError, ValueError):
+            continue
+        if answer == 0 or not (0 <= question_id < len(engine.questions)):
+            continue
+        winner_probability = engine._prob(winner_idx, question_id)
+        runner_probability = engine._prob(runner_idx, question_id)
+        if answer < 0:
+            winner_probability, runner_probability = 1 - winner_probability, 1 - runner_probability
+        advantage = abs(answer) * (math.log(max(winner_probability, 0.001)) - math.log(max(runner_probability, 0.001)))
+        if advantage > 0:
+            rows.append(
+                {
+                    'q_id': question_id,
+                    'text': engine.questions[question_id]['text'],
+                    'ans': answer,
+                    'advantage': round(advantage, 4),
+                }
+            )
+    rows.sort(key=lambda row: row['advantage'], reverse=True)
+    return rows[:top_n]
+
+
 def answer_contributions(engine, answers, fetish_idx, top_n=3):
     nq = len(engine.questions)
     contribs = []

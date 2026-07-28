@@ -127,6 +127,9 @@ class TestGameSecurityAndErrors(APITestCase):
             app_engine.disabled_questions.discard(0)
 
     def test_health_endpoint(self):
+        import app as app_module
+
+        app_module._ERROR_COUNTS.update({'4xx': 0, '5xx': 0})
         res = self.client.get('/health')
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.headers['X-Content-Type-Options'], 'nosniff')

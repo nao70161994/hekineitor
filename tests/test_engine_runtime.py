@@ -57,5 +57,15 @@ class TestEngineRuntimeHelpers(unittest.TestCase):
         self.assertAlmostEqual(weights[2], 1.1071428571428572)
         self.assertEqual(weights[3], 0.1)
 
+    def test_dynamic_prior_caps_legacy_correct_at_exposure_denominator(self):
+        fetishes = [{'id': 1}]
+        log = {1: {'guessed': 2, 'correct': 50, 'correction_selected': 7}}
+        weights = engine_runtime.dynamic_prior_weights(fetishes, log, {1: 1.0})
+        self.assertLessEqual(weights[1], 1.0)
+        shadow = engine_runtime.dynamic_prior_shadow_report(fetishes, log, {1: 1.0})
+        self.assertEqual(shadow['mismatched_count'], 1)
+        self.assertEqual(shadow['rows'][0]['correction_selected'], 7)
+        self.assertLess(shadow['rows'][0]['current_weight'], shadow['rows'][0]['legacy_weight'])
+
     def test_entropy_ignores_zero_and_tiny_probabilities(self):
         self.assertAlmostEqual(engine_runtime.entropy([0.5, 0.5, 0.0, 1e-11]), 1.0)

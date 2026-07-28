@@ -30,6 +30,7 @@ EXPECTED_MODULE_EXPORTS = {
 }
 
 EXPECTED_PUBLIC_METHOD_SIGNATURES = {
+    'feedback_batch': '(self)',
     'increment_start_count': '(self)',
     'increment_play_count': '(self)',
     'log_dropoff': '(self, answered_count)',
@@ -44,6 +45,7 @@ EXPECTED_PUBLIC_METHOD_SIGNATURES = {
     'toggle_question_disabled': '(self, q_id)',
     'log_guessed': '(self, fetish_db_id)',
     'log_correct': '(self, fetish_db_id)',
+    'log_correction_selected': '(self, fetish_db_id)',
     'log_wrong': '(self, fetish_db_id)',
     'get_fetish_log': '(self)',
     'set_config': '(self, key, value)',
@@ -58,8 +60,10 @@ EXPECTED_PUBLIC_METHOD_SIGNATURES = {
     'fetish_similarity': '(self, id_a, id_b)',
     'get_correlation_stats': '(self, top_n=30)',
     'get_quality_report': '(self)',
+    'get_dynamic_prior_shadow_report': '(self)',
     'top_guess': '(self, answers, n=1)',
     'get_answer_contributions': '(self, answers, fetish_idx, top_n=3)',
+    'get_contrastive_answer_contributions': '(self, answers, winner_idx, runner_idx, top_n=3)',
     'detect_contradictions': '(self, answers)',
     'learn': '(self, answers, fetish_idx, strength_factor=1.0)',
     'learn_cooccurrence': '(self, answers, idx_a, idx_b, factor=0.25)',
@@ -96,6 +100,7 @@ EXPECTED_STATE_ATTRIBUTES = {
     'matrix',
     'config',
     '_lock',
+    '_feedback_batch_state',
     '_disc_cache',
     '_disc_cache_time',
     '_corr_cache',

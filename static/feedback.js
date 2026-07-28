@@ -112,8 +112,12 @@ window.HekiFeedback = (() => {
     item.dataset.state = state;
     item.className = `confirm-item state-${state}`;
     const btns = item.querySelectorAll('.confirm-toggle button');
-    btns.forEach(button => { button.className = ''; });
+    btns.forEach(button => {
+      button.className = '';
+      button.setAttribute('aria-pressed', 'false');
+    });
     btn.className = state === 'yes' ? 'active-yes' : state === 'maybe' ? 'active-maybe' : 'active-no';
+    btn.setAttribute('aria-pressed', 'true');
   }
 
   async function submitConfirm() {
@@ -136,48 +140,29 @@ window.HekiFeedback = (() => {
         else if (item.dataset.state === 'no') wrongIds.push(id);
       });
 
-      if (correctIds.length > 0) {
-        for (const fid of correctIds) {
-          await apiFetch('/api/teach', {fetish_id: fid, total_n: correctIds.length});
-        }
-      }
-
-      const hasWrong = wrongIds.length > 0 || maybeIds.length > 0;
-      if (!hasWrong) {
-        const names = correctIds.map(id => {
-          const el = document.getElementById(`ci-${id}`);
-          return el ? el.querySelector('.confirm-item-name').textContent : '';
-        }).filter(Boolean);
-        if (window.setConfirmedIds) window.setConfirmedIds(correctIds);
-        const addData = await apiFetch('/api/confirm', {
-          correct: false,
-          fetish_id: window._guessedId,
-          compound_ids: window._compoundIds || [],
-          add_only: true,
-        });
-        if (!addData || !addData.fetishes) {
-          document.getElementById('done-msg').textContent = testPlayMessage(addData, `✓「${names.join('」「')}」として学習しました！`);
-          show('done-screen');
-          return;
-        }
-        window._teachSelected = new Map();
-        window._teachCorrectIds = correctIds;
-        window._addOnlyMode = 'add';
-        window._addOnlyDoneMsg = testPlayMessage(addData, `✓「${names.join('」「')}」として学習しました！`);
-        document.getElementById('teach-label').textContent = '他に該当する性癖があれば追加できます（任意）';
-        renderTeachCandidates(addData.fetishes);
-        show('teach-screen');
-        return;
-      }
-
+      const names = correctIds.map(id => {
+        const el = document.getElementById(`ci-${id}`);
+        return el ? el.querySelector('.confirm-item-name').textContent : '';
+      }).filter(Boolean);
+      if (window.setConfirmedIds) window.setConfirmedIds(correctIds);
       const data = await apiFetch('/api/confirm', {
         correct: false,
         fetish_id: window._guessedId,
         compound_ids: window._compoundIds || [],
+        correct_ids: correctIds,
         maybe_ids: maybeIds,
         wrong_ids: wrongIds,
       });
-      if (!data || !data.fetishes) return;
+      if (!data) return;
+      if (data.status === 'learned') {
+        document.getElementById('done-msg').textContent = testPlayMessage(
+          data,
+          `✓「${names.join('」「')}」として学習しました！`
+        );
+        show('done-screen');
+        return;
+      }
+      if (!data.fetishes) return;
 
       window._teachSelected = new Map();
       window._teachCorrectIds = correctIds;
@@ -199,12 +184,14 @@ window.HekiFeedback = (() => {
     const list = document.getElementById('fetish-list');
     list.innerHTML = '';
     fetishes.forEach(fetish => {
-      const div = document.createElement('div');
-      div.className = 'fetish-item';
-      div.id = `ti-${fetish.id}`;
-      div.innerHTML = `<span>${escapeHtml(fetish.name)}${fetish.prob != null ? ` <span style="color:#888;font-size:0.78em">(${escapeHtml(fetish.prob)}%)</span>` : ''}</span>${fetish.desc ? `<div style="font-size:0.72rem;color:#666;margin-top:2px;">${escapeHtml(fetish.desc)}</div>` : ''}`;
-      div.onclick = () => toggleTeachItem(fetish.id, fetish.name, div);
-      list.appendChild(div);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'fetish-item';
+      button.id = `ti-${fetish.id}`;
+      button.setAttribute('aria-pressed', 'false');
+      button.innerHTML = `<span>${escapeHtml(fetish.name)}${fetish.prob != null ? ` <span style="color:#888;font-size:0.78em">(${escapeHtml(fetish.prob)}%)</span>` : ''}</span>${fetish.desc ? `<span class="fetish-item-desc">${escapeHtml(fetish.desc)}</span>` : ''}`;
+      button.onclick = () => toggleTeachItem(fetish.id, fetish.name, button);
+      list.appendChild(button);
     });
     document.getElementById('teach-submit-btn').style.display = '';
     updateTeachSubmitBtn();

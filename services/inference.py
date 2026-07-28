@@ -63,6 +63,8 @@ def compute_guess(ctx, answers):
                 'probability': round(float(candidate_scores.get('adjusted_score') or 0.0) * 100, 1),
                 'raw_probability': round(float(candidate_scores.get('raw_probability') or 0.0) * 100, 1),
                 'diversity_factor': round(float(candidate_scores.get('factor') or 1.0), 4),
+                'fetish_desc': candidate.get('desc', ''),
+                'reasons': engine.get_answer_contributions(answers, ranked[1]),
             }
         )
         compound_db_ids.add(candidate['id'])
@@ -82,6 +84,8 @@ def compute_guess(ctx, answers):
                     'probability': round(float(candidate_scores.get('adjusted_score') or 0.0) * 100, 1),
                     'raw_probability': round(float(candidate_scores.get('raw_probability') or 0.0) * 100, 1),
                     'diversity_factor': round(float(candidate_scores.get('factor') or 1.0), 4),
+                    'fetish_desc': candidate.get('desc', ''),
+                    'reasons': engine.get_answer_contributions(answers, ranked[2]),
                 }
             )
             compound_db_ids.add(candidate['id'])
@@ -180,6 +184,32 @@ def compute_guess(ctx, answers):
             for work in fetish_works(item['fetish_id']):
                 add_work(work, merged_works)
 
+    result_db_ids = {best_db} | compound_db_ids
+    runner_i = next(
+        (index for index in ranked if engine.fetishes[index]['id'] not in result_db_ids),
+        None,
+    )
+    runner_up = None
+    contrastive_reasons = []
+    if runner_i is not None:
+        runner_score = float(score_details.get(runner_i, {}).get('adjusted_score', probs[runner_i]) or 0.0)
+        runner_up = {
+            'fetish_id': engine.fetishes[runner_i]['id'],
+            'fetish_name': engine.fetishes[runner_i]['name'],
+            'probability': round(runner_score * 100, 1),
+            'gap_points': round(max(0.0, best_p - runner_score) * 100, 1),
+        }
+        contrast_provider = getattr(engine, 'get_contrastive_answer_contributions', None)
+        if callable(contrast_provider):
+            contrastive_reasons = contrast_provider(answers, best_i, runner_i)
+
+    result_names = [best_f['name']] + [item['fetish_name'] for item in compound]
+    compound_explanation = (
+        '「' + '」と「'.join(result_names) + '」の回答傾向が同時に強く表れました。' if compound else ''
+    )
+    recommendation_reason = compound_explanation or f'「{best_f["name"]}」の回答傾向と相性のよい作品です。'
+    work_recommendations = [{'work': work, 'reason': recommendation_reason} for work in cross_works + merged_works]
+
     return {
         'action': 'guess',
         'fetish_id': best_db,
@@ -193,6 +223,10 @@ def compute_guess(ctx, answers):
         'related': related,
         'top_chart': top_chart,
         'reasons': engine.get_answer_contributions(answers, best_i),
+        'runner_up': runner_up,
+        'contrastive_reasons': contrastive_reasons,
+        'compound_explanation': compound_explanation,
+        'work_recommendations': work_recommendations,
         'works': merged_works,
         'cross_works': cross_works,
     }
@@ -220,6 +254,16 @@ def _record_result_contributions(ctx, result):
 
 def make_guess(ctx, answers):
     result = compute_guess(ctx.inference_context(), answers)
+    if ctx.session.get('provisional_result'):
+        result.update(
+            {
+                'provisional': True,
+                'certainty': 'provisional',
+                'provisional_reason': 'insufficient_information',
+                'provisional_message': 'まだ読み切れません。今の回答から見える暫定結果です。',
+                'can_continue': True,
+            }
+        )
     analytics_disabled = bool(getattr(ctx, 'learning_disabled', lambda: False)())
     if not analytics_disabled and not ctx.session.get('completion_recorded'):
         ctx.engine.increment_play_count()
@@ -228,6 +272,18 @@ def make_guess(ctx, answers):
     ctx.session['last_guess_compound_ids'] = [item['fetish_id'] for item in result.get('compound', [])]
     ctx.session.pop('feedback_status', None)
     ctx.session['completed'] = True
+    gameplay_recorder = getattr(ctx, 'record_gameplay_event', None)
+    if not analytics_disabled and callable(gameplay_recorder):
+        gameplay_recorder(
+            'result_shown',
+            source='result',
+            outcome='success',
+            result_id=result.get('fetish_id'),
+            answered_count=len(answers),
+        )
+        work_count = len(result.get('cross_works') or []) + len(result.get('works') or [])
+        for _index in range(work_count):
+            gameplay_recorder('work_impression', source='works', outcome='success')
     ctx.mark_guess_quality(ctx.engine, ctx.session, answers, ctx.soft_max_questions)
     if not analytics_disabled:
         _record_result_contributions(ctx, result)

@@ -1,3 +1,4 @@
+import copy
 import os
 import sys
 import unittest
@@ -6,6 +7,7 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from engine import Engine
+import engine.facade as engine_facade
 
 
 class TestEngineLearningRegression(unittest.TestCase):
@@ -85,3 +87,16 @@ class TestEngineLearningRegression(unittest.TestCase):
                 1: {8: (2.1125, 4.1125), 9: (19.0, 20.0), 10: (2.0, 4.0)},
             },
         )
+
+    def test_feedback_batch_restores_in_memory_matrix_when_commit_fails(self):
+        engine = Engine()
+        before = copy.deepcopy(engine.matrix)
+
+        with patch.object(engine_facade.engine_persistence, 'commit_feedback_batch', side_effect=OSError('disk full')):
+            with self.assertRaisesRegex(OSError, 'disk full'):
+                with engine.feedback_batch():
+                    engine.learn({'8': 1, '9': -1}, 0, strength_factor=0.5)
+                    engine.log_correct(engine.fetishes[0]['id'])
+
+        self.assertEqual(engine.matrix, before)
+        self.assertIsNone(engine._feedback_batch_state)

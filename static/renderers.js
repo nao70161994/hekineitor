@@ -40,11 +40,13 @@ window.HekiRenderers = (() => {
         const el = document.getElementById(screenId);
         if (!el) return;
         el.classList.add('hidden');
+        el.setAttribute('aria-hidden', 'true');
         el.classList.remove('screen-in');
       });
     const target = document.getElementById(id);
     if (!target) return;
     target.classList.remove('hidden');
+    target.setAttribute('aria-hidden', 'false');
     void target.offsetWidth;
     target.classList.add('screen-in');
     if (typeof onShown === 'function') onShown(id);
@@ -79,7 +81,14 @@ window.HekiRenderers = (() => {
       ? [data.fetish_name, ...data.compound.map(item => item.fetish_name)].join(' × ')
       : data.fetish_name;
     setText('result-name', displayName);
-    setText('result-desc', data.fetish_desc);
+    const compoundDetails = (data.compound || [])
+      .map(item => `${item.fetish_name}: ${item.fetish_desc || ''}`)
+      .filter(Boolean)
+      .join('\n');
+    setText(
+      'result-desc',
+      [data.fetish_desc, data.compound_explanation, compoundDetails].filter(Boolean).join('\n'),
+    );
     renderResultDrama(data, displayName, escapeHtml);
 
     const existingLink = document.getElementById('fetish-detail-link');
@@ -115,7 +124,10 @@ window.HekiRenderers = (() => {
     renderConfirmItems(data, escapeHtml);
     renderProfile(data.profile, escapeHtml);
     renderRelated(data.related, escapeHtml);
-    renderReasons(data.reasons, escapeHtml);
+    renderReasons(
+      [...(data.contrastive_reasons || []), ...(data.reasons || [])].slice(0, 5),
+      escapeHtml,
+    );
     renderWorks(data, {escapeHtml, safeExternalUrl, amazonAssociateId, resultName: displayName});
 
     const retryBtn = document.getElementById('btn-quick-retry');
@@ -129,13 +141,21 @@ window.HekiRenderers = (() => {
     const kicker = document.getElementById('result-kicker');
     const badges = document.getElementById('result-badges');
     const rival = document.getElementById('result-rival');
-    if (kicker) kicker.textContent = 'あなたの『癖』は……';
+    if (kicker) kicker.textContent = data.provisional
+      ? (data.provisional_message || 'まだ読み切れません。今の回答から見える暫定結果です。')
+      : 'あなたの『癖』は……';
     if (badges) {
       badges.innerHTML = `<span>AI精度 ${escapeHtml(data.probability)}%</span>`;
     }
     if (rival) {
-      rival.textContent = '';
-      rival.classList.add('hidden');
+      if (data.provisional) {
+        rival.textContent = '追加質問に答えると、結果をさらに絞り込めます。';
+      } else if (data.runner_up) {
+        rival.textContent = `対抗候補「${data.runner_up.fetish_name}」との差は${data.runner_up.gap_points}ポイントでした。`;
+      } else {
+        rival.textContent = '';
+      }
+      rival.classList.toggle('hidden', !rival.textContent);
     }
   }
 
@@ -206,9 +226,9 @@ window.HekiRenderers = (() => {
         <span class="confirm-item-name">${escapeHtml(item.fetish_name)}</span>
         <span class="confirm-item-prob">${escapeHtml(item.probability)}%</span>
         <div class="confirm-toggle">
-          <button data-action="set-item-state" data-id="${id}" data-state="yes">○</button>
-          <button data-action="set-item-state" data-id="${id}" data-state="maybe">△</button>
-          <button data-action="set-item-state" data-id="${id}" data-state="no">×</button>
+          <button data-action="set-item-state" data-id="${id}" data-state="yes" aria-label="${escapeHtml(item.fetish_name)}: 当たっている" aria-pressed="false">○</button>
+          <button data-action="set-item-state" data-id="${id}" data-state="maybe" aria-label="${escapeHtml(item.fetish_name)}: 惜しい" aria-pressed="false">△</button>
+          <button data-action="set-item-state" data-id="${id}" data-state="no" aria-label="${escapeHtml(item.fetish_name)}: 違う" aria-pressed="false">×</button>
         </div>
       </div>`;
     }).join('');
@@ -251,6 +271,23 @@ window.HekiRenderers = (() => {
     }
   }
 
+  function workReason(work, isCross, resultName) {
+    if (typeof work === 'object' && work !== null) {
+      const supplied = work.reason || work.recommendation_reason || work.match_reason;
+      if (supplied) return String(supplied);
+    }
+    return isCross
+      ? `${resultName || '今回の結果'}の組み合わせ要素を楽しめる作品です。`
+      : `${resultName || '今回の結果'}との関連から選びました。`;
+  }
+
+  function renderWorkRecommendation(item, helpers, featured = false) {
+    const escapeHtml = helpers.escapeHtml || (value => String(value ?? ''));
+    const tag = renderWorkTag(item.work, item.isCross ? 'cross' : '', helpers);
+    const reason = workReason(item.work, item.isCross, helpers.resultName);
+    return `<article class="work-recommendation${featured ? ' featured' : ''}">${tag}<p>${escapeHtml(reason)}</p></article>`;
+  }
+
   function renderWorks(data, helpers) {
     const worksSec = document.getElementById('works-section');
     const worksLabel = document.getElementById('works-label');
@@ -262,11 +299,16 @@ window.HekiRenderers = (() => {
     const hasWorks = data.works && data.works.length > 0;
     if (hasCross || hasWorks) {
       worksLabel.textContent = isCompound ? 'この組み合わせが刺さる人へ' : 'おすすめ作品';
-      crossTagsEl.innerHTML = hasCross
-        ? `<div class="works-cross-label">▶ 両方の要素を持つ作品</div>` + data.cross_works.map(work => renderWorkTag(work, 'cross', helpers)).join('')
-        : '';
-      worksTagsEl.innerHTML = hasWorks
-        ? (hasCross ? '<div class="works-cross-label">▶ それぞれの関連作品</div>' : '') + data.works.map(work => renderWorkTag(work, '', helpers)).join('')
+      const allWorks = [
+        ...(data.cross_works || []).map(work => ({work, isCross: true})),
+        ...(data.works || []).map(work => ({work, isCross: false})),
+      ];
+      const featured = allWorks.slice(0, 3);
+      const remaining = allWorks.slice(3);
+      crossTagsEl.innerHTML = `<div class="works-cross-label">今回の結果から選んだ${featured.length}作品</div>`
+        + featured.map(item => renderWorkRecommendation(item, helpers, true)).join('');
+      worksTagsEl.innerHTML = remaining.length
+        ? `<button class="works-more-toggle" data-action="toggle-more-works" aria-expanded="false">ほか${remaining.length}作品を見る</button><div class="works-more hidden">${remaining.map(item => renderWorkRecommendation(item, helpers)).join('')}</div>`
         : '';
       worksSec.classList.remove('hidden');
     } else {
@@ -274,5 +316,24 @@ window.HekiRenderers = (() => {
     }
   }
 
-  return {setText, setProgressMessage, renderWorkTag, showScreen, showToast, renderGuess};
+
+  function toggleMoreWorks(button) {
+    const more = button?.nextElementSibling;
+    if (!more) return;
+    const expanded = button.getAttribute('aria-expanded') === 'true';
+    button.setAttribute('aria-expanded', String(!expanded));
+    more.classList.toggle('hidden', expanded);
+    button.textContent = expanded ? `ほか${more.children.length}作品を見る` : 'おすすめ作品を閉じる';
+  }
+
+  return {
+    setText,
+    setProgressMessage,
+    renderWorkTag,
+    showScreen,
+    showToast,
+    renderGuess,
+    toggleMoreWorks,
+    renderResultDrama,
+  };
 })();

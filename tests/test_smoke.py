@@ -249,7 +249,7 @@ class TestSmoke(unittest.TestCase):
             draft = f.read()
         self.assertIn(b"const DRAFT_KEY = 'heki_draft'", draft)
         self.assertIn(b"apiFetch('/api/resume'", draft)
-        self.assertIn(b'localStorage.setItem(DRAFT_KEY', draft)
+        self.assertIn(b'localStorage.setItem(', draft)
         self.assertIn(b'VALID_ANSWERS', draft)
         self.assertIn(b'function popLast', draft)
 

@@ -26,9 +26,11 @@ window.HekiTeach = (() => {
     if (window._teachSelected.has(id)) {
       window._teachSelected.delete(id);
       el.classList.remove('selected');
+      el.setAttribute('aria-pressed', 'false');
     } else {
       window._teachSelected.set(id, name);
       el.classList.add('selected');
+      el.setAttribute('aria-pressed', 'true');
     }
     updateTeachSubmitBtn();
   }

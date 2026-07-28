@@ -4,7 +4,7 @@ import time
 
 
 def _move_promoted_stats_history(cur, old_id, new_id):
-    for prefix in ('f_guessed_', 'f_correct_', 'f_wrong_'):
+    for prefix in ('f_guessed_', 'f_correct_', 'f_wrong_', 'f_correction_selected_'):
         old_key = f'{prefix}{old_id}'
         new_key = f'{prefix}{new_id}'
         cur.execute(
@@ -23,7 +23,11 @@ def promoted_stats_history_repair_report(mappings, *, get_conn, put_conn):
     pairs = [(int(old_id), int(new_id)) for old_id, new_id in mappings if int(old_id) != int(new_id)]
     if not pairs:
         return {'mapping_count': 0, 'rows': [], 'total_value': 0}
-    old_keys = [f'{prefix}{old_id}' for old_id, _new_id in pairs for prefix in ('f_guessed_', 'f_correct_', 'f_wrong_')]
+    old_keys = [
+        f'{prefix}{old_id}'
+        for old_id, _new_id in pairs
+        for prefix in ('f_guessed_', 'f_correct_', 'f_wrong_', 'f_correction_selected_')
+    ]
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -36,7 +40,7 @@ def promoted_stats_history_repair_report(mappings, *, get_conn, put_conn):
         }
         rows = []
         for old_id, new_id in pairs:
-            for prefix in ('f_guessed_', 'f_correct_', 'f_wrong_'):
+            for prefix in ('f_guessed_', 'f_correct_', 'f_wrong_', 'f_correction_selected_'):
                 old_key = f'{prefix}{old_id}'
                 new_key = f'{prefix}{new_id}'
                 entry = stats.get(old_key, {'row_count': 0, 'value_sum': 0})
@@ -71,7 +75,7 @@ def repair_promoted_stats_history(mappings, *, get_conn, put_conn):
             token = str(int(time.time() * 1000000))
             temp_entries = []
             for old_id, new_id in pairs:
-                for prefix in ('f_guessed_', 'f_correct_', 'f_wrong_'):
+                for prefix in ('f_guessed_', 'f_correct_', 'f_wrong_', 'f_correction_selected_'):
                     old_key = f'{prefix}{old_id}'
                     temp_key = f'__repair_{token}_{old_key}'
                     new_key = f'{prefix}{new_id}'
@@ -297,7 +301,7 @@ def toggle_question_disabled(question_id, *, get_conn, put_conn):
 
 
 def increment_fetish_log(fetish_db_id, column, *, get_conn, put_conn):
-    if column not in ('guessed', 'correct', 'wrong'):
+    if column not in ('guessed', 'correct', 'wrong', 'correction_selected'):
         raise ValueError(f'不正な列名: {column}')
     conn = get_conn()
     try:
@@ -318,7 +322,15 @@ def load_fetish_log(*, get_conn, put_conn):
     conn = get_conn()
     try:
         cur = conn.cursor()
-        cur.execute('SELECT fetish_id, guessed, correct, wrong FROM fetish_log')
-        return {row[0]: {'guessed': row[1], 'correct': row[2], 'wrong': row[3]} for row in cur.fetchall()}
+        cur.execute('SELECT fetish_id, guessed, correct, wrong, correction_selected FROM fetish_log')
+        return {
+            row[0]: {
+                'guessed': row[1],
+                'correct': row[2],
+                'wrong': row[3],
+                'correction_selected': row[4],
+            }
+            for row in cur.fetchall()
+        }
     finally:
         put_conn(conn)

@@ -20,14 +20,45 @@ def dynamic_prior_weights(fetishes, log, static_weights, *, alpha=2.0):
     for fetish in fetishes:
         fetish_id = fetish['id']
         entry = log.get(fetish_id, {})
-        correct = entry.get('correct', 0)
-        guessed = entry.get('guessed', 0)
+        guessed = max(0, int(entry.get('guessed', 0) or 0))
+        # Older logs may mix correction-screen selections into correct. Those
+        # selections were not exposures, so clamp to the exposure population.
+        correct = min(guessed, max(0, int(entry.get('correct', 0) or 0)))
         empirical = (correct + alpha) / (guessed + alpha * 2)
         static = static_weights.get(fetish_id, 1.0)
         trust = min(guessed / 20.0, 1.0)
         blended = static * (1 - trust) + empirical * trust
         weights[fetish_id] = max(blended, 0.1)
     return weights
+
+
+def dynamic_prior_shadow_report(fetishes, log, static_weights, *, alpha=2.0):
+    """Report legacy rows whose mixed populations inflated the prior."""
+    current = dynamic_prior_weights(fetishes, log, static_weights, alpha=alpha)
+    rows = []
+    for fetish in fetishes:
+        fetish_id = fetish['id']
+        entry = log.get(fetish_id, {})
+        guessed = max(0, int(entry.get('guessed', 0) or 0))
+        correct = max(0, int(entry.get('correct', 0) or 0))
+        if correct <= guessed:
+            continue
+        static = static_weights.get(fetish_id, 1.0)
+        trust = min(guessed / 20.0, 1.0)
+        legacy_empirical = (correct + alpha) / (guessed + alpha * 2)
+        legacy = max(static * (1 - trust) + legacy_empirical * trust, 0.1)
+        rows.append(
+            {
+                'fetish_id': fetish_id,
+                'guessed': guessed,
+                'correct': correct,
+                'correction_selected': max(0, int(entry.get('correction_selected', 0) or 0)),
+                'legacy_weight': legacy,
+                'current_weight': current[fetish_id],
+                'delta': current[fetish_id] - legacy,
+            }
+        )
+    return {'mismatched_count': len(rows), 'rows': rows}
 
 
 def entropy(probs):

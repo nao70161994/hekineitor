@@ -4,6 +4,11 @@ window.HekiDraft = (() => {
 
   const VALID_ANSWERS = new Set([1, 0.5, 0, -0.5, -1]);
   const MAX_DRAFT_PAIRS = 30;
+  const DRAFT_TTL_MS = 7 * 24 * 3600 * 1000;
+
+  function formatDateTime(timestamp) {
+    return new Intl.DateTimeFormat('ja-JP', {dateStyle: 'medium', timeStyle: 'short'}).format(new Date(timestamp));
+  }
 
   function validPair(pair) {
     if (!pair || pair.q_id === undefined) return false;
@@ -46,7 +51,11 @@ window.HekiDraft = (() => {
 
   function saveDraft() {
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({pairs: draftPairs, ts: Date.now()}));
+      const updatedAt = Date.now();
+      localStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({pairs: draftPairs, ts: updatedAt, expires_at: updatedAt + DRAFT_TTL_MS}),
+      );
     } catch {
       // Draft persistence is optional; gameplay must continue when storage is unavailable.
     }
@@ -61,6 +70,16 @@ window.HekiDraft = (() => {
     }
   }
 
+
+  function discardDraft() {
+    clearDraft();
+    document.getElementById('resume-banner')?.classList.add('hidden');
+    if (window.showToast) showToast('途中経過を破棄しました', '#555');
+    if (window.trackGameplayEvent) {
+      window.trackGameplayEvent('draft_discarded', {source: 'draft', outcome: 'discarded'});
+    }
+  }
+
   function checkDraft() {
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
@@ -71,12 +90,24 @@ window.HekiDraft = (() => {
         try { localStorage.removeItem(DRAFT_KEY); } catch {}
         return;
       }
-      if (Date.now() - draft.ts > 3600 * 1000) {
+      const updatedAt = Number(draft.ts);
+      const expiresAt = Number(draft.expires_at || (updatedAt + DRAFT_TTL_MS));
+      if (!Number.isFinite(updatedAt) || Date.now() > expiresAt) {
         try { localStorage.removeItem(DRAFT_KEY); } catch {}
         return;
       }
       draftPairs = pairs;
       document.getElementById('resume-count').textContent = pairs.length;
+      const updatedEl = document.getElementById('resume-updated-at');
+      const expiresEl = document.getElementById('resume-expires-at');
+      if (updatedEl) {
+        updatedEl.textContent = formatDateTime(updatedAt);
+        updatedEl.dateTime = new Date(updatedAt).toISOString();
+      }
+      if (expiresEl) {
+        expiresEl.textContent = formatDateTime(expiresAt);
+        expiresEl.dateTime = new Date(expiresAt).toISOString();
+      }
       document.getElementById('resume-banner').classList.remove('hidden');
     } catch {}
   }
@@ -107,7 +138,7 @@ window.HekiDraft = (() => {
     }
   }
 
-  return {push, popLast, saveDraft, pauseDraft, getPairs, clearDraft, checkDraft, resumeGame};
+  return {push, popLast, saveDraft, pauseDraft, getPairs, clearDraft, discardDraft, checkDraft, resumeGame};
 })();
 
 window._pushDraft = (questionId, answer) => window.HekiDraft.push(questionId, answer);
@@ -115,5 +146,6 @@ window._saveDraft = () => window.HekiDraft.saveDraft();
 window._popDraft = () => window.HekiDraft.popLast();
 window._pauseDraft = () => window.HekiDraft.pauseDraft();
 window._clearDraft = () => window.HekiDraft.clearDraft();
+window.discardDraft = () => window.HekiDraft.discardDraft();
 window._checkDraft = () => window.HekiDraft.checkDraft();
 window.resumeGame = () => window.HekiDraft.resumeGame();

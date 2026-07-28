@@ -130,3 +130,13 @@ The following public `Engine` methods are route/script contract. Their names, ca
 - The package facade should re-export the same constants, data, helper functions, and `Engine` class.
 - Any method body moved out of `Engine` must keep tests proving signature and representative behavior parity.
 - Do not change inference ordering, question selection, learning deltas, DB schema, session keys, or localStorage keys during package conversion.
+
+## Feedback counters
+
+追加した公開orchestrationは次の契約を持ちます。
+
+- `feedback_batch()`は1回のfeedbackに含まれる行列・log・統計をまとめて確定するcontext manager。
+- `get_contrastive_answer_contributions(answers, winner_idx, runner_idx, top_n=3)`は1位と2位を分けた回答理由を返す。
+- `get_dynamic_prior_shadow_report()`は母集団不整合と補正量を監視するread-only report。
+
+`get_fetish_log()`の永続行は`guessed`、`correct`、`wrong`に加えて`correction_selected`を持てます。旧local JSON行に新キーがなくても0として扱います。`log_correct()`は表示結果への正解だけ、`log_correction_selected()`は訂正画面で選ばれた候補だけを記録します。dynamic priorは前者を`guessed`の母集団内で使用し、legacyの`correct > guessed`はruntimeでclampしてshadow reportへ出します。

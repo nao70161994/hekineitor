@@ -30,11 +30,14 @@ def build(
     get_compound_works,
     record_share_event,
     record_question_event,
+    record_gameplay_event=None,
     preserve_test_play_flag,
     restore_test_play_flag,
     learning_disabled,
     environ=None,
 ):
+    record_gameplay_event = record_gameplay_event or (lambda *args, **kwargs: None)
+
     request = flask_runtime.request
     session = flask_runtime.session
     jsonify = flask_runtime.jsonify
@@ -86,6 +89,7 @@ def build(
                 else quality_stats.mark_guess_quality
             ),
             record_question_event=record_question_event,
+            record_gameplay_event=record_gameplay_event,
             record_result_exposure=result_exposure.safe_record_result,
             learning_disabled=learning_disabled,
         )
@@ -102,6 +106,7 @@ def build(
         record_share_event=record_share_event,
         record_question_event=record_question_event,
         preserve_test_play_flag=preserve_test_play_flag,
+        record_gameplay_event=record_gameplay_event,
         restore_test_play_flag=restore_test_play_flag,
         learning_disabled=learning_disabled,
         environ=environ or {},
@@ -124,6 +129,7 @@ def build(
         ),
         select_next_question=question_selection.make_next_question_selector(engine),
         select_low_exposure_axis_question=question_selection.make_low_exposure_axis_probe(engine, hard_max_questions),
+        select_idk_recovery_question=question_selection.make_idk_recovery_selector(engine),
         progress_message=question_selection.progress_message,
     )
     feedback_factors = learning.make_feedback_factor_provider(engine, environ=environ or {})

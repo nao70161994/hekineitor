@@ -17,9 +17,19 @@ describe('HekiHistory', () => {
     document.body.innerHTML = '<span id="history-badge" class="hidden"></span><div id="history-panel" class="hidden"></div>';
     window.escapeHtml = value => String(value);
     window.startGame = vi.fn();
+    window.showGuess = vi.fn();
+    window._trackShareEvent = vi.fn();
+    window.trackGameplayEvent = vi.fn();
     window._excludedIds = [];
     window.HekiState = {setExcludedIds: vi.fn(ids => { window._excludedIds = ids; })};
     window.eval(source);
+  });
+  it('reopens a stored result without adding a duplicate history item', () => {
+    const result = {fetish_id: 3, fetish_name: '主結果', fetish_desc: '説明', probability: 70, compound: [], works: []};
+    window.HekiHistory.saveHistory('主結果', 70, 3, [], result);
+    window.HekiHistory.viewHistory(0);
+    expect(window.showGuess).toHaveBeenCalledWith(expect.objectContaining({fetish_id: 3, _historyReplay: true}));
+    expect(window.trackGameplayEvent).toHaveBeenCalledWith('history_reopened', expect.any(Object));
   });
 
   it('stores and excludes result ID zero instead of treating it as missing', () => {
