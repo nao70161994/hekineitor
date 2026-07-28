@@ -95,6 +95,6 @@ test('covers continue, feedback, history, and mobile transitions', async ({page}
   await page.getByRole('button', {name: 'タイトルに戻る'}).click();
   await page.getByRole('button', {name: /診断履歴/}).click();
   await expect(page.locator('#history-panel')).toContainText('NTR（寝取られ）');
-  await page.getByRole('button', {name: '結果を見る'}).click();
+  await page.locator('.history-item').filter({hasText: 'NTR（寝取られ）'}).first().getByRole('button', {name: '結果を見る'}).click();
   await expect(page.locator('#result-name')).toHaveText('NTR（寝取られ）');
 });
