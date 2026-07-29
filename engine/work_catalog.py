@@ -587,7 +587,6 @@ def _sort_catalog_rows(catalog):
     )
 
 
-
 def _canonicalize_alias_and_link_ids(catalog, *, reindex_positions=False):
     alias_replacements = {}
     for alias in catalog['work_aliases']:
@@ -616,6 +615,7 @@ def _canonicalize_alias_and_link_ids(catalog, *, reindex_positions=False):
                 link.get('alias_id'),
             )
     _sort_catalog_rows(catalog)
+
 
 def catalog_digest(catalog):
     """Return a stable optimistic-concurrency token for a snapshot."""
@@ -930,7 +930,6 @@ def admin_decide_review(catalog, review_id, values):
     return updated
 
 
-
 def apply_seed_overrides(catalog, seed_overrides):
     """Apply reviewed seed cleanup to an existing catalog, failing closed on drift."""
     validate_catalog(catalog)
@@ -952,9 +951,7 @@ def apply_seed_overrides(catalog, seed_overrides):
     for alias in aliases.values():
         represented[alias['alias']].add(alias['work_id'])
 
-    aliases_by_work_title = {
-        (row['work_id'], row['normalized_alias']): row for row in updated['work_aliases']
-    }
+    aliases_by_work_title = {(row['work_id'], row['normalized_alias']): row for row in updated['work_aliases']}
     for display_title, values in normalizations.items():
         work_ids = represented.get(display_title, set())
         if len(work_ids) != 1:
@@ -982,9 +979,7 @@ def apply_seed_overrides(catalog, seed_overrides):
             aliases[alias['alias_id']] = alias
             aliases_by_work_title[alias_key] = alias
         matching_links = [
-            row
-            for row in links
-            if row['work_id'] == work_id and original_display[row['link_id']] == display_title
+            row for row in links if row['work_id'] == work_id and original_display[row['link_id']] == display_title
         ]
         if not matching_links:
             raise ValueError(f'work catalog seed override link drift: {display_title}')
@@ -998,9 +993,7 @@ def apply_seed_overrides(catalog, seed_overrides):
         work_ids = represented.get(display_title, set())
         if not work_ids:
             continue
-        matching_links = {
-            row['link_id'] for row in links if original_display[row['link_id']] == display_title
-        }
+        matching_links = {row['link_id'] for row in links if original_display[row['link_id']] == display_title}
         if not matching_links:
             raise ValueError(f'work catalog seed removal link drift: {display_title}')
         updated['fetish_work_links'] = [
@@ -1009,9 +1002,7 @@ def apply_seed_overrides(catalog, seed_overrides):
         updated['compound_work_links'] = [
             row for row in updated['compound_work_links'] if row['link_id'] not in matching_links
         ]
-        remaining_work_ids = {
-            row['work_id'] for row in updated['fetish_work_links'] + updated['compound_work_links']
-        }
+        remaining_work_ids = {row['work_id'] for row in updated['fetish_work_links'] + updated['compound_work_links']}
         blocked = work_ids & remaining_work_ids
         if blocked:
             raise ValueError(f'work catalog seed removal still referenced: {display_title}')
@@ -1021,9 +1012,7 @@ def apply_seed_overrides(catalog, seed_overrides):
         updated['work_aliases'] = [row for row in updated['work_aliases'] if row['work_id'] not in work_ids]
         updated['works_master'] = [row for row in updated['works_master'] if row['work_id'] not in work_ids]
 
-    master_normalized_titles = {
-        row['work_id']: row['normalized_title'] for row in updated['works_master']
-    }
+    master_normalized_titles = {row['work_id']: row['normalized_title'] for row in updated['works_master']}
     canonical_alias_ids = {
         row['alias_id']
         for row in updated['work_aliases']
@@ -1033,9 +1022,7 @@ def apply_seed_overrides(catalog, seed_overrides):
         for link in updated['fetish_work_links'] + updated['compound_work_links']:
             if link.get('alias_id') in canonical_alias_ids:
                 link['alias_id'] = None
-        updated['work_aliases'] = [
-            row for row in updated['work_aliases'] if row['alias_id'] not in canonical_alias_ids
-        ]
+        updated['work_aliases'] = [row for row in updated['work_aliases'] if row['alias_id'] not in canonical_alias_ids]
 
     for review in updated['review_queue']:
         if review.get('review_type') == 'identity_override':
@@ -1064,7 +1051,6 @@ def apply_review_decisions(catalog, decision_manifest):
 
     decision_ids = [str(row.get('review_id') or '') for row in decisions]
     if not all(decision_ids) or len(decision_ids) != len(set(decision_ids)):
-
         raise ValueError('work review decisions contain missing or duplicate review ids')
 
     catalog = copy.deepcopy(catalog)

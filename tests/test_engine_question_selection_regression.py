@@ -16,8 +16,7 @@ class _DisambiguationEngine:
         self._probabilities = probabilities
         self.fetishes = [{'id': index + 1} for index in range(len(probabilities[0]))]
         self.questions = [
-            {'category': (categories or {}).get(index, f'category-{index}')}
-            for index in range(len(probabilities))
+            {'category': (categories or {}).get(index, f'category-{index}')} for index in range(len(probabilities))
         ]
         self.disabled_questions = set()
         self._axes = axes or {}

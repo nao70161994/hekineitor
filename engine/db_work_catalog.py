@@ -258,9 +258,7 @@ def replace_catalog(cur, catalog, *, execute_values):
     }
 
 
-def migrate_legacy_catalog(
-    cur, *, compound_data, execute_values, seed_overrides=None, review_decisions=None
-):
+def migrate_legacy_catalog(cur, *, compound_data, execute_values, seed_overrides=None, review_decisions=None):
     """Create a shadow catalog exactly once; later writes belong to the catalog repository."""
     ensure_schema(cur)
     lock_catalog(cur)
