@@ -40,6 +40,7 @@
 - [`MULTI_CORRECT_FEEDBACK_PLAN.md`](MULTI_CORRECT_FEEDBACK_PLAN.md): 複数正解feedbackの設計
 - [`RECOMMENDED_WORKS_LIST.md`](RECOMMENDED_WORKS_LIST.md): 推薦作品リスト
 - [`WORK_CATALOG.md`](WORK_CATALOG.md): 正規化作品catalogのデータ契約・生成・review方針
+- [`WORK_CATALOG_DATA_QUALITY_2026-07-29.md`](WORK_CATALOG_DATA_QUALITY_2026-07-29.md): 作品identity・書誌・検索URLの一次情報監査と修正queue
 - [`STAGING_V3_RESTORE_REHEARSAL.md`](STAGING_V3_RESTORE_REHEARSAL.md): fail-closedなstaging復元演習、証跡、手動サインオフ
 - [`PR_MAPPING.md`](PR_MAPPING.md): 過去の改善項目とPR対応表（履歴寄りの参照資料）
 

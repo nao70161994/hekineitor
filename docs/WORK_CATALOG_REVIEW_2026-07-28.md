@@ -45,6 +45,8 @@ identity判断の72 merge / 2 keep separateでは公開projectionのtitle、URL�
 
 残る確認事項は次のとおりです。
 
+2026-07-29の一次情報監査で優先誤紐付け4件、カテゴリ表記5件、検索URL edition 2件、書誌確認20件を具体化しました。対象ID・根拠・安全な修正方針は[`WORK_CATALOG_DATA_QUALITY_2026-07-29.md`](WORK_CATALOG_DATA_QUALITY_2026-07-29.md)を参照してください。
+
 - edition/ASIN未確認は90 masterで、うち57件は書誌・実在性確認が必要です。媒体、format、editionは推測入力していません。
 - 実在未確認の`現実で30歳独身・無職、仮想現実でリア充（参考）`は意図的に未変更です。
 - 書誌確認が必要な近似候補: `悪役男爵に転生した件`系、`独り占め×Boyfriend`系。
