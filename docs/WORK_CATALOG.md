@@ -4,16 +4,21 @@
 
 ## Seed snapshot
 
-`data/work_catalog.json`は次のcollectionを持つschema version 1のsnapshotです。
+`data/work_catalog.json`は次のcollectionを持つschema version 2のsnapshotです。
 
 - `works_master`
 - `work_editions`
+- `work_edition_identifiers`
 - `work_aliases`
 - `fetish_work_links`
 - `compound_work_links`
 - `review_queue`
 
 ローカル/seedではこのファイルが正規化catalogのsnapshotです。PostgreSQLでは同じcollectionを外部キー付きtableへ初回起動時に決定的に移行します。移行判定と全catalog writeは共通のtransaction advisory lockで直列化され、既存catalogがある場合は起動時に置換しません。
+
+schema v2は版名と出版社を`work_editions.edition_title` / `publisher`へ分離し、ASIN以外の識別子を`work_edition_identifiers`へ保持します。ASINは後方互換のため`work_editions.asin`に残し、子tableへの重複登録を拒否します。ISBN-10/13はchecksumを検証し、ISBN-10は正しいISBN-13へ正規化します。v1 backupは空の版名・出版社・identifier配列へだけupgradeし、ISBNを推測backfillしません。
+
+`data/work_catalog_bibliography.json`は一次情報で確認した18作品のinput-locked manifestです。12作品には版名、出版社、紙版URL、ISBN-13を、残る6作品には媒体種別と根拠URLだけを登録します。版を推薦linkへ自動接続しないため公開URLは変わらず、正式名変更時は旧表示をaliasにしてraw parityを維持します。
 
 ```sh
 PYTHONPATH=. python scripts/sync_work_catalog_inline.py --write
@@ -65,7 +70,7 @@ resolverはlinkを表示順に解決し、次の互換shapeを返します。
 
 review一括適用は`operation: review_apply_manifest`、`payload.decision_manifest`にchecked-in manifest全体を指定します。DBではcatalog lockと一つのtransaction内で全件を適用し、途中の不整合は全体をrollbackします。ローカルでは既存mutation journalを使います。監査ログにはmanifest SHA-256、reviewer、総件数、merge件数、keep件数を保存し、manifest本文は保存しません。
 
-reviewの`keep_separate`または`merge`には現在の`expected_version`が必須です。merge先は候補`work_ids`の一つに限定されます。URLは安全なcanonical URLだけを許可し、タイトル・媒体・context・推薦理由には長さ制限があります。
+reviewの`keep_separate`または`merge`には現在の`expected_version`が必須です。merge先は候補`work_ids`の一つに限定されます。URLは安全なcanonical URLだけを許可し、タイトル・媒体・版名・出版社・context・推薦理由には長さ制限があります。版identifierはcreate/update/deleteでき、ISBN checksum、global uniqueness、edition外部キーを同じtransactionで検証します。書誌一括適用は`bibliography_apply_manifest`としてdigest lock、`WORK_CATALOG`確認、監査fingerprintの対象です。
 
 旧形式をsource of truthから外す判定とrollback手順は[`WORK_CATALOG_MIGRATION.md`](WORK_CATALOG_MIGRATION.md)を参照してください。
 
@@ -77,7 +82,7 @@ reviewの`keep_separate`または`merge`には現在の`expected_version`が必�
 - `normalization_conflict`: 緩いタイトル正規化で近く、複数ASINを持つ候補。
 - `identity_override`: 英題・和題・略称など、機械的な候補抽出では結び付かないが人手で同一と確認した候補。
 
-未判断の候補は別`work_id`のまま保持します。2026-07-28のseed reviewでは74件すべてを解決し、72件をmerge、2件を`keep_separate`としました。その後、確実なseed cleanupでplaceholder 4件を削除し、46表記をcanonical/alias/contextへ責務分離しました。結果は324 master、239 edition、154 alias、376 fetish link、185 compound link、pending 0で、legacy公開projectionとのmismatchは0です。判断根拠と保留事項は[`WORK_CATALOG_REVIEW_2026-07-28.md`](WORK_CATALOG_REVIEW_2026-07-28.md)に記録します。
+未判断の候補は別`work_id`のまま保持します。2026-07-28のseed reviewでは74件すべてを解決し、72件をmerge、2件を`keep_separate`としました。その後、確実なseed cleanup、P0訂正、一次書誌batchを適用しました。現行seedは325 master、251 edition、12 edition identifier、156 alias、376 fetish link、185 compound link、pending 0です。媒体種別は18件、紙版metadataは12件で、legacy公開projectionとのmismatchは0です。判断根拠と保留事項は[`WORK_CATALOG_REVIEW_2026-07-28.md`](WORK_CATALOG_REVIEW_2026-07-28.md)と[`WORK_CATALOG_DATA_QUALITY_2026-07-29.md`](WORK_CATALOG_DATA_QUALITY_2026-07-29.md)に記録します。
 
 ## Backup and restore
 
@@ -92,6 +97,6 @@ reviewの`keep_separate`または`merge`には現在の`expected_version`が必�
 
 ## Migration safety
 
-初回DB移行は訂正済みchecked inlineをsource状態へ厳密に逆投影してから、同一transaction内でcatalog tableへ展開し、reviewとcorrectionを順に適用します。これにより既存のcatalog ID/digestを保ったまま、legacy fallbackだけを最新表示へ同期できます。ASINまたは厳密な正規化titleだけを自動identityに使い、緩い候補はreview queueへ残します。存在しないfetish IDや同一ID pairを参照するcompound linkは生成時に拒否します。
+初回DB移行は訂正済みchecked inlineをsource状態へ厳密に逆投影してから、同一transaction内でcatalog tableへ展開し、review、correction、bibliographyを順に適用します。これにより公開projectionを保ったまま、版識別子と根拠metadataを正規化できます。ASINまたは厳密な正規化titleだけを自動identityに使い、緩い候補はreview queueへ残します。存在しないfetish IDや同一ID pairを参照するcompound linkは生成時に拒否します。
 
 forward/reverse投影は任意の履歴変換ではありません。checked correction manifestが認識するsourceまたはtarget signatureだけを受け入れます。古いbackupへ戻す場合は、catalog snapshotと同じ世代のcode/data artifactを組にして扱います。

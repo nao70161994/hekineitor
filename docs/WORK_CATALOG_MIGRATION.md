@@ -4,7 +4,7 @@ inline `fetishes.works` / `compound_works`をsource of truthから外すため�
 
 ## Checked-in evidence (2026-07-29)
 
-`data/work_catalog_review_decisions.json`は74件のinput-locked判断（merge 72、keep separate 2）を持ち、`data/work_catalog_seed_overrides.json`は確実な46表記のcanonical/alias/context分離とplaceholder 4件の削除を固定します。両方を適用済みのseedはmaster 325、edition 239、alias 150、fetish link 376、compound link 185、context付きlink 52、pending 0です。legacy projectionとのfetish/compound mismatchはいずれも0で、`automated_parity_ok=true`です。
+`data/work_catalog_review_decisions.json`は74件のinput-locked判断（merge 72、keep separate 2）を持ち、seed override、P0 correction、schema v2 bibliography manifestを順に適用します。現行seedはmaster 325、edition 251、edition identifier 12、alias 156、fetish link 376、compound link 185、pending 0です。18作品の媒体と12紙版の一次書誌を保持しながら、legacy projectionとのfetish/compound mismatchはいずれも0で、`automated_parity_ok=true`です。
 
 既存DBへ適用するときは、まず`GET /api/admin/work_catalog`で最新`digest`を取得し、`POST /api/admin/work_catalog/mutate`へ次を送ります。
 
@@ -20,6 +20,8 @@ inline `fetishes.works` / `compound_works`をsource of truthから外すため�
 ```
 
 manifestは全件を一つのtransaction/journalで適用します。同一manifestを適用済みcatalogへ再送した場合はno-opです。成功応答の`result.resolved_count=74`、`result.pending_count=0`と新digestを保存し、監査ログの`manifest_sha256`をchecked-in fileと照合します。409なら再取得して差分を調べ、別manifestとして再reviewするまでは強制適用しません。
+
+既存DBへの自動運用は`.github/workflows/work-catalog-apply-manifests.yml`を使い、fresh v3 backupのdigest一致後にreview、seed override、correction、bibliographyを順に適用します。各段階を別digestでpreflightし、書誌段階は18 entries、初回12 editions/12 identifiers（再適用時0）を検証します。最後にraw/approved parity、全worker revision、fallback/load failure、4種の監査fingerprintを確認します。
 
 既存catalogへsafe seed cleanupを適用する場合は、同じ最新digestを取得し直して次を送ります。
 

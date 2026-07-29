@@ -14,7 +14,8 @@
 論理モデルを次のcollection/tableに分けます。
 
 - `works_master`: 安定した`work_id`、正式タイトル、正規化タイトル、作品種別、状態。
-- `work_editions`: 安定した`edition_id`、`work_id`、ASIN、canonical URL、版・媒体、状態。
+- `work_editions`: 安定した`edition_id`、`work_id`、ASIN、canonical URL、版名、出版社、形式、状態。
+- `work_edition_identifiers`: `edition_id`、識別子scheme、authority、canonical value。ISBN等の非ASIN識別子を保持する。
 - `work_aliases`: 安定した`alias_id`、`work_id`、別名と正規化別名。
 - `fetish_work_links`: 性癖、作品、優先販売版・表示alias、表示順、`context_label`、推薦理由。
 - `compound_work_links`: 正規化した性癖pairと同じ推薦link属性。
@@ -29,6 +30,9 @@
 - 異なるASINを持つ正規化候補は自動統合しない。
 - `work_id`等はmigrationの入力identityから決定的に生成し、再実行しても変わらない。
 - title、URL、表示順のlegacy parityをcatalog-first切替の必須条件とする。
+- ASINは後方互換のためedition本体に残し、子identifierへ重複保存しない。
+- ISBN-10/13はchecksum検証後にISBN-13へ正規化し、`(scheme, authority, value)`をcatalog全体で一意にする。
+- schema v1からv2へのupgradeでは空の記述fieldとidentifier collectionだけを追加し、根拠のない識別子を推測しない。
 
 ## Transition and rollback
 

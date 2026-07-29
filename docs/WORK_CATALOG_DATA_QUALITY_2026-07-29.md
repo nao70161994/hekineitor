@@ -47,7 +47,7 @@ ASINはAmazon直商品ページと照合できた場合だけ登録します。�
 | `wrk_6e3204ae78651cf027ac` | スパイ教室 / light novel | [KADOKAWA](https://www.kadokawa.co.jp/topics/4082/) 1巻 ISBN 9784040734804 |
 | `wrk_775db3c198f6e12b6c5e` | SPY×FAMILY / manga | [集英社](https://www.shueisha.co.jp/books/items/contents.html?isbn=978-4-08-882011-8) ISBN 978-4-08-882011-8 |
 | `wrk_9f859ccf09278af37a98` | 彼女が公爵邸に行った理由 / full-color manga | [KADOKAWA](https://www.kadokawa.co.jp/product/321904000749/) ISBN 9784040659039 |
-| `wrk_fcb3804f8a5366e74bd8` | 美しい彼 / BL novel | [徳間書店Chara](https://www.chara-info.net/product/chara-books/8157/) ISBN-10 4-19-900780-4 |
+| `wrk_fcb3804f8a5366e74bd8` | 美しい彼 / BL novel | [徳間書店Chara](https://www.chara-info.net/product/chara-books/8157/) / [NDL](https://ndlsearch.ndl.go.jp/books/R100000038-I4742369) ISBN-13 9784199007804。出版社ページの10桁風表記`4-19-900780-4`はchecksum不正のため登録しない |
 | `wrk_bca29c62f61207b80d55` | ロマンティック・キラー / manga | [集英社](https://www.shueisha.co.jp/books/items/contents.html?isbn=978-4-08-882164-1&mode=1&title=books.shueisha.co.jp) ISBN 978-4-08-882164-1 |
 
 媒体まで確認済みだが一意の販売editionを選べない作品は`ef - a fairy tale of the two.`、`スター☆トゥインクルプリキュア`、`囚われのパルマ`、`ロザリオとバンパイア`、`初恋モンスター`、`Free!`です。`罪喰い（漫画）`は確認できた原作がゲームで推薦意図と衝突し、`花は咲くか`は出版社商品ページ不足のため保留します。
@@ -62,9 +62,12 @@ ASINはAmazon直商品ページと照合できた場合だけ登録します。�
 
 `data/work_catalog_corrections.json`で上記P0 4件を実装済みです。canonical SHA-256は`2e629957bd11a85f14269298aa8227298faa16fdba21cf82e19fbceb9d0bf76e`、内訳はsplit 1件・retitle 3件です。checked seedはmaster 325、edition 239、alias 150、fetish link 376、compound link 185、review 74、pending 0です。source row完全一致を基本とし、review timestampはchecked seedの2026-07-28と旧79件manifest由来の2026-07-29だけを明示許可し、同一UTC instantのdate/ISO表現を受け入れます。本番のplayer-added owner 104置換で既に不存在のseed alias/linkだけは`allow_missing`で再作成せず、存在時のdrift、未許可日付、他field差異、collision/dangling参照は拒否します。owner/position維持、冪等再適用、fresh v3 backup由来の本番preflightを自動テストで固定しています。
 
+## Applied bibliography manifest
+
+schema v2と`data/work_catalog_bibliography.json`で上記12版のISBN-13、版名、出版社、一次情報URLを登録し、媒体だけ確認できた6作品はmedia typeと根拠URLだけを登録しました。canonical SHA-256は`e572a91427ecac77bf278766fed35627f645ea885d69366c010e6891bd2cb908`です。ISBNは全件checksum検証済みで、ISBN-10入力もISBN-13へ正規化されます。現行seedはmaster 325、edition 251、edition identifier 12、alias 156、fetish link 376、compound link 185、review 74、pending 0です。正式名を変更した5作品と`Free!`は旧表示をaliasとして保持し、追加版を推薦linkへ接続しないことでraw parity 0を維持します。
+
 ## Remaining gates
 
-1. `work_editions`へISBNなどASIN以外の書誌識別子を保持できる設計を追加する。
-2. 確認済みmedia typeとedition evidenceをseedへ取り込み、未確認値は空のままにする。
-3. 残り37件の書誌・実在性を一次ソースで調査する。
-4. adult product 4件と推薦意図衝突2件を人手確認する。
+1. 残り37件の書誌・実在性を一次ソースで調査する。
+2. adult product 4件と推薦意図衝突2件を人手確認する。
+3. staging v3 restore rehearsalと本番manifest適用後backupを完了してから、旧inline source of truthの廃止可否を判断する。
