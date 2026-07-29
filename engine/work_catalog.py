@@ -1062,7 +1062,21 @@ def apply_catalog_corrections(catalog, manifest):
             raise ValueError(f'work catalog correction duplicate {id_field}: {row_id}')
         return matches[0] if matches else None
 
-    def rows_equal(collection, actual, expected):
+    def utc_instant(value):
+        value = str(value or '').strip()
+        if re.fullmatch(r'\d{4}-\d{2}-\d{2}', value):
+            value += 'T00:00:00+00:00'
+        elif value.endswith('Z'):
+            value = value[:-1] + '+00:00'
+        try:
+            parsed = datetime.fromisoformat(value)
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            return None
+        return parsed.astimezone(timezone.utc)
+
+    def rows_equal(collection, actual, expected, accepted_updated_at=()):
         if actual == expected:
             return True
         if collection != 'review_queue' or not isinstance(actual, dict) or not isinstance(expected, dict):
@@ -1073,30 +1087,20 @@ def apply_catalog_corrections(catalog, manifest):
         expected_updated_at = expected_without_time.pop('updated_at', None)
         if actual_without_time != expected_without_time:
             return False
-
-        def utc_instant(value):
-            value = str(value or '').strip()
-            if re.fullmatch(r'\d{4}-\d{2}-\d{2}', value):
-                value += 'T00:00:00+00:00'
-            elif value.endswith('Z'):
-                value = value[:-1] + '+00:00'
-            try:
-                parsed = datetime.fromisoformat(value)
-            except ValueError:
-                return None
-            if parsed.tzinfo is None:
-                return None
-            return parsed.astimezone(timezone.utc)
-
+        accepted_instants = [utc_instant(expected_updated_at)]
+        accepted_instants.extend(utc_instant(value) for value in accepted_updated_at)
         actual_instant = utc_instant(actual_updated_at)
-        expected_instant = utc_instant(expected_updated_at)
-        return actual_instant is not None and actual_instant == expected_instant
+        return (
+            actual_instant is not None
+            and all(value is not None for value in accepted_instants)
+            and actual_instant in accepted_instants
+        )
 
-    def require_exact(collection, id_field, expected, correction_id):
+    def require_exact(collection, id_field, expected, correction_id, accepted_updated_at=()):
         if not isinstance(expected, dict) or not expected.get(id_field):
             raise ValueError(f'work catalog correction {correction_id} has invalid expected {collection} row')
         actual = find_row(collection, id_field, expected[id_field])
-        if not rows_equal(collection, actual, expected):
+        if not rows_equal(collection, actual, expected, accepted_updated_at):
             raise ValueError(f'work catalog correction source drift: {correction_id} {expected[id_field]}')
         return actual
 
@@ -1178,7 +1182,12 @@ def apply_catalog_corrections(catalog, manifest):
         for link_update in link_updates:
             table = str(link_update.get('table') or '')
             expected = link_update.get('expected')
-            if table not in {'fetish_work_links', 'compound_work_links'} or not isinstance(expected, dict):
+            allow_missing = link_update.get('allow_missing', False)
+            if (
+                table not in {'fetish_work_links', 'compound_work_links'}
+                or not isinstance(expected, dict)
+                or type(allow_missing) is not bool
+            ):
                 raise ValueError(f'work catalog correction has invalid link update: {correction_id}')
             if expected.get('work_id') != source_work_id:
                 raise ValueError(f'work catalog correction link source mismatch: {correction_id}')
@@ -1190,40 +1199,62 @@ def apply_catalog_corrections(catalog, manifest):
                 link_update.get('alias_id'),
                 str(link_update.get('context_label') or ''),
             )
-            target_links.append((table, expected, target))
+            target_links.append((table, expected, target, allow_missing))
 
         target_reviews = []
         for review_update in review_updates:
             expected = review_update.get('expected')
             target = review_update.get('target')
+            accepted_updated_at = review_update.get('accepted_source_updated_at', [])
             if (
                 not isinstance(expected, dict)
                 or not isinstance(target, dict)
                 or expected.get('review_id') != target.get('review_id')
+                or not isinstance(accepted_updated_at, list)
+                or not all(isinstance(value, str) and value.strip() for value in accepted_updated_at)
+                or utc_instant(expected.get('updated_at')) is None
+                or utc_instant(target.get('updated_at')) is None
+                or any(utc_instant(value) is None for value in accepted_updated_at)
             ):
                 raise ValueError(f'work catalog correction has invalid review update: {correction_id}')
-            target_reviews.append((expected, target))
+            accepted_instants = [utc_instant(value) for value in accepted_updated_at]
+            if len(accepted_updated_at) != len(set(accepted_updated_at)) or len(accepted_instants) != len(
+                set(accepted_instants)
+            ):
+                raise ValueError(f'work catalog correction has duplicate accepted review timestamps: {correction_id}')
+            target_reviews.append((expected, target, accepted_updated_at))
 
         removed_aliases = []
         for alias_removal in alias_removals:
             expected = alias_removal.get('expected')
-            if not isinstance(expected, dict) or expected.get('work_id') != source_work_id:
+            allow_missing = alias_removal.get('allow_missing', False)
+            if (
+                not isinstance(expected, dict)
+                or expected.get('work_id') != source_work_id
+                or type(allow_missing) is not bool
+            ):
                 raise ValueError(f'work catalog correction has invalid alias removal: {correction_id}')
-            removed_aliases.append(expected)
-        removed_alias_ids = [row.get('alias_id') for row in removed_aliases]
+            removed_aliases.append((expected, allow_missing))
+        removed_alias_ids = [row.get('alias_id') for row, _ in removed_aliases]
         if not all(removed_alias_ids) or len(removed_alias_ids) != len(set(removed_alias_ids)):
             raise ValueError(f'work catalog correction contains invalid alias removals: {correction_id}')
+
+        def link_update_applied(table, expected, target, allow_missing):
+            target_row = find_row(table, 'link_id', target['link_id'])
+            if target_row == target:
+                return True
+            return allow_missing and find_row(table, 'link_id', expected['link_id']) is None and target_row is None
 
         already_applied = (
             find_row('works_master', 'work_id', target_work_id) == target_work
             and all(
                 find_row('work_editions', 'edition_id', target['edition_id']) == target for _, target in target_editions
             )
-            and all(find_row(table, 'link_id', target['link_id']) == target for table, _, target in target_links)
+            and all(link_update_applied(*values) for values in target_links)
             and all(find_row('work_aliases', 'alias_id', alias_id) is None for alias_id in removed_alias_ids)
             and all(
                 rows_equal('review_queue', find_row('review_queue', 'review_id', target['review_id']), target)
-                for _, target in target_reviews
+                for _, target, _ in target_reviews
             )
         )
         if already_applied:
@@ -1248,14 +1279,23 @@ def apply_catalog_corrections(catalog, manifest):
             edition = require_exact('work_editions', 'edition_id', expected, correction_id)
             edition.clear()
             edition.update(target)
-        for table, expected, target in target_links:
+        for table, expected, target, allow_missing in target_links:
+            link = find_row(table, 'link_id', expected['link_id'])
+            if link is None and allow_missing:
+                collision = find_row(table, 'link_id', target['link_id'])
+                if collision is not None and collision != target:
+                    raise ValueError(f'work catalog correction link collision: {correction_id}')
+                continue
             link = require_exact(table, 'link_id', expected, correction_id)
             collision = find_row(table, 'link_id', target['link_id'])
             if collision is not None and collision is not link:
                 raise ValueError(f'work catalog correction link collision: {correction_id}')
             link.clear()
             link.update(target)
-        for expected in removed_aliases:
+        for expected, allow_missing in removed_aliases:
+            alias = find_row('work_aliases', 'alias_id', expected['alias_id'])
+            if alias is None and allow_missing:
+                continue
             require_exact('work_aliases', 'alias_id', expected, correction_id)
             if any(
                 link.get('alias_id') == expected['alias_id']
@@ -1265,8 +1305,14 @@ def apply_catalog_corrections(catalog, manifest):
             updated['work_aliases'] = [
                 row for row in updated['work_aliases'] if row['alias_id'] != expected['alias_id']
             ]
-        for expected, target in target_reviews:
-            review = require_exact('review_queue', 'review_id', expected, correction_id)
+        for expected, target, accepted_updated_at in target_reviews:
+            review = require_exact(
+                'review_queue',
+                'review_id',
+                expected,
+                correction_id,
+                accepted_updated_at,
+            )
             review.clear()
             review.update(copy.deepcopy(target))
         _sort_catalog_rows(updated)

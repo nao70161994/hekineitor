@@ -60,7 +60,7 @@ ASINはAmazon直商品ページと照合できた場合だけ登録します。�
 
 ## Applied P0 correction manifest
 
-`data/work_catalog_corrections.json`で上記P0 4件を実装済みです。canonical SHA-256は`f8ddcdbe0b29ef4ff266c2ce8bd8ceefaa073ef471d60778ee414a2ddfdaf37d`、内訳はsplit 1件・retitle 3件です。checked seedはmaster 325、edition 239、alias 150、fetish link 376、compound link 185、review 74、pending 0です。source row完全一致、PostgreSQL timestamp同値、owner/position維持、冪等再適用、collision/dangling参照拒否を自動テストで固定しています。本番追加データはfresh v3 backupとcatalog digestを照合してから同manifestを適用します。
+`data/work_catalog_corrections.json`で上記P0 4件を実装済みです。canonical SHA-256は`2e629957bd11a85f14269298aa8227298faa16fdba21cf82e19fbceb9d0bf76e`、内訳はsplit 1件・retitle 3件です。checked seedはmaster 325、edition 239、alias 150、fetish link 376、compound link 185、review 74、pending 0です。source row完全一致を基本とし、review timestampはchecked seedの2026-07-28と旧79件manifest由来の2026-07-29だけを明示許可し、同一UTC instantのdate/ISO表現を受け入れます。本番のplayer-added owner 104置換で既に不存在のseed alias/linkだけは`allow_missing`で再作成せず、存在時のdrift、未許可日付、他field差異、collision/dangling参照は拒否します。owner/position維持、冪等再適用、fresh v3 backup由来の本番preflightを自動テストで固定しています。
 
 ## Remaining gates
 

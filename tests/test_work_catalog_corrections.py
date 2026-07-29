@@ -137,6 +137,9 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
             '2026-07-28',
             '2026-07-28T00:00:00+00:00',
             '2026-07-28T09:00:00+09:00',
+            '2026-07-29',
+            '2026-07-29T00:00:00+00:00',
+            '2026-07-29T09:00:00+09:00',
         ):
             with self.subTest(updated_at=updated_at):
                 catalog = copy.deepcopy(self.catalog)
@@ -150,6 +153,14 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
 
                 self.assertEqual(corrected_review['updated_at'], '2026-07-29T00:00:00+00:00')
                 self.assertEqual(self.apply(corrected), corrected)
+
+    def test_review_source_lock_rejects_unlisted_timestamp(self):
+        catalog = copy.deepcopy(self.catalog)
+        review = next(row for row in catalog['review_queue'] if row['review_id'] == 'wrv_66989c04b744aa1a5b64')
+        review['updated_at'] = '2026-07-30T00:00:00+00:00'
+
+        with self.assertRaisesRegex(ValueError, 'source drift'):
+            self.apply(catalog)
 
     def test_review_source_lock_rejects_non_timestamp_field_drift(self):
         catalog = copy.deepcopy(self.catalog)
@@ -205,6 +216,35 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'link collision'):
             self.apply(link_collision)
 
+    def test_optional_seed_link_cleanup_preserves_player_replacement(self):
+        catalog = copy.deepcopy(self.catalog)
+        catalog['fetish_work_links'] = [
+            row for row in catalog['fetish_work_links'] if row['link_id'] != 'fwl_0491358730a92c95b5dc'
+        ]
+        catalog['work_aliases'] = [
+            row for row in catalog['work_aliases'] if row['alias_id'] != 'wal_d6cfef435e8063b178c5'
+        ]
+        replacement = copy.deepcopy(next(row for row in catalog['fetish_work_links'] if row['fetish_id'] == 104))
+        replacement.update({'link_id': 'fwl_player_replacement', 'position': 1})
+        catalog['fetish_work_links'].append(replacement)
+
+        corrected = self.apply(catalog)
+
+        self.assertIn(replacement, corrected['fetish_work_links'])
+        self.assertEqual(self.apply(corrected), corrected)
+
+    def test_optional_seed_rows_still_reject_present_drift(self):
+        for collection, row_id, field in (
+            ('fetish_work_links', 'fwl_0491358730a92c95b5dc', 'context_label'),
+            ('work_aliases', 'wal_d6cfef435e8063b178c5', 'alias'),
+        ):
+            with self.subTest(collection=collection):
+                catalog = copy.deepcopy(self.catalog)
+                id_field = 'link_id' if collection == 'fetish_work_links' else 'alias_id'
+                next(row for row in catalog[collection] if row[id_field] == row_id)[field] = 'drift'
+                with self.assertRaisesRegex(ValueError, 'source drift'):
+                    self.apply(catalog)
+
     def test_dangling_alias_and_non_deterministic_split_fail_closed(self):
         dangling = copy.deepcopy(self.catalog)
         dangling['fetish_work_links'].append(
@@ -226,6 +266,17 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
         manifest['corrections'][0]['target_work']['work_id'] = 'wrk_invented'
         with self.assertRaisesRegex(ValueError, 'non-deterministic work_id'):
             self.apply(manifest=manifest)
+
+    def test_manifest_rejects_invalid_or_duplicate_accepted_timestamps(self):
+        for values in (
+            ['2026-07-29T00:00:00'],
+            ['2026-07-29', '2026-07-29T00:00:00+00:00'],
+        ):
+            with self.subTest(values=values):
+                manifest = copy.deepcopy(self.manifest)
+                manifest['corrections'][0]['review_updates'][0]['accepted_source_updated_at'] = values
+                with self.assertRaisesRegex(ValueError, 'invalid review update|duplicate accepted'):
+                    self.apply(manifest=manifest)
 
     def test_manifest_schema_and_duplicate_ids_are_rejected(self):
         for manifest in ({}, {'schema_version': 1, 'catalog_schema_version': 1, 'corrections': [{}, {}]}):

@@ -180,6 +180,51 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
         )
         self.assertEqual(evidence['final_digest'], work_catalog.catalog_digest(self.final_catalog))
 
+    def test_accepts_durable_review_timestamp_and_preserves_player_replacement(self):
+        catalog = copy.deepcopy(self.catalog)
+        review = next(row for row in catalog['review_queue'] if row['review_id'] == 'wrv_66989c04b744aa1a5b64')
+        review['updated_at'] = '2026-07-29T00:00:00+00:00'
+        catalog['fetish_work_links'] = [
+            row for row in catalog['fetish_work_links'] if row['link_id'] != 'fwl_0491358730a92c95b5dc'
+        ]
+        catalog['work_aliases'] = [
+            row for row in catalog['work_aliases'] if row['alias_id'] != 'wal_d6cfef435e8063b178c5'
+        ]
+        owner_work_ids = {row['work_id'] for row in catalog['fetish_work_links'] if row['fetish_id'] == 104}
+        replacement = copy.deepcopy(
+            next(row for row in catalog['fetish_work_links'] if row['work_id'] not in owner_work_ids)
+        )
+        replacement.update({'link_id': 'fwl_player_replacement', 'fetish_id': 104, 'position': 1})
+        catalog['fetish_work_links'].append(replacement)
+        fake = FakeClient(catalog)
+
+        with tempfile.TemporaryDirectory() as directory:
+            backup = Path(directory) / 'backup.json'
+            backup.write_text(json.dumps({'work_catalog': catalog}), encoding='utf-8')
+            with patch.object(apply_work_catalog_manifests, 'AdminClient', return_value=fake):
+                apply_work_catalog_manifests.apply_manifests(
+                    base_url='https://hekineitor.onrender.com',
+                    expected_host='hekineitor.onrender.com',
+                    username='admin',
+                    password='secret',
+                    review_path=self.root / 'data/work_catalog_review_decisions.json',
+                    legacy_review_path=self.root / 'data/work_catalog_review_decisions_legacy_v0.json',
+                    seed_path=self.root / 'data/work_catalog_seed_overrides.json',
+                    corrections_path=self.root / 'data/work_catalog_corrections.json',
+                    backup_path=backup,
+                )
+
+        self.assertTrue(
+            any(
+                row['fetish_id'] == 104 and row['work_id'] == replacement['work_id']
+                for row in fake.catalog['fetish_work_links']
+            )
+        )
+        corrected_review = next(
+            row for row in fake.catalog['review_queue'] if row['review_id'] == 'wrv_66989c04b744aa1a5b64'
+        )
+        self.assertEqual(corrected_review['decision'], 'keep_separate')
+
     def test_reapply_skips_superseded_review_and_keeps_final_catalog(self):
         fake = FakeClient(self.final_catalog)
         with tempfile.TemporaryDirectory() as directory:

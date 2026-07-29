@@ -36,7 +36,7 @@ manifestは全件を一つのtransaction/journalで適用します。同一manif
 
 この操作もDBではcatalog lock内の一transaction、localでは一つのmutation journalで適用されます。displayの欠落・複数work一致、canonical衝突、削除後の参照残りはfail-closedです。成功時は`normalized_title_count=46`、初回のみ`removed_work_count=4`を確認し、監査ログの`manifest_sha256=e960ed79e1f77c0af61275d536f311b3d8c3b93b563bf522e55b0ed4dbde32c3`を照合します。再適用は`removed_work_count=0`のno-opとなり、digestも変化しません。
 
-`data/work_catalog_corrections.json`は、一次情報で確認したP0誤紐付け4件を、source row完全一致・決定的ID・冪等適用で訂正します。1件は別作品editionを新masterへ分離し、3件は誤ったmaster identityを正式作品名へretitleします。edition/linkのownerとpositionを維持し、誤aliasを削除して推薦文脈をlink contextへ移します。`review_queue.updated_at`だけはPostgreSQLのdate/ISO serializationを同一UTC瞬間として比較し、他fieldは完全一致しなければfail-closedです。
+`data/work_catalog_corrections.json`は、一次情報で確認したP0誤紐付け4件を、source row完全一致・決定的ID・冪等適用で訂正します。1件は別作品editionを新masterへ分離し、3件は誤ったmaster identityを正式作品名へretitleします。edition/linkのownerとpositionを維持し、誤aliasを削除して推薦文脈をlink contextへ移します。`review_queue.updated_at`だけはUTC instantとして比較し、checked seedの`2026-07-28`に加えて、旧79件review manifestが本番へdurable保存した既知値`2026-07-29T00:00:00+00:00`をmanifestの`accepted_source_updated_at`で明示許可します。同一instantのdate/ISO表現だけが一致し、未列挙の日付や他fieldの差異はfail-closedです。本番でplayer-added owner 104の推薦置換により既に不存在となったseed alias `wal_d6cfef435e8063b178c5`とlink `fwl_0491358730a92c95b5dc`だけは`allow_missing`でskipします。存在する場合は完全一致を必須とし、異内容のrowは拒否します。不在のseed linkを再作成しないため、本番のplayer-added推薦・owner/positionは保持されます。
 
 ```json
 {
@@ -49,7 +49,7 @@ manifestは全件を一つのtransaction/journalで適用します。同一manif
 }
 ```
 
-成功時は`correction_count=4`、`split_count=1`、`retitle_count=3`と監査fingerprint `f8ddcdbe0b29ef4ff266c2ce8bd8ceefaa073ef471d60778ee414a2ddfdaf37d`を照合します。訂正済みcatalogへworkflowを再実行すると、訂正内容を上書きする旧review段階はskipし、seed cleanupとcorrection manifestだけを冪等確認します。
+成功時は`correction_count=4`、`split_count=1`、`retitle_count=3`と監査fingerprint `2e629957bd11a85f14269298aa8227298faa16fdba21cf82e19fbceb9d0bf76e`を照合します。訂正済みcatalogへworkflowを再実行すると、訂正内容を上書きする旧review段階はskipし、seed cleanupとcorrection manifestだけを冪等確認します。
 
 本番ではGitHub Actionsの`Apply Work Catalog Manifests`を使用します。成功した直近の`Matrix Backup & DB Expiry Check` run ID、デプロイ済みmain commit SHA、正確な本番hostname、確認文`APPLY WORK CATALOG MANIFESTS TO PRODUCTION`が必要です。workflowはbackup v3とそのcatalog digestを現在の本番catalogに照合し、本番source digestに対応するchecked-in review manifestのcanonical SHA-256、ローカルpreflight結果、各操作直前のdigest optimistic lock、応答件数、適用後catalog・監査fingerprint・healthを検証します。credentialやcatalog本文を含まない証跡だけを30日保存します。全workerの継続観測は、この適用後に別の`Work Catalog Rollout Gate`で行います。
 

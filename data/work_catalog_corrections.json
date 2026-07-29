@@ -63,6 +63,9 @@
       ],
       "review_updates": [
         {
+          "accepted_source_updated_at": [
+            "2026-07-29T00:00:00+00:00"
+          ],
           "expected": {
             "review_id": "wrv_66989c04b744aa1a5b64",
             "review_type": "identity_override",
@@ -270,7 +273,8 @@
             "work_id": "wrk_635907b25c09a91c33a9",
             "alias": "アンジェリーク",
             "normalized_alias": "アンジェリーク"
-          }
+          },
+          "allow_missing": true
         },
         {
           "expected": {
@@ -300,6 +304,7 @@
         },
         {
           "table": "fetish_work_links",
+          "allow_missing": true,
           "expected": {
             "link_id": "fwl_0491358730a92c95b5dc",
             "fetish_id": 104,
