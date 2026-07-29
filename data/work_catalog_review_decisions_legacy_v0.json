@@ -1,0 +1,915 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-07-29",
+  "reviewed_by": "Hekineitor catalog legacy migration review",
+  "source_catalog_digest": "7bbadf34074f154d1e69cf40382834c641aaf30b5edb6432d05b7aa86b87bd17",
+  "superseded_by": "data/work_catalog_review_decisions.json",
+  "decisions": [
+    {
+      "review_id": "wrv_01dc64619352da7bcd33",
+      "review_type": "normalization_conflict",
+      "candidate_key": "魔法使いの嫁",
+      "work_ids": [
+        "wrk_da149f5f3aa42e7163f4",
+        "wrk_e5f1192952ceda004a18"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_da149f5f3aa42e7163f4",
+      "rationale": "旧catalog生成規則で残った同一作品の表記・媒体・人物文脈を現行canonicalへ統合"
+    },
+    {
+      "review_id": "wrv_07314dcce15b2abf34ae",
+      "candidate_key": "魔法少女まどか☆マギカ",
+      "work_ids": [
+        "wrk_0e150584cfe2804f7553",
+        "wrk_9baaf23c68653408a664",
+        "wrk_e0fb8c9e4b7eb34124b4"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_e0fb8c9e4b7eb34124b4",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_074fa716280d16221deb",
+      "candidate_key": "スキップ・ビート!",
+      "work_ids": [
+        "wrk_ab2e1a766088965cb73c",
+        "wrk_f36fef465f94a7b1dc0a"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_ab2e1a766088965cb73c",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_080d0ef8df4e0ca34636",
+      "candidate_key": "薬屋のひとりごと",
+      "work_ids": [
+        "wrk_bebea9b840db12b890dc",
+        "wrk_c697109b964eebbad6df"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_bebea9b840db12b890dc",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_09b8f060baa4d699ddcc",
+      "candidate_key": "転生令嬢と天才悪女",
+      "work_ids": [
+        "wrk_3dc62dfa09cefca68c9c",
+        "wrk_edb192a43f26c73244fe"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_edb192a43f26c73244fe",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_0f46189a699fb0386f45",
+      "candidate_key": "killingstalking",
+      "work_ids": [
+        "wrk_19e202bd11726ad88d25",
+        "wrk_b037774d8220e0e0ac80",
+        "wrk_b6c6d4b8b491f75a583c"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_b6c6d4b8b491f75a583c",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_1431db3ea32d11cbc871",
+      "review_type": "normalization_candidate",
+      "candidate_key": "後宮の烏",
+      "work_ids": [
+        "wrk_16e3c1c2c5c6f71ae45d",
+        "wrk_a3a289f869f4e6283d6d"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_16e3c1c2c5c6f71ae45d",
+      "rationale": "旧catalog生成規則で残った同一作品の表記・媒体・人物文脈を現行canonicalへ統合"
+    },
+    {
+      "review_id": "wrv_19209bafc03b44709e99",
+      "candidate_key": "魔法少女育成計画",
+      "work_ids": [
+        "wrk_9b0cb34403d12cb90a16",
+        "wrk_e688b429ba0c1938c092"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_9b0cb34403d12cb90a16",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_1a86c4a82eac1cbf8337",
+      "candidate_key": "暁のヨナ",
+      "work_ids": [
+        "wrk_1a5db595ebeb58cf1267",
+        "wrk_76c5058220ef0ee69b24",
+        "wrk_8199f232a9b2cbbda1f9",
+        "wrk_b73d1fd1bdfb9f6f7123"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_76c5058220ef0ee69b24",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_25342c9d2cda128b26d8",
+      "candidate_key": "賭ケグルイ",
+      "work_ids": [
+        "wrk_186f56f4a56c4072abe3",
+        "wrk_c6cfd8d8e0aeb8b4c5ec"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_186f56f4a56c4072abe3",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_272a22487336783692c6",
+      "review_type": "normalization_candidate",
+      "candidate_key": "スパイ教室",
+      "work_ids": [
+        "wrk_3b5e678b30b116a4a59f",
+        "wrk_6e3204ae78651cf027ac"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_6e3204ae78651cf027ac",
+      "rationale": "旧catalog生成規則で残った同一作品の表記・媒体・人物文脈を現行canonicalへ統合"
+    },
+    {
+      "review_id": "wrv_2c9d6b91b2e815e44eee",
+      "candidate_key": "幽遊白書",
+      "work_ids": [
+        "wrk_5c99b65c6f4bf71e19d6",
+        "wrk_6cf2f1d9da8f1defe986"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_5c99b65c6f4bf71e19d6",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_2da3d2a34af1ad6a8b20",
+      "candidate_key": "魔法少女サイト",
+      "work_ids": [
+        "wrk_2927e2ce21754ec52409",
+        "wrk_404e4e5b54a4a0fa9bbf",
+        "wrk_4be87f17d5c85a697672"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_404e4e5b54a4a0fa9bbf",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_321ff81c4c2ae0c7a4e4",
+      "candidate_key": "3月のライオン",
+      "work_ids": [
+        "wrk_c65732d9b485a30ef58a",
+        "wrk_d69eba47d6de85d0d8bb"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_c65732d9b485a30ef58a",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_32ee29894d8a6d9e3c0e",
+      "candidate_key": "妹さえいればいい。",
+      "work_ids": [
+        "wrk_2b380b8c503be348c4c5",
+        "wrk_4312ed1fd113c9fa0d54",
+        "wrk_b1fae5c5fb865b50f646"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_b1fae5c5fb865b50f646",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_34ddaf33fbf99c987ac2",
+      "candidate_key": "re:ゼロから始める異世界生活",
+      "work_ids": [
+        "wrk_3c13292cd5ab3c115ac7",
+        "wrk_98cd80a1c9ec8d808e80"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_3c13292cd5ab3c115ac7",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_382ba922261ad88ac76b",
+      "review_type": "normalization_candidate",
+      "candidate_key": "悪役令嬢後宮物語",
+      "work_ids": [
+        "wrk_35f030d767efcad255c3",
+        "wrk_4048f3276783e290bff0",
+        "wrk_fc94538a478ddeec32ae"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_4048f3276783e290bff0",
+      "rationale": "旧catalog生成規則で残った同一作品の表記・媒体・人物文脈を現行canonicalへ統合"
+    },
+    {
+      "review_id": "wrv_39495cdeab4f5efc718d",
+      "candidate_key": "転スラ",
+      "work_ids": [
+        "wrk_acf11690f7ab0ce02a42",
+        "wrk_ec63e4e33bad636ffcb2"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_acf11690f7ab0ce02a42",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_3995644e2b2c93d53d27",
+      "candidate_key": "坂道のアポロン",
+      "work_ids": [
+        "wrk_36780bc7c4f807bb2e43",
+        "wrk_ec94274c882964409db8"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_36780bc7c4f807bb2e43",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_3bd44034c4bf9c88c4c9",
+      "candidate_key": "異世界blの悪役に転生したが無敗だった件",
+      "work_ids": [
+        "wrk_3c1ed257a5fd799d9e5f",
+        "wrk_57b1562013534382a17f"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_57b1562013534382a17f",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_3cd5ed9375cc6cbbb6a5",
+      "candidate_key": "小林さんちのメイドラゴン",
+      "work_ids": [
+        "wrk_b948b4388df5c853d4fe",
+        "wrk_ddab21544449ec953687"
+      ],
+      "decision": "keep_separate",
+      "target_work_id": null,
+      "rationale": "複数ASINの正式商品同定が不足するため分離を維持"
+    },
+    {
+      "review_id": "wrv_3e7defe6a230c197f959",
+      "candidate_key": "ウルフ×ラム",
+      "work_ids": [
+        "wrk_623c87da9f767fe2142b",
+        "wrk_b5414287d832fcd7a66d"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_b5414287d832fcd7a66d",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_4314fde2ca3adc67ee2d",
+      "candidate_key": "re:ゼロ",
+      "work_ids": [
+        "wrk_561a36eda31f69124c4d",
+        "wrk_8e913775791f74dc1756"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_8e913775791f74dc1756",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_49c5a5deb00a658d2968",
+      "candidate_key": "oniai",
+      "work_ids": [
+        "wrk_1051780c39ebf2284517",
+        "wrk_6dff8c595ba671cc54a2",
+        "wrk_99f79636d5edef8b6c1a",
+        "wrk_c52e8e1dda40bd5a3dea"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_1051780c39ebf2284517",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_58b228b40e822139908a",
+      "candidate_key": "ピアノの森",
+      "work_ids": [
+        "wrk_0bbce2a99349bee4c3c5",
+        "wrk_b5b90867f94bce94089e"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_b5b90867f94bce94089e",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_58ed7d69762a76022be0",
+      "candidate_key": "schooldays",
+      "work_ids": [
+        "wrk_b7c2df939a4683906f96",
+        "wrk_bac4b0742a7894dd2dbb",
+        "wrk_ebcff9d578e29313e2b6"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_ebcff9d578e29313e2b6",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_5a4d032cd212fa878ffa",
+      "candidate_key": "ハヤテのごとく!",
+      "work_ids": [
+        "wrk_3baf7d96652050026302",
+        "wrk_b4c4354898c0d99bc58a"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_b4c4354898c0d99bc58a",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_5e67fea78589182d2b0c",
+      "candidate_key": "義妹生活",
+      "work_ids": [
+        "wrk_1510e69ec8bef494df45",
+        "wrk_c0f051057640e31b42c2"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_1510e69ec8bef494df45",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_65199b0fb7716d76a6cf",
+      "candidate_key": "黒執事",
+      "work_ids": [
+        "wrk_07732dd2a0a33101f1fe",
+        "wrk_e657bc07f8d6769b2253"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_e657bc07f8d6769b2253",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_67dd6a9335c60f966a1e",
+      "candidate_key": "監獄学園",
+      "work_ids": [
+        "wrk_399e81b560d1b819bfaa",
+        "wrk_4d9dbe304da91384530e"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_399e81b560d1b819bfaa",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_69c446aa5ebbc1c6f9ff",
+      "candidate_key": "奴隷区僕と彼女の絶対時間",
+      "work_ids": [
+        "wrk_a51521b2092c2c995be0",
+        "wrk_bc1488af7d00de71709e"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_a51521b2092c2c995be0",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_77619333fdd01317cd45",
+      "candidate_key": "ユーリ!!!onice",
+      "work_ids": [
+        "wrk_66d907e999924f8add90",
+        "wrk_c6284895f53ecb2e0dc4"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_66d907e999924f8add90",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_7d99767dbb7e4ad88267",
+      "candidate_key": "鋼の錬金術師",
+      "work_ids": [
+        "wrk_3536cb55910beee16122",
+        "wrk_949f9b79766ba99cc048"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_3536cb55910beee16122",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_8539e304a70fbe8ad160",
+      "candidate_key": "ヲタクに恋は難しい",
+      "work_ids": [
+        "wrk_910e16270f03d9d3fb48",
+        "wrk_a451922a49b56b70b3a9"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_910e16270f03d9d3fb48",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_856a95d1c614f6858593",
+      "candidate_key": "ヤンデレ彼女",
+      "work_ids": [
+        "wrk_a7b16024a27358846d46",
+        "wrk_d65a554e1cda9c6ea2a6"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_d65a554e1cda9c6ea2a6",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_8612d3ff2b24e5b59882",
+      "candidate_key": "赤髪の白雪姫",
+      "work_ids": [
+        "wrk_123eb2f903d322f6f320",
+        "wrk_9017bd429fedc3ef90a7",
+        "wrk_f0aab564ef465011e36b"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_9017bd429fedc3ef90a7",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_86bcdd78231beebc25de",
+      "candidate_key": "まどか☆マギカ",
+      "work_ids": [
+        "wrk_b48186eed589a751a514",
+        "wrk_e0fb8c9e4b7eb34124b4"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_e0fb8c9e4b7eb34124b4",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_94fa3e5538d57f71937a",
+      "candidate_key": "overflow",
+      "work_ids": [
+        "wrk_728bbe580e97a89afe6c",
+        "wrk_a867e39afe0e705d2885"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_728bbe580e97a89afe6c",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_953fcd954e9519798ad9",
+      "candidate_key": "私の夫は冷酷帝",
+      "work_ids": [
+        "wrk_1b56de6af1d38d43e224",
+        "wrk_cae51559859fc3ad71be"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_1b56de6af1d38d43e224",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_95d53a325fae709099d3",
+      "candidate_key": "同級生",
+      "work_ids": [
+        "wrk_1a63563a4706ad02794f",
+        "wrk_9712bfb138ea15003e21"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_1a63563a4706ad02794f",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_971bf20af90c85f2523f",
+      "candidate_key": "アトラク=ナクア",
+      "work_ids": [
+        "wrk_1aa6985cf8d2715002f0",
+        "wrk_5c72832e7338cfc43d2c",
+        "wrk_9c21bbde917c55632ba5",
+        "wrk_dbe816513f987664ca84"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_dbe816513f987664ca84",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_9f52ad1de9593767dd77",
+      "candidate_key": "ミライニッキ",
+      "work_ids": [
+        "wrk_27e9e1a4a532d4749ec2",
+        "wrk_d28d5576d18932051c82",
+        "wrk_f0724b709bd2874ec5ba"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_27e9e1a4a532d4749ec2",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_a3dd2d67189e63212cd7",
+      "candidate_key": "彼女、お借りします",
+      "work_ids": [
+        "wrk_dec3947254cf0fa737f5",
+        "wrk_e5bdafd224b1e179c62b"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_dec3947254cf0fa737f5",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_a556fe6351cf1558769b",
+      "candidate_key": "アイドルマスター",
+      "work_ids": [
+        "wrk_1e904919cc5b7541ace4",
+        "wrk_e48ef00611750c7eed0a"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_e48ef00611750c7eed0a",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_a7ffbb79b2de78e9603b",
+      "candidate_key": "bibleblack",
+      "work_ids": [
+        "wrk_627373bc2764c6b9e460",
+        "wrk_746645e29ce477f221d2",
+        "wrk_e285460b35a0ceaef351"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_627373bc2764c6b9e460",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_aa64f31414e227cb48d3",
+      "candidate_key": "ヴァンパイア騎士",
+      "work_ids": [
+        "wrk_3fd8320046b658974e6f",
+        "wrk_ae55a42303586a39fcd2",
+        "wrk_c4d4fda581b20ec07cbc",
+        "wrk_f41f4ccdf500f384e8d4"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_ae55a42303586a39fcd2",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_abe1d4b29da2ade963c6",
+      "candidate_key": "幼なじみが絶対に負けないラブコメ",
+      "work_ids": [
+        "wrk_2a3581450f2d4100ac22",
+        "wrk_2c5ef79ce40e6e28d4c4"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_2a3581450f2d4100ac22",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_b970affc06e0d4dc45b6",
+      "candidate_key": "ギヴン",
+      "work_ids": [
+        "wrk_22fa8e268bcfd9fb3fc2",
+        "wrk_4eba7b1803aa53ff8c7b",
+        "wrk_b4b5a8309d6023805290"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_4eba7b1803aa53ff8c7b",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_bc2e31d9182cb45763c5",
+      "candidate_key": "ベルセルク",
+      "work_ids": [
+        "wrk_82888530a5ba2653cb9a",
+        "wrk_e25a09091c384d07ae70"
+      ],
+      "decision": "keep_separate",
+      "target_work_id": null,
+      "rationale": "複数ASINの正式商品同定が不足するため分離を維持"
+    },
+    {
+      "review_id": "wrv_bd5b88842ae556a14b82",
+      "candidate_key": "アンジェリーク",
+      "work_ids": [
+        "wrk_635907b25c09a91c33a9",
+        "wrk_aab1a8e7d551924503cb"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_635907b25c09a91c33a9",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_c0e9bd62899a72fb0814",
+      "candidate_key": "発情αに愛されすぎて困ってます",
+      "work_ids": [
+        "wrk_66b9379f34d46195d0bb",
+        "wrk_d28ddaa3dd31f1087abb"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_66b9379f34d46195d0bb",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_c50fd72a33849e217704",
+      "candidate_key": "推しの子",
+      "work_ids": [
+        "wrk_345c5135491d8ac36b0c",
+        "wrk_b732473b362d87cb7fcc",
+        "wrk_e8f251108866a407fa1f"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_b732473b362d87cb7fcc",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_c92658233d5265530400",
+      "candidate_key": "ハイキュー!!",
+      "work_ids": [
+        "wrk_90f69225d9da59ee0a6e",
+        "wrk_e9a9e72c56a4b16a1335"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_90f69225d9da59ee0a6e",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_c9387c625f22ced6143d",
+      "review_type": "normalization_candidate",
+      "candidate_key": "spy×family",
+      "work_ids": [
+        "wrk_7529e7eae17647c40a29",
+        "wrk_775db3c198f6e12b6c5e"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_775db3c198f6e12b6c5e",
+      "rationale": "旧catalog生成規則で残った同一作品の表記・媒体・人物文脈を現行canonicalへ統合"
+    },
+    {
+      "review_id": "wrv_ca3b861f52d2e4a8790a",
+      "candidate_key": "結城友奈は勇者である",
+      "work_ids": [
+        "wrk_1a3d192735805e9575e0",
+        "wrk_7390204c14f8af1eae33"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_1a3d192735805e9575e0",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_cabf0374e396b5bd4715",
+      "candidate_key": "ゴブリンスレイヤー",
+      "work_ids": [
+        "wrk_830232118d60056a31e1",
+        "wrk_9c52b23bb89965e8203c",
+        "wrk_ee977679bbd6bfe6ad19"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_830232118d60056a31e1",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_cc4703166be6deab5126",
+      "candidate_key": "新妹魔王の契約者",
+      "work_ids": [
+        "wrk_3682d4c909a17b61c644",
+        "wrk_47a8f80440c0271cb9bd"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_47a8f80440c0271cb9bd",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_d16118627acc1e033cf6",
+      "candidate_key": "電脳コイル",
+      "work_ids": [
+        "wrk_19d67eb39b25085eba57",
+        "wrk_abf557e35493b9d93736"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_abf557e35493b9d93736",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_d43c8bd5797aa43a56f5",
+      "candidate_key": "discipline",
+      "work_ids": [
+        "wrk_08d883868a4e59912215",
+        "wrk_28e1a71ca53260f2d2d0",
+        "wrk_e2e145700329ebc9f858"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_e2e145700329ebc9f858",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_d7417cd730a46f3b1279",
+      "candidate_key": "ヒトリジメ×boyfriend",
+      "work_ids": [
+        "wrk_31e85b4a2c94552c6be3",
+        "wrk_da5165ab89830f60fb30"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_da5165ab89830f60fb30",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_d78bacac6149eb9efd04",
+      "candidate_key": "花より男子",
+      "work_ids": [
+        "wrk_457fab39b179c6bac2f2",
+        "wrk_8eec177f87358dbd8f9f"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_8eec177f87358dbd8f9f",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_d7a72e1e5c8849774b4f",
+      "candidate_key": "乙女ゲームの破滅フラグしかない悪役令嬢に転生してしまった...",
+      "work_ids": [
+        "wrk_ebf6a4fcf72a1bb75c3d",
+        "wrk_f07405999118f6f694d0"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_f07405999118f6f694d0",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_d7b7d02badc072a3b196",
+      "candidate_key": "モンスター娘のいる日常",
+      "work_ids": [
+        "wrk_7d0be501a6196f78e431",
+        "wrk_8478e3525a03d7662ffc"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_7d0be501a6196f78e431",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_da082570d915e7620982",
+      "candidate_key": "無職転生",
+      "work_ids": [
+        "wrk_49aadcd6a0a343c611dd",
+        "wrk_c5bbe5eb46712cd29b8d"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_c5bbe5eb46712cd29b8d",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_da4cd7be9b13c4cde34f",
+      "candidate_key": "乙女ゲームの破滅フラグ",
+      "work_ids": [
+        "wrk_7ee748f7adef607ed8f3",
+        "wrk_f07405999118f6f694d0"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_f07405999118f6f694d0",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_df21e23974e15e1e94c5",
+      "candidate_key": "私が恋人になれるわけないじゃないですか!",
+      "work_ids": [
+        "wrk_2d0b22fe652d4c4d3bc6",
+        "wrk_f7d4554c8220ea1c8af3"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_2d0b22fe652d4c4d3bc6",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_e33d77265f319717b0c4",
+      "candidate_key": "僕の心のヤバイやつ",
+      "work_ids": [
+        "wrk_6baf34359eab8dffc01b",
+        "wrk_a6889d06c465f1564c53"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_6baf34359eab8dffc01b",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_e3d86795a264e9026d94",
+      "candidate_key": "悪役令嬢レベル99",
+      "work_ids": [
+        "wrk_099e49f986787d7d5d5e",
+        "wrk_e2c5f71c9f5282fe60c1"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_099e49f986787d7d5d5e",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_eb210610c2cb5c1a844c",
+      "candidate_key": "囀る鳥は羽ばたかない",
+      "work_ids": [
+        "wrk_52b15cffbee7e003211f",
+        "wrk_68e12f356027cda7b459"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_68e12f356027cda7b459",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_eefeb12745b94ab47a46",
+      "candidate_key": "黒子のバスケ",
+      "work_ids": [
+        "wrk_db87c320fd09a8b73e4f",
+        "wrk_f47c2e024da1850d93c4"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_f47c2e024da1850d93c4",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_f3c438a32bbd28057267",
+      "review_type": "normalization_candidate",
+      "candidate_key": "逃げるは恥だが役に立つ",
+      "work_ids": [
+        "wrk_0d91216489ad97581ebd",
+        "wrk_ebe11470e343d2c5658a"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_0d91216489ad97581ebd",
+      "rationale": "旧catalog生成規則で残った同一作品の表記・媒体・人物文脈を現行canonicalへ統合"
+    },
+    {
+      "review_id": "wrv_f992ae1e5f3b7700a9b7",
+      "candidate_key": "君が望む永遠",
+      "work_ids": [
+        "wrk_2c8d4bbe746f12e5b062",
+        "wrk_aa65c5d6ce0fbc3d9c6b",
+        "wrk_c21198adaa1f9280582c",
+        "wrk_c2ce8b5f19e4cc893df6",
+        "wrk_f4e9ca823591f5f0ac9e"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_c2ce8b5f19e4cc893df6",
+      "rationale": "同一作品の推薦文脈・人物・媒体注記として統合"
+    },
+    {
+      "review_id": "wrv_27a8ccc839d9cc0c41d9",
+      "review_type": "identity_override",
+      "candidate_key": "identity_override:given-ja-en",
+      "work_ids": [
+        "wrk_4eba7b1803aa53ff8c7b",
+        "wrk_6c3a1a96d7d0e5b145f9"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_4eba7b1803aa53ff8c7b",
+      "rationale": "英題Givenと日本語題ギヴンは同一作品。異なるASINは販売版として保持する。"
+    },
+    {
+      "review_id": "wrv_4a46ee66d2bc753e8864",
+      "review_type": "identity_override",
+      "candidate_key": "identity_override:future-diary-ja-en",
+      "work_ids": [
+        "wrk_27e9e1a4a532d4749ec2",
+        "wrk_731aa7af3e24642c2812"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_27e9e1a4a532d4749ec2",
+      "rationale": "Future Diaryとミライニッキは未来日記の英語・カナ表記。"
+    },
+    {
+      "review_id": "wrv_da5615391915af1b8405",
+      "review_type": "identity_override",
+      "candidate_key": "identity_override:steins-gate-ja",
+      "work_ids": [
+        "wrk_9cf147eda94a73ba57b2",
+        "wrk_ad4d9657d5dad8fb3e58"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_9cf147eda94a73ba57b2",
+      "rationale": "STEINS;GATEとシュタインズ・ゲートは同一作品。人物文脈はaliasで保持する。"
+    },
+    {
+      "review_id": "wrv_0b4a2dee61de7ecb734e",
+      "review_type": "identity_override",
+      "candidate_key": "identity_override:dungeon-meshi-ja-en",
+      "work_ids": [
+        "wrk_01ae0f0036f5f859e766",
+        "wrk_d403bf879f651b95350c"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_01ae0f0036f5f859e766",
+      "rationale": "Dungeon Meshiとダンジョン飯は同一作品。人物文脈はaliasで保持する。"
+    },
+    {
+      "review_id": "wrv_5669f8ab8ed0b7296d28",
+      "review_type": "identity_override",
+      "candidate_key": "identity_override:rezero-short-full",
+      "work_ids": [
+        "wrk_3c13292cd5ab3c115ac7",
+        "wrk_8e913775791f74dc1756"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_3c13292cd5ab3c115ac7",
+      "rationale": "Re:ゼロはRe:ゼロから始める異世界生活の略称。"
+    },
+    {
+      "review_id": "wrv_9769fa609355b48a413e",
+      "review_type": "identity_override",
+      "candidate_key": "identity_override:tensura-short-full",
+      "work_ids": [
+        "wrk_acf11690f7ab0ce02a42",
+        "wrk_db99d32ab6e2938ba950"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_db99d32ab6e2938ba950",
+      "rationale": "転スラは転生したらスライムだった件の略称。"
+    },
+    {
+      "review_id": "wrv_66989c04b744aa1a5b64",
+      "review_type": "identity_override",
+      "candidate_key": "identity_override:zero-no-tsukaima-context",
+      "work_ids": [
+        "wrk_76a08381045d290abf30",
+        "wrk_c5214e34ec2b68ce172b"
+      ],
+      "decision": "merge",
+      "target_work_id": "wrk_76a08381045d290abf30",
+      "rationale": "釘宮理恵出演作という文脈付き表記はゼロの使い魔を指す。"
+    }
+  ]
+}

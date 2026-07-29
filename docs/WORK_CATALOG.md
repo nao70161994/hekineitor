@@ -24,6 +24,8 @@ PYTHONPATH=. python scripts/build_work_catalog.py
 
 `data/work_catalog_review_decisions.json`はraw inline入力に対する人手判断を固定するmanifestです。buildは候補keyと元`work_ids`が一致する場合だけ全判断を適用し、同じmanifestの再適用はno-opになります。英題・略称など緩い正規化では拾えない明白な同一作品は、`identity_override`として元IDを固定したreviewを追加してから統合します。
 
+`data/work_catalog_review_decisions_legacy_v0.json`は、旧catalog生成規則で初期化済みの本番DBだけを現在の判断へ移す互換manifestです。`source_catalog_digest`が完全一致する場合だけ運用scriptが選択し、既存の追加性癖・推薦リンクを保持します。fresh DBと現行seedのsource of truthは引き続き`work_catalog_review_decisions.json`です。
+
 ## Compatibility projection
 
 resolverはlinkを表示順に解決し、次の互換shapeを返します。

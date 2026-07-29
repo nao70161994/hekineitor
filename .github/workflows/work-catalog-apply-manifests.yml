@@ -1,0 +1,98 @@
+name: Apply Work Catalog Manifests
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_run_id:
+        description: Successful Matrix Backup workflow run ID
+        required: true
+      approved_sha:
+        description: Exact deployed main commit SHA
+        required: true
+      expected_host:
+        description: Exact production hostname
+        required: true
+        default: hekineitor.onrender.com
+      confirm:
+        description: Type APPLY WORK CATALOG MANIFESTS TO PRODUCTION
+        required: true
+
+concurrency:
+  group: work-catalog-production-mutation
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main' && inputs.approved_sha == github.sha
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate explicit production confirmation
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          APP_URL: ${{ secrets.APP_URL }}
+          EXPECTED_HOST: ${{ inputs.expected_host }}
+        run: |
+          test "$CONFIRM" = "APPLY WORK CATALOG MANIFESTS TO PRODUCTION"
+          python - <<'PY'
+          import os
+          import urllib.parse
+
+          parsed = urllib.parse.urlparse(os.environ['APP_URL'])
+          if (
+              parsed.scheme != 'https'
+              or parsed.hostname != os.environ['EXPECTED_HOST']
+              or parsed.path not in ('', '/')
+              or parsed.username
+              or parsed.password
+              or parsed.query
+              or parsed.fragment
+              or parsed.port not in (None, 443)
+          ):
+              raise SystemExit('APP_URL is not the exact expected HTTPS production root')
+          PY
+
+      - name: Verify fresh successful backup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BACKUP_RUN_ID: ${{ inputs.backup_run_id }}
+        run: |
+          test "$(gh run view "$BACKUP_RUN_ID" --json workflowName --jq .workflowName)" = "Matrix Backup & DB Expiry Check"
+          test "$(gh run view "$BACKUP_RUN_ID" --json conclusion --jq .conclusion)" = "success"
+          gh run download "$BACKUP_RUN_ID" \
+            -n "matrix-backup-$BACKUP_RUN_ID" \
+            -D backup
+          python scripts/validate_matrix_backup.py backup/matrix_backup.json --max-age-days 1
+
+      - name: Apply checked-in manifests
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          ADMIN_USER: ${{ secrets.ADMIN_USER }}
+          ADMIN_PASS: ${{ secrets.ADMIN_PASS }}
+          EXPECTED_HOST: ${{ inputs.expected_host }}
+        run: |
+          python scripts/apply_work_catalog_manifests.py \
+            --base-url "$APP_URL" \
+            --expected-host "$EXPECTED_HOST" \
+            --username "$ADMIN_USER" \
+            --password "$ADMIN_PASS" \
+            --review-manifest data/work_catalog_review_decisions.json \
+            --legacy-review-manifest data/work_catalog_review_decisions_legacy_v0.json \
+            --seed-overrides data/work_catalog_seed_overrides.json \
+            --backup backup/matrix_backup.json \
+            --evidence artifacts/work_catalog_manifest_application.json
+
+      - name: Upload redacted migration evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: work-catalog-manifest-application-${{ github.run_id }}
+          path: artifacts/work_catalog_manifest_application.json
+          if-no-files-found: warn
+          retention-days: 30
