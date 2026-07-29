@@ -306,6 +306,12 @@ class Engine:
             else:
                 catalog = self._work_catalog_snapshot()
             parity = engine_work_catalog.catalog_parity_report(catalog, self.fetishes, compound_rows=compound_rows)
+            approved_parity = engine_work_catalog.approved_projection_parity_report(
+                catalog,
+                self.fetishes,
+                compound_rows=compound_rows,
+                corrections=self._load_json('work_catalog_corrections.json'),
+            )
             cached_revision = getattr(self, '_work_catalog_cache_revision', None)
             catalog_reads = getattr(self, '_work_catalog_catalog_reads', 0)
             fallback_reads = getattr(self, '_work_catalog_fallback_reads', 0)
@@ -329,6 +335,7 @@ class Engine:
             worker_id = f'{os.environ.get("DYNO") or os.environ.get("HOSTNAME") or "local"}:{os.getpid()}'
             return {
                 **parity,
+                **approved_parity,
                 'worker_id': worker_id,
                 'snapshot_revision': snapshot_revision,
                 'database_revision': database_revision,

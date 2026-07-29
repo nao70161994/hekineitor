@@ -44,7 +44,7 @@ resolverはlinkを表示順に解決し、次の互換shapeを返します。
 
 `title`と`url`は従来の推薦表示、SEO、affiliate linkを維持します。新しいIDは管理・分析・重複排除に使います。
 
-公開結果とSEOはcatalogを優先して読み、catalog全体を読めない場合だけlegacy inline dataへfallbackします。同じownerについてcatalogとlegacyを結合しません。materialized IDは結果JSON、作品linkのDOM属性、クリックeventへ渡され、旧eventはtitle identityで集計できます。
+公開結果とSEOはcatalogを優先して読み、catalog全体を読めない場合だけlegacy inline dataへfallbackします。同じownerについてcatalogとlegacyを結合しません。materialized IDは結果JSON、作品linkのDOM属性、クリックeventへ渡され、旧eventはtitle identityで集計できます。legacy fallbackは未変換inlineを返すため、correction manifestによる承認済み差分もraw parity上は意図的な不一致です。healthのapproved projection parityはcatalog訂正の正当性を示しますが、fallback同値性やinline廃止可否はraw parityで別に判定します。
 
 ## Runtime writes
 

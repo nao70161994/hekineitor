@@ -8,6 +8,8 @@ def migration_payload(worker_id='worker-a:1', revision=7, **overrides):
         'status': 'ok',
         'automated_parity_ok': True,
         'mismatch_count': 0,
+        'approved_projection_ok': True,
+        'approved_mismatch_count': 0,
         'pending_review_count': 0,
         'worker_id': worker_id,
         'snapshot_revision': revision,
@@ -40,6 +42,48 @@ class WorkCatalogRolloutCheckTests(unittest.TestCase):
         self.assertEqual(report['observed_worker_count'], 2)
         self.assertEqual(report['workers']['worker-a:1']['sample_count'], 2)
         self.assertEqual(report['workers']['worker-b:2']['database_revisions'], [7])
+
+    def test_runtime_gate_accepts_approved_delta_but_retirement_stays_blocked(self):
+        payload = migration_payload(
+            automated_parity_ok=False,
+            mismatch_count=6,
+            retirement={'automated_eligible': False, 'blockers': ['catalog_inline_mismatch']},
+        )
+
+        report = work_catalog_rollout_check.build_report(
+            [payload],
+            expected_worker_count=1,
+            observation_seconds=60,
+            minimum_observation_seconds=55,
+        )
+
+        self.assertTrue(report['automated_gate_ok'])
+        self.assertEqual(report['workers']['worker-a:1']['errors'], [])
+        self.assertFalse(report['retirement_readiness']['automated_eligible'])
+        self.assertEqual(report['retirement_readiness']['blockers'], ['catalog_inline_mismatch'])
+
+    def test_runtime_gate_rejects_unapproved_projection_drift(self):
+        payload = migration_payload(approved_projection_ok=False, approved_mismatch_count=1)
+
+        report = work_catalog_rollout_check.build_report(
+            [payload],
+            expected_worker_count=1,
+            observation_seconds=60,
+            minimum_observation_seconds=55,
+        )
+
+        self.assertFalse(report['automated_gate_ok'])
+        self.assertIn(
+            'catalog_approved_projection_mismatch',
+            report['workers']['worker-a:1']['errors'],
+        )
+
+    def test_runtime_gate_accepts_legacy_health_contract_when_raw_parity_is_green(self):
+        migration = migration_payload()['migration']
+        migration.pop('approved_projection_ok')
+        migration.pop('approved_mismatch_count')
+
+        self.assertEqual(work_catalog_rollout_check._migration_errors(migration), [])
 
     def test_build_report_rejects_pending_fallback_revision_and_missing_worker(self):
         bad = migration_payload(

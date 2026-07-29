@@ -29,8 +29,10 @@ class FakeClient:
             return {
                 'status': 'ok',
                 'migration': {
-                    'automated_parity_ok': True,
-                    'mismatch_count': 0,
+                    'automated_parity_ok': False,
+                    'mismatch_count': 6,
+                    'approved_projection_ok': True,
+                    'approved_mismatch_count': 0,
                     'pending_review_count': 0,
                     'snapshot_revision': 2,
                     'database_revision': 2,

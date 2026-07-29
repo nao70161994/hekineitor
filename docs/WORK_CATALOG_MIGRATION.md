@@ -51,11 +51,13 @@ manifestは全件を一つのtransaction/journalで適用します。同一manif
 
 成功時は`correction_count=4`、`split_count=1`、`retitle_count=3`と監査fingerprint `2e629957bd11a85f14269298aa8227298faa16fdba21cf82e19fbceb9d0bf76e`を照合します。訂正済みcatalogへworkflowを再実行すると、訂正内容を上書きする旧review段階はskipし、seed cleanupとcorrection manifestだけを冪等確認します。
 
+healthは2種類のparityを混同しません。従来の`automated_parity_ok` / `mismatch_count`は未変換inlineとのraw比較を維持し、legacy fallbackの同値性とinline廃止可否だけに使います。`approved_projection_ok` / `approved_mismatch_count`は、correction manifestで固定されたowner・position・旧title/URLを新title/URLへ厳密投影した期待値との比較です。旧signatureの別position・別ownerへの移動、owner・件数・順序・URLの差、未承認titleはfail-closedです。`allow_missing`は真偽値だけを許可し、旧sourceが全ownerから不存在の場合だけno-opにします。
+
 本番ではGitHub Actionsの`Apply Work Catalog Manifests`を使用します。成功した直近の`Matrix Backup & DB Expiry Check` run ID、デプロイ済みmain commit SHA、正確な本番hostname、確認文`APPLY WORK CATALOG MANIFESTS TO PRODUCTION`が必要です。workflowはbackup v3とそのcatalog digestを現在の本番catalogに照合し、本番source digestに対応するchecked-in review manifestのcanonical SHA-256、ローカルpreflight結果、各操作直前のdigest optimistic lock、応答件数、適用後catalog・監査fingerprint・healthを検証します。credentialやcatalog本文を含まない証跡だけを30日保存します。全workerの継続観測は、この適用後に別の`Work Catalog Rollout Gate`で行います。
 
 ### Repeated worker observation
 
-`python scripts/work_catalog_rollout_check.py`はread-only tokenだけで`/api/admin/works_health`を反復取得し、worker集合、catalog/DB/cache revision、parity、pending review、fallback/load failureを`artifacts/work_catalog_rollout_report.json`へ記録します。`.github/workflows/work-catalog-rollout-check.yml`は同じ証拠をartifactとして30日保持します。
+`python scripts/work_catalog_rollout_check.py`はread-only tokenだけで`/api/admin/works_health`を反復取得し、worker集合、catalog/DB/cache revision、両parity、pending review、fallback/load failureを`artifacts/work_catalog_rollout_report.json`へ記録します。runtime catalog gateは承認済みprojectionとの一致を要求します。raw inline mismatchはworker errorにはせず、`retirement_readiness.blockers`へ残します。このため訂正済みcatalogの稼働確認は成功できても、fallbackが古い表示を返し得る間はinline廃止不可です。旧health contractのworkerはraw parityを保守的なruntime判定として扱います。`.github/workflows/work-catalog-rollout-check.yml`は同じ証拠をartifactとして30日保持します。
 
 `WORK_CATALOG_EXPECTED_WORKERS`はplatformのinstance一覧から設定し、観測できた数に合わせて下げません。自動gate成功後も、十分な期間のartifactを比較し、v3 restore rehearsalと手動サインオフを完了するまではinlineを廃止しません。
 
@@ -71,11 +73,19 @@ manifestは全件を一つのtransaction/journalで適用します。同一manif
 
 この証跡は本番移行の自動gateを満たしますが、staging v3 restore rehearsalと旧inline廃止の最終承認を代替しません。
 
+P0 correction適用後の本番catalogはmaster 375、edition 295、alias 153、fetish link 396、compound link 185、resolved review 79、pending 0、revision 8です。最終digestは`db0f725764a785303dc53073b935585460611b1f1cc2c2628f4874318fc5c0fa`です。
+
+- correction mutation実行: workflow run `30435445845`（catalog更新とrevision 8へのcommitは成功。旧post-healthがraw mismatchをruntime異常扱いしたためjob自体はfailure）
+- 12 sample観測: workflow run `30435511130`（revision 8一致、fallback/load failure 0、raw mismatchは意図したfetish 5 owner + compound 1 ownerのみ）
+- 適用後v3 backup: workflow run `30435759642`（上記digest・件数・pending 0を再確認）
+
+この6 owner差はapproved projectionでは全件説明されますが、raw inline fallbackは旧titleのままです。したがってruntime catalog gateとmutation成功の証拠には使える一方、`catalog_inline_mismatch`はretirement blockerとして維持します。
+
 ## Deploy前
 
 1. backup format v3のmatrix backupを保存し、`work_catalog`を含むことを確認する。
 2. 既存DBへreview、safe seed cleanup、P0 correctionの3 manifestを順に適用し、それぞれの監査fingerprint、応答件数、新digestを保存する。fresh DBが訂正済みseedから作られた場合、workflowは旧reviewをskipし、seed/correctionのno-opだけを確認する。
-3. `/api/admin/works_health`で`migration.automated_parity_ok=true`、`mismatch_count=0`、`pending_review_count=0`を確認する。差異は表示順、実効title、安全化後URLまで確認する。
+3. `/api/admin/works_health`で`migration.approved_projection_ok=true`、`approved_mismatch_count=0`、`pending_review_count=0`を確認する。`automated_parity_ok` / `mismatch_count`が非ゼロならruntime correctionの失敗とはみなさないが、影響ownerと表示順・実効title・安全化後URLを確認し、raw parityが0へ戻るまでinline廃止を停止する。
 4. platformのinstance一覧から各workerへ直接probeするか、十分な回数アクセスしてresponseの`worker_id`を収集し、想定worker集合を網羅する。各responseで`snapshot_revision == database_revision == cached_revision`も確認する。
 5. 十分な観測期間、各workerの`legacy_fallback_reads_since_start`と`catalog_load_failures_since_start`が0であることを確認する。
 6. [Staging v3 Restore Rehearsal](STAGING_V3_RESTORE_REHEARSAL.md)を実行し、artifactの自動gateを確認したうえで、通常/compound結果、作品理由、SEO/OGP、affiliate URLを手動サインオフする。
@@ -101,7 +111,7 @@ manifestは全件を一つのtransaction/journalで適用します。同一manif
 
 ## Inline廃止条件
 
-- 自動parityが成功している。
+- raw inlineの`automated_parity_ok=true`かつ`mismatch_count=0`である（approved projection parityだけでは代替しない）。
 - pending reviewがない。
 - 全workerでrevisionが一致する。
 - 観測期間中にfallback/load failureがない。

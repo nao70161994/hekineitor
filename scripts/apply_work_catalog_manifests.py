@@ -259,8 +259,8 @@ def apply_manifests(
     }
     if (
         health.get('status') != 'ok'
-        or migration.get('automated_parity_ok') is not True
-        or migration.get('mismatch_count') != 0
+        or migration.get('approved_projection_ok') is not True
+        or migration.get('approved_mismatch_count') != 0
         or migration.get('pending_review_count') != 0
         or migration.get('cache_revision_matches_database') is not True
         or len(revisions) != 1
@@ -303,6 +303,8 @@ def apply_manifests(
             for key in (
                 'automated_parity_ok',
                 'mismatch_count',
+                'approved_projection_ok',
+                'approved_mismatch_count',
                 'pending_review_count',
                 'snapshot_revision',
                 'database_revision',

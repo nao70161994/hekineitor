@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only production rollout gate for retiring legacy work storage."""
+"""Read-only production gate for catalog runtime and legacy retirement readiness."""
 
 from __future__ import annotations
 
@@ -32,8 +32,16 @@ def _migration_errors(migration: Mapping[str, Any]) -> list[str]:
     errors = []
     if migration.get('status') != 'ok':
         errors.append('migration_report_unavailable')
-    if not migration.get('automated_parity_ok') or int(migration.get('mismatch_count') or 0):
-        errors.append('catalog_inline_mismatch')
+    if 'approved_projection_ok' in migration or 'approved_mismatch_count' in migration:
+        approved_ok = migration.get('approved_projection_ok') is True
+        approved_mismatches = int(migration.get('approved_mismatch_count') or 0)
+    else:
+        # Old workers only expose raw parity. It is a conservative fallback
+        # while a deployment with the additive health fields is rolling.
+        approved_ok = migration.get('automated_parity_ok') is True
+        approved_mismatches = int(migration.get('mismatch_count') or 0)
+    if not approved_ok or approved_mismatches:
+        errors.append('catalog_approved_projection_mismatch')
     if int(migration.get('pending_review_count') or 0):
         errors.append('pending_identity_reviews')
     if not migration.get('cache_revision_matches_database'):
@@ -48,9 +56,6 @@ def _migration_errors(migration: Mapping[str, Any]) -> list[str]:
         errors.append('legacy_fallback_observed')
     if int(runtime.get('catalog_load_failures_since_start') or 0):
         errors.append('catalog_load_failure_observed')
-    retirement = migration.get('retirement') or {}
-    if not retirement.get('automated_eligible'):
-        errors.extend(str(value) for value in retirement.get('blockers') or [])
     return sorted(set(errors))
 
 
@@ -81,6 +86,8 @@ def build_report(
                 'max_legacy_fallback_reads_since_start': 0,
                 'max_catalog_load_failures_since_start': 0,
                 'errors': set(),
+                'retirement_ready': True,
+                'retirement_blockers': set(),
             },
         )
         row['sample_count'] += 1
@@ -101,6 +108,15 @@ def build_report(
             key = f'max_{field}'
             row[key] = max(row[key], int(runtime.get(field) or 0))
         row['errors'].update(_migration_errors(migration))
+        retirement = migration.get('retirement') or {}
+        raw_parity_ok = migration.get('automated_parity_ok') is True and not int(
+            migration.get('mismatch_count') or 0
+        )
+        if not raw_parity_ok:
+            row['retirement_blockers'].add('catalog_inline_mismatch')
+        row['retirement_blockers'].update(str(value) for value in retirement.get('blockers') or [])
+        if not retirement.get('automated_eligible') or not raw_parity_ok:
+            row['retirement_ready'] = False
 
     if len(workers) < expected_worker_count:
         global_errors.append('expected_worker_set_not_observed')
@@ -108,14 +124,17 @@ def build_report(
         global_errors.append('observation_window_too_short')
     database_revisions = set()
     serialized_workers = {}
+    retirement_blockers = set()
     for worker_id, row in sorted(workers.items()):
         database_revisions.update(row['database_revisions'])
+        retirement_blockers.update(row['retirement_blockers'])
         serialized_workers[worker_id] = {
             **row,
             'database_revisions': sorted(row['database_revisions']),
             'snapshot_revisions': sorted(row['snapshot_revisions']),
             'cached_revisions': sorted(row['cached_revisions']),
             'errors': sorted(row['errors']),
+            'retirement_blockers': sorted(row['retirement_blockers']),
         }
     if len(database_revisions) != 1:
         global_errors.append('workers_observed_different_database_revisions')
@@ -135,6 +154,12 @@ def build_report(
         'errors': errors,
         'automated_gate_ok': not errors,
         'manual_signoff_required': True,
+        'retirement_readiness': {
+            'automated_eligible': bool(workers)
+            and all(row['retirement_ready'] for row in serialized_workers.values()),
+            'blockers': sorted(retirement_blockers),
+            'raw_inline_parity_required': True,
+        },
     }
 
 

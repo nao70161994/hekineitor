@@ -449,6 +449,249 @@ def catalog_parity_report(catalog, fetishes, *, compound_rows=(), sample_limit=2
     }
 
 
+def approved_projection_parity_report(catalog, fetishes, *, compound_rows=(), corrections, sample_limit=20):
+    """Compare catalog output with legacy output after exact approved corrections.
+
+    Raw parity remains the evidence that the legacy fallback is equivalent and
+    can be retired. This report only proves that catalog divergence is fully
+    explained by the checked correction manifest.
+    """
+    if not isinstance(corrections, dict):
+        raise ValueError('unsupported work catalog corrections schema_version')
+    try:
+        schema_version = int(corrections.get('schema_version', 0))
+        catalog_schema_version = int(corrections.get('catalog_schema_version', 0))
+    except (TypeError, ValueError):
+        raise ValueError('unsupported work catalog corrections schema_version')
+    if schema_version != 1 or catalog_schema_version != CATALOG_SCHEMA_VERSION:
+        raise ValueError('unsupported work catalog corrections schema_version')
+    correction_rows = corrections.get('corrections')
+    if not isinstance(correction_rows, list) or not all(isinstance(row, dict) for row in correction_rows):
+        raise ValueError('work catalog corrections must be a list')
+    correction_ids = [str(row.get('correction_id') or '') for row in correction_rows]
+    if not all(correction_ids) or len(correction_ids) != len(set(correction_ids)):
+        raise ValueError('work catalog corrections contain missing or duplicate correction ids')
+
+    projected_fetishes = copy.deepcopy(fetishes)
+    fetish_by_id = {int(row['id']): row for row in projected_fetishes}
+    if isinstance(compound_rows, dict):
+        projected_compounds = [
+            {
+                'key': key,
+                'id_a': int(key.split(',', 1)[0]),
+                'id_b': int(key.split(',', 1)[1]),
+                'works': copy.deepcopy(works),
+            }
+            for key, works in compound_rows.items()
+        ]
+    else:
+        projected_compounds = copy.deepcopy(list(compound_rows or []))
+    compound_by_key = {}
+    for row in projected_compounds:
+        if 'id_a' in row and 'id_b' in row:
+            key = f'{min(int(row["id_a"]), int(row["id_b"]))},{max(int(row["id_a"]), int(row["id_b"]))}'
+        else:
+            key = str(row.get('key') or '')
+        if key:
+            compound_by_key[key] = row
+
+    projection_errors = []
+    applied_count = 0
+    missing_count = 0
+    seen_targets = set()
+
+    def source_locations(source_signature):
+        locations = []
+        for row in projected_fetishes:
+            locations.extend(
+                ('fetish', int(row['id']), index)
+                for index, work in enumerate(row.get('works') or [])
+                if _effective_signature(work) == source_signature
+            )
+        for key, row in compound_by_key.items():
+            locations.extend(
+                ('compound', key, index)
+                for index, work in enumerate(row.get('works') or [])
+                if _effective_signature(work) == source_signature
+            )
+        return locations
+
+    def missing_is_approved(correction_id, owner_key, owner_id, position, source_signature):
+        moved = [
+            location
+            for location in source_locations(source_signature)
+            if location != (owner_key[0], owner_id, position)
+        ]
+        if moved:
+            projection_errors.append(
+                {
+                    'correction_id': correction_id,
+                    'source': owner_key[0],
+                    'owner_id': owner_id,
+                    'position': position,
+                    'actual_locations': moved,
+                    'reason': 'source_owner_drift',
+                }
+            )
+            return False
+        return True
+
+    def expected_aliases(correction):
+        return {
+            row.get('expected', {}).get('alias_id'): row.get('expected', {})
+            for row in correction.get('alias_removals') or []
+            if isinstance(row, dict) and isinstance(row.get('expected'), dict)
+        }
+
+    def expected_editions(correction):
+        return {
+            row.get('expected', {}).get('edition_id'): row.get('expected', {})
+            for row in correction.get('edition_updates') or []
+            if isinstance(row, dict) and isinstance(row.get('expected'), dict)
+        }
+
+    def signature(correction, link, *, target):
+        work = correction.get('target_work') if target else correction.get('expected_work')
+        if not isinstance(work, dict) or not str(work.get('canonical_title') or '').strip():
+            raise ValueError('missing work title')
+        alias_id = link.get('alias_id') if target else link.get('expected', {}).get('alias_id')
+        if alias_id:
+            alias = expected_aliases(correction).get(alias_id)
+            if not alias or not str(alias.get('alias') or '').strip():
+                raise ValueError(f'unknown alias_id {alias_id}')
+            title = str(alias['alias']).strip()
+        else:
+            title = str(work['canonical_title']).strip()
+        edition_id = link.get('edition_id') if target else link.get('expected', {}).get('edition_id')
+        if edition_id:
+            edition = expected_editions(correction).get(edition_id)
+            if not edition:
+                raise ValueError(f'unknown edition_id {edition_id}')
+            url = safe_work_url(edition.get('canonical_url'))
+        else:
+            url = ''
+        return [title, url]
+
+    for correction in correction_rows:
+        correction_id = str(correction['correction_id'])
+        link_updates = correction.get('link_updates') or []
+        if not isinstance(link_updates, list) or not all(isinstance(row, dict) for row in link_updates):
+            projection_errors.append({'correction_id': correction_id, 'reason': 'invalid_link_updates'})
+            continue
+        for update in link_updates:
+            expected = update.get('expected') if isinstance(update, dict) else None
+            table = str(update.get('table') or '') if isinstance(update, dict) else ''
+            allow_missing_value = update.get('allow_missing', False)
+            if not isinstance(allow_missing_value, bool):
+                projection_errors.append(
+                    {'correction_id': correction_id, 'reason': 'invalid_allow_missing'}
+                )
+                continue
+            allow_missing = allow_missing_value
+            if not isinstance(expected, dict) or table not in {'fetish_work_links', 'compound_work_links'}:
+                projection_errors.append({'correction_id': correction_id, 'reason': 'invalid_link_update'})
+                continue
+            try:
+                position = int(expected['position'])
+                if position < 0:
+                    raise ValueError
+                if table == 'fetish_work_links':
+                    owner_id = int(expected['fetish_id'])
+                    owner_key = ('fetish', owner_id, position)
+                    owner = fetish_by_id.get(owner_id)
+                else:
+                    id_a, id_b = sorted((int(expected['id_a']), int(expected['id_b'])))
+                    owner_id = f'{id_a},{id_b}'
+                    owner_key = ('compound', owner_id, position)
+                    owner = compound_by_key.get(owner_id)
+                if owner_key in seen_targets:
+                    raise ValueError('duplicate owner position')
+                seen_targets.add(owner_key)
+                source_signature = signature(correction, update, target=False)
+                target_signature = signature(correction, update, target=True)
+            except (KeyError, TypeError, ValueError) as exc:
+                projection_errors.append(
+                    {'correction_id': correction_id, 'reason': 'invalid_link_projection', 'detail': str(exc)}
+                )
+                continue
+
+            works = owner.get('works') if isinstance(owner, dict) else None
+            if not isinstance(works, list) or position >= len(works):
+                if allow_missing:
+                    if missing_is_approved(correction_id, owner_key, owner_id, position, source_signature):
+                        missing_count += 1
+                    continue
+                projection_errors.append(
+                    {
+                        'correction_id': correction_id,
+                        'source': owner_key[0],
+                        'owner_id': owner_id,
+                        'position': position,
+                        'reason': 'source_absent',
+                    }
+                )
+                continue
+            source_positions = [
+                index for index, work in enumerate(works) if _effective_signature(work) == source_signature
+            ]
+            if any(index != position for index in source_positions):
+                projection_errors.append(
+                    {
+                        'correction_id': correction_id,
+                        'source': owner_key[0],
+                        'owner_id': owner_id,
+                        'position': position,
+                        'actual_positions': source_positions,
+                        'reason': 'source_position_drift',
+                    }
+                )
+                continue
+            actual_signature = _effective_signature(works[position])
+            if actual_signature == source_signature:
+                works[position] = (
+                    {'title': target_signature[0], 'url': target_signature[1]}
+                    if target_signature[1]
+                    else target_signature[0]
+                )
+                applied_count += 1
+            elif actual_signature == target_signature:
+                continue
+            elif allow_missing:
+                if missing_is_approved(correction_id, owner_key, owner_id, position, source_signature):
+                    missing_count += 1
+            else:
+                projection_errors.append(
+                    {
+                        'correction_id': correction_id,
+                        'source': owner_key[0],
+                        'owner_id': owner_id,
+                        'position': position,
+                        'reason': 'source_signature_drift',
+                        'expected': source_signature,
+                        'actual': actual_signature,
+                    }
+                )
+
+    parity = catalog_parity_report(
+        catalog,
+        projected_fetishes,
+        compound_rows=projected_compounds,
+        sample_limit=sample_limit,
+    )
+    mismatch_count = int(parity['mismatch_count']) + len(projection_errors)
+    return {
+        'approved_projection_ok': mismatch_count == 0,
+        'approved_mismatch_count': mismatch_count,
+        'approved_fetish_mismatch_count': parity['fetish_mismatch_count'],
+        'approved_compound_mismatch_count': parity['compound_mismatch_count'],
+        'approved_mismatches': parity['mismatches'],
+        'approved_projection_error_count': len(projection_errors),
+        'approved_projection_errors': projection_errors[: max(0, min(int(sample_limit), 100))],
+        'approved_projection_applied_count': applied_count,
+        'approved_projection_missing_count': missing_count,
+    }
+
+
 def _catalog_editor(catalog):
     updated = copy.deepcopy(catalog)
     validate_catalog(updated)

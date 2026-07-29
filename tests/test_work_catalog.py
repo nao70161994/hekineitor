@@ -369,6 +369,146 @@ class WorkCatalogMigrationTests(unittest.TestCase):
         self.assertFalse(report['automated_parity_ok'])
         self.assertEqual(report['fetish_mismatch_count'], 1)
 
+    def _production_correction_projection_fixture(self):
+        data = ROOT / 'data'
+        catalog = json.loads((data / 'work_catalog.json').read_text(encoding='utf-8'))
+        fetishes = json.loads((data / 'fetishes.json').read_text(encoding='utf-8'))
+        compounds = json.loads((data / 'compound_works.json').read_text(encoding='utf-8'))
+        corrections = json.loads((data / 'work_catalog_corrections.json').read_text(encoding='utf-8'))
+        player_works = [
+            {
+                'title': '誰かこの状況を説明してください！',
+                'url': 'https://www.amazon.co.jp/dp/B07DL6G318?tag=hekinator-22',
+            },
+            {
+                'title': 'わたしの幸せな結婚',
+                'url': 'https://www.amazon.co.jp/dp/B07X25T546?tag=hekinator-22',
+            },
+        ]
+        next_fetishes = copy.deepcopy(fetishes)
+        next(row for row in next_fetishes if row['id'] == 104)['works'] = player_works
+        next_catalog = work_catalog.replace_fetish_works(catalog, 104, player_works)
+        return next_catalog, next_fetishes, compounds, corrections
+
+    def test_approved_projection_explains_the_six_production_correction_deltas(self):
+        catalog, fetishes, compounds, corrections = self._production_correction_projection_fixture()
+
+        raw = work_catalog.catalog_parity_report(catalog, fetishes, compound_rows=compounds)
+        approved = work_catalog.approved_projection_parity_report(
+            catalog,
+            fetishes,
+            compound_rows=compounds,
+            corrections=corrections,
+        )
+
+        self.assertEqual(raw['mismatch_count'], 6)
+        self.assertFalse(raw['automated_parity_ok'])
+        self.assertTrue(approved['approved_projection_ok'])
+        self.assertEqual(approved['approved_mismatch_count'], 0)
+        self.assertEqual(approved['approved_projection_applied_count'], 6)
+        self.assertEqual(approved['approved_projection_missing_count'], 1)
+
+    def test_approved_projection_rejects_unapproved_signature_and_shape_drift(self):
+        catalog, fetishes, compounds, corrections = self._production_correction_projection_fixture()
+        cases = {}
+
+        title_drift = copy.deepcopy(fetishes)
+        next(row for row in title_drift if row['id'] == 23)['works'][1]['title'] += ' drift'
+        cases['title'] = (title_drift, compounds)
+
+        url_drift = copy.deepcopy(fetishes)
+        next(row for row in url_drift if row['id'] == 23)['works'][1]['url'] = 'https://example.com/drift'
+        cases['url'] = (url_drift, compounds)
+
+        order_drift = copy.deepcopy(fetishes)
+        next(row for row in order_drift if row['id'] == 13)['works'].reverse()
+        cases['order'] = (order_drift, compounds)
+
+        count_drift = copy.deepcopy(compounds)
+        count_drift['68,97'].pop()
+        cases['count'] = (fetishes, count_drift)
+
+        owner_drift = copy.deepcopy(fetishes)
+        next(row for row in owner_drift if row['id'] == 23)['id'] = 999
+        cases['owner'] = (owner_drift, compounds)
+
+        for name, (candidate_fetishes, candidate_compounds) in cases.items():
+            with self.subTest(name=name):
+                report = work_catalog.approved_projection_parity_report(
+                    catalog,
+                    candidate_fetishes,
+                    compound_rows=candidate_compounds,
+                    corrections=corrections,
+                )
+                self.assertFalse(report['approved_projection_ok'])
+                self.assertGreater(report['approved_mismatch_count'], 0)
+
+    def test_approved_projection_rejects_source_moved_behind_an_applied_target(self):
+        catalog, fetishes, compounds, corrections = self._production_correction_projection_fixture()
+        owner = next(row for row in fetishes if row['id'] == 13)
+        source = copy.deepcopy(owner['works'][2])
+        owner['works'][2]['title'] = '学園物の乙女ゲームの世界に転生したけど、チート持ちの背景男子生徒だったようです。'
+        owner['works'].append(source)
+
+        report = work_catalog.approved_projection_parity_report(
+            catalog,
+            fetishes,
+            compound_rows=compounds,
+            corrections=corrections,
+        )
+
+        self.assertFalse(report['approved_projection_ok'])
+        self.assertIn(
+            'source_position_drift',
+            [row['reason'] for row in report['approved_projection_errors']],
+        )
+
+    def test_approved_projection_rejects_allow_missing_source_moved_to_another_owner(self):
+        catalog, fetishes, compounds, corrections = self._production_correction_projection_fixture()
+        moved_source = {
+            'title': 'アンジェリーク',
+            'url': 'https://www.amazon.co.jp/dp/B011KZQVH4?tag=hekinator-22',
+        }
+        next(row for row in fetishes if row['id'] == 105)['works'] = [moved_source]
+        catalog = work_catalog.replace_fetish_works(catalog, 105, [moved_source])
+
+        report = work_catalog.approved_projection_parity_report(
+            catalog,
+            fetishes,
+            compound_rows=compounds,
+            corrections=corrections,
+        )
+
+        self.assertFalse(report['approved_projection_ok'])
+        self.assertIn(
+            'source_owner_drift',
+            [row['reason'] for row in report['approved_projection_errors']],
+        )
+
+    def test_approved_projection_rejects_non_boolean_allow_missing(self):
+        catalog, fetishes, compounds, corrections = self._production_correction_projection_fixture()
+        corrections = copy.deepcopy(corrections)
+        optional = next(
+            update
+            for correction in corrections['corrections']
+            for update in correction['link_updates']
+            if update.get('allow_missing')
+        )
+        optional['allow_missing'] = 'false'
+
+        report = work_catalog.approved_projection_parity_report(
+            catalog,
+            fetishes,
+            compound_rows=compounds,
+            corrections=corrections,
+        )
+
+        self.assertFalse(report['approved_projection_ok'])
+        self.assertIn(
+            'invalid_allow_missing',
+            [row['reason'] for row in report['approved_projection_errors']],
+        )
+
     def test_review_merge_preserves_each_source_display_title_as_alias(self):
         catalog = work_catalog.build_catalog_from_inline(
             [
