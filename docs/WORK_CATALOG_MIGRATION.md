@@ -44,6 +44,18 @@ manifestは全件を一つのtransaction/journalで適用します。同一manif
 `python scripts/work_catalog_rollout_check.py`はread-only tokenだけで`/api/admin/works_health`を反復取得し、worker集合、catalog/DB/cache revision、parity、pending review、fallback/load failureを`artifacts/work_catalog_rollout_report.json`へ記録します。`.github/workflows/work-catalog-rollout-check.yml`は同じ証拠をartifactとして30日保持します。
 
 `WORK_CATALOG_EXPECTED_WORKERS`はplatformのinstance一覧から設定し、観測できた数に合わせて下げません。自動gate成功後も、十分な期間のartifactを比較し、v3 restore rehearsalと手動サインオフを完了するまではinlineを廃止しません。
+
+## Production evidence (2026-07-29)
+
+旧生成規則で初期化済みの本番PostgreSQLには、source digest `7bbadf34074f154d1e69cf40382834c641aaf30b5edb6432d05b7aa86b87bd17`専用の互換review manifestを適用しました。既存の追加性癖・推薦を保持した結果はmaster 374、edition 295、alias 156、fetish link 396、compound link 185、resolved review 79、pending 0です。最終catalog digestは`a80fe4106e76f906fb09bbe2338b79bbad641edcfbcca0daafd7958609ae2501`です。
+
+- 適用前v3 backup: workflow run `30426638387`
+- manifest適用成功: workflow run `30426768281`（review 79 / pending 0、normalization 46、placeholder removal 4、revision 3）
+- 65秒・12 sample rollout gate: workflow run `30426804937`（rolling deploy中の2 worker IDを観測し、双方revision 3、fallback/load failure/mismatch 0）
+- 適用後v3 backup: workflow run `30427085538`（上記最終digestと件数を再確認）
+- 通常/compound診断の手動完走: 確認済み
+
+この証跡は本番移行の自動gateを満たしますが、staging v3 restore rehearsalと旧inline廃止の最終承認を代替しません。
 ## Deploy前
 
 1. backup format v3のmatrix backupを保存し、`work_catalog`を含むことを確認する。

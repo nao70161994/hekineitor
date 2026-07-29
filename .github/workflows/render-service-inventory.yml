@@ -1,0 +1,66 @@
+name: Render Service Inventory
+
+on:
+  workflow_dispatch:
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Collect redacted service inventory
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          token = os.environ.get('RENDER_API_KEY', '')
+          if not token:
+              raise SystemExit('RENDER_API_KEY is required')
+          request = urllib.request.Request(
+              'https://api.render.com/v1/services?limit=100&includePreviews=true',
+              headers={'Authorization': f'Bearer {token}', 'Accept': 'application/json'},
+          )
+          with urllib.request.urlopen(request, timeout=30) as response:
+              payload = json.load(response)
+          if not isinstance(payload, list):
+              raise SystemExit('Render service inventory did not return a list')
+          services = []
+          for item in payload:
+              service = item.get('service', item) if isinstance(item, dict) else {}
+              details = service.get('serviceDetails') or {}
+              services.append({
+                  'id': service.get('id'),
+                  'name': service.get('name'),
+                  'type': service.get('type'),
+                  'branch': service.get('branch'),
+                  'repo': service.get('repo'),
+                  'url': details.get('url'),
+                  'suspended': service.get('suspended'),
+                  'environment_id': service.get('environmentId'),
+              })
+          report = {
+              'schema_version': 1,
+              'observed_at': datetime.now(timezone.utc).isoformat(),
+              'service_count': len(services),
+              'services': services,
+          }
+          Path('artifacts').mkdir(exist_ok=True)
+          Path('artifacts/render_service_inventory.json').write_text(
+              json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8'
+          )
+          print(f"Observed {len(services)} Render services")
+          PY
+
+      - name: Upload redacted inventory
+        uses: actions/upload-artifact@v7
+        with:
+          name: render-service-inventory-${{ github.run_id }}
+          path: artifacts/render_service_inventory.json
+          retention-days: 7
