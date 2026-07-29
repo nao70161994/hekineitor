@@ -109,9 +109,7 @@ def build_report(
             row[key] = max(row[key], int(runtime.get(field) or 0))
         row['errors'].update(_migration_errors(migration))
         retirement = migration.get('retirement') or {}
-        raw_parity_ok = migration.get('automated_parity_ok') is True and not int(
-            migration.get('mismatch_count') or 0
-        )
+        raw_parity_ok = migration.get('automated_parity_ok') is True and not int(migration.get('mismatch_count') or 0)
         if not raw_parity_ok:
             row['retirement_blockers'].add('catalog_inline_mismatch')
         row['retirement_blockers'].update(str(value) for value in retirement.get('blockers') or [])
@@ -155,8 +153,7 @@ def build_report(
         'automated_gate_ok': not errors,
         'manual_signoff_required': True,
         'retirement_readiness': {
-            'automated_eligible': bool(workers)
-            and all(row['retirement_ready'] for row in serialized_workers.values()),
+            'automated_eligible': bool(workers) and all(row['retirement_ready'] for row in serialized_workers.values()),
             'blockers': sorted(retirement_blockers),
             'raw_inline_parity_required': True,
         },

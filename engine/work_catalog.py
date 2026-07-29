@@ -583,9 +583,7 @@ def approved_projection_parity_report(catalog, fetishes, *, compound_rows=(), co
             table = str(update.get('table') or '') if isinstance(update, dict) else ''
             allow_missing_value = update.get('allow_missing', False)
             if not isinstance(allow_missing_value, bool):
-                projection_errors.append(
-                    {'correction_id': correction_id, 'reason': 'invalid_allow_missing'}
-                )
+                projection_errors.append({'correction_id': correction_id, 'reason': 'invalid_allow_missing'})
                 continue
             allow_missing = allow_missing_value
             if not isinstance(expected, dict) or table not in {'fetish_work_links', 'compound_work_links'}:
