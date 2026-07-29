@@ -133,7 +133,7 @@ test('shows answer progress, a delay message, and safely recovers after failure'
   await page.route('**/api/answer', async route => {
     answerCount += 1;
     if (answerCount === 1) {
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      await new Promise(resolve => setTimeout(resolve, 2500));
       await route.fulfill({json: {
         action: 'question', question_id: 1, question: '失敗確認', count: 1, total: 20,
       }});
