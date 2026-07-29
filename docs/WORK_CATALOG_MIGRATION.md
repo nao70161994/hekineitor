@@ -94,6 +94,20 @@ P0 correction適用後の本番catalogはmaster 375、edition 295、alias 153、
 
 これにより`catalog_inline_mismatch`は解消しました。残るretirement条件はstaging v3 restore rehearsal、手動サインオフ、および必要な観測期間です。
 
+### Schema v2 bibliography rollout (2026-07-30)
+
+schema v2と一次書誌18件を本番へ適用しました。最終catalogはmaster 375、edition 307、edition identifier 12、alias 158、fetish link 396、compound link 185、resolved review 79、pending 0です。媒体種別18件、紙版書誌12件を保持し、最終digestは`1c31845b425884afaca632c3f5c53d3dedcc23548cfc6bd06cbf58212cbb1e80`です。
+
+- 初回適用前v3 backup: workflow run `30497490375`
+- 初回適用: workflow run `30497534529`（mutationは完了したが、適用後GETの一過性TLS resetでjobはfailure。直後backup `30497617944`で書誌12件とparity 0を確認）
+- 安全性改善: GETだけを最大3回再試行し、POSTは自動再送しない。seed cleanup後の冗長alias整理状態もbibliographyの正規な冪等状態として検証する
+- 最終release CI: workflow run `30500297413`（全check、coverage、Chromium E2E 8件成功）
+- 最終適用前v3 backup: workflow run `30500737771`
+- manifest最終検証: workflow run `30500779528`（review skip、bibliography 18 entries / edition 0 / identifier 0、raw/approved mismatch 0、pending 0、全revision 20、監査fingerprint一致）
+- 最終適用後v3 backup: workflow run `30500836045`（上記digest・件数、137 fetish、153 question、20,961 matrix row、ISBN 12件を再確認）
+
+最終backupをchecked compound sourceと照合したraw parityはfetish owner 137、compound owner 77、mismatch 0です。公開healthもPostgreSQL、degraded reasonなし、matrix 137x153、4xx/5xx 0を確認しました。
+
 ## Deploy前
 
 1. backup format v3のmatrix backupを保存し、`work_catalog`を含むことを確認する。
