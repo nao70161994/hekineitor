@@ -13,7 +13,7 @@ sh scripts/check.sh
 npm run test:e2e
 ```
 
-`scripts/check.sh`はPython compile、既存の安全性check、Ruff lint/format、段階導入したmypy、Python testとcoverage最低基準、ESLint、Vitestをまとめて実行します。PlaywrightのChromium E2Eは、診断完走、manifest/offline、回答待機と通信失敗復帰、中断復帰、除外再挑戦、追加質問、簡易・複合詳細feedback、理由付き作品表示とclick計測、共有失敗fallback、履歴再閲覧、320px/横向きでの最下部到達をCIの専用stepで検証します。
+`scripts/check.sh`はPython compile、既存の安全性check、Ruff lint/format、段階導入したmypy、Python testとcoverage最低基準、ESLint、Vitestをまとめて実行します。PlaywrightのChromium E2Eは、診断完走、manifest/offline、回答待機と通信失敗復帰、中断復帰、通常・除外再挑戦、追加質問、簡易・複合詳細feedbackと完了event、対抗候補との差・複合説明、理由付き作品表示とclick計測、共有失敗fallback、履歴再閲覧、320px/横向きでの最下部到達をCIの専用stepで検証します。
 
 個別に問題を切り分ける場合は次を使います。
 

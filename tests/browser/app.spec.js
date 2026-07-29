@@ -1,4 +1,41 @@
+import {readFileSync} from 'node:fs';
+import {resolve} from 'node:path';
 import {expect, test} from '@playwright/test';
+
+const gameplayEventPath = resolve(process.cwd(), 'data/gameplay_events.jsonl');
+
+function gameplayEventCount(eventName) {
+  try {
+    return readFileSync(gameplayEventPath, 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .map(line => JSON.parse(line))
+      .filter(event => event.event_name === eventName)
+      .length;
+  } catch {
+    return 0;
+  }
+}
+
+async function completeDiagnosis(page) {
+  const result = page.locator('#result-screen');
+  const question = page.locator('#question-text');
+  const yesButton = page.getByRole('button', {name: 'はい', exact: true});
+  for (let attempt = 0; attempt < 30 && !(await result.isVisible()); attempt += 1) {
+    const previousQuestion = await question.textContent();
+    await yesButton.click();
+    await page.waitForFunction(
+      previous => {
+        const resultScreen = document.querySelector('#result-screen');
+        const questionText = document.querySelector('#question-text');
+        return !resultScreen?.classList.contains('hidden') || questionText?.textContent !== previous;
+      },
+      previousQuestion,
+      {timeout: 10_000},
+    );
+  }
+  await expect(result).toBeVisible();
+}
 
 test('completes a diagnosis in a real browser', async ({page}) => {
   await page.goto('/');
@@ -104,6 +141,8 @@ const compoundGuess = {
   fetish_name: '本命',
   fetish_desc: 'テスト用の複合結果',
   probability: 78,
+  runner_up: {fetish_id: 4, fetish_name: '対抗候補', probability: 70, gap_points: 8},
+  contrastive_reasons: [{text: '対抗候補との差になった決め手', ans: 1}],
   compound_explanation: '本命と二つの要素が同時に表れました。',
   compound: [
     {fetish_id: 2, fetish_name: '要素A', probability: 69, reasons: [{text: '要素Aの決め手', ans: 1}]},
@@ -207,6 +246,10 @@ test('submits compound detail feedback atomically and tracks a work click', asyn
   await page.goto('/');
   await page.getByRole('button', {name: 'スタート'}).click();
   await page.getByRole('button', {name: 'はい', exact: true}).click();
+  await expect(page.getByRole('region', {name: '対抗候補「対抗候補」との差になった回答'}))
+    .toContainText('対抗候補との差になった決め手');
+  await expect(page.locator('#result-rival')).toContainText('対抗候補「対抗候補」');
+  await expect(page.locator('#result-desc')).toContainText('本命と二つの要素が同時に表れました。');
   await expect(page.locator('#compound-reasons-section')).toContainText('要素Aの決め手');
   await expect(page.locator('.work-recommendation').first()).toContainText('複合要素が重なる理由');
   await page.evaluate(() => document.addEventListener('click', event => {
@@ -220,10 +263,33 @@ test('submits compound detail feedback atomically and tracks a work click', asyn
   await page.getByRole('button', {name: '要素A: 惜しい'}).click();
   await page.getByRole('button', {name: '要素B: 違う'}).click();
   await page.getByRole('button', {name: '確定して学習'}).click();
+
   await expect(page.locator('#done-screen')).toBeVisible();
   expect(confirmBody).toMatchObject({
     fetish_id: 1, compound_ids: [2, 3], correct_ids: [1], maybe_ids: [2], wrong_ids: [3],
   });
+});
+
+test('records feedback completion and a normal non-exclusion retry', async ({page}) => {
+  const feedbackBefore = gameplayEventCount('feedback_completed');
+  const retryBefore = gameplayEventCount('retry_started');
+
+  await page.goto('/');
+  await page.getByRole('button', {name: 'スタート'}).click();
+  await completeDiagnosis(page);
+  await page.getByRole('button', {name: '当たってる'}).click();
+  await expect(page.locator('#quick-feedback-status')).toContainText('正解として学習しました');
+  await expect.poll(() => gameplayEventCount('feedback_completed')).toBeGreaterThan(feedbackBefore);
+
+  await page.getByRole('button', {name: 'タイトルに戻る'}).click();
+  const retryRequest = page.waitForRequest(request => (
+    request.url().endsWith('/api/start') && request.method() === 'POST'
+  ));
+  await page.getByRole('button', {name: 'スタート'}).click();
+  const request = await retryRequest;
+  expect(request.postData()).toBeNull();
+  await expect(page.locator('#question-screen')).toBeVisible();
+  await expect.poll(() => gameplayEventCount('retry_started')).toBeGreaterThan(retryBefore);
 });
 
 test('falls back to selectable share text and reaches the bottom on narrow layouts', async ({page}) => {

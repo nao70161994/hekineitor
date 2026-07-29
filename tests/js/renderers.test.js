@@ -28,6 +28,58 @@ describe('HekiRenderers screen transitions', () => {
     expect(document.getElementById('result-rival').classList.contains('hidden')).toBe(false);
   });
 
+  it('separates contrastive evidence from ordinary reasons with an accessible label', () => {
+    document.body.innerHTML += `
+      <section id="reasons-section" class="hidden">
+        <div class="reasons-label">決め手になった回答</div>
+        <div id="reasons-list"></div>
+      </section>`;
+    window.HekiRenderers.renderContrastiveReasons(
+      [{text: '対抗候補より本命を支持した回答', ans: 1}],
+      {fetish_name: '対抗候補'},
+      String,
+    );
+
+    const section = document.getElementById('contrastive-reasons-section');
+    expect(section.getAttribute('aria-labelledby')).toBe('contrastive-reasons-label');
+    expect(document.getElementById('contrastive-reasons-label').textContent)
+      .toBe('対抗候補「対抗候補」との差になった回答');
+    expect(section.textContent).toContain('対抗候補より本命を支持した回答');
+    expect(document.querySelector('#reasons-section').textContent).toContain('決め手になった回答');
+  });
+
+  it('renders runner-up evidence and the compound explanation in separate regions', () => {
+    document.body.innerHTML += `
+      <div id="result-kicker"></div><div id="result-badges"></div>
+      <div id="result-rival" class="hidden"></div><div id="result-desc"></div>
+      <section id="reasons-section" class="hidden">
+        <div class="reasons-label">決め手になった回答</div>
+        <div id="reasons-list"></div>
+      </section>`;
+    window.HekiRenderers.renderGuess(
+      {
+        fetish_id: 1,
+        fetish_name: '本命',
+        fetish_desc: '本命の説明',
+        probability: 72,
+        runner_up: {fetish_name: '対抗候補', gap_points: 8.5},
+        contrastive_reasons: [{text: '対抗候補との差になった回答', ans: 1}],
+        reasons: [{text: '本命そのものの決め手', ans: 0.5}],
+        compound_explanation: '本命と要素Aの傾向が同時に表れました。',
+        compound: [{fetish_id: 2, fetish_name: '要素A', fetish_desc: '要素Aの説明'}],
+        profile: [], related: [], works: [], cross_works: [], top_chart: [],
+      },
+      {escapeHtml: String, safeExternalUrl: String},
+    );
+
+    expect(document.getElementById('result-rival').textContent).toContain('対抗候補「対抗候補」');
+    expect(document.getElementById('result-desc').textContent)
+      .toContain('本命と要素Aの傾向が同時に表れました。');
+    expect(document.getElementById('contrastive-reasons-section').textContent)
+      .toContain('対抗候補との差になった回答');
+    expect(document.getElementById('reasons-section').textContent).toContain('本命そのものの決め手');
+  });
+
   it('renders stable work identity attributes', () => {
     const html = window.HekiRenderers.renderWorkTag(
       {title: 'Work', url: 'https://example.test/work', work_id: 'wrk_1', edition_id: 'wed_1'},

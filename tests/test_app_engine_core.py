@@ -164,11 +164,27 @@ class TestEngine(FileSnapshotMixin, unittest.TestCase):
 
         client = flask_app.test_client()
         res = client.post('/api/start')
-        q = res.get_json()['question_id']
-        for _ in range(6):
+        data = res.get_json()
+        first_axis = data['axis']
+        q = data['question_id']
+        fourth_response = None
+        for answer_number in range(1, 7):
             r = client.post('/api/answer', json={'question_id': q, 'answer': 0})
             d = r.get_json()
+            if answer_number == 4:
+                fourth_response = d
             if d.get('action') == 'guess':
                 break
             q = d.get('question_id', q)
+        self.assertEqual(fourth_response.get('action'), 'question')
+        self.assertNotEqual(fourth_response.get('axis'), first_axis)
+        self.assertIn(
+            self.eng._question_category(fourth_response['question_id']),
+            {'attribute', 'world', 'aesthetic', 'value', 'role'},
+        )
+        self.assertIn('別の軸', fourth_response.get('hint', ''))
         self.assertEqual(d.get('action'), 'guess')
+        self.assertTrue(d.get('provisional'))
+        self.assertEqual(d.get('certainty'), 'provisional')
+        self.assertEqual(d.get('provisional_reason'), 'insufficient_information')
+        self.assertTrue(d.get('can_continue'))

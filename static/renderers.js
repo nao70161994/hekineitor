@@ -124,10 +124,8 @@ window.HekiRenderers = (() => {
     renderConfirmItems(data, escapeHtml);
     renderProfile(data.profile, escapeHtml);
     renderRelated(data.related, escapeHtml);
-    renderReasons(
-      [...(data.contrastive_reasons || []), ...(data.reasons || [])].slice(0, 5),
-      escapeHtml,
-    );
+    renderContrastiveReasons(data.contrastive_reasons, data.runner_up, escapeHtml);
+    renderReasons(data.reasons, escapeHtml);
     renderCompoundReasons(data, escapeHtml);
     renderWorks(data, {escapeHtml, safeExternalUrl, amazonAssociateId, resultName: displayName});
 
@@ -271,8 +269,41 @@ window.HekiRenderers = (() => {
       section.classList.add('hidden');
     }
   }
+
+  function renderContrastiveReasons(reasons, runnerUp, escapeHtml) {
+    const normalSection = document.getElementById('reasons-section');
+    if (!normalSection) return;
+    let section = document.getElementById('contrastive-reasons-section');
+    if (!section) {
+      section = document.createElement('section');
+      section.id = 'contrastive-reasons-section';
+      section.className = 'reasons-section hidden';
+      section.setAttribute('aria-labelledby', 'contrastive-reasons-label');
+      section.innerHTML = `
+        <div class="reasons-label" id="contrastive-reasons-label"></div>
+        <div id="contrastive-reasons-list"></div>`;
+      normalSection.before(section);
+    }
+    const label = section.querySelector('#contrastive-reasons-label');
+    const list = section.querySelector('#contrastive-reasons-list');
+    const rows = (reasons || []).filter(row => row && row.text).slice(0, 3);
+    if (!runnerUp || !rows.length) {
+      if (list) list.innerHTML = '';
+      section.classList.add('hidden');
+      return;
+    }
+    if (label) {
+      label.textContent = `対抗候補「${runnerUp.fetish_name}」との差になった回答`;
+    }
+    const ansText = {1:'はい', 0.5:'どちらかといえばはい', '-0.5':'どちらかといえばいいえ', '-1':'いいえ'};
+    if (list) {
+      list.innerHTML = rows.map(row => `<div class="reason-item"><span>${escapeHtml(row.text)}</span><span class="ans-badge">${escapeHtml(ansText[row.ans] || row.ans)}</span></div>`).join('');
+    }
+    section.classList.remove('hidden');
+  }
   function renderCompoundReasons(data, escapeHtml) {
     const section = document.getElementById('compound-reasons-section');
+
     const list = document.getElementById('compound-reasons-list');
     if (!section || !list) return;
     const compound = data.compound || [];
@@ -364,6 +395,7 @@ window.HekiRenderers = (() => {
     showToast,
     renderGuess,
     toggleMoreWorks,
+    renderContrastiveReasons,
     renderCompoundReasons,
     renderWorks,
     renderResultDrama,
