@@ -89,6 +89,7 @@ DAILY:
 - 完走/feedback率
 - 上位結果
 - heavy_result_ratio
+- 動的prior旧データの `schema_version` / `mismatched_count` / `excess_correct_count` / migration policy
 - シェア率
 - 離脱質問TOP
 - YES率異常質問
@@ -99,7 +100,9 @@ DAILY:
 
 未学習質問は `/api/admin/question_events` の `cold_start_summary` と `cold_start_questions` で確認します。20回未満はデータ収集中なので通知せず、20回以上のfeedback learning後もdiscriminationが `0.02` 未満の場合だけ `needs_review` としてINSIGHTSに出します。このシグナルはntfy WARNにはせず、質問を自動停止しません。`/api/admin/operations_snapshot` にも同じ集約が含まれます。
 
-動的priorの旧データ母集団は `/api/admin/operations_snapshot` の `dynamic_prior_shadow` で確認します。`mismatched_count` は `correct > guessed` の性癖数、`excess_correct_count` は露出母集団を超えた正解イベント総数です。由来を復元できない旧イベントは書き換えず、runtime clampと旧weightとの差をshadow比較します。本番デプロイ後はこの値を記録し、新しい`correction_selected`分離後に増加しないことを確認します。
+動的priorの旧データ母集団は `/api/admin/operations_snapshot` の `dynamic_prior_shadow` で確認します。`operations_check.py` は行詳細を保存・通知せず、`schema_version`、`mismatched_count`、`excess_correct_count`、`migration_policy.strategy`、`irreversible_reclassification_performed` だけをDAILY metricsへ出します。`mismatched_count` は `correct > guessed` の性癖数、`excess_correct_count` は露出母集団を超えた正解イベント総数です。由来を復元できない旧イベントは書き換えず、runtime clampと旧weightとの差をshadow比較します。
+
+本番デプロイ後は定期実行ログの `dynamic_prior_shadow=...` を時系列で記録し、新しい `correction_selected` 分離後に `mismatched` と `excess_correct` が増加しないことを確認します。取得不能は `operations snapshot unavailable`、必須値の欠落・型不正・負数は `dynamic prior shadow invalid` としてWARNになります。`strategy` が `non_destructive_runtime_clamp` 以外、または `irreversible:true` の場合もWARNです。この警告が出た場合は自動修復せず、該当デプロイの変更内容とDBバックアップを確認してから判断します。
 
 ## 通知例
 
@@ -140,7 +143,7 @@ WORK_CATALOG_EXPECTED_WORKERS=1 \
 python scripts/work_catalog_rollout_check.py
 ```
 
-12回・5秒間隔を既定とし、workerごとにcatalog/DB/cache revision、parity、pending review、catalog read、legacy fallback、load failureを集約します。`WORK_CATALOG_EXPECTED_WORKERS`は推測せず、platformのinstance設定と一致させます。結果は`artifacts/work_catalog_rollout_report.json`に保存されます。
+12回・5秒間隔を既定とし、workerごとにcatalog/DB/cache revision、approved/raw parity、pending review、catalog read、legacy fallback、load failureを集約します。runtime gateはapproved projection parityを使い、raw mismatchと`retirement.blockers`は別の`retirement_readiness`へ集約します。runtime gate成功はinline廃止可能を意味しません。`WORK_CATALOG_EXPECTED_WORKERS`は推測せず、platformのinstance設定と一致させます。結果は`artifacts/work_catalog_rollout_report.json`に保存されます。
 
 `.github/workflows/work-catalog-rollout-check.yml`は6時間ごと、および手動dispatchで同じgateを実行し、30日保持のartifactを残します。このgateの成功は短時間の自動証拠であり、[staging v3 restore rehearsal](STAGING_V3_RESTORE_REHEARSAL.md)と人手サインオフを代替しません。
 ## GitHub Actions推奨構成

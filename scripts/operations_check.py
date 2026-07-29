@@ -267,6 +267,45 @@ def _completion_label(metric: dict[str, Any]) -> str:
     return f'completion_rate={_pct(rate)}{suffix}{sample}'
 
 
+def _dynamic_prior_shadow_metric(snapshot: Mapping[str, Any]) -> tuple[str, list[str]]:
+    shadow = snapshot.get('dynamic_prior_shadow')
+    if not isinstance(shadow, Mapping):
+        raise ValueError('dynamic_prior_shadow is missing')
+    policy = shadow.get('migration_policy')
+    if not isinstance(policy, Mapping):
+        raise ValueError('migration_policy is missing')
+
+    schema_version = shadow.get('schema_version')
+    mismatched_count = shadow.get('mismatched_count')
+    excess_correct_count = shadow.get('excess_correct_count')
+    strategy = policy.get('strategy')
+    irreversible = policy.get('irreversible_reclassification_performed')
+    if not isinstance(schema_version, int) or isinstance(schema_version, bool) or schema_version != 1:
+        raise ValueError('schema_version must be 1')
+    for name, value in (
+        ('mismatched_count', mismatched_count),
+        ('excess_correct_count', excess_correct_count),
+    ):
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            raise ValueError(f'{name} must be a non-negative integer')
+    if not isinstance(strategy, str) or not strategy.strip():
+        raise ValueError('migration_policy.strategy must be a non-empty string')
+    if not isinstance(irreversible, bool):
+        raise ValueError('irreversible_reclassification_performed must be boolean')
+
+    warnings = []
+    if strategy != 'non_destructive_runtime_clamp':
+        warnings.append(f'dynamic prior shadow unexpected migration strategy={strategy}')
+    if irreversible:
+        warnings.append('dynamic prior shadow reports irreversible reclassification')
+    metric = (
+        f'dynamic_prior_shadow=schema:{schema_version},'
+        f'mismatched:{mismatched_count},excess_correct:{excess_correct_count},'
+        f'strategy:{strategy},irreversible:{str(irreversible).lower()}'
+    )
+    return metric, warnings
+
+
 def _demote_public_timeout_criticals(critical, warn, *, admin_signal_available=False, daily=None):
     daily = daily or []
     if not (admin_signal_available or daily):
@@ -326,6 +365,17 @@ def build_report(
                 critical.append('preflight failed: ' + ', '.join(str(name) for name in failed[:5]))
         except Exception as exc:
             warn.append(f'preflight unavailable: {_error_label(exc)}')
+
+        try:
+            operations_snapshot = json_getter('/api/admin/operations_snapshot')
+            admin_signal_available = True
+            shadow_metric, shadow_warnings = _dynamic_prior_shadow_metric(operations_snapshot)
+            daily.append(shadow_metric)
+            warn.extend(shadow_warnings)
+        except ValueError as exc:
+            warn.append(f'dynamic prior shadow invalid: {exc}')
+        except Exception as exc:
+            warn.append(f'operations snapshot unavailable: {_error_label(exc)}')
 
         try:
             works_health = json_getter('/api/admin/works_health')

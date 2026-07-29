@@ -197,6 +197,7 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertEqual(report['severity'], 'CRITICAL')
         self.assertIn('storage=local_json', report['message'])
         self.assertIn('heavy_result_ratio=unavailable (stats_history_fallback)', report['message'])
+        self.assertIn('operations snapshot unavailable: AssertionError', report['message'])
         self.assertIn('Q1 95.0% (10/12, tone)', report['message'])
         self.assertNotIn(secret, report['message'])
         self.assertNotIn('ADMIN_READ_TOKEN', report['message'])
@@ -212,6 +213,19 @@ class OperationsMonitoringTests(unittest.TestCase):
                 }
             if path == '/api/admin/preflight':
                 return {'checks': []}
+            if path == '/api/admin/operations_snapshot':
+                return {
+                    'dynamic_prior_shadow': {
+                        'schema_version': 1,
+                        'mismatched_count': 2,
+                        'excess_correct_count': 7,
+                        'rows': [{'fetish_name': '秘密にするべき行詳細'}],
+                        'migration_policy': {
+                            'strategy': 'non_destructive_runtime_clamp',
+                            'irreversible_reclassification_performed': False,
+                        },
+                    }
+                }
             if path == '/api/admin/works_health':
                 return {'maintenance': {'works_count': 100}}
             if path.startswith('/api/admin/result_exposures'):
@@ -246,6 +260,12 @@ class OperationsMonitoringTests(unittest.TestCase):
 
         self.assertEqual(report['severity'], 'WARN')
         self.assertEqual(report['warn'], ['dominant result 7d=制服 100.0% (10/10)'])
+        self.assertIn(
+            'dynamic_prior_shadow=schema:1,mismatched:2,excess_correct:7,'
+            'strategy:non_destructive_runtime_clamp,irreversible:false',
+            report['message'],
+        )
+        self.assertNotIn('秘密にするべき行詳細', report['message'])
         self.assertIn('YES率90%以上質問', report['message'])
         self.assertIn('share rate low=0.0%', report['message'])
         self.assertIn(
@@ -253,6 +273,47 @@ class OperationsMonitoringTests(unittest.TestCase):
         )
         self.assertIn('未学習質問 needs_review=1', report['message'])
         self.assertIn('insights:', report['message'])
+
+    def test_dynamic_prior_shadow_metric_warns_on_unsafe_policy(self):
+        metric, warnings = operations_check._dynamic_prior_shadow_metric(
+            {
+                'dynamic_prior_shadow': {
+                    'schema_version': 1,
+                    'mismatched_count': 1,
+                    'excess_correct_count': 3,
+                    'migration_policy': {
+                        'strategy': 'rewrite_legacy_events',
+                        'irreversible_reclassification_performed': True,
+                    },
+                }
+            }
+        )
+
+        self.assertIn('strategy:rewrite_legacy_events', metric)
+        self.assertIn('irreversible:true', metric)
+        self.assertEqual(
+            warnings,
+            [
+                'dynamic prior shadow unexpected migration strategy=rewrite_legacy_events',
+                'dynamic prior shadow reports irreversible reclassification',
+            ],
+        )
+
+    def test_dynamic_prior_shadow_metric_rejects_invalid_counts(self):
+        with self.assertRaisesRegex(ValueError, 'mismatched_count'):
+            operations_check._dynamic_prior_shadow_metric(
+                {
+                    'dynamic_prior_shadow': {
+                        'schema_version': 1,
+                        'mismatched_count': -1,
+                        'excess_correct_count': 0,
+                        'migration_policy': {
+                            'strategy': 'non_destructive_runtime_clamp',
+                            'irreversible_reclassification_performed': False,
+                        },
+                    }
+                }
+            )
 
     def test_operations_report_warns_when_admin_token_missing(self):
         called = []
