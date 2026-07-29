@@ -17,6 +17,10 @@ PRODUCTION_APP_URL=https://<production-host>
 
 復元元は`Matrix Backup & DB Expiry Check`の成功runが生成した`matrix-backup-<run_id>` artifactです。artifactには`data/matrix_backup.json`が含まれ、30日以内である必要があります。
 
+P0 correction後の現行releaseを検証する復元元は、post-correction backup run `30473032447`以降を使います。backupのcatalog correction状態とstagingへdeployしたchecked inline projectionが一致しなければ実行しません。pre-correction backupを使うrollback演習は、同じsource世代のcode/data artifactを別途deployして行います。DB modeではcompound inlineをDBへ永続化できないため、backup catalogに必要なprojectionとdeploy済みcompound JSONが異なる場合はimport前にfail-closedします。
+
+本番backupをstagingへ復元してよいのはデータを受け入れる隔離されたstaging serviceだけです。production credential、production database、production serviceの複製接続先は使いません。
+
 ## 実行
 
 Actionsの`Staging v3 Restore Rehearsal`を手動実行し、次を指定します。
@@ -44,7 +48,7 @@ workflowは次を順に実行します。
 3. staging専用Basic認証で`/admin`のcookieとCSRF tokenを取得する。
 4. `/api/admin/import_matrix/dry_run`で`complete=true`、`valid_rows=expected_rows`、`skipped_rows=0`、`ignored_source_rows=0`を確認する。
 5. payloadへ`confirm_text=IMPORT`を加え、CSRF付きでimportする。imported/expected/restored件数とskipped/ignoredを再検証する。
-6. stagingからv3 backupを再exportし、復元前後の正規化catalog SHA-256 digestと全テーブル件数を照合する。
+6. stagingからv3 backupを再exportし、復元前後の正規化catalog SHA-256 digestと全テーブル件数を照合する。既存ownerのbackup inline worksも同じtransactionで復元され、catalogとのraw parityが0であることを確認する。
 7. `/api/admin/works_health`でparity、DB/snapshot/cache revision一致、pending review=0、fallback/load failure=0を確認する。
 8. 公開`/health`、`/`、`/fetishes`、active HTTPS editionを持つ`/fetish/<id>`、`/api/start`をsmokeする。canonical、OG title、JSON-LD、affiliate tag、診断開始response contractを確認する。
 9. `compound_work_links`が復元・再exportされdigestに含まれることを確認する。

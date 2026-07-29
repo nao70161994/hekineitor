@@ -49,15 +49,15 @@ manifestは全件を一つのtransaction/journalで適用します。同一manif
 }
 ```
 
-成功時は`correction_count=4`、`split_count=1`、`retitle_count=3`と監査fingerprint `2e629957bd11a85f14269298aa8227298faa16fdba21cf82e19fbceb9d0bf76e`を照合します。訂正済みcatalogへworkflowを再実行すると、訂正内容を上書きする旧review段階はskipし、seed cleanupとcorrection manifestだけを冪等確認します。
+成功時は`correction_count=4`、`split_count=1`、`retitle_count=3`、4つの`inline_*_count`、監査fingerprint `2e629957bd11a85f14269298aa8227298faa16fdba21cf82e19fbceb9d0bf76e`を照合します。DBではcatalog訂正と対象`fetishes.works`を同一transactionへ含めます。訂正済みcatalogへworkflowを再実行すると、訂正内容を上書きする旧review段階はskipし、seed cleanupとcorrection manifestおよびinline同期を冪等確認します。
 
-healthは2種類のparityを混同しません。従来の`automated_parity_ok` / `mismatch_count`は未変換inlineとのraw比較を維持し、legacy fallbackの同値性とinline廃止可否だけに使います。`approved_projection_ok` / `approved_mismatch_count`は、correction manifestで固定されたowner・position・旧title/URLを新title/URLへ厳密投影した期待値との比較です。旧signatureの別position・別ownerへの移動、owner・件数・順序・URLの差、未承認titleはfail-closedです。`allow_missing`は真偽値だけを許可し、旧sourceが全ownerから不存在の場合だけno-opにします。
+healthは2種類のparityを混同しません。`approved_projection_ok` / `approved_mismatch_count`はcorrection manifestで固定されたowner・position・旧title/URLを新title/URLへ厳密投影した期待値との比較です。`automated_parity_ok` / `mismatch_count`は同期済みinlineとのraw比較であり、実際のlegacy fallback同値性とinline廃止可否を判定します。旧signatureの別position・別ownerへの移動、owner・件数・順序・URLの差、未承認titleはfail-closedです。`allow_missing`は真偽値だけを許可し、旧sourceが全ownerから不存在の場合だけno-opにします。
 
-本番ではGitHub Actionsの`Apply Work Catalog Manifests`を使用します。成功した直近の`Matrix Backup & DB Expiry Check` run ID、デプロイ済みmain commit SHA、正確な本番hostname、確認文`APPLY WORK CATALOG MANIFESTS TO PRODUCTION`が必要です。workflowはbackup v3とそのcatalog digestを現在の本番catalogに照合し、本番source digestに対応するchecked-in review manifestのcanonical SHA-256、ローカルpreflight結果、各操作直前のdigest optimistic lock、応答件数、適用後catalog・監査fingerprint・healthを検証します。credentialやcatalog本文を含まない証跡だけを30日保存します。全workerの継続観測は、この適用後に別の`Work Catalog Rollout Gate`で行います。
+本番ではGitHub Actionsの`Apply Work Catalog Manifests`を使用します。成功した直近の`Matrix Backup & DB Expiry Check` run ID、デプロイ済みmain commit SHA、正確な本番hostname、確認文`APPLY WORK CATALOG MANIFESTS TO PRODUCTION`が必要です。workflowはbackup v3とそのcatalog digestを現在の本番catalogに照合し、本番source digestに対応するchecked-in review manifestのcanonical SHA-256、ローカルpreflight結果、各操作直前のdigest optimistic lock、応答件数、適用後catalog・監査fingerprint・approved parityとraw parity 0を検証します。credentialやcatalog本文を含まない証跡だけを30日保存します。全workerの継続観測は、この適用後に別の`Work Catalog Rollout Gate`で行います。
 
 ### Repeated worker observation
 
-`python scripts/work_catalog_rollout_check.py`はread-only tokenだけで`/api/admin/works_health`を反復取得し、worker集合、catalog/DB/cache revision、両parity、pending review、fallback/load failureを`artifacts/work_catalog_rollout_report.json`へ記録します。runtime catalog gateは承認済みprojectionとの一致を要求します。raw inline mismatchはworker errorにはせず、`retirement_readiness.blockers`へ残します。このため訂正済みcatalogの稼働確認は成功できても、fallbackが古い表示を返し得る間はinline廃止不可です。旧health contractのworkerはraw parityを保守的なruntime判定として扱います。`.github/workflows/work-catalog-rollout-check.yml`は同じ証拠をartifactとして30日保持します。
+`python scripts/work_catalog_rollout_check.py`はread-only tokenだけで`/api/admin/works_health`を反復取得し、worker集合、catalog/DB/cache revision、両parity、pending review、fallback/load failureを`artifacts/work_catalog_rollout_report.json`へ記録します。runtime catalog gateは承認済みprojectionとの一致を要求します。raw inline mismatchはworker errorにはせず`retirement_readiness.blockers`へ残しますが、同期releaseのmanifest適用後はraw mismatch 0が正常状態です。旧health contractのworkerはraw parityを保守的なruntime判定として扱います。`.github/workflows/work-catalog-rollout-check.yml`は同じ証拠をartifactとして30日保持します。
 
 `WORK_CATALOG_EXPECTED_WORKERS`はplatformのinstance一覧から設定し、観測できた数に合わせて下げません。自動gate成功後も、十分な期間のartifactを比較し、v3 restore rehearsalと手動サインオフを完了するまではinlineを廃止しません。
 
@@ -80,13 +80,13 @@ P0 correction適用後の本番catalogはmaster 375、edition 295、alias 153、
 - 12 sample rollout gate: workflow run `30472753297`（成功。63.6秒、1 worker、全revision 10、fallback/load failure 0、runtime error 0）
 - 適用後v3 backup: workflow run `30473032447`（上記digest・件数・pending 0を再確認）
 
-この6 owner差はapproved projectionでは全件説明されますが、raw inline fallbackは旧titleのままです。したがってruntime catalog gateとmutation成功の証拠には使える一方、`catalog_inline_mismatch`はretirement blockerとして維持します。
+この時点の6 owner差はapproved projectionで全件説明されました。後続のinline同期releaseではchecked fetish 6 linkとcompound 1 linkを承認済み表示へ更新し、同じcorrection manifestの再適用で本番DB `fetishes.works`も同期します。適用後はraw mismatch 0を必須gateとし、新しいworkflow run IDをこの節へ追記します。
 
 ## Deploy前
 
 1. backup format v3のmatrix backupを保存し、`work_catalog`を含むことを確認する。
 2. 既存DBへreview、safe seed cleanup、P0 correctionの3 manifestを順に適用し、それぞれの監査fingerprint、応答件数、新digestを保存する。fresh DBが訂正済みseedから作られた場合、workflowは旧reviewをskipし、seed/correctionのno-opだけを確認する。
-3. `/api/admin/works_health`で`migration.approved_projection_ok=true`、`approved_mismatch_count=0`、`pending_review_count=0`を確認する。`automated_parity_ok` / `mismatch_count`が非ゼロならruntime correctionの失敗とはみなさないが、影響ownerと表示順・実効title・安全化後URLを確認し、raw parityが0へ戻るまでinline廃止を停止する。
+3. `/api/admin/works_health`で`migration.approved_projection_ok=true`、`approved_mismatch_count=0`、`automated_parity_ok=true`、`mismatch_count=0`、`pending_review_count=0`を確認する。raw parityが非ゼロなら影響ownerと表示順・実効title・安全化後URLを確認し、manifest workflowを失敗扱いにしてinline廃止を停止する。
 4. platformのinstance一覧から各workerへ直接probeするか、十分な回数アクセスしてresponseの`worker_id`を収集し、想定worker集合を網羅する。各responseで`snapshot_revision == database_revision == cached_revision`も確認する。
 5. 十分な観測期間、各workerの`legacy_fallback_reads_since_start`と`catalog_load_failures_since_start`が0であることを確認する。
 6. [Staging v3 Restore Rehearsal](STAGING_V3_RESTORE_REHEARSAL.md)を実行し、artifactの自動gateを確認したうえで、通常/compound結果、作品理由、SEO/OGP、affiliate URLを手動サインオフする。
@@ -96,7 +96,7 @@ P0 correction適用後の本番catalogはmaster 375、edition 295、alias 153、
 
 ## Deploy後
 
-- 移行期間中はinline projectionを保持する。
+- 移行期間中はchecked inline projectionとDB fetish inline同期を保持する。
 - 管理更新後にrevision一致とparityを再確認する。
 - `catalog_inline_mismatch`、`legacy_fallback_observed`、`catalog_load_failure_observed`、`worker_catalog_revision_mismatch`のいずれかが出た場合は廃止作業を停止する。
 - DB modeのcompound更新はcatalogが正であり、旧JSONとの差異は意図的にretirement blockerとして報告される。rollback sourceはv3 backupのcatalogとする。
@@ -105,7 +105,7 @@ P0 correction適用後の本番catalogはmaster 375、edition 295、alias 153、
 
 1. 管理更新を停止する。
 2. 現在のbackup format v3 snapshotを追加保存する。
-3. catalog-firstを無効化できる直前releaseへ戻すか、必要なら確認済みv3 backupをrestoreする。
+3. catalog-firstを無効化できる直前releaseへ戻すか、必要なら確認済みv3 backupを同じcorrection状態のcode/data revisionへrestoreする。pre-correction catalogへ戻す場合はmatching source compound deployを先に用意する。
 4. `/api/admin/works_health`でparityとrevisionを再確認する。
 5. 診断結果、作品表示順、compound結果、共有、SEO/OGP、affiliate URLをsmoke testする。
 6. 原因と影響ownerを監査ログおよび移行記録へ残す。

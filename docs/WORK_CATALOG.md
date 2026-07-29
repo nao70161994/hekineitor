@@ -16,11 +16,13 @@
 ローカル/seedではこのファイルが正規化catalogのsnapshotです。PostgreSQLでは同じcollectionを外部キー付きtableへ初回起動時に決定的に移行します。移行判定と全catalog writeは共通のtransaction advisory lockで直列化され、既存catalogがある場合は起動時に置換しません。
 
 ```sh
+PYTHONPATH=. python scripts/sync_work_catalog_inline.py --write
 PYTHONPATH=. python scripts/build_work_catalog.py --write
+PYTHONPATH=. python scripts/sync_work_catalog_inline.py
 PYTHONPATH=. python scripts/build_work_catalog.py
 ```
 
-2つ目のコマンドはchecked-in snapshotが入力と一致することを検証し、`scripts/check.sh`とCIでも実行されます。手動でIDを変更せず、移行・管理repositoryを通して更新します。
+`sync_work_catalog_inline.py`はcorrection manifestで承認されたtitle/URL差分だけを、ownerとpositionを変えずに`fetishes.json`と`compound_works.json`へ投影します。位置・source signature・URL・ownerのdriftはfail-closedです。catalog buildは訂正済みinlineを厳密にsource状態へ逆投影してからreviewとcorrectionを再適用するため、既存の安定IDとcatalog digestは変わりません。検証コマンドは`scripts/check.sh`とCIでも実行されます。手動でIDや承認済み表示を変更せず、manifestと同期scriptを通して更新します。
 
 `data/work_catalog_review_decisions.json`はraw inline入力に対する人手判断を固定するmanifestです。buildは候補keyと元`work_ids`が一致する場合だけ全判断を適用し、同じmanifestの再適用はno-opになります。英題・略称など緩い正規化では拾えない明白な同一作品は、`identity_override`として元IDを固定したreviewを追加してから統合します。
 
@@ -44,11 +46,12 @@ resolverはlinkを表示順に解決し、次の互換shapeを返します。
 
 `title`と`url`は従来の推薦表示、SEO、affiliate linkを維持します。新しいIDは管理・分析・重複排除に使います。
 
-公開結果とSEOはcatalogを優先して読み、catalog全体を読めない場合だけlegacy inline dataへfallbackします。同じownerについてcatalogとlegacyを結合しません。materialized IDは結果JSON、作品linkのDOM属性、クリックeventへ渡され、旧eventはtitle identityで集計できます。legacy fallbackは未変換inlineを返すため、correction manifestによる承認済み差分もraw parity上は意図的な不一致です。healthのapproved projection parityはcatalog訂正の正当性を示しますが、fallback同値性やinline廃止可否はraw parityで別に判定します。
+公開結果とSEOはcatalogを優先して読み、catalog全体を読めない場合だけlegacy inline dataへfallbackします。同じownerについてcatalogとlegacyを結合しません。materialized IDは結果JSON、作品linkのDOM属性、クリックeventへ渡され、旧eventはtitle identityで集計できます。checked inlineとcorrection適用時のDB `fetishes.works`は承認済み表示へ同期し、fallbackでもcatalogと同じtitle/URL/orderを返します。healthのapproved projection parityはmanifest適用の正当性を、raw parityは実際のfallback同値性とinline廃止可否を独立に検証します。
 
 ## Runtime writes
 
 管理画面からの性癖作品・複合作品更新は`Engine`のcatalog repositoryを唯一のproduction入口として扱います。対象ownerのlinkだけcopy-on-writeで差し替えるため、他owner、作品master、販売版metadata、review判断は保持されます。同一ASINは既存`work_id`/`edition_id`を再利用し、異なるASINや曖昧な同名候補は自動統合しません。
+- correction manifestはcatalogとlegacy inlineを同じcommit単位で同期します。PostgreSQLはcatalog lock下で対象`fetishes.works`を同一transactionへ含め、Local JSONはfetish・compound・catalogを一つのjournalへ含めます。player-added ownerでmanifest sourceが既に置換済みの場合は、その作品を保持したまま明示された`allow_missing`だけをno-opにします。成功応答には適用link数、fetish/compound owner数、許可済みmissing数を含めます。
 
 - PostgreSQL: catalog advisory lockを最初に取得し、`fetishes.works`と正規化tableを一つのtransactionで更新します。compoundは正規化tableをruntime source of truthとし、worker間の書き込みを同じlockで直列化します。全catalog transactionは`work_catalog_meta.revision`を増分し、各workerはread前にrevisionを照合します。変更を検出したworkerはcatalogとrevisionを同じrepeatable-read snapshotから再取得するため、古いcacheをTTL終了まで返しません。
 - Local JSON: `fetishes.json`、`compound_works.json`、`work_catalog.json`のbefore/afterを`work_catalog_mutation_journal.json`へ先にdurable保存します。全ファイルの置換成功後だけjournalを削除し、途中停止時は次回起動でafterへroll-forwardします。通常の書き込み失敗時はbeforeへrollbackします。
@@ -80,13 +83,15 @@ reviewの`keep_separate`または`merge`には現在の`expected_version`が必�
 
 `/api/admin/export_matrix`とimport/restore前snapshotは`backup_format_version: 3`として、matrix、全fetish metadata、question schema、`work_catalog`を一つのpayloadへ保存します。
 
-- v3 importはcatalogのschemaと参照整合性をwrite前に検証します。
-- PostgreSQLでは不足player fetish、catalog、matrixを同一transactionで復元します。
-- ローカルではrestore journal version 2にcatalogのbefore/afterも保存し、途中停止時は3ファイルを同じ世代へroll-forwardします。
+- v3 importはcatalogのschemaと参照整合性をwrite前に検証し、backupのinline fetish worksをcatalogのcorrection状態へforward/reverse投影してraw parity 0を要求します。
+- PostgreSQLでは不足player fetish、既存ownerのinline works、catalog、matrixを同一transactionで復元します。compound inlineはdeploy artifactであるため、backup catalogに合わせたforward/reverse投影が現行compound fileを変更する場合は、matching source/target code/data revisionを要求してDB write前にfail-closedします。
+- ローカルではrestore journal version 2にfetish inline、compound inline、catalog、matrixのbefore/afterを保存し、途中停止時は同じ世代へroll-forwardします。
 - 通常の作品編集journal version 1は3つの作品data fileを、性癖lifecycle journal version 2はさらにmatrixとfetish logを同じ世代へ復旧します。
 - 旧v1/v2 matrix backupも従来どおりimportでき、復元されたplayer-added fetishにinline作品がある場合は既存の管理済みID・metadata・review判断を保持したまま、その新規ownerのcatalog linkを同じtransaction/journalへ追加します。
 - review queueの`decision`、`target_work_id`、`version`、`updated_at`もDB snapshotとrestoreで保持します。
 
 ## Migration safety
 
-初回DB移行はlegacy `fetishes.works`のURL補正後に、同一transaction内でcatalog tableへ展開します。ASINまたは厳密な正規化titleだけを自動identityに使い、緩い候補はreview queueへ残します。存在しないfetish IDや同一ID pairを参照するcompound linkは生成時に拒否します。
+初回DB移行は訂正済みchecked inlineをsource状態へ厳密に逆投影してから、同一transaction内でcatalog tableへ展開し、reviewとcorrectionを順に適用します。これにより既存のcatalog ID/digestを保ったまま、legacy fallbackだけを最新表示へ同期できます。ASINまたは厳密な正規化titleだけを自動identityに使い、緩い候補はreview queueへ残します。存在しないfetish IDや同一ID pairを参照するcompound linkは生成時に拒否します。
+
+forward/reverse投影は任意の履歴変換ではありません。checked correction manifestが認識するsourceまたはtarget signatureだけを受け入れます。古いbackupへ戻す場合は、catalog snapshotと同じ世代のcode/data artifactを組にして扱います。

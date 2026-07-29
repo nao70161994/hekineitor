@@ -148,6 +148,8 @@ python scripts/work_catalog_rollout_check.py
 12回・5秒間隔を既定とし、workerごとにcatalog/DB/cache revision、approved/raw parity、pending review、catalog read、legacy fallback、load failureを集約します。runtime gateはapproved projection parityを使い、raw mismatchと`retirement.blockers`は別の`retirement_readiness`へ集約します。runtime gate成功はinline廃止可能を意味しません。`WORK_CATALOG_EXPECTED_WORKERS`は推測せず、platformのinstance設定と一致させます。結果は`artifacts/work_catalog_rollout_report.json`に保存されます。
 
 `.github/workflows/work-catalog-rollout-check.yml`は6時間ごと、および手動dispatchで同じgateを実行し、30日保持のartifactを残します。このgateの成功は短時間の自動証拠であり、[staging v3 restore rehearsal](STAGING_V3_RESTORE_REHEARSAL.md)と人手サインオフを代替しません。
+
+P0 correctionのinline同期release後は、`approved_projection_ok=true`に加えてraw `automated_parity_ok=true` / `mismatch_count=0`が正常です。raw mismatchが再発した場合は、catalog runtime自体が正常でもlegacy fallbackとrollback境界がずれた状態なので、retirement blockerとしてmanifest再適用、owner/position drift、DB fetish inline、deployed compound JSONを確認します。
 ## GitHub Actions推奨構成
 
 追加課金を避けるため、定期監視は Render Cron ではなく GitHub Actions の schedule で実行します。workflow は2本に分けています。
