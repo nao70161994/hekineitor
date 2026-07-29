@@ -9,6 +9,7 @@ import hashlib
 import http.cookiejar
 import json
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -69,12 +70,19 @@ class AdminClient:
         if csrf:
             headers['X-CSRF-Token'] = csrf
         request = urllib.request.Request(f'{self.base_url}{path}', method=method, headers=headers, data=data)
-        try:
-            with self._opener.open(request, timeout=60) as response:
-                return response.status, response.read()
-        except urllib.error.HTTPError as exc:
-            body = exc.read()
-            raise RuntimeError(f'{method} {path} failed with HTTP {exc.code}: {body[:500]!r}') from exc
+        attempts = 3 if method == 'GET' else 1
+        for attempt in range(attempts):
+            try:
+                with self._opener.open(request, timeout=60) as response:
+                    return response.status, response.read()
+            except urllib.error.HTTPError as exc:
+                body = exc.read()
+                raise RuntimeError(f'{method} {path} failed with HTTP {exc.code}: {body[:500]!r}') from exc
+            except (urllib.error.URLError, ConnectionError, TimeoutError):
+                if attempt + 1 >= attempts:
+                    raise
+                time.sleep(2**attempt)
+        raise RuntimeError(f'{method} {path} exhausted all transport attempts')
 
     def json(self, path: str, *, method: str = 'GET', payload=None, csrf: str = ''):
         status, body = self.request(path, method=method, payload=payload, csrf=csrf)

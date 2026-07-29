@@ -2,6 +2,7 @@ import copy
 import json
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
 from unittest.mock import patch
 
@@ -150,6 +151,59 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
         for url in ('http://example.com', 'https://other.example', 'https://example.com/path'):
             with self.subTest(url=url), self.assertRaises(RuntimeError):
                 apply_work_catalog_manifests._validate_target(url, 'example.com')
+
+    def test_admin_client_retries_transient_get_only(self):
+        class Response:
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self):
+                return b'{}'
+
+        class Opener:
+            def __init__(self):
+                self.calls = 0
+
+            def open(self, _request, timeout):
+                self.calls += 1
+                self.timeout = timeout
+                if self.calls < 3:
+                    raise urllib.error.URLError(ConnectionResetError('connection reset'))
+                return Response()
+
+        client = apply_work_catalog_manifests.AdminClient('https://example.com', 'admin', 'secret')
+        opener = Opener()
+        client._opener = opener
+        with patch.object(apply_work_catalog_manifests.time, 'sleep') as sleep:
+            self.assertEqual(client.request('/health'), (200, b'{}'))
+        self.assertEqual(opener.calls, 3)
+        self.assertEqual(opener.timeout, 60)
+        self.assertEqual([call.args[0] for call in sleep.call_args_list], [1, 2])
+
+    def test_admin_client_never_retries_post(self):
+        class Opener:
+            def __init__(self):
+                self.calls = 0
+
+            def open(self, _request, timeout):
+                self.calls += 1
+                raise urllib.error.URLError(ConnectionResetError('connection reset'))
+
+        client = apply_work_catalog_manifests.AdminClient('https://example.com', 'admin', 'secret')
+        opener = Opener()
+        client._opener = opener
+        with (
+            patch.object(apply_work_catalog_manifests.time, 'sleep') as sleep,
+            self.assertRaises(urllib.error.URLError),
+        ):
+            client.request('/api/admin/work_catalog/mutate', method='POST', payload={})
+        self.assertEqual(opener.calls, 1)
+        sleep.assert_not_called()
 
     def test_rejects_manifest_hash_drift(self):
         with tempfile.TemporaryDirectory() as directory:

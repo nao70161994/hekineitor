@@ -57,6 +57,8 @@ healthは2種類のparityを混同しません。`approved_projection_ok` / `app
 
 本番ではGitHub Actionsの`Apply Work Catalog Manifests`を使用します。成功した直近の`Matrix Backup & DB Expiry Check` run ID、デプロイ済みmain commit SHA、正確な本番hostname、確認文`APPLY WORK CATALOG MANIFESTS TO PRODUCTION`が必要です。workflowはbackup v3とそのcatalog digestを現在の本番catalogに照合し、本番source digestに対応するchecked-in review manifestのcanonical SHA-256、ローカルpreflight結果、各操作直前のdigest optimistic lock、応答件数、適用後catalog・監査fingerprint・approved parityとraw parity 0を検証します。credentialやcatalog本文を含まない証跡だけを30日保存します。全workerの継続観測は、この適用後に別の`Work Catalog Rollout Gate`で行います。
 
+manifest適用スクリプトは、一過性のtransport障害に対してGETだけを最大3回再試行します。POST mutationは結果が不明なまま二重適用されることを防ぐため、自動再試行しません。POST応答が途切れた場合は、直前・直後のbackupとcatalog digestで実状態を確認してから再実行を判断します。
+
 ### Repeated worker observation
 
 `python scripts/work_catalog_rollout_check.py`はread-only tokenだけで`/api/admin/works_health`を反復取得し、worker集合、catalog/DB/cache revision、両parity、pending review、fallback/load failureを`artifacts/work_catalog_rollout_report.json`へ記録します。runtime catalog gateは承認済みprojectionとの一致を要求します。raw inline mismatchはworker errorにはせず`retirement_readiness.blockers`へ残しますが、同期releaseのmanifest適用後はraw mismatch 0が正常状態です。旧health contractのworkerはraw parityを保守的なruntime判定として扱います。`.github/workflows/work-catalog-rollout-check.yml`は同じ証拠をartifactとして30日保持します。
