@@ -85,6 +85,9 @@ def restore_matrix_snapshot(
     execute_values,
     work_catalog=None,
     restored_inline_fetishes=None,
+    inline_corrections=None,
+    legacy_projection_fetishes=None,
+    inline_projection_direction='forward',
 ):
     conn = get_conn()
     try:
@@ -110,6 +113,32 @@ def restore_matrix_snapshot(
                         for fetish in fetishes
                     ],
                 )
+            inline_fetishes = None
+            if work_catalog is not None and inline_corrections is not None:
+                cur.execute('SELECT id, name, "desc", works FROM fetishes ORDER BY id FOR UPDATE')
+                inline_fetishes = parse_fetish_rows(cur.fetchall())
+                persisted_works = {row['id']: row.get('works') or [] for row in inline_fetishes}
+                if legacy_projection_fetishes is not None:
+                    restored_works = {row['id']: row.get('works') or [] for row in legacy_projection_fetishes}
+                    for fetish in inline_fetishes:
+                        if fetish['id'] in restored_works:
+                            fetish['works'] = restored_works[fetish['id']]
+                projection = db_work_catalog.project_approved_inline_corrections(
+                    inline_fetishes,
+                    corrections=inline_corrections,
+                    direction=inline_projection_direction,
+                    tables={'fetish_work_links'},
+                )
+                projected_by_id = {row['id']: row for row in projection['fetishes']}
+                for fetish in inline_fetishes:
+                    projected = projected_by_id[fetish['id']]
+                    if projected.get('works') == persisted_works[fetish['id']]:
+                        continue
+                    cur.execute(
+                        'UPDATE fetishes SET works=%s WHERE id=%s',
+                        (json.dumps(projected.get('works') or [], ensure_ascii=False), fetish['id']),
+                    )
+                inline_fetishes = projection['fetishes']
             if work_catalog is not None:
                 db_work_catalog.replace_catalog(cur, work_catalog, execute_values=execute_values)
             rows = [
@@ -123,6 +152,7 @@ def restore_matrix_snapshot(
             ]
             if rows:
                 execute_values(cur, IMPORT_MATRIX_SQL, rows)
+            return inline_fetishes
     finally:
         put_conn(conn)
 

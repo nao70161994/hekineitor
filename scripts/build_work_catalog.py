@@ -13,7 +13,12 @@ CORRECTIONS_PATH = DATA_DIR / 'work_catalog_corrections.json'
 
 
 def build_catalog():
-    from engine.work_catalog import apply_catalog_corrections, apply_review_decisions, build_catalog_from_inline
+    from engine.work_catalog import (
+        apply_catalog_corrections,
+        apply_review_decisions,
+        build_catalog_from_inline,
+        project_approved_inline_corrections,
+    )
 
     fetishes = json.loads((DATA_DIR / 'fetishes.json').read_text(encoding='utf-8'))
     compound_data = json.loads((DATA_DIR / 'compound_works.json').read_text(encoding='utf-8'))
@@ -21,11 +26,21 @@ def build_catalog():
     for key, works in sorted(compound_data.items()):
         id_a, id_b = key.split(',', 1)
         compound_rows.append({'key': key, 'id_a': int(id_a), 'id_b': int(id_b), 'works': works})
+    corrections = json.loads(CORRECTIONS_PATH.read_text(encoding='utf-8'))
+    source_projection = project_approved_inline_corrections(
+        fetishes,
+        compound_rows=compound_rows,
+        corrections=corrections,
+        direction='reverse',
+    )
     seed_overrides = json.loads(SEED_OVERRIDES_PATH.read_text(encoding='utf-8'))
-    catalog = build_catalog_from_inline(fetishes, compound_rows=compound_rows, seed_overrides=seed_overrides)
+    catalog = build_catalog_from_inline(
+        source_projection['fetishes'],
+        compound_rows=source_projection['compound_rows'],
+        seed_overrides=seed_overrides,
+    )
     decisions = json.loads(DECISIONS_PATH.read_text(encoding='utf-8'))
     reviewed = apply_review_decisions(catalog, decisions)
-    corrections = json.loads(CORRECTIONS_PATH.read_text(encoding='utf-8'))
     return apply_catalog_corrections(reviewed, corrections)
 
 

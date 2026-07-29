@@ -1,7 +1,9 @@
 import copy
+import json
 import os
 import sys
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -269,6 +271,343 @@ class TestEngineMutations(unittest.TestCase):
         self.assertEqual(committed['works_master'][0]['canonical_title'], '作品名')
         self.assertEqual(committed['fetish_work_links'][0]['context_label'], '人物')
 
+    def _production_correction_state(self):
+        data = Path(__file__).resolve().parents[1] / 'data'
+        fetishes = json.loads((data / 'fetishes.json').read_text(encoding='utf-8'))
+        compounds = json.loads((data / 'compound_works.json').read_text(encoding='utf-8'))
+        catalog = json.loads((data / 'work_catalog.json').read_text(encoding='utf-8'))
+        corrections = json.loads((data / 'work_catalog_corrections.json').read_text(encoding='utf-8'))
+        source = engine_module.work_catalog.project_approved_inline_corrections(
+            fetishes,
+            compound_rows=compounds,
+            corrections=corrections,
+            direction='reverse',
+        )
+        fetishes, compounds = source['fetishes'], source['compound_rows']
+        player_works = [
+            {
+                'title': '誰かこの状況を説明してください！',
+                'url': 'https://www.amazon.co.jp/dp/B07DL6G318?tag=hekinator-22',
+            },
+            {
+                'title': 'わたしの幸せな結婚',
+                'url': 'https://www.amazon.co.jp/dp/B07X25T546?tag=hekinator-22',
+            },
+        ]
+        next(row for row in fetishes if row['id'] == 104)['works'] = player_works
+        catalog = engine_module.work_catalog.replace_fetish_works(catalog, 104, player_works)
+        return {'fetishes': fetishes, 'compound_works': compounds, 'work_catalog': catalog}, corrections, player_works
+
+    def _restore_catalog_fixture(self, *, corrected, inline_target, player_replacement=False):
+        data = Path(__file__).resolve().parents[1] / 'data'
+        fetishes = json.loads((data / 'fetishes.json').read_text(encoding='utf-8'))
+        compounds = json.loads((data / 'compound_works.json').read_text(encoding='utf-8'))
+        corrections = json.loads((data / 'work_catalog_corrections.json').read_text(encoding='utf-8'))
+        seed = json.loads((data / 'work_catalog_seed_overrides.json').read_text(encoding='utf-8'))
+        review = json.loads((data / 'work_catalog_review_decisions.json').read_text(encoding='utf-8'))
+        source = engine_module.work_catalog.project_approved_inline_corrections(
+            fetishes,
+            compound_rows=compounds,
+            corrections=corrections,
+            direction='reverse',
+        )
+        fetishes, compounds = source['fetishes'], source['compound_rows']
+        source_catalog = engine_module.work_catalog.build_catalog_from_inline(
+            fetishes,
+            compound_rows=[
+                {
+                    'key': key,
+                    'id_a': int(key.split(',')[0]),
+                    'id_b': int(key.split(',')[1]),
+                    'works': works,
+                }
+                for key, works in compounds.items()
+            ],
+            seed_overrides=seed,
+        )
+        source_catalog = engine_module.work_catalog.apply_review_decisions(source_catalog, review)
+        catalog = (
+            engine_module.work_catalog.apply_catalog_corrections(source_catalog, corrections)
+            if corrected
+            else source_catalog
+        )
+        projection = engine_module.work_catalog.project_approved_inline_corrections(
+            fetishes,
+            compound_rows=compounds,
+            corrections=corrections,
+        )
+        if inline_target:
+            fetishes, compounds = projection['fetishes'], projection['compound_rows']
+        if player_replacement:
+            player_works = [
+                {
+                    'title': '誰かこの状況を説明してください！',
+                    'url': 'https://www.amazon.co.jp/dp/B07DL6G318?tag=hekinator-22',
+                },
+                {
+                    'title': 'わたしの幸せな結婚',
+                    'url': 'https://www.amazon.co.jp/dp/B07X25T546?tag=hekinator-22',
+                },
+            ]
+            next(row for row in fetishes if row['id'] == 104)['works'] = player_works
+            catalog = engine_module.work_catalog.replace_fetish_works(catalog, 104, player_works)
+        return catalog, fetishes, compounds, corrections
+
+    def _run_local_v3_restore(self, catalog, exported_fetishes, compounds, corrections):
+        self.engine.fetishes = copy.deepcopy(exported_fetishes)
+        before = {
+            'fetishes': copy.deepcopy(exported_fetishes),
+            'compound_works': copy.deepcopy(compounds),
+            'work_catalog': copy.deepcopy(catalog),
+            'matrix': copy.deepcopy(self.engine.matrix),
+            'fetish_log': {},
+        }
+
+        def local_state(**values):
+            if not values or set(values) == {'include_lifecycle'}:
+                return copy.deepcopy(before)
+            return {
+                'fetishes': copy.deepcopy(values['fetishes']),
+                'compound_works': copy.deepcopy(values['compound_works']),
+                'work_catalog': copy.deepcopy(values['work_catalog']),
+                'matrix': copy.deepcopy(values['matrix']),
+                'fetish_log': copy.deepcopy(values['fetish_log']),
+            }
+
+        def load_json(name):
+            if name == 'work_catalog_corrections.json':
+                return copy.deepcopy(corrections)
+            if name == 'compound_works.json':
+                return copy.deepcopy(compounds)
+            raise AssertionError(name)
+
+        with (
+            patch.object(engine_module, '_use_db', return_value=False),
+            patch.object(self.engine, '_local_work_catalog_state', side_effect=local_state),
+            patch.object(self.engine, '_load_json', side_effect=load_json),
+            patch.object(self.engine, '_commit_local_work_catalog_state') as commit_catalog,
+        ):
+            self.engine.restore_matrix_snapshot(exported_fetishes, [], work_catalog=catalog)
+        return commit_catalog.call_args.args[1]
+
+    def test_v3_restore_forwards_old_inline_for_a_corrected_catalog_and_preserves_player_owner(self):
+        catalog, old_inline, compounds, corrections = self._restore_catalog_fixture(
+            corrected=True,
+            inline_target=False,
+            player_replacement=True,
+        )
+
+        restored = self._run_local_v3_restore(catalog, old_inline, compounds, corrections)
+
+        parity = engine_module.work_catalog.catalog_parity_report(
+            catalog, restored['fetishes'], compound_rows=restored['compound_works']
+        )
+        self.assertTrue(parity['automated_parity_ok'])
+        expected_player = next(row for row in old_inline if row['id'] == 104)['works']
+        self.assertEqual(next(row for row in restored['fetishes'] if row['id'] == 104)['works'], expected_player)
+
+    def test_v3_restore_keeps_source_inline_for_a_pre_correction_catalog(self):
+        catalog, old_inline, compounds, corrections = self._restore_catalog_fixture(
+            corrected=False,
+            inline_target=False,
+        )
+        digest = engine_module.work_catalog.catalog_digest(catalog)
+
+        restored = self._run_local_v3_restore(catalog, old_inline, compounds, corrections)
+
+        self.assertEqual(engine_module.work_catalog.catalog_digest(restored['work_catalog']), digest)
+        parity = engine_module.work_catalog.catalog_parity_report(
+            catalog, restored['fetishes'], compound_rows=restored['compound_works']
+        )
+        self.assertTrue(parity['automated_parity_ok'])
+
+    def test_db_v3_restore_rejects_source_catalog_without_matching_compound_deploy(self):
+        catalog, old_inline, compounds, corrections = self._restore_catalog_fixture(
+            corrected=False,
+            inline_target=False,
+        )
+        target_compounds = engine_module.work_catalog.project_approved_inline_corrections(
+            old_inline,
+            compound_rows=compounds,
+            corrections=corrections,
+        )['compound_rows']
+        self.engine.fetishes = copy.deepcopy(old_inline)
+
+        def load_json(name):
+            return copy.deepcopy(corrections if name == 'work_catalog_corrections.json' else target_compounds)
+
+        with (
+            patch.object(engine_module, '_use_db', return_value=True),
+            patch.object(self.engine, '_load_json', side_effect=load_json),
+            patch.object(
+                engine_module.facade,
+                'psycopg2',
+                type('Psycopg2', (), {'extras': type('Extras', (), {'execute_values': None})}),
+            ),
+            patch.object(engine_module.engine_db, 'restore_matrix_snapshot') as restore_db,
+            self.assertRaisesRegex(ValueError, 'matching source compound deploy'),
+        ):
+            self.engine.restore_matrix_snapshot(old_inline, [], work_catalog=catalog)
+
+        restore_db.assert_not_called()
+
+    def test_db_v3_restore_rejects_corrected_catalog_without_matching_compound_deploy(self):
+        catalog, old_inline, source_compounds, corrections = self._restore_catalog_fixture(
+            corrected=True,
+            inline_target=False,
+        )
+        self.engine.fetishes = copy.deepcopy(old_inline)
+
+        def load_json(name):
+            return copy.deepcopy(corrections if name == 'work_catalog_corrections.json' else source_compounds)
+
+        with (
+            patch.object(engine_module, '_use_db', return_value=True),
+            patch.object(self.engine, '_load_json', side_effect=load_json),
+            patch.object(
+                engine_module.facade,
+                'psycopg2',
+                type('Psycopg2', (), {'extras': type('Extras', (), {'execute_values': None})}),
+            ),
+            patch.object(engine_module.engine_db, 'restore_matrix_snapshot') as restore_db,
+            self.assertRaisesRegex(ValueError, 'matching target compound deploy'),
+        ):
+            self.engine.restore_matrix_snapshot(old_inline, [], work_catalog=catalog)
+
+        restore_db.assert_not_called()
+
+    def test_db_v3_restore_accepts_corrected_catalog_with_corrected_compound_deploy(self):
+        catalog, old_inline, compounds, corrections = self._restore_catalog_fixture(
+            corrected=True,
+            inline_target=False,
+        )
+        projection = engine_module.work_catalog.project_approved_inline_corrections(
+            old_inline,
+            compound_rows=compounds,
+            corrections=corrections,
+        )
+        self.engine.fetishes = copy.deepcopy(old_inline)
+
+        def load_json(name):
+            return copy.deepcopy(
+                corrections if name == 'work_catalog_corrections.json' else projection['compound_rows']
+            )
+
+        with (
+            patch.object(engine_module, '_use_db', return_value=True),
+            patch.object(self.engine, '_load_json', side_effect=load_json),
+            patch.object(
+                engine_module.facade,
+                'psycopg2',
+                type('Psycopg2', (), {'extras': type('Extras', (), {'execute_values': None})}),
+            ),
+            patch.object(
+                engine_module.engine_db,
+                'restore_matrix_snapshot',
+                return_value=projection['fetishes'],
+            ) as restore_db,
+        ):
+            self.engine.restore_matrix_snapshot(old_inline, [], work_catalog=catalog)
+
+        restore_db.assert_called_once()
+        parity = engine_module.work_catalog.catalog_parity_report(
+            catalog,
+            self.engine.fetishes,
+            compound_rows=projection['compound_rows'],
+        )
+        self.assertTrue(parity['automated_parity_ok'])
+
+    def test_v3_restore_is_idempotent_for_corrected_inline(self):
+        catalog, corrected_inline, compounds, corrections = self._restore_catalog_fixture(
+            corrected=True,
+            inline_target=True,
+        )
+
+        restored = self._run_local_v3_restore(catalog, corrected_inline, compounds, corrections)
+
+        self.assertEqual(restored['fetishes'], corrected_inline)
+        self.assertEqual(restored['compound_works'], compounds)
+
+    def test_correction_manifest_syncs_local_inline_fallback_in_the_same_commit(self):
+        before, corrections, player_works = self._production_correction_state()
+        self.engine.fetishes = copy.deepcopy(before['fetishes'])
+
+        def local_state(**values):
+            if not values:
+                return before
+            return {
+                'fetishes': values['fetishes'],
+                'compound_works': values['compound_works'],
+                'work_catalog': values['work_catalog'],
+            }
+
+        with (
+            patch.object(engine_module, '_use_db', return_value=False),
+            patch.object(self.engine, '_local_work_catalog_state', side_effect=local_state),
+            patch.object(self.engine, '_commit_local_work_catalog_state') as commit_catalog,
+        ):
+            result = self.engine.mutate_work_catalog(
+                'corrections_apply_manifest',
+                {'corrections_manifest': corrections},
+                expected_digest=engine_module.work_catalog.catalog_digest(before['work_catalog']),
+            )
+
+        after = commit_catalog.call_args.args[1]
+        parity = engine_module.work_catalog.catalog_parity_report(
+            after['work_catalog'],
+            after['fetishes'],
+            compound_rows=after['compound_works'],
+        )
+        self.assertTrue(parity['automated_parity_ok'])
+        self.assertEqual(result['result']['inline_applied_link_count'], 6)
+        self.assertEqual(result['result']['inline_fetish_owner_count'], 5)
+        self.assertEqual(result['result']['inline_compound_owner_count'], 1)
+        self.assertEqual(result['result']['inline_missing_count'], 1)
+        self.assertEqual(next(row for row in after['fetishes'] if row['id'] == 104)['works'], player_works)
+        self.assertEqual(next(row for row in self.engine.fetishes if row['id'] == 104)['works'], player_works)
+
+    def test_correction_manifest_does_not_publish_db_inline_before_transaction_commit(self):
+        before, corrections, _player_works = self._production_correction_state()
+        original = copy.deepcopy(before['fetishes'])
+        self.engine.fetishes = copy.deepcopy(original)
+
+        with (
+            patch.object(engine_module, '_use_db', return_value=True),
+            patch.object(
+                engine_module.facade,
+                'psycopg2',
+                type('Psycopg2', (), {'extras': type('Extras', (), {'execute_values': None})}),
+            ),
+            patch.object(engine_module.engine_db, 'mutate_work_catalog', side_effect=OSError('db rollback')),
+            self.assertRaisesRegex(OSError, 'db rollback'),
+        ):
+            self.engine.mutate_work_catalog(
+                'corrections_apply_manifest',
+                {'corrections_manifest': corrections},
+                expected_digest=engine_module.work_catalog.catalog_digest(before['work_catalog']),
+            )
+
+        self.assertEqual(self.engine.fetishes, original)
+
+    def test_correction_manifest_does_not_publish_local_inline_before_commit(self):
+        before, corrections, _player_works = self._production_correction_state()
+        original = copy.deepcopy(before['fetishes'])
+        self.engine.fetishes = copy.deepcopy(original)
+
+        with (
+            patch.object(engine_module, '_use_db', return_value=False),
+            patch.object(self.engine, '_local_work_catalog_state', return_value=before),
+            patch.object(self.engine, '_commit_local_work_catalog_state', side_effect=OSError('disk full')),
+            self.assertRaisesRegex(OSError, 'disk full'),
+        ):
+            self.engine.mutate_work_catalog(
+                'corrections_apply_manifest',
+                {'corrections_manifest': corrections},
+                expected_digest=engine_module.work_catalog.catalog_digest(before['work_catalog']),
+            )
+
+        self.assertEqual(self.engine.fetishes, original)
+
     def test_correction_manifest_commits_catalog_atomically(self):
         catalog = engine_module.work_catalog.build_catalog_from_inline([{'id': 1, 'works': ['Before']}])
         corrected = copy.deepcopy(catalog)
@@ -305,7 +644,18 @@ class TestEngineMutations(unittest.TestCase):
                 expected_digest=engine_module.work_catalog.catalog_digest(catalog),
             )
 
-        self.assertEqual(result['result'], {'correction_count': 2, 'split_count': 1, 'retitle_count': 1})
+        self.assertEqual(
+            result['result'],
+            {
+                'correction_count': 2,
+                'split_count': 1,
+                'retitle_count': 1,
+                'inline_applied_link_count': 0,
+                'inline_fetish_owner_count': 0,
+                'inline_compound_owner_count': 0,
+                'inline_missing_count': 0,
+            },
+        )
         apply.assert_called_once_with(catalog, manifest)
         commit_catalog.assert_called_once()
         self.assertEqual(commit_catalog.call_args.args[1]['work_catalog'], corrected)

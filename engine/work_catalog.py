@@ -449,13 +449,22 @@ def catalog_parity_report(catalog, fetishes, *, compound_rows=(), sample_limit=2
     }
 
 
-def approved_projection_parity_report(catalog, fetishes, *, compound_rows=(), corrections, sample_limit=20):
-    """Compare catalog output with legacy output after exact approved corrections.
-
-    Raw parity remains the evidence that the legacy fallback is equivalent and
-    can be retired. This report only proves that catalog divergence is fully
-    explained by the checked correction manifest.
-    """
+def project_approved_inline_corrections(
+    fetishes,
+    *,
+    compound_rows=(),
+    corrections,
+    direction='forward',
+    tables=None,
+    strict=True,
+    sample_limit=20,
+):
+    """Project exact correction-manifest display deltas onto legacy inline rows."""
+    if direction not in {'forward', 'reverse'}:
+        raise ValueError('unsupported approved inline projection direction')
+    selected_tables = {'fetish_work_links', 'compound_work_links'} if tables is None else set(tables)
+    if not selected_tables <= {'fetish_work_links', 'compound_work_links'}:
+        raise ValueError('unsupported approved inline projection table')
     if not isinstance(corrections, dict):
         raise ValueError('unsupported work catalog corrections schema_version')
     try:
@@ -474,7 +483,8 @@ def approved_projection_parity_report(catalog, fetishes, *, compound_rows=(), co
 
     projected_fetishes = copy.deepcopy(fetishes)
     fetish_by_id = {int(row['id']): row for row in projected_fetishes}
-    if isinstance(compound_rows, dict):
+    compounds_were_dict = isinstance(compound_rows, dict)
+    if compounds_were_dict:
         projected_compounds = [
             {
                 'key': key,
@@ -498,28 +508,32 @@ def approved_projection_parity_report(catalog, fetishes, *, compound_rows=(), co
     projection_errors = []
     applied_count = 0
     missing_count = 0
+    changed_fetish_owners = set()
+    changed_compound_owners = set()
     seen_targets = set()
 
-    def source_locations(source_signature):
+    def source_locations(signature):
         locations = []
-        for row in projected_fetishes:
-            locations.extend(
-                ('fetish', int(row['id']), index)
-                for index, work in enumerate(row.get('works') or [])
-                if _effective_signature(work) == source_signature
-            )
-        for key, row in compound_by_key.items():
-            locations.extend(
-                ('compound', key, index)
-                for index, work in enumerate(row.get('works') or [])
-                if _effective_signature(work) == source_signature
-            )
+        if 'fetish_work_links' in selected_tables:
+            for row in projected_fetishes:
+                locations.extend(
+                    ('fetish', int(row['id']), index)
+                    for index, work in enumerate(row.get('works') or [])
+                    if _effective_signature(work) == signature
+                )
+        if 'compound_work_links' in selected_tables:
+            for key, row in compound_by_key.items():
+                locations.extend(
+                    ('compound', key, index)
+                    for index, work in enumerate(row.get('works') or [])
+                    if _effective_signature(work) == signature
+                )
         return locations
 
-    def missing_is_approved(correction_id, owner_key, owner_id, position, source_signature):
+    def missing_is_approved(correction_id, owner_key, owner_id, position, expected_signature):
         moved = [
             location
-            for location in source_locations(source_signature)
+            for location in source_locations(expected_signature)
             if location != (owner_key[0], owner_id, position)
         ]
         if moved:
@@ -579,14 +593,19 @@ def approved_projection_parity_report(catalog, fetishes, *, compound_rows=(), co
             projection_errors.append({'correction_id': correction_id, 'reason': 'invalid_link_updates'})
             continue
         for update in link_updates:
-            expected = update.get('expected') if isinstance(update, dict) else None
-            table = str(update.get('table') or '') if isinstance(update, dict) else ''
+            expected = update.get('expected')
+            table = str(update.get('table') or '')
+            if table not in {'fetish_work_links', 'compound_work_links'}:
+                projection_errors.append({'correction_id': correction_id, 'reason': 'invalid_link_update'})
+                continue
+            if table not in selected_tables:
+                continue
             allow_missing_value = update.get('allow_missing', False)
             if not isinstance(allow_missing_value, bool):
                 projection_errors.append({'correction_id': correction_id, 'reason': 'invalid_allow_missing'})
                 continue
             allow_missing = allow_missing_value
-            if not isinstance(expected, dict) or table not in {'fetish_work_links', 'compound_work_links'}:
+            if not isinstance(expected, dict):
                 projection_errors.append({'correction_id': correction_id, 'reason': 'invalid_link_update'})
                 continue
             try:
@@ -607,6 +626,11 @@ def approved_projection_parity_report(catalog, fetishes, *, compound_rows=(), co
                 seen_targets.add(owner_key)
                 source_signature = signature(correction, update, target=False)
                 target_signature = signature(correction, update, target=True)
+                expected_signature, replacement_signature = (
+                    (source_signature, target_signature)
+                    if direction == 'forward'
+                    else (target_signature, source_signature)
+                )
             except (KeyError, TypeError, ValueError) as exc:
                 projection_errors.append(
                     {'correction_id': correction_id, 'reason': 'invalid_link_projection', 'detail': str(exc)}
@@ -616,7 +640,7 @@ def approved_projection_parity_report(catalog, fetishes, *, compound_rows=(), co
             works = owner.get('works') if isinstance(owner, dict) else None
             if not isinstance(works, list) or position >= len(works):
                 if allow_missing:
-                    if missing_is_approved(correction_id, owner_key, owner_id, position, source_signature):
+                    if missing_is_approved(correction_id, owner_key, owner_id, position, expected_signature):
                         missing_count += 1
                     continue
                 projection_errors.append(
@@ -629,33 +653,34 @@ def approved_projection_parity_report(catalog, fetishes, *, compound_rows=(), co
                     }
                 )
                 continue
-            source_positions = [
-                index for index, work in enumerate(works) if _effective_signature(work) == source_signature
+            expected_positions = [
+                index for index, work in enumerate(works) if _effective_signature(work) == expected_signature
             ]
-            if any(index != position for index in source_positions):
+            if any(index != position for index in expected_positions):
                 projection_errors.append(
                     {
                         'correction_id': correction_id,
                         'source': owner_key[0],
                         'owner_id': owner_id,
                         'position': position,
-                        'actual_positions': source_positions,
+                        'actual_positions': expected_positions,
                         'reason': 'source_position_drift',
                     }
                 )
                 continue
             actual_signature = _effective_signature(works[position])
-            if actual_signature == source_signature:
+            if actual_signature == expected_signature:
                 works[position] = (
-                    {'title': target_signature[0], 'url': target_signature[1]}
-                    if target_signature[1]
-                    else target_signature[0]
+                    {'title': replacement_signature[0], 'url': replacement_signature[1]}
+                    if replacement_signature[1]
+                    else replacement_signature[0]
                 )
                 applied_count += 1
-            elif actual_signature == target_signature:
+                (changed_fetish_owners if table == 'fetish_work_links' else changed_compound_owners).add(owner_id)
+            elif actual_signature == replacement_signature:
                 continue
             elif allow_missing:
-                if missing_is_approved(correction_id, owner_key, owner_id, position, source_signature):
+                if missing_is_approved(correction_id, owner_key, owner_id, position, expected_signature):
                     missing_count += 1
             else:
                 projection_errors.append(
@@ -665,28 +690,67 @@ def approved_projection_parity_report(catalog, fetishes, *, compound_rows=(), co
                         'owner_id': owner_id,
                         'position': position,
                         'reason': 'source_signature_drift',
-                        'expected': source_signature,
+                        'expected': expected_signature,
                         'actual': actual_signature,
                     }
                 )
 
-    parity = catalog_parity_report(
-        catalog,
-        projected_fetishes,
-        compound_rows=projected_compounds,
+    if strict and projection_errors:
+        first = projection_errors[0]
+        raise ValueError(
+            f'approved inline projection failed: {first.get("correction_id", "unknown")} '
+            f'{first.get("reason", "unknown")}'
+        )
+
+    def projected_compound_key(row):
+        if row.get('key'):
+            return str(row['key'])
+        id_a, id_b = sorted((int(row['id_a']), int(row['id_b'])))
+        return f'{id_a},{id_b}'
+
+    projected_compound_output = (
+        {projected_compound_key(row): copy.deepcopy(row.get('works') or []) for row in projected_compounds}
+        if compounds_were_dict
+        else projected_compounds
+    )
+    return {
+        'fetishes': projected_fetishes,
+        'compound_rows': projected_compound_output,
+        'applied_link_count': applied_count,
+        'fetish_owner_count': len(changed_fetish_owners),
+        'compound_owner_count': len(changed_compound_owners),
+        'missing_count': missing_count,
+        'error_count': len(projection_errors),
+        'errors': projection_errors[: max(0, min(int(sample_limit), 100))],
+    }
+
+
+def approved_projection_parity_report(catalog, fetishes, *, compound_rows=(), corrections, sample_limit=20):
+    """Compare catalog output with legacy output after exact approved corrections."""
+    projection = project_approved_inline_corrections(
+        fetishes,
+        compound_rows=compound_rows,
+        corrections=corrections,
+        strict=False,
         sample_limit=sample_limit,
     )
-    mismatch_count = int(parity['mismatch_count']) + len(projection_errors)
+    parity = catalog_parity_report(
+        catalog,
+        projection['fetishes'],
+        compound_rows=projection['compound_rows'],
+        sample_limit=sample_limit,
+    )
+    mismatch_count = int(parity['mismatch_count']) + projection['error_count']
     return {
         'approved_projection_ok': mismatch_count == 0,
         'approved_mismatch_count': mismatch_count,
         'approved_fetish_mismatch_count': parity['fetish_mismatch_count'],
         'approved_compound_mismatch_count': parity['compound_mismatch_count'],
         'approved_mismatches': parity['mismatches'],
-        'approved_projection_error_count': len(projection_errors),
-        'approved_projection_errors': projection_errors[: max(0, min(int(sample_limit), 100))],
-        'approved_projection_applied_count': applied_count,
-        'approved_projection_missing_count': missing_count,
+        'approved_projection_error_count': projection['error_count'],
+        'approved_projection_errors': projection['errors'],
+        'approved_projection_applied_count': projection['applied_link_count'],
+        'approved_projection_missing_count': projection['missing_count'],
     }
 
 

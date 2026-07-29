@@ -1,8 +1,9 @@
 import json
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
-from engine import db_work_catalog
+from engine import db_work_catalog, work_catalog
 
 
 class RoutingCursor:
@@ -160,6 +161,50 @@ class TestDbWorkCatalog(unittest.TestCase):
         self.assertEqual(len(observed), 1)
         self.assertIs(observed[0][1], corrections)
         self.assertEqual(observed[0][0]['works_master'][0]['canonical_title'], '作品')
+
+    def test_fresh_migration_reverses_corrected_inline_to_the_stable_checked_catalog(self):
+        data = Path(__file__).resolve().parents[1] / 'data'
+        fetishes = json.loads((data / 'fetishes.json').read_text(encoding='utf-8'))
+        compounds = json.loads((data / 'compound_works.json').read_text(encoding='utf-8'))
+        seed = json.loads((data / 'work_catalog_seed_overrides.json').read_text(encoding='utf-8'))
+        review = json.loads((data / 'work_catalog_review_decisions.json').read_text(encoding='utf-8'))
+        corrections = json.loads((data / 'work_catalog_corrections.json').read_text(encoding='utf-8'))
+        checked_catalog = json.loads((data / 'work_catalog.json').read_text(encoding='utf-8'))
+        projection = work_catalog.project_approved_inline_corrections(
+            fetishes,
+            compound_rows=compounds,
+            corrections=corrections,
+        )
+        legacy_rows = [
+            (
+                row['id'],
+                row['name'],
+                row['desc'],
+                json.dumps(row.get('works') or [], ensure_ascii=False),
+            )
+            for row in projection['fetishes']
+        ]
+        captured = []
+
+        with patch.object(
+            db_work_catalog,
+            'replace_catalog',
+            side_effect=lambda _cur, catalog, **_kwargs: captured.append(catalog) or {},
+        ):
+            db_work_catalog.migrate_legacy_catalog(
+                RoutingCursor(legacy_rows=legacy_rows),
+                compound_data=projection['compound_rows'],
+                execute_values=lambda *_args: None,
+                seed_overrides=seed,
+                review_decisions=review,
+                corrections=corrections,
+            )
+
+        self.assertEqual(len(captured), 1)
+        self.assertEqual(
+            work_catalog.catalog_digest(captured[0]),
+            work_catalog.catalog_digest(checked_catalog),
+        )
 
     def test_migration_does_not_replace_an_existing_catalog(self):
         cursor = RoutingCursor(catalog_count=1, legacy_rows=[(1, 'Ignored', '', '["Ignored"]')])

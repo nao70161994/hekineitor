@@ -349,7 +349,15 @@ def replace_compound_work_rows(id_a, id_b, works, *, get_conn, put_conn, execute
         put_conn(conn)
 
 
-def mutate_work_catalog(mutator, *, expected_digest, get_conn, put_conn, execute_values):
+def mutate_work_catalog(
+    mutator,
+    *,
+    expected_digest,
+    get_conn,
+    put_conn,
+    execute_values,
+    inline_corrections=None,
+):
     """Apply one optimistic admin mutation under the global catalog lock."""
     conn = get_conn()
     try:
@@ -361,8 +369,34 @@ def mutate_work_catalog(mutator, *, expected_digest, get_conn, put_conn, execute
                 raise ValueError('work catalog version conflict')
             updated, result = mutator(current)
             engine_work_catalog.validate_catalog(updated)
+            inline_fetishes = None
+            if inline_corrections is not None:
+                cur.execute('SELECT id, name, "desc", works FROM fetishes ORDER BY id FOR UPDATE')
+                inline_fetishes = parse_fetish_rows(cur.fetchall())
+                projection = engine_work_catalog.project_approved_inline_corrections(
+                    inline_fetishes,
+                    corrections=inline_corrections,
+                    tables={'fetish_work_links'},
+                )
+                projected_by_id = {row['id']: row for row in projection['fetishes']}
+                for fetish in inline_fetishes:
+                    projected = projected_by_id[fetish['id']]
+                    if projected.get('works') == fetish.get('works'):
+                        continue
+                    cur.execute(
+                        'UPDATE fetishes SET works=%s WHERE id=%s',
+                        (json.dumps(projected.get('works') or [], ensure_ascii=False), fetish['id']),
+                    )
+                inline_fetishes = projection['fetishes']
+                result = dict(result or {})
+                result.update(
+                    inline_applied_link_count=projection['applied_link_count'],
+                    inline_fetish_owner_count=projection['fetish_owner_count'],
+                    inline_compound_owner_count=0,
+                    inline_missing_count=projection['missing_count'],
+                )
             db_work_catalog.replace_catalog(cur, updated, execute_values=execute_values)
-            return updated, result
+            return updated, result, inline_fetishes
     finally:
         put_conn(conn)
 

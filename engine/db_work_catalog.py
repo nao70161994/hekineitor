@@ -7,6 +7,7 @@ from .work_catalog import (
     apply_review_decisions,
     build_catalog_from_inline,
     merge_restored_fetish_works,  # noqa: F401 - compatibility re-export for db_matrix
+    project_approved_inline_corrections,
     replace_compound_works,
     replace_fetish_works,
     validate_catalog,
@@ -267,9 +268,20 @@ def migrate_legacy_catalog(
     lock_catalog(cur)
     if not catalog_is_empty(cur):
         return {'migrated': False}
+    legacy_fetishes = _legacy_fetishes(cur)
+    compound_rows = _compound_rows(compound_data)
+    if corrections is not None:
+        source_projection = project_approved_inline_corrections(
+            legacy_fetishes,
+            compound_rows=compound_rows,
+            corrections=corrections,
+            direction='reverse',
+        )
+        legacy_fetishes = source_projection['fetishes']
+        compound_rows = source_projection['compound_rows']
     catalog = build_catalog_from_inline(
-        _legacy_fetishes(cur),
-        compound_rows=_compound_rows(compound_data),
+        legacy_fetishes,
+        compound_rows=compound_rows,
         seed_overrides=seed_overrides,
     )
     if review_decisions is not None:

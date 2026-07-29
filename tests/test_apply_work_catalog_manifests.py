@@ -29,8 +29,8 @@ class FakeClient:
             return {
                 'status': 'ok',
                 'migration': {
-                    'automated_parity_ok': False,
-                    'mismatch_count': 6,
+                    'automated_parity_ok': True,
+                    'mismatch_count': 0,
                     'approved_projection_ok': True,
                     'approved_mismatch_count': 0,
                     'pending_review_count': 0,
@@ -94,6 +94,10 @@ class FakeClient:
                 'correction_count': len(rows),
                 'split_count': sum(row.get('type') == 'split_misassigned_edition' for row in rows),
                 'retitle_count': sum(row.get('type') == 'retitle_identity' for row in rows),
+                'inline_applied_link_count': 0,
+                'inline_fetish_owner_count': 0,
+                'inline_compound_owner_count': 0,
+                'inline_missing_count': 0,
             }
         return {'status': 'ok', 'digest': work_catalog.catalog_digest(self.catalog), 'result': result}
 
@@ -108,6 +112,15 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
         for key, works in compounds.items():
             id_a, id_b = key.split(',', 1)
             compound_rows.append({'key': key, 'id_a': int(id_a), 'id_b': int(id_b), 'works': works})
+        corrections = json.loads((data / 'work_catalog_corrections.json').read_text(encoding='utf-8'))
+        source = work_catalog.project_approved_inline_corrections(
+            fetishes,
+            compound_rows=compound_rows,
+            corrections=corrections,
+            direction='reverse',
+        )
+        fetishes = source['fetishes']
+        compound_rows = source['compound_rows']
         self.raw_catalog = work_catalog.build_catalog_from_inline(fetishes, compound_rows=compound_rows)
         seed = json.loads((data / 'work_catalog_seed_overrides.json').read_text(encoding='utf-8'))
         review = json.loads((data / 'work_catalog_review_decisions.json').read_text(encoding='utf-8'))
@@ -117,7 +130,6 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
             seed_overrides=seed,
         )
         self.catalog = work_catalog.apply_review_decisions(catalog, review)
-        corrections = json.loads((data / 'work_catalog_corrections.json').read_text(encoding='utf-8'))
         self.final_catalog = work_catalog.apply_catalog_corrections(self.catalog, corrections)
 
     def test_rejects_non_https_or_wrong_host(self):
@@ -248,6 +260,37 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
         self.assertEqual(mutations, ['seed_overrides_apply_manifest', 'corrections_apply_manifest'])
         self.assertTrue(evidence['review_result']['skipped'])
         self.assertEqual(evidence['before_digest'], evidence['final_digest'])
+
+    def test_rejects_nonzero_raw_parity_after_inline_sync(self):
+        fake = FakeClient(self.final_catalog)
+        original_json = fake.json
+
+        def mismatched_health(path, **kwargs):
+            result = original_json(path, **kwargs)
+            if path == '/api/admin/works_health':
+                result['migration']['automated_parity_ok'] = False
+                result['migration']['mismatch_count'] = 1
+            return result
+
+        fake.json = mismatched_health
+        with tempfile.TemporaryDirectory() as directory:
+            backup = Path(directory) / 'backup.json'
+            backup.write_text(json.dumps({'work_catalog': self.final_catalog}), encoding='utf-8')
+            with (
+                patch.object(apply_work_catalog_manifests, 'AdminClient', return_value=fake),
+                self.assertRaisesRegex(RuntimeError, 'catalog gates'),
+            ):
+                apply_work_catalog_manifests.apply_manifests(
+                    base_url='https://hekineitor.onrender.com',
+                    expected_host='hekineitor.onrender.com',
+                    username='admin',
+                    password='secret',
+                    review_path=self.root / 'data/work_catalog_review_decisions.json',
+                    legacy_review_path=self.root / 'data/work_catalog_review_decisions_legacy_v0.json',
+                    seed_path=self.root / 'data/work_catalog_seed_overrides.json',
+                    corrections_path=self.root / 'data/work_catalog_corrections.json',
+                    backup_path=backup,
+                )
 
     def test_rejects_backup_catalog_drift_before_mutation(self):
         fake = FakeClient(self.catalog)

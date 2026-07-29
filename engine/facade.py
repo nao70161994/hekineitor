@@ -515,22 +515,52 @@ class Engine:
 
         with self._lock:
             if _use_db():
-                updated, result = engine_db.mutate_work_catalog(
+                inline_corrections = (
+                    payload.get('corrections_manifest') if operation == 'corrections_apply_manifest' else None
+                )
+                updated, result, inline_fetishes = engine_db.mutate_work_catalog(
                     apply,
                     expected_digest=expected_digest,
                     get_conn=_get_conn,
                     put_conn=_put_conn,
                     execute_values=psycopg2.extras.execute_values,
+                    inline_corrections=inline_corrections,
                 )
+                if inline_fetishes is not None:
+                    projected_by_id = {row['id']: row.get('works') or [] for row in inline_fetishes}
+                    for fetish in self.fetishes:
+                        if fetish['id'] in projected_by_id:
+                            fetish['works'] = copy.deepcopy(projected_by_id[fetish['id']])
             else:
                 before = self._local_work_catalog_state()
                 if engine_work_catalog.catalog_digest(before['work_catalog']) != str(expected_digest or ''):
                     raise ValueError('work catalog version conflict')
                 updated, result = apply(before['work_catalog'])
+                next_fetishes = before['fetishes']
+                next_compounds = before['compound_works']
+                if operation == 'corrections_apply_manifest':
+                    projection = engine_work_catalog.project_approved_inline_corrections(
+                        next_fetishes,
+                        compound_rows=next_compounds,
+                        corrections=payload.get('corrections_manifest'),
+                    )
+                    next_fetishes = projection['fetishes']
+                    next_compounds = projection['compound_rows']
+                    result = dict(result or {})
+                    result.update(
+                        inline_applied_link_count=projection['applied_link_count'],
+                        inline_fetish_owner_count=projection['fetish_owner_count'],
+                        inline_compound_owner_count=projection['compound_owner_count'],
+                        inline_missing_count=projection['missing_count'],
+                    )
                 after = self._local_work_catalog_state(
-                    fetishes=before['fetishes'], compound_works=before['compound_works'], work_catalog=updated
+                    fetishes=next_fetishes,
+                    compound_works=next_compounds,
+                    work_catalog=updated,
                 )
                 self._commit_local_work_catalog_state(before, after)
+                if operation == 'corrections_apply_manifest':
+                    self.fetishes = copy.deepcopy(after['fetishes'])
             self._invalidate_work_catalog_cache()
         return {'result': result, 'digest': engine_work_catalog.catalog_digest(updated)}
 
@@ -1315,8 +1345,48 @@ class Engine:
                     new_matrix['yes'][fetish_index][question_index] = yes
                     new_matrix['total'][fetish_index][question_index] = total
 
+            inline_corrections = None
+            projected_compounds = None
+            legacy_projection_fetishes = None
+            inline_projection_direction = 'forward'
+            if work_catalog is not None:
+                restored_works = {
+                    int(row['id']): copy.deepcopy(row.get('works'))
+                    for row in exported_fetishes or []
+                    if isinstance(row, dict) and type(row.get('id')) is int and isinstance(row.get('works'), list)
+                }
+                for fetish in new_fetishes:
+                    if fetish['id'] in restored_works:
+                        fetish['works'] = restored_works[fetish['id']]
+                legacy_projection_fetishes = copy.deepcopy(new_fetishes)
+                inline_corrections = self._load_json('work_catalog_corrections.json')
+                try:
+                    corrected_catalog = engine_work_catalog.apply_catalog_corrections(work_catalog, inline_corrections)
+                except ValueError as exc:
+                    raise ValueError('restored work catalog correction state drift') from exc
+                inline_projection_direction = 'forward' if corrected_catalog == work_catalog else 'reverse'
+                current_compounds = self._load_json('compound_works.json')
+                projection = engine_work_catalog.project_approved_inline_corrections(
+                    new_fetishes,
+                    compound_rows=current_compounds,
+                    corrections=inline_corrections,
+                    direction=inline_projection_direction,
+                )
+                if _use_db() and projection['compound_rows'] != current_compounds:
+                    required_state = 'target' if inline_projection_direction == 'forward' else 'source'
+                    raise ValueError(f'work catalog restore requires a matching {required_state} compound deploy')
+                new_fetishes = projection['fetishes']
+                projected_compounds = projection['compound_rows']
+                parity = engine_work_catalog.catalog_parity_report(
+                    work_catalog,
+                    new_fetishes,
+                    compound_rows=projected_compounds,
+                )
+                if not parity['automated_parity_ok']:
+                    raise ValueError('restored work catalog inline parity mismatch')
+
             if _use_db():
-                engine_db.restore_matrix_snapshot(
+                inline_fetishes = engine_db.restore_matrix_snapshot(
                     missing,
                     matrix_rows,
                     get_conn=_get_conn,
@@ -1324,27 +1394,34 @@ class Engine:
                     execute_values=psycopg2.extras.execute_values,
                     work_catalog=work_catalog,
                     restored_inline_fetishes=restored_inline_fetishes,
+                    inline_corrections=inline_corrections,
+                    legacy_projection_fetishes=legacy_projection_fetishes,
+                    inline_projection_direction=inline_projection_direction,
                 )
+                if inline_fetishes is not None:
+                    projected_by_id = {row['id']: row.get('works') or [] for row in inline_fetishes}
+                    for fetish in new_fetishes:
+                        if fetish['id'] in projected_by_id:
+                            fetish['works'] = copy.deepcopy(projected_by_id[fetish['id']])
+            elif work_catalog is not None:
+                before = self._local_work_catalog_state(include_lifecycle=True)
+                after = self._local_work_catalog_state(
+                    fetishes=new_fetishes,
+                    compound_works=projected_compounds,
+                    work_catalog=work_catalog,
+                    matrix=new_matrix,
+                    fetish_log=before['fetish_log'],
+                    include_lifecycle=True,
+                )
+                self._commit_local_work_catalog_state(before, after)
             else:
                 journal_path = os.path.join(DATA_DIR, 'matrix_restore_journal.json')
                 fetishes_path = os.path.join(DATA_DIR, 'fetishes.json')
                 matrix_path = os.path.join(DATA_DIR, 'matrix.json')
-                work_catalog_path = os.path.join(DATA_DIR, 'work_catalog.json')
-                old_work_catalog = old_work_catalog or (
-                    self._work_catalog_snapshot() if work_catalog is not None else None
-                )
                 before = {'fetishes': old_fetishes, 'matrix': old_matrix}
                 after = {'fetishes': new_fetishes, 'matrix': new_matrix}
-                if work_catalog is not None:
-                    before['work_catalog'] = old_work_catalog
-                    after['work_catalog'] = work_catalog
-                journal = {
-                    'format_version': 2 if work_catalog is not None else 1,
-                    'before': before,
-                    'after': after,
-                }
-                lock_path = work_catalog_path if work_catalog is not None else journal_path
-                with _settings_file_lock(lock_path):
+                journal = {'format_version': 1, 'before': before, 'after': after}
+                with _settings_file_lock(journal_path):
                     journal_written = False
                     try:
                         self._atomic_write(journal_path, journal, ensure_ascii=False)
@@ -1359,8 +1436,6 @@ class Engine:
                             new_matrix,
                             atomic_write=self._atomic_write,
                         )
-                        if work_catalog is not None:
-                            self._atomic_write(work_catalog_path, work_catalog, ensure_ascii=False, indent=2)
                         engine_persistence.durable_unlink(journal_path)
                     except BaseException:
                         if journal_written:
@@ -1375,10 +1450,6 @@ class Engine:
                                     old_matrix,
                                     atomic_write=self._atomic_write,
                                 )
-                                if old_work_catalog is not None:
-                                    self._atomic_write(
-                                        work_catalog_path, old_work_catalog, ensure_ascii=False, indent=2
-                                    )
                                 engine_persistence.durable_unlink(journal_path)
                             except BaseException as rollback_error:
                                 raise RuntimeError(

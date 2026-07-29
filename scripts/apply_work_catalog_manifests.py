@@ -238,11 +238,19 @@ def apply_manifests(
     correction_rows = corrections['corrections']
     expected_splits = sum(row.get('type') == 'split_misassigned_edition' for row in correction_rows)
     expected_retitles = sum(row.get('type') == 'retitle_identity' for row in correction_rows)
+    inline_count_fields = (
+        'inline_applied_link_count',
+        'inline_fetish_owner_count',
+        'inline_compound_owner_count',
+        'inline_missing_count',
+    )
     if (
         correction_response['digest'] != expected_final_digest
         or correction_counts.get('correction_count') != len(correction_rows)
         or correction_counts.get('split_count') != expected_splits
         or correction_counts.get('retitle_count') != expected_retitles
+        or any(type(correction_counts.get(field)) is not int for field in inline_count_fields)
+        or any(correction_counts[field] < 0 for field in inline_count_fields)
     ):
         raise RuntimeError(f'unexpected correction manifest result: {correction_counts!r}')
 
@@ -259,6 +267,8 @@ def apply_manifests(
     }
     if (
         health.get('status') != 'ok'
+        or migration.get('automated_parity_ok') is not True
+        or migration.get('mismatch_count') != 0
         or migration.get('approved_projection_ok') is not True
         or migration.get('approved_mismatch_count') != 0
         or migration.get('pending_review_count') != 0

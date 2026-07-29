@@ -18,15 +18,22 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
         for key, works in sorted(compounds.items()):
             id_a, id_b = key.split(',', 1)
             compound_rows.append({'key': key, 'id_a': int(id_a), 'id_b': int(id_b), 'works': works})
+        corrections = json.loads((data / 'work_catalog_corrections.json').read_text(encoding='utf-8'))
+        source = work_catalog.project_approved_inline_corrections(
+            fetishes,
+            compound_rows=compound_rows,
+            corrections=corrections,
+            direction='reverse',
+        )
         seed = json.loads((data / 'work_catalog_seed_overrides.json').read_text(encoding='utf-8'))
         review = json.loads((data / 'work_catalog_review_decisions.json').read_text(encoding='utf-8'))
         catalog = work_catalog.build_catalog_from_inline(
-            fetishes,
-            compound_rows=compound_rows,
+            source['fetishes'],
+            compound_rows=source['compound_rows'],
             seed_overrides=seed,
         )
         cls.catalog = work_catalog.apply_review_decisions(catalog, review)
-        cls.manifest = json.loads((data / 'work_catalog_corrections.json').read_text(encoding='utf-8'))
+        cls.manifest = corrections
 
     def apply(self, catalog=None, manifest=None):
         return work_catalog.apply_catalog_corrections(

@@ -375,6 +375,13 @@ class WorkCatalogMigrationTests(unittest.TestCase):
         fetishes = json.loads((data / 'fetishes.json').read_text(encoding='utf-8'))
         compounds = json.loads((data / 'compound_works.json').read_text(encoding='utf-8'))
         corrections = json.loads((data / 'work_catalog_corrections.json').read_text(encoding='utf-8'))
+        source = work_catalog.project_approved_inline_corrections(
+            fetishes,
+            compound_rows=compounds,
+            corrections=corrections,
+            direction='reverse',
+        )
+        fetishes, compounds = source['fetishes'], source['compound_rows']
         player_works = [
             {
                 'title': '誰かこの状況を説明してください！',
@@ -389,6 +396,56 @@ class WorkCatalogMigrationTests(unittest.TestCase):
         next(row for row in next_fetishes if row['id'] == 104)['works'] = player_works
         next_catalog = work_catalog.replace_fetish_works(catalog, 104, player_works)
         return next_catalog, next_fetishes, compounds, corrections
+
+    def test_strict_inline_projection_round_trips_checked_sources(self):
+        data = ROOT / 'data'
+        fetishes = json.loads((data / 'fetishes.json').read_text(encoding='utf-8'))
+        compounds = json.loads((data / 'compound_works.json').read_text(encoding='utf-8'))
+        corrections = json.loads((data / 'work_catalog_corrections.json').read_text(encoding='utf-8'))
+
+        reverse = work_catalog.project_approved_inline_corrections(
+            fetishes,
+            compound_rows=compounds,
+            corrections=corrections,
+            direction='reverse',
+        )
+        forward = work_catalog.project_approved_inline_corrections(
+            reverse['fetishes'],
+            compound_rows=reverse['compound_rows'],
+            corrections=corrections,
+        )
+
+        self.assertEqual(reverse['applied_link_count'], 7)
+        self.assertEqual(reverse['fetish_owner_count'], 6)
+        self.assertEqual(reverse['compound_owner_count'], 1)
+        self.assertEqual(forward['fetishes'], fetishes)
+        self.assertEqual(forward['compound_rows'], compounds)
+
+    def test_strict_inline_projection_rejects_source_drift(self):
+        _catalog, fetishes, compounds, corrections = self._production_correction_projection_fixture()
+        next(row for row in fetishes if row['id'] == 23)['works'][1]['title'] += ' drift'
+
+        with self.assertRaisesRegex(ValueError, 'source_signature_drift'):
+            work_catalog.project_approved_inline_corrections(
+                fetishes,
+                compound_rows=compounds,
+                corrections=corrections,
+            )
+
+    def test_checked_inline_fallback_has_raw_parity_with_the_checked_catalog(self):
+        data = ROOT / 'data'
+        catalog = json.loads((data / 'work_catalog.json').read_text(encoding='utf-8'))
+        fetishes = json.loads((data / 'fetishes.json').read_text(encoding='utf-8'))
+        compounds = json.loads((data / 'compound_works.json').read_text(encoding='utf-8'))
+
+        parity = work_catalog.catalog_parity_report(
+            catalog,
+            fetishes,
+            compound_rows=compounds,
+        )
+
+        self.assertTrue(parity['automated_parity_ok'])
+        self.assertEqual(parity['mismatch_count'], 0)
 
     def test_approved_projection_explains_the_six_production_correction_deltas(self):
         catalog, fetishes, compounds, corrections = self._production_correction_projection_fixture()
