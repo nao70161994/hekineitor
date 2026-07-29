@@ -1,5 +1,7 @@
 # ruff: noqa: F403, F405
 
+import copy
+
 from tests._app_test_support import *
 
 
@@ -10,6 +12,8 @@ class TestEngine(FileSnapshotMixin, unittest.TestCase):
         from app import engine as app_engine
 
         self.eng = app_engine
+        self._fetishes_snapshot = copy.deepcopy(self.eng.fetishes)
+        self._matrix_snapshot = copy.deepcopy(self.eng.matrix)
         self._patches = [
             patch.object(self.eng, '_save_async', return_value=None),
             patch.object(self.eng, '_save_matrix_file', return_value=None),
@@ -20,6 +24,9 @@ class TestEngine(FileSnapshotMixin, unittest.TestCase):
             p.start()
 
     def tearDown(self):
+        self.eng.fetishes[:] = self._fetishes_snapshot
+        self.eng.matrix.clear()
+        self.eng.matrix.update(self._matrix_snapshot)
         for p in reversed(self._patches):
             p.stop()
 
