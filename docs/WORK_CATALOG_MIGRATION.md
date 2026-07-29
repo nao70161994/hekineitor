@@ -80,7 +80,15 @@ P0 correction適用後の本番catalogはmaster 375、edition 295、alias 153、
 - 12 sample rollout gate: workflow run `30472753297`（成功。63.6秒、1 worker、全revision 10、fallback/load failure 0、runtime error 0）
 - 適用後v3 backup: workflow run `30473032447`（上記digest・件数・pending 0を再確認）
 
-この時点の6 owner差はapproved projectionで全件説明されました。後続のinline同期releaseではchecked fetish 6 linkとcompound 1 linkを承認済み表示へ更新し、同じcorrection manifestの再適用で本番DB `fetishes.works`も同期します。適用後はraw mismatch 0を必須gateとし、新しいworkflow run IDをこの節へ追記します。
+この時点の6 owner差はapproved projectionで全件説明されました。inline同期release `bbfe96aa541ae0bd88d988b6ed9b40ec6dca87d2`ではchecked fetish 6 linkとcompound 1 linkを承認済み表示へ更新し、同じcorrection manifestの再適用で本番DB `fetishes.works`も同期しました。catalog digestは不変です。
+
+- release CI: workflow run `30484600035`（全check、coverage、Chromium E2E成功）
+- 同期前v3 backup: workflow run `30485461682`
+- inline同期manifest適用: workflow run `30485597961`（fetish link 5件・owner 5件を更新、player replacement 1件を保持、raw/approved mismatch 0、全revision 12）
+- 12 sample rollout gate: workflow run `30485910957`（64.856秒、1 worker、revision 12、fallback/load failure 0、retirement blocker 0、`automated_eligible=true`）
+- 同期後v3 backup: workflow run `30486049555`（137 fetish、153 question、20,961 matrix row、catalog digest・全件数・pending 0を再確認）
+
+これにより`catalog_inline_mismatch`は解消しました。残るretirement条件はstaging v3 restore rehearsal、手動サインオフ、および必要な観測期間です。
 
 ## Deploy前
 

@@ -17,7 +17,7 @@ PRODUCTION_APP_URL=https://<production-host>
 
 復元元は`Matrix Backup & DB Expiry Check`の成功runが生成した`matrix-backup-<run_id>` artifactです。artifactには`data/matrix_backup.json`が含まれ、30日以内である必要があります。
 
-P0 correction後の現行releaseを検証する復元元は、post-correction backup run `30473032447`以降を使います。backupのcatalog correction状態とstagingへdeployしたchecked inline projectionが一致しなければ実行しません。pre-correction backupを使うrollback演習は、同じsource世代のcode/data artifactを別途deployして行います。DB modeではcompound inlineをDBへ永続化できないため、backup catalogに必要なprojectionとdeploy済みcompound JSONが異なる場合はimport前にfail-closedします。
+P0 correctionとinline同期後の現行releaseを検証する復元元は、post-sync backup run `30486049555`以降を使います。backupのcatalog correction状態とstagingへdeployしたchecked inline projectionが一致しなければ実行しません。pre-correction backupを使うrollback演習は、同じsource世代のcode/data artifactを別途deployして行います。DB modeではcompound inlineをDBへ永続化できないため、backup catalogに必要なprojectionとdeploy済みcompound JSONが異なる場合はimport前にfail-closedします。
 
 本番backupをstagingへ復元してよいのはデータを受け入れる隔離されたstaging serviceだけです。production credential、production database、production serviceの複製接続先は使いません。
 
