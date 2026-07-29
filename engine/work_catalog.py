@@ -1510,10 +1510,6 @@ def apply_bibliography_manifest(catalog, manifest):
                     'normalized_alias': normalized_work_title(expected['canonical_title']),
                 }
                 for row in updated['work_aliases']
-            ) and not any(
-                row['work_id'] == work_id and not row.get('alias_id')
-                for table in ('fetish_work_links', 'compound_work_links')
-                for row in updated[table]
             )
         if target_present:
             continue

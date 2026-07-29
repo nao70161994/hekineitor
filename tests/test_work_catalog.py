@@ -122,6 +122,14 @@ class WorkCatalogMigrationTests(unittest.TestCase):
         self.assertTrue(parity['automated_parity_ok'])
         self.assertEqual(parity['mismatch_count'], 0)
 
+        seed = json.loads((ROOT / 'data' / 'work_catalog_seed_overrides.json').read_text(encoding='utf-8'))
+        normalized = work_catalog.apply_seed_overrides(catalog, seed)
+        normalized_reapplied, normalized_counts = work_catalog.apply_bibliography_manifest(normalized, manifest)
+        self.assertEqual(normalized_reapplied, normalized)
+        self.assertEqual(normalized_counts['work_update_count'], 0)
+        self.assertEqual(normalized_counts['edition_count'], 0)
+        self.assertEqual(normalized_counts['identifier_count'], 0)
+
     def test_bibliography_rejects_unsafe_or_missing_evidence(self):
         catalog = work_catalog.build_catalog_from_inline([{'id': 1, 'works': ['Work']}])
         expected = catalog['works_master'][0]
