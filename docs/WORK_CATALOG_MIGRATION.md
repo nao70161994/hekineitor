@@ -73,11 +73,12 @@ healthは2種類のparityを混同しません。従来の`automated_parity_ok` 
 
 この証跡は本番移行の自動gateを満たしますが、staging v3 restore rehearsalと旧inline廃止の最終承認を代替しません。
 
-P0 correction適用後の本番catalogはmaster 375、edition 295、alias 153、fetish link 396、compound link 185、resolved review 79、pending 0、revision 8です。最終digestは`db0f725764a785303dc53073b935585460611b1f1cc2c2628f4874318fc5c0fa`です。
+P0 correction適用後の本番catalogはmaster 375、edition 295、alias 153、fetish link 396、compound link 185、resolved review 79、pending 0、revision 10です。最終digestは`db0f725764a785303dc53073b935585460611b1f1cc2c2628f4874318fc5c0fa`です。
 
-- correction mutation実行: workflow run `30435445845`（catalog更新とrevision 8へのcommitは成功。旧post-healthがraw mismatchをruntime異常扱いしたためjob自体はfailure）
-- 12 sample観測: workflow run `30435511130`（revision 8一致、fallback/load failure 0、raw mismatchは意図したfetish 5 owner + compound 1 ownerのみ）
-- 適用後v3 backup: workflow run `30435759642`（上記digest・件数・pending 0を再確認）
+- 初回correction mutation: workflow run `30435445845`（catalog更新とrevision 8へのcommitは成功。旧post-healthがraw mismatchをruntime異常扱いしたためjob自体はfailure）
+- manifest冪等再検証: workflow run `30472630524`（成功。review skip、seed/correction no-op、approved mismatch 0、raw mismatch 6、全revision 10、監査fingerprint一致）
+- 12 sample rollout gate: workflow run `30472753297`（成功。63.6秒、1 worker、全revision 10、fallback/load failure 0、runtime error 0）
+- 適用後v3 backup: workflow run `30473032447`（上記digest・件数・pending 0を再確認）
 
 この6 owner差はapproved projectionでは全件説明されますが、raw inline fallbackは旧titleのままです。したがってruntime catalog gateとmutation成功の証拠には使える一方、`catalog_inline_mismatch`はretirement blockerとして維持します。
 

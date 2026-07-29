@@ -103,6 +103,8 @@ DAILY:
 動的priorの旧データ母集団は `/api/admin/operations_snapshot` の `dynamic_prior_shadow` で確認します。`operations_check.py` は行詳細を保存・通知せず、`schema_version`、`mismatched_count`、`excess_correct_count`、`migration_policy.strategy`、`irreversible_reclassification_performed` だけをDAILY metricsへ出します。`mismatched_count` は `correct > guessed` の性癖数、`excess_correct_count` は露出母集団を超えた正解イベント総数です。由来を復元できない旧イベントは書き換えず、runtime clampと旧weightとの差をshadow比較します。
 
 本番デプロイ後は定期実行ログの `dynamic_prior_shadow=...` を時系列で記録し、新しい `correction_selected` 分離後に `mismatched` と `excess_correct` が増加しないことを確認します。取得不能は `operations snapshot unavailable`、必須値の欠落・型不正・負数は `dynamic prior shadow invalid` としてWARNになります。`strategy` が `non_destructive_runtime_clamp` 以外、または `irreversible:true` の場合もWARNです。この警告が出た場合は自動修復せず、該当デプロイの変更内容とDBバックアップを確認してから判断します。
+本番baselineは2026-07-30 JSTのOps Check run `30473035425`です。`schema=1`、`mismatched=8`、`excess_correct=9`、`strategy=non_destructive_runtime_clamp`、`irreversible=false`を確認しました。以後は同じ集約値をこのbaselineと比較し、新規イベントで増加していないことを監視します。
+
 
 ## 通知例
 
