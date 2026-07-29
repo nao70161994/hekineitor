@@ -1,0 +1,106 @@
+name: Staging v3 Restore Rehearsal
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: '「RESTORE V3 TO STAGING」と正確に入力'
+        required: true
+        type: string
+      backup_run_id:
+        description: '復元元 Matrix Backup workflow のrun_id'
+        required: true
+        type: string
+      expected_staging_host:
+        description: 'stagingのhostname（scheme/pathなし）'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  restore-rehearsal:
+    if: ${{ inputs.confirm == 'RESTORE V3 TO STAGING' }}
+    runs-on: ubuntu-latest
+    environment: staging
+    concurrency:
+      group: staging-v3-restore-rehearsal
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Fail closed before staging access
+        env:
+          STAGING_BASE_URL: ${{ secrets.STAGING_APP_URL }}
+          EXPECTED_STAGING_HOST: ${{ inputs.expected_staging_host }}
+          PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_APP_URL }}
+          STAGING_RESTORE_CONFIRM: ${{ inputs.confirm }}
+          BACKUP_RUN_ID: ${{ inputs.backup_run_id }}
+        run: |
+          python - <<'PY'
+          import os
+          from scripts.staging_v3_restore_rehearsal import guarded_staging_url
+
+          guarded_staging_url(
+              os.environ.get('STAGING_BASE_URL', ''),
+              os.environ.get('EXPECTED_STAGING_HOST', ''),
+              os.environ.get('PRODUCTION_BASE_URL', ''),
+              os.environ.get('STAGING_RESTORE_CONFIRM', ''),
+          )
+          run_id = os.environ.get('BACKUP_RUN_ID', '')
+          if not run_id.isdigit() or int(run_id) <= 0:
+              raise SystemExit('backup_run_id must be a positive numeric workflow run_id')
+          print('Fail-closed staging target guard passed.')
+          PY
+
+      - name: Download Matrix Backup artifact by run_id
+        uses: actions/download-artifact@v8
+        with:
+          name: matrix-backup-${{ inputs.backup_run_id }}
+          run-id: ${{ inputs.backup_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: data/staging-rehearsal
+
+      - name: Require and validate v3 backup
+        env:
+          PYTHONPATH: .
+        run: |
+          test -f data/staging-rehearsal/matrix_backup.json
+          python scripts/validate_matrix_backup.py data/staging-rehearsal/matrix_backup.json --max-age-days 30 \
+            > artifacts_backup_validation.json
+          python - <<'PY'
+          import json
+          report = json.load(open('artifacts_backup_validation.json', encoding='utf-8'))
+          if report.get('version') != 3:
+              raise SystemExit('staging rehearsal requires backup_format_version=3')
+          print('v3 backup and work_catalog validation passed.')
+          PY
+
+      - name: Restore and smoke staging
+        env:
+          PYTHONPATH: .
+          STAGING_BASE_URL: ${{ secrets.STAGING_APP_URL }}
+          EXPECTED_STAGING_HOST: ${{ inputs.expected_staging_host }}
+          PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_APP_URL }}
+          STAGING_ADMIN_USER: ${{ secrets.STAGING_ADMIN_USER }}
+          STAGING_ADMIN_PASS: ${{ secrets.STAGING_ADMIN_PASS }}
+          STAGING_RESTORE_CONFIRM: ${{ inputs.confirm }}
+          BACKUP_RUN_ID: ${{ inputs.backup_run_id }}
+        run: python scripts/staging_v3_restore_rehearsal.py data/staging-rehearsal/matrix_backup.json
+
+      - name: Upload rehearsal evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: staging-v3-restore-rehearsal-${{ github.run_id }}
+          path: |
+            artifacts/staging_v3_restore_rehearsal.json
+            artifacts_backup_validation.json
+          if-no-files-found: warn
+          retention-days: 30

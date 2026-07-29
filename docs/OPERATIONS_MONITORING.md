@@ -126,6 +126,21 @@ top_results:
 - 眼鏡 18 (12.7%)
 ```
 
+
+## Work catalog rollout gate
+
+旧inline作品保存の廃止判定は、通常のhealth通知とは分離したread-only gateで観測します。
+
+```sh
+HEKI_BASE_URL=https://hekineitor.onrender.com \
+ADMIN_READ_TOKEN=<read-only token> \
+WORK_CATALOG_EXPECTED_WORKERS=1 \
+python scripts/work_catalog_rollout_check.py
+```
+
+12回・5秒間隔を既定とし、workerごとにcatalog/DB/cache revision、parity、pending review、catalog read、legacy fallback、load failureを集約します。`WORK_CATALOG_EXPECTED_WORKERS`は推測せず、platformのinstance設定と一致させます。結果は`artifacts/work_catalog_rollout_report.json`に保存されます。
+
+`.github/workflows/work-catalog-rollout-check.yml`は6時間ごと、および手動dispatchで同じgateを実行し、30日保持のartifactを残します。このgateの成功は短時間の自動証拠であり、[staging v3 restore rehearsal](STAGING_V3_RESTORE_REHEARSAL.md)と人手サインオフを代替しません。
 ## GitHub Actions推奨構成
 
 追加課金を避けるため、定期監視は Render Cron ではなく GitHub Actions の schedule で実行します。workflow は2本に分けています。

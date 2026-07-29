@@ -1,0 +1,65 @@
+name: Work Catalog Rollout Gate
+
+on:
+  schedule:
+    - cron: "30 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      expected_workers:
+        description: Expected production worker count
+        required: true
+        default: "1"
+      samples:
+        description: Number of read-only samples
+        required: true
+        default: "12"
+      interval_seconds:
+        description: Seconds between samples
+        required: true
+        default: "5"
+      minimum_observation_seconds:
+        description: Required elapsed observation window
+        required: true
+        default: "55"
+
+concurrency:
+  group: work-catalog-rollout-gate
+  cancel-in-progress: false
+
+jobs:
+  catalog-rollout-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Sample production catalog state
+        id: rollout
+        continue-on-error: true
+        run: python scripts/work_catalog_rollout_check.py
+        env:
+          PYTHONPATH: .
+          HEKI_BASE_URL: ${{ secrets.HEKI_BASE_URL }}
+          ADMIN_READ_TOKEN: ${{ secrets.ADMIN_READ_TOKEN }}
+          WORK_CATALOG_EXPECTED_WORKERS: ${{ inputs.expected_workers || vars.WORK_CATALOG_EXPECTED_WORKERS || '1' }}
+          WORK_CATALOG_OBSERVATION_SAMPLES: ${{ inputs.samples || '12' }}
+          WORK_CATALOG_OBSERVATION_INTERVAL_SECONDS: ${{ inputs.interval_seconds || '5' }}
+          WORK_CATALOG_MIN_OBSERVATION_SECONDS: ${{ inputs.minimum_observation_seconds || '55' }}
+
+      - name: Upload rollout evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: work-catalog-rollout-${{ github.run_id }}
+          path: artifacts/work_catalog_rollout_report.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce rollout gate
+        if: steps.rollout.outcome != 'success'
+        run: exit 1
