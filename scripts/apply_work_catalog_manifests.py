@@ -22,8 +22,16 @@ REVIEW_SHA256 = '6da3aab04feda24b114e746afab44b37f08781443fa242e0971fd6b64780767
 LEGACY_REVIEW_SHA256 = 'e9898e8165f6772f58be05583d838b10b74a1749e666251613d7671584f1cf05'
 LEGACY_SOURCE_DIGEST = '7bbadf34074f154d1e69cf40382834c641aaf30b5edb6432d05b7aa86b87bd17'
 LEGACY_AFTER_REVIEW_DIGEST = '0b76ff8b17f74eba3609054305429dc5409289d31180498bc36cb207053cc79f'
+LEGACY_DURABLE_AFTER_REVIEW_DIGEST = '015102bcd11bb4a1f61927d9faac659e17f91f4951af854f72fc6fb56cdc43ef'
+LEGACY_DURABLE_FINAL_DIGEST = 'a80fe4106e76f906fb09bbe2338b79bbad641edcfbcca0daafd7958609ae2501'
 LEGACY_FINAL_DIGEST = 'b09f615311de932ed41af208c02058fa711da983c2ba18d0438cf80f6dc3b4ce'
-LEGACY_COMPATIBLE_DIGESTS = {LEGACY_SOURCE_DIGEST, LEGACY_AFTER_REVIEW_DIGEST, LEGACY_FINAL_DIGEST}
+LEGACY_COMPATIBLE_DIGESTS = {
+    LEGACY_SOURCE_DIGEST,
+    LEGACY_AFTER_REVIEW_DIGEST,
+    LEGACY_DURABLE_AFTER_REVIEW_DIGEST,
+    LEGACY_FINAL_DIGEST,
+    LEGACY_DURABLE_FINAL_DIGEST,
+}
 SEED_SHA256 = 'e960ed79e1f77c0af61275d536f311b3d8c3b93b563bf522e55b0ed4dbde32c3'
 CSRF_RE = re.compile(r'csrfToken\s*[:=]\s*["\']([^"\']+)')
 
@@ -176,7 +184,10 @@ def apply_manifests(
         raise RuntimeError(f'unexpected review manifest result: {review_counts!r}')
 
     between, between_digest = _snapshot(client)
-    if between_digest != expected_review_digest:
+    expected_durable_review_digest = (
+        LEGACY_DURABLE_AFTER_REVIEW_DIGEST if before_digest == LEGACY_SOURCE_DIGEST else expected_review_digest
+    )
+    if between_digest != expected_durable_review_digest:
         raise RuntimeError('catalog drift detected between manifest operations')
     seed_response = _mutate(
         client,
@@ -237,7 +248,7 @@ def apply_manifests(
         'review_manifest_sha256': review_sha256,
         'seed_overrides_sha256': SEED_SHA256,
         'before_digest': before_digest,
-        'review_digest': expected_review_digest,
+        'review_digest': between_digest,
         'final_digest': expected_final_digest,
         'review_result': review_counts,
         'seed_result': seed_counts,
