@@ -176,7 +176,7 @@ def apply_manifests(
         raise RuntimeError(f'unexpected review manifest result: {review_counts!r}')
 
     between, between_digest = _snapshot(client)
-    if between_digest != expected_review_digest or between != expected_after_review:
+    if between_digest != expected_review_digest:
         raise RuntimeError('catalog drift detected between manifest operations')
     seed_response = _mutate(
         client,
@@ -195,7 +195,7 @@ def apply_manifests(
         raise RuntimeError(f'unexpected seed override result: {seed_counts!r}')
 
     after, after_digest = _snapshot(client)
-    if after_digest != expected_final_digest or after != expected_final:
+    if after_digest != expected_final_digest:
         raise RuntimeError('post-mutation catalog does not match the preflight result')
     health = client.json('/api/admin/works_health')
     migration = health.get('migration') or {}
