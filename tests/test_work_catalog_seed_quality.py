@@ -238,5 +238,9 @@ def test_checked_in_seed_has_only_verified_safe_normalizations():
     assert '賭ケグルイ（参考）' in {row['alias'] for row in aliases.values()}
     assert len([title for title in canonical_titles if title.startswith('ベルセルク')]) == 2
     assert len([title for title in canonical_titles if title.startswith('小林さんちのメイドラゴン')]) == 2
-    assert all(not row['media_type'] for row in masters.values())
-    assert all(not row['format'] for row in catalog['work_editions'])
+    assert sum(bool(row['media_type']) for row in masters.values()) == 18
+    assert sum(row['format'] == 'paper' for row in catalog['work_editions']) == 12
+    assert len(catalog['work_edition_identifiers']) == 12
+    assert all(row['scheme'] == row['authority'] == 'isbn' for row in catalog['work_edition_identifiers'])
+    assert all(len(row['value']) == 13 and row['value'].isdigit() for row in catalog['work_edition_identifiers'])
+    assert '4199007804' not in {row['value'] for row in catalog['work_edition_identifiers']}

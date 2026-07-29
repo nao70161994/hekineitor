@@ -1585,6 +1585,9 @@ def mutate_work_catalog_admin(ctx):
         'edition_create',
         'edition_update',
         'edition_delete',
+        'identifier_create',
+        'identifier_update',
+        'identifier_delete',
         'alias_create',
         'alias_update',
         'alias_delete',
@@ -1593,6 +1596,7 @@ def mutate_work_catalog_admin(ctx):
         'review_apply_manifest',
         'seed_overrides_apply_manifest',
         'corrections_apply_manifest',
+        'bibliography_apply_manifest',
     }
     if operation not in allowed:
         return ctx.jsonify({'status': 'error', 'message': '不正な作品catalog操作です'}), 400
@@ -1607,6 +1611,7 @@ def mutate_work_catalog_admin(ctx):
         or operation == 'review_apply_manifest'
         or operation == 'corrections_apply_manifest'
         or operation == 'seed_overrides_apply_manifest'
+        or operation == 'bibliography_apply_manifest'
         or (operation == 'review_decide' and payload.get('decision') == 'merge')
     )
     if destructive:
@@ -1620,7 +1625,7 @@ def mutate_work_catalog_admin(ctx):
         status = 409 if 'conflict' in message else 400
         return ctx.jsonify({'status': 'error', 'message': message}), status
     audit_payload = {'operation': operation}
-    for key in ('work_id', 'edition_id', 'alias_id', 'link_id', 'review_id'):
+    for key in ('work_id', 'edition_id', 'identifier_id', 'alias_id', 'link_id', 'review_id'):
         if payload.get(key):
             audit_payload[key] = str(payload[key])[:80]
     if operation == 'seed_overrides_apply_manifest':
@@ -1643,6 +1648,18 @@ def mutate_work_catalog_admin(ctx):
             correction_count=len(corrections),
             split_count=sum(row.get('type') == 'split_misassigned_edition' for row in corrections),
             retitle_count=sum(row.get('type') == 'retitle_identity' for row in corrections),
+            manifest_sha256=hashlib.sha256(encoded_manifest).hexdigest(),
+            reviewed_by=str(manifest.get('reviewed_by') or '')[:80],
+        )
+    if operation == 'bibliography_apply_manifest':
+        manifest = payload.get('bibliography_manifest', {})
+        entries = manifest.get('entries', [])
+        encoded_manifest = json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode(
+            'utf-8'
+        )
+        audit_payload.update(
+            entry_count=len(entries),
+            edition_count=sum(bool(row.get('edition')) for row in entries),
             manifest_sha256=hashlib.sha256(encoded_manifest).hexdigest(),
             reviewed_by=str(manifest.get('reviewed_by') or '')[:80],
         )

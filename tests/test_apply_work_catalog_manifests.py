@@ -73,6 +73,14 @@ class FakeClient:
                             'manifest_sha256': apply_work_catalog_manifests.CORRECTIONS_SHA256,
                         },
                     },
+                    {
+                        'action': 'work_catalog_mutation',
+                        'status': 'ok',
+                        'detail': {
+                            'operation': 'bibliography_apply_manifest',
+                            'manifest_sha256': apply_work_catalog_manifests.BIBLIOGRAPHY_SHA256,
+                        },
+                    },
                 ],
             }
         operation = payload['operation']
@@ -86,6 +94,10 @@ class FakeClient:
                 'normalized_title_count': 46,
                 'removed_work_count': before - len(self.catalog['works_master']),
             }
+        elif operation == 'bibliography_apply_manifest':
+            self.catalog, result = work_catalog.apply_bibliography_manifest(
+                self.catalog, payload['payload']['bibliography_manifest']
+            )
         else:
             manifest = payload['payload']['corrections_manifest']
             self.catalog = work_catalog.apply_catalog_corrections(self.catalog, manifest)
@@ -108,6 +120,7 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
         data = self.root / 'data'
         fetishes = json.loads((data / 'fetishes.json').read_text(encoding='utf-8'))
         compounds = json.loads((data / 'compound_works.json').read_text(encoding='utf-8'))
+        self.bibliography = json.loads((data / 'work_catalog_bibliography.json').read_text(encoding='utf-8'))
         compound_rows = []
         for key, works in compounds.items():
             id_a, id_b = key.split(',', 1)
@@ -131,6 +144,7 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
         )
         self.catalog = work_catalog.apply_review_decisions(catalog, review)
         self.final_catalog = work_catalog.apply_catalog_corrections(self.catalog, corrections)
+        self.bibliography_catalog = work_catalog.apply_bibliography_manifest(self.final_catalog, self.bibliography)[0]
 
     def test_rejects_non_https_or_wrong_host(self):
         for url in ('http://example.com', 'https://other.example', 'https://example.com/path'):
@@ -159,15 +173,21 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
                     legacy_review_path=self.root / 'data/work_catalog_review_decisions_legacy_v0.json',
                     seed_path=self.root / 'data/work_catalog_seed_overrides.json',
                     corrections_path=self.root / 'data/work_catalog_corrections.json',
+                    bibliography_path=self.root / 'data/work_catalog_bibliography.json',
                     backup_path=backup,
                 )
         mutations = [call for call in fake.calls if call[0].endswith('/mutate')]
         self.assertEqual(
             [call[2]['operation'] for call in mutations],
-            ['review_apply_manifest', 'seed_overrides_apply_manifest', 'corrections_apply_manifest'],
+            [
+                'review_apply_manifest',
+                'seed_overrides_apply_manifest',
+                'corrections_apply_manifest',
+                'bibliography_apply_manifest',
+            ],
         )
         self.assertTrue(all(call[2]['confirm_text'] == 'WORK_CATALOG' for call in mutations))
-        self.assertEqual(evidence['final_digest'], work_catalog.catalog_digest(self.final_catalog))
+        self.assertEqual(evidence['final_digest'], work_catalog.catalog_digest(self.bibliography_catalog))
         self.assertNotIn('secret', json.dumps(evidence))
 
     def test_pre_review_source_reaches_the_same_approved_final_catalog(self):
@@ -185,14 +205,20 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
                     legacy_review_path=self.root / 'data/work_catalog_review_decisions_legacy_v0.json',
                     seed_path=self.root / 'data/work_catalog_seed_overrides.json',
                     corrections_path=self.root / 'data/work_catalog_corrections.json',
+                    bibliography_path=self.root / 'data/work_catalog_bibliography.json',
                     backup_path=backup,
                 )
         mutations = [call[2]['operation'] for call in fake.calls if call[0].endswith('/mutate')]
         self.assertEqual(
             mutations,
-            ['review_apply_manifest', 'seed_overrides_apply_manifest', 'corrections_apply_manifest'],
+            [
+                'review_apply_manifest',
+                'seed_overrides_apply_manifest',
+                'corrections_apply_manifest',
+                'bibliography_apply_manifest',
+            ],
         )
-        self.assertEqual(evidence['final_digest'], work_catalog.catalog_digest(self.final_catalog))
+        self.assertEqual(evidence['final_digest'], work_catalog.catalog_digest(self.bibliography_catalog))
 
     def test_accepts_durable_review_timestamp_and_preserves_player_replacement(self):
         catalog = copy.deepcopy(self.catalog)
@@ -225,6 +251,7 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
                     legacy_review_path=self.root / 'data/work_catalog_review_decisions_legacy_v0.json',
                     seed_path=self.root / 'data/work_catalog_seed_overrides.json',
                     corrections_path=self.root / 'data/work_catalog_corrections.json',
+                    bibliography_path=self.root / 'data/work_catalog_bibliography.json',
                     backup_path=backup,
                 )
 
@@ -240,10 +267,10 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
         self.assertEqual(corrected_review['decision'], 'keep_separate')
 
     def test_reapply_skips_superseded_review_and_keeps_final_catalog(self):
-        fake = FakeClient(self.final_catalog)
+        fake = FakeClient(self.bibliography_catalog)
         with tempfile.TemporaryDirectory() as directory:
             backup = Path(directory) / 'backup.json'
-            backup.write_text(json.dumps({'work_catalog': self.final_catalog}), encoding='utf-8')
+            backup.write_text(json.dumps({'work_catalog': self.bibliography_catalog}), encoding='utf-8')
             with patch.object(apply_work_catalog_manifests, 'AdminClient', return_value=fake):
                 evidence = apply_work_catalog_manifests.apply_manifests(
                     base_url='https://hekineitor.onrender.com',
@@ -254,10 +281,14 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
                     legacy_review_path=self.root / 'data/work_catalog_review_decisions_legacy_v0.json',
                     seed_path=self.root / 'data/work_catalog_seed_overrides.json',
                     corrections_path=self.root / 'data/work_catalog_corrections.json',
+                    bibliography_path=self.root / 'data/work_catalog_bibliography.json',
                     backup_path=backup,
                 )
         mutations = [call[2]['operation'] for call in fake.calls if call[0].endswith('/mutate')]
-        self.assertEqual(mutations, ['seed_overrides_apply_manifest', 'corrections_apply_manifest'])
+        self.assertEqual(
+            mutations,
+            ['seed_overrides_apply_manifest', 'corrections_apply_manifest', 'bibliography_apply_manifest'],
+        )
         self.assertTrue(evidence['review_result']['skipped'])
         self.assertEqual(evidence['before_digest'], evidence['final_digest'])
 
@@ -289,6 +320,7 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
                     legacy_review_path=self.root / 'data/work_catalog_review_decisions_legacy_v0.json',
                     seed_path=self.root / 'data/work_catalog_seed_overrides.json',
                     corrections_path=self.root / 'data/work_catalog_corrections.json',
+                    bibliography_path=self.root / 'data/work_catalog_bibliography.json',
                     backup_path=backup,
                 )
 
@@ -311,6 +343,7 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
                     review_path=self.root / 'data/work_catalog_review_decisions.json',
                     legacy_review_path=self.root / 'data/work_catalog_review_decisions_legacy_v0.json',
                     corrections_path=self.root / 'data/work_catalog_corrections.json',
+                    bibliography_path=self.root / 'data/work_catalog_bibliography.json',
                     seed_path=self.root / 'data/work_catalog_seed_overrides.json',
                     backup_path=backup,
                 )

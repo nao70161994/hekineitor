@@ -88,6 +88,7 @@ jobs:
             --legacy-review-manifest data/work_catalog_review_decisions_legacy_v0.json \
             --seed-overrides data/work_catalog_seed_overrides.json \
             --corrections data/work_catalog_corrections.json \
+            --bibliography data/work_catalog_bibliography.json \
             --backup backup/matrix_backup.json \
             --evidence artifacts/work_catalog_manifest_application.json
 

@@ -689,6 +689,87 @@ class TestAdminAuthOperations(APITestCase):
         self.assertEqual(response.status_code, 200)
         mutate.assert_called_once_with('corrections_apply_manifest', corrections_payload, expected_digest=digest)
 
+    def test_admin_identifier_mutations_share_auth_confirmation_and_audit(self):
+        import app as app_module
+
+        digest = 'a' * 64
+        identifier_id = 'wei_test'
+        update_payload = {
+            'identifier_id': identifier_id,
+            'edition_id': 'wed_test',
+            'scheme': 'isbn',
+            'authority': 'isbn',
+            'value': '9784199007804',
+        }
+        with patch.dict(os.environ, {'ADMIN_PASS': 'testpass'}):
+            unauthorized = self.client.post(
+                '/api/admin/work_catalog/mutate',
+                json={
+                    'operation': 'identifier_create',
+                    'expected_digest': digest,
+                    'payload': {key: value for key, value in update_payload.items() if key != 'identifier_id'},
+                },
+            )
+        self.assertEqual(unauthorized.status_code, 401)
+
+        with (
+            patch.object(
+                app_module.engine,
+                'mutate_work_catalog',
+                return_value={'result': identifier_id, 'digest': 'b' * 64},
+            ) as mutate,
+            patch.object(app_module, 'write_audit') as write_audit,
+        ):
+            response = self.client.post(
+                '/api/admin/work_catalog/mutate',
+                headers=self._admin_headers(),
+                json={
+                    'operation': 'identifier_update',
+                    'expected_digest': digest,
+                    'payload': update_payload,
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        mutate.assert_called_once_with('identifier_update', update_payload, expected_digest=digest)
+        mutation_audit = next(call for call in write_audit.call_args_list if call.args[0] == 'work_catalog_mutation')
+        audit_payload = mutation_audit.args[2]
+        self.assertEqual(audit_payload['operation'], 'identifier_update')
+        self.assertEqual(audit_payload['edition_id'], 'wed_test')
+        self.assertEqual(audit_payload['identifier_id'], identifier_id)
+
+        delete_request = {
+            'operation': 'identifier_delete',
+            'expected_digest': digest,
+            'payload': {'identifier_id': identifier_id},
+        }
+        with patch.object(app_module.engine, 'mutate_work_catalog') as mutate:
+            response = self.client.post(
+                '/api/admin/work_catalog/mutate',
+                headers=self._admin_headers(),
+                json=delete_request,
+            )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()['required_confirm_text'], 'WORK_CATALOG')
+        mutate.assert_not_called()
+
+        with patch.object(
+            app_module.engine,
+            'mutate_work_catalog',
+            return_value={'result': None, 'digest': 'c' * 64},
+        ) as mutate:
+            response = self.client.post(
+                '/api/admin/work_catalog/mutate',
+                headers=self._admin_headers(),
+                json={**delete_request, 'confirm_text': 'WORK_CATALOG'},
+            )
+        self.assertEqual(response.status_code, 200)
+        mutate.assert_called_once_with(
+            'identifier_delete',
+            {'identifier_id': identifier_id},
+            expected_digest=digest,
+        )
+
     def test_admin_csrf_token_expires_when_enabled(self):
         app.config['ENFORCE_CSRF'] = True
         old_ttl = os.environ.get('ADMIN_CSRF_TTL_SECONDS')

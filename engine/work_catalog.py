@@ -9,8 +9,12 @@ from datetime import datetime, timezone
 
 from work_utils import normalized_work_title, safe_work_url, work_title, work_title_candidate_key
 
-CATALOG_SCHEMA_VERSION = 1
+CATALOG_SCHEMA_VERSION = 2
+SUPPORTED_CATALOG_SCHEMA_VERSIONS = frozenset({1, CATALOG_SCHEMA_VERSION})
 _ASIN_RE = re.compile(r'/dp/([A-Z0-9]{10})', re.IGNORECASE)
+_IDENTIFIER_SCHEME_RE = re.compile(r'^[a-z][a-z0-9._-]{0,31}$')
+_IDENTIFIER_AUTHORITY_RE = re.compile(r'^[a-z0-9][a-z0-9._:-]{0,99}$')
+_ISBN_CLEAN_RE = re.compile(r'[^0-9Xx]')
 
 
 def _stable_id(prefix, *parts):
@@ -22,6 +26,89 @@ def _stable_id(prefix, *parts):
 def extract_asin(url):
     match = _ASIN_RE.search(str(url or ''))
     return match.group(1).upper() if match else ''
+
+
+def normalize_isbn(value):
+    """Validate ISBN-10/13 and return the canonical ISBN-13 digits."""
+    cleaned = _ISBN_CLEAN_RE.sub('', str(value or ''))
+    if len(cleaned) == 10:
+        if not cleaned[:9].isdigit() or (not cleaned[-1].isdigit() and cleaned[-1].upper() != 'X'):
+            raise ValueError('invalid ISBN-10')
+        digits = [int(char) for char in cleaned[:9]]
+        check = 10 if cleaned[-1].upper() == 'X' else int(cleaned[-1])
+        if (sum((10 - index) * digit for index, digit in enumerate(digits)) + check) % 11:
+            raise ValueError('invalid ISBN-10 checksum')
+        prefix = f'978{cleaned[:9]}'
+        total = sum((1 if index % 2 == 0 else 3) * int(char) for index, char in enumerate(prefix))
+        return f'{prefix}{(10 - total % 10) % 10}'
+    if len(cleaned) == 13 and cleaned.isdigit():
+        total = sum((1 if index % 2 == 0 else 3) * int(char) for index, char in enumerate(cleaned[:12]))
+        if (10 - total % 10) % 10 != int(cleaned[-1]):
+            raise ValueError('invalid ISBN-13 checksum')
+        return cleaned
+    raise ValueError('ISBN must contain 10 or 13 digits')
+
+
+def normalize_edition_identifier(*, scheme, authority, value):
+    """Return one canonical non-ASIN edition identifier tuple."""
+    normalized_scheme = str(scheme or '').strip().lower()
+    normalized_authority = str(authority or '').strip().lower()
+    normalized_value = str(value or '').strip()
+    if not _IDENTIFIER_SCHEME_RE.fullmatch(normalized_scheme):
+        raise ValueError('invalid edition identifier scheme')
+    if normalized_scheme == 'asin':
+        raise ValueError('ASIN must remain in work_editions.asin')
+    if normalized_scheme == 'isbn':
+        normalized_authority = 'isbn'
+        normalized_value = normalize_isbn(normalized_value)
+    else:
+        if not _IDENTIFIER_AUTHORITY_RE.fullmatch(normalized_authority):
+            raise ValueError('invalid edition identifier authority')
+        if not normalized_value or len(normalized_value) > 200 or any(ord(char) < 32 for char in normalized_value):
+            raise ValueError('invalid edition identifier value')
+    return normalized_scheme, normalized_authority, normalized_value
+
+
+def build_edition_identifier(edition_id, *, scheme, authority='', value):
+    """Build a deterministic canonical identifier row."""
+    edition_id = str(edition_id or '').strip()
+    if not edition_id:
+        raise ValueError('edition_id is required')
+    scheme, authority, value = normalize_edition_identifier(
+        scheme=scheme,
+        authority=authority,
+        value=value,
+    )
+    return {
+        'identifier_id': _stable_id('wei', scheme, authority, value),
+        'edition_id': edition_id,
+        'scheme': scheme,
+        'authority': authority,
+        'value': value,
+    }
+
+
+def upgrade_catalog_schema(catalog):
+    """Upgrade a v1 snapshot to v2 without inferring any identifiers."""
+    if not isinstance(catalog, dict):
+        raise ValueError('work catalog must be an object')
+    try:
+        schema_version = int(catalog.get('schema_version', 0))
+    except (TypeError, ValueError):
+        raise ValueError('unsupported work catalog schema_version')
+    if schema_version not in SUPPORTED_CATALOG_SCHEMA_VERSIONS:
+        raise ValueError('unsupported work catalog schema_version')
+    upgraded = copy.deepcopy(catalog)
+    if schema_version == 1:
+        for edition in upgraded.get('work_editions', []):
+            edition.setdefault('edition_title', '')
+            edition.setdefault('publisher', '')
+        upgraded['schema_version'] = CATALOG_SCHEMA_VERSION
+        upgraded['work_edition_identifiers'] = []
+    elif 'work_edition_identifiers' not in upgraded:
+        raise ValueError('work_edition_identifiers must be a list')
+    validate_catalog(upgraded)
+    return upgraded
 
 
 def _identity_key(title, url):
@@ -49,6 +136,7 @@ def _empty_catalog():
         'works_master': [],
         'work_editions': [],
         'work_aliases': [],
+        'work_edition_identifiers': [],
         'fetish_work_links': [],
         'compound_work_links': [],
         'review_queue': [],
@@ -161,6 +249,8 @@ def build_catalog_from_inline(fetishes, *, compound_rows=(), seed_overrides=None
                     'canonical_url': url,
                     'format': '',
                     'status': 'active',
+                    'edition_title': '',
+                    'publisher': '',
                 }
                 editions_by_key[edition_key] = edition
                 catalog['work_editions'].append(edition)
@@ -247,10 +337,11 @@ def build_catalog_from_inline(fetishes, *, compound_rows=(), seed_overrides=None
             }
         )
 
-    for key in ('works_master', 'work_editions', 'work_aliases', 'review_queue'):
+    for key in ('works_master', 'work_editions', 'work_edition_identifiers', 'work_aliases', 'review_queue'):
         id_field = {
             'works_master': 'work_id',
             'work_editions': 'edition_id',
+            'work_edition_identifiers': 'identifier_id',
             'work_aliases': 'alias_id',
             'review_queue': 'review_id',
         }[key]
@@ -262,7 +353,13 @@ def build_catalog_from_inline(fetishes, *, compound_rows=(), seed_overrides=None
 
 
 def validate_catalog(catalog):
-    if int(catalog.get('schema_version', 0)) != CATALOG_SCHEMA_VERSION:
+    if not isinstance(catalog, dict):
+        raise ValueError('work catalog must be an object')
+    try:
+        schema_version = int(catalog.get('schema_version', 0))
+    except (TypeError, ValueError):
+        raise ValueError('unsupported work catalog schema_version')
+    if schema_version not in SUPPORTED_CATALOG_SCHEMA_VERSIONS:
         raise ValueError('unsupported work catalog schema_version')
     collections = {
         'works_master': 'work_id',
@@ -272,6 +369,8 @@ def validate_catalog(catalog):
         'compound_work_links': 'link_id',
         'review_queue': 'review_id',
     }
+    if schema_version >= 2:
+        collections['work_edition_identifiers'] = 'identifier_id'
     ids = {}
     for name, id_field in collections.items():
         rows = catalog.get(name)
@@ -291,6 +390,30 @@ def validate_catalog(catalog):
         url = edition.get('canonical_url') or ''
         if url and not safe_work_url(url):
             raise ValueError('work edition contains unsafe canonical_url')
+
+        if schema_version >= 2:
+            for field in ('edition_title', 'publisher'):
+                value = edition.get(field)
+                if not isinstance(value, str) or len(value) > 200:
+                    raise ValueError(f'work edition contains invalid {field}')
+    identifier_keys = set()
+    for identifier in catalog.get('work_edition_identifiers', []):
+        edition_id = str(identifier.get('edition_id') or '')
+        if edition_id not in edition_work_ids:
+            raise ValueError('work edition identifier references unknown edition_id')
+        canonical = build_edition_identifier(
+            edition_id,
+            scheme=identifier.get('scheme'),
+            authority=identifier.get('authority'),
+            value=identifier.get('value'),
+        )
+        if identifier != canonical:
+            raise ValueError('work edition identifier is not canonical')
+        key = (canonical['scheme'], canonical['authority'], canonical['value'])
+        if key in identifier_keys:
+            raise ValueError('duplicate work edition identifier')
+        identifier_keys.add(key)
+
     alias_work_ids = {}
     for alias in catalog['work_aliases']:
         if alias.get('work_id') not in work_ids:
@@ -472,7 +595,7 @@ def project_approved_inline_corrections(
         catalog_schema_version = int(corrections.get('catalog_schema_version', 0))
     except (TypeError, ValueError):
         raise ValueError('unsupported work catalog corrections schema_version')
-    if schema_version != 1 or catalog_schema_version != CATALOG_SCHEMA_VERSION:
+    if schema_version != 1 or catalog_schema_version not in SUPPORTED_CATALOG_SCHEMA_VERSIONS:
         raise ValueError('unsupported work catalog corrections schema_version')
     correction_rows = corrections.get('corrections')
     if not isinstance(correction_rows, list) or not all(isinstance(row, dict) for row in correction_rows):
@@ -841,6 +964,8 @@ def _register_catalog_work(editor, raw_work):
             'work_id': work['work_id'],
             'asin': extract_asin(url),
             'canonical_url': url,
+            'edition_title': '',
+            'publisher': '',
             'format': '',
             'status': 'active',
         }
@@ -883,10 +1008,12 @@ def _sort_catalog_rows(catalog):
     for collection, id_field in (
         ('works_master', 'work_id'),
         ('work_editions', 'edition_id'),
+        ('work_edition_identifiers', 'identifier_id'),
         ('work_aliases', 'alias_id'),
         ('review_queue', 'review_id'),
     ):
-        catalog[collection].sort(key=lambda row: row[id_field])
+        if collection in catalog:
+            catalog[collection].sort(key=lambda row: row[id_field])
     catalog['fetish_work_links'].sort(key=lambda row: (int(row['fetish_id']), int(row['position']), row['link_id']))
     catalog['compound_work_links'].sort(
         key=lambda row: (int(row['id_a']), int(row['id_b']), int(row['position']), row['link_id'])
@@ -1000,8 +1127,13 @@ def admin_delete_master(catalog, work_id):
         raise ValueError('work master is still referenced by recommendation links')
     if any(work_id in row.get('work_ids', []) for row in updated['review_queue']):
         raise ValueError('work master is still referenced by review queue')
+    removed_edition_ids = {row['edition_id'] for row in updated['work_editions'] if row['work_id'] == work_id}
     updated['works_master'] = [row for row in updated['works_master'] if row['work_id'] != work_id]
     updated['work_editions'] = [row for row in updated['work_editions'] if row['work_id'] != work_id]
+    if 'work_edition_identifiers' in updated:
+        updated['work_edition_identifiers'] = [
+            row for row in updated['work_edition_identifiers'] if row['edition_id'] not in removed_edition_ids
+        ]
     updated['work_aliases'] = [row for row in updated['work_aliases'] if row['work_id'] != work_id]
     validate_catalog(updated)
     return updated
@@ -1039,6 +1171,8 @@ def admin_upsert_edition(catalog, values, *, edition_id=None):
         work_id=work_id,
         asin=extract_asin(url),
         canonical_url=url,
+        edition_title=_admin_text(values.get('edition_title', row.get('edition_title', '')), 'edition_title', 200),
+        publisher=_admin_text(values.get('publisher', row.get('publisher', '')), 'publisher', 200),
         format=_admin_text(values.get('format', row.get('format', '')), 'format', 40),
         status=status,
     )
@@ -1059,6 +1193,55 @@ def admin_delete_edition(catalog, edition_id):
     ):
         raise ValueError('work edition is still referenced by recommendation links')
     updated['work_editions'] = [row for row in updated['work_editions'] if row['edition_id'] != edition_id]
+    if 'work_edition_identifiers' in updated:
+        updated['work_edition_identifiers'] = [
+            row for row in updated['work_edition_identifiers'] if row['edition_id'] != edition_id
+        ]
+    validate_catalog(updated)
+    return updated
+
+
+def admin_upsert_edition_identifier(catalog, values, *, identifier_id=None):
+    updated = upgrade_catalog_schema(catalog)
+    edition_id = str(values.get('edition_id') or '')
+    _row_by_id(updated['work_editions'], 'edition_id', edition_id, 'work edition')
+    row = build_edition_identifier(
+        edition_id,
+        scheme=values.get('scheme'),
+        authority=values.get('authority'),
+        value=values.get('value'),
+    )
+    existing_id = str(identifier_id or '')
+    if existing_id:
+        _row_by_id(
+            updated['work_edition_identifiers'],
+            'identifier_id',
+            existing_id,
+            'work edition identifier',
+        )
+        updated['work_edition_identifiers'] = [
+            item for item in updated['work_edition_identifiers'] if item['identifier_id'] != existing_id
+        ]
+    if any(item['identifier_id'] == row['identifier_id'] for item in updated['work_edition_identifiers']):
+        raise ValueError('edition identifier already exists')
+    updated['work_edition_identifiers'].append(row)
+    _sort_catalog_rows(updated)
+    validate_catalog(updated)
+    return updated, row['identifier_id']
+
+
+def admin_delete_edition_identifier(catalog, identifier_id):
+    updated = upgrade_catalog_schema(catalog)
+    identifier_id = str(identifier_id or '')
+    _row_by_id(
+        updated['work_edition_identifiers'],
+        'identifier_id',
+        identifier_id,
+        'work edition identifier',
+    )
+    updated['work_edition_identifiers'] = [
+        row for row in updated['work_edition_identifiers'] if row['identifier_id'] != identifier_id
+    ]
     validate_catalog(updated)
     return updated
 
@@ -1231,9 +1414,153 @@ def admin_decide_review(catalog, review_id, values):
     review['target_work_id'] = target_id
     review['version'] = expected_version + 1
     review['updated_at'] = _admin_text(values.get('updated_at'), 'updated_at', 64)
+
     _sort_catalog_rows(updated)
     validate_catalog(updated)
     return updated
+
+
+def apply_bibliography_manifest(catalog, manifest):
+    """Apply primary-source edition identifiers and media metadata atomically."""
+    updated = upgrade_catalog_schema(catalog)
+    if not isinstance(manifest, dict):
+        raise ValueError('unsupported work bibliography schema_version')
+    try:
+        schema_version = int(manifest.get('schema_version', 0))
+        catalog_schema_version = int(manifest.get('catalog_schema_version', 0))
+    except (TypeError, ValueError):
+        raise ValueError('unsupported work bibliography schema_version')
+    if schema_version != 1 or catalog_schema_version != CATALOG_SCHEMA_VERSION:
+        raise ValueError('unsupported work bibliography schema_version')
+    entries = manifest.get('entries')
+    if not isinstance(entries, list) or not all(isinstance(row, dict) for row in entries):
+        raise ValueError('work bibliography entries must be a list')
+    entry_ids = [str(row.get('entry_id') or '') for row in entries]
+    if not all(entry_ids) or len(entry_ids) != len(set(entry_ids)):
+        raise ValueError('work bibliography contains missing or duplicate entry ids')
+
+    counts = {'entry_count': len(entries), 'work_update_count': 0, 'edition_count': 0, 'identifier_count': 0}
+    for entry in entries:
+        entry_id = str(entry['entry_id'])
+        expected = entry.get('expected_work')
+        target = entry.get('target_work')
+        if not isinstance(expected, dict) or not isinstance(target, dict):
+            raise ValueError(f'work bibliography requires expected and target work: {entry_id}')
+        work_id = str(expected.get('work_id') or '')
+        if not work_id or target.get('work_id') != work_id:
+            raise ValueError(f'work bibliography work id mismatch: {entry_id}')
+        canonical_title = _admin_text(target.get('canonical_title'), 'canonical_title', 200, required=True)
+        target_work = {
+            'work_id': work_id,
+            'canonical_title': canonical_title,
+            'normalized_title': normalized_work_title(canonical_title),
+            'media_type': _admin_text(target.get('media_type'), 'media_type', 40),
+            'status': str(target.get('status') or ''),
+        }
+        if target_work['status'] not in {'active', 'inactive', 'archived'} or target != target_work:
+            raise ValueError(f'work bibliography target work is not canonical: {entry_id}')
+        current_work = _row_by_id(updated['works_master'], 'work_id', work_id, 'work master')
+
+        edition_spec = entry.get('edition')
+        evidence_url = safe_work_url(str(entry.get('evidence_url') or ''))
+        if edition_spec is None and not evidence_url:
+            raise ValueError(f'work bibliography evidence URL is required: {entry_id}')
+        if entry.get('evidence_url') and not evidence_url:
+            raise ValueError(f'work bibliography evidence URL is unsafe: {entry_id}')
+        target_edition = None
+        target_identifier = None
+        if edition_spec is not None:
+            if not isinstance(edition_spec, dict):
+                raise ValueError(f'work bibliography edition is invalid: {entry_id}')
+            url = safe_work_url(_admin_text(edition_spec.get('canonical_url'), 'canonical_url', 1000, required=True))
+            if not url:
+                raise ValueError(f'work bibliography edition URL is unsafe: {entry_id}')
+            edition_id = _stable_id('wed', _edition_key(url))
+            target_edition = {
+                'edition_id': edition_id,
+                'work_id': work_id,
+                'asin': extract_asin(url),
+                'canonical_url': url,
+                'edition_title': _admin_text(edition_spec.get('edition_title'), 'edition_title', 200, required=True),
+                'publisher': _admin_text(edition_spec.get('publisher'), 'publisher', 200, required=True),
+                'format': _admin_text(edition_spec.get('format'), 'format', 40, required=True),
+                'status': str(edition_spec.get('status') or 'active'),
+            }
+            if target_edition['status'] not in {'active', 'inactive', 'archived'}:
+                raise ValueError(f'work bibliography edition status is invalid: {entry_id}')
+            isbn = edition_spec.get('isbn')
+            if not isbn:
+                raise ValueError(f'work bibliography edition ISBN is required: {entry_id}')
+            target_identifier = build_edition_identifier(edition_id, scheme='isbn', authority='isbn', value=isbn)
+
+        title_changed = expected.get('canonical_title') != target_work['canonical_title']
+        old_alias_id = _stable_id('wal', work_id, normalized_work_title(expected.get('canonical_title')))
+        target_present = current_work == target_work
+        if target_present and target_edition is not None:
+            target_present = (
+                target_edition in updated['work_editions'] and target_identifier in updated['work_edition_identifiers']
+            )
+        if target_present and title_changed:
+            target_present = any(
+                row
+                == {
+                    'alias_id': old_alias_id,
+                    'work_id': work_id,
+                    'alias': expected['canonical_title'],
+                    'normalized_alias': normalized_work_title(expected['canonical_title']),
+                }
+                for row in updated['work_aliases']
+            ) and not any(
+                row['work_id'] == work_id and not row.get('alias_id')
+                for table in ('fetish_work_links', 'compound_work_links')
+                for row in updated[table]
+            )
+        if target_present:
+            continue
+        if current_work != expected:
+            raise ValueError(f'work bibliography source drift: {entry_id} {work_id}')
+        if any(
+            row['work_id'] != work_id and row['normalized_title'] == target_work['normalized_title']
+            for row in updated['works_master']
+        ):
+            raise ValueError(f'work bibliography canonical title collision: {entry_id}')
+        if target_edition is not None:
+            if any(row['edition_id'] == target_edition['edition_id'] for row in updated['work_editions']):
+                raise ValueError(f'work bibliography edition source drift: {entry_id}')
+            if any(
+                row['identifier_id'] == target_identifier['identifier_id']
+                for row in updated['work_edition_identifiers']
+            ):
+                raise ValueError(f'work bibliography identifier source drift: {entry_id}')
+
+        if title_changed:
+            old_alias = {
+                'alias_id': old_alias_id,
+                'work_id': work_id,
+                'alias': expected['canonical_title'],
+                'normalized_alias': normalized_work_title(expected['canonical_title']),
+            }
+            existing_alias = next((row for row in updated['work_aliases'] if row['alias_id'] == old_alias_id), None)
+            if existing_alias not in (None, old_alias):
+                raise ValueError(f'work bibliography alias source drift: {entry_id}')
+            if existing_alias is None:
+                updated['work_aliases'].append(old_alias)
+            for table in ('fetish_work_links', 'compound_work_links'):
+                for link in updated[table]:
+                    if link['work_id'] == work_id and not link.get('alias_id'):
+                        link['alias_id'] = old_alias_id
+        current_work.clear()
+        current_work.update(target_work)
+        counts['work_update_count'] += 1
+        if target_edition is not None:
+            updated['work_editions'].append(target_edition)
+            updated['work_edition_identifiers'].append(target_identifier)
+            counts['edition_count'] += 1
+            counts['identifier_count'] += 1
+
+    _canonicalize_alias_and_link_ids(updated)
+    validate_catalog(updated)
+    return updated, counts
 
 
 def apply_seed_overrides(catalog, seed_overrides):
@@ -1314,7 +1641,12 @@ def apply_seed_overrides(catalog, seed_overrides):
             raise ValueError(f'work catalog seed removal still referenced: {display_title}')
         if any(set(row.get('work_ids') or []) & work_ids for row in updated['review_queue']):
             raise ValueError(f'work catalog seed removal is review referenced: {display_title}')
+        removed_edition_ids = {row['edition_id'] for row in updated['work_editions'] if row['work_id'] in work_ids}
         updated['work_editions'] = [row for row in updated['work_editions'] if row['work_id'] not in work_ids]
+        if 'work_edition_identifiers' in updated:
+            updated['work_edition_identifiers'] = [
+                row for row in updated['work_edition_identifiers'] if row['edition_id'] not in removed_edition_ids
+            ]
         updated['work_aliases'] = [row for row in updated['work_aliases'] if row['work_id'] not in work_ids]
         updated['works_master'] = [row for row in updated['works_master'] if row['work_id'] not in work_ids]
 
@@ -1350,7 +1682,7 @@ def apply_catalog_corrections(catalog, manifest):
         catalog_schema_version = int(manifest.get('catalog_schema_version', 0))
     except (TypeError, ValueError):
         raise ValueError('unsupported work catalog corrections schema_version')
-    if schema_version != 1 or catalog_schema_version != CATALOG_SCHEMA_VERSION:
+    if schema_version != 1 or catalog_schema_version not in SUPPORTED_CATALOG_SCHEMA_VERSIONS:
         raise ValueError('unsupported work catalog corrections schema_version')
     corrections = manifest.get('corrections')
     if not isinstance(corrections, list) or not all(isinstance(row, dict) for row in corrections):
@@ -1384,6 +1716,14 @@ def apply_catalog_corrections(catalog, manifest):
     def rows_equal(collection, actual, expected, accepted_updated_at=()):
         if actual == expected:
             return True
+        if collection == 'work_editions' and isinstance(actual, dict) and isinstance(expected, dict):
+            # v1 manifests predate the descriptive v2 edition fields. Empty
+            # values are the exact, non-inferred upgrade of those source rows.
+            compatible_expected = copy.deepcopy(expected)
+            compatible_expected.setdefault('edition_title', '')
+            compatible_expected.setdefault('publisher', '')
+            if actual == compatible_expected:
+                return True
         if collection != 'review_queue' or not isinstance(actual, dict) or not isinstance(expected, dict):
             return False
         actual_without_time = copy.deepcopy(actual)
@@ -1481,6 +1821,8 @@ def apply_catalog_corrections(catalog, manifest):
                 raise ValueError(f'work catalog correction has invalid edition update: {correction_id}')
             target = copy.deepcopy(expected)
             target['work_id'] = target_work_id
+            target.setdefault('edition_title', '')
+            target.setdefault('publisher', '')
             target_editions.append((expected, target))
 
         target_links = []

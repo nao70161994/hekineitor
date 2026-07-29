@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "works_master": [
     {
       "work_id": "wrk_014a81cadbdbcd1e419f",
@@ -31,9 +31,9 @@
     },
     {
       "work_id": "wrk_024d35e969ce0e0e60a5",
-      "canonical_title": "悪役令嬢、セシリアは死にたくないので男装することにしました",
-      "normalized_title": "悪役令嬢、セシリアは死にたくないので男装することにしました",
-      "media_type": "",
+      "canonical_title": "悪役令嬢、セシリア・シルビィは死にたくないので男装することにした。",
+      "normalized_title": "悪役令嬢、セシリア・シルビィは死にたくないので男装することにした。",
+      "media_type": "light_novel",
       "status": "active"
     },
     {
@@ -124,7 +124,7 @@
       "work_id": "wrk_0fcf28096047c38c750d",
       "canonical_title": "ありふれた職業で世界最強",
       "normalized_title": "ありふれた職業で世界最強",
-      "media_type": "",
+      "media_type": "light_novel",
       "status": "active"
     },
     {
@@ -171,9 +171,9 @@
     },
     {
       "work_id": "wrk_16e3c1c2c5c6f71ae45d",
-      "canonical_title": "後宮の烏（小説）",
-      "normalized_title": "後宮の烏(小説)",
-      "media_type": "",
+      "canonical_title": "後宮の烏",
+      "normalized_title": "後宮の烏",
+      "media_type": "light_novel",
       "status": "active"
     },
     {
@@ -306,7 +306,7 @@
       "work_id": "wrk_286d342ff0d9ff0e1eba",
       "canonical_title": "私の推しは悪役令嬢。",
       "normalized_title": "私の推しは悪役令嬢。",
-      "media_type": "",
+      "media_type": "light_novel",
       "status": "active"
     },
     {
@@ -320,7 +320,7 @@
       "work_id": "wrk_2963e9bc04eb994776e4",
       "canonical_title": "聖女の魔力は万能です",
       "normalized_title": "聖女の魔力は万能です",
-      "media_type": "",
+      "media_type": "light_novel",
       "status": "active"
     },
     {
@@ -404,7 +404,7 @@
       "work_id": "wrk_3352766648cd59db0389",
       "canonical_title": "ef - a fairy tale of the two.",
       "normalized_title": "ef - a fairy tale of the two.",
-      "media_type": "",
+      "media_type": "visual_novel",
       "status": "active"
     },
     {
@@ -530,7 +530,7 @@
       "work_id": "wrk_4048f3276783e290bff0",
       "canonical_title": "悪役令嬢後宮物語",
       "normalized_title": "悪役令嬢後宮物語",
-      "media_type": "",
+      "media_type": "novel",
       "status": "active"
     },
     {
@@ -544,14 +544,14 @@
       "work_id": "wrk_40c8348355b83c2f8f25",
       "canonical_title": "スター☆トゥインクルプリキュア",
       "normalized_title": "スター☆トゥインクルプリキュア",
-      "media_type": "",
+      "media_type": "tv_anime",
       "status": "active"
     },
     {
       "work_id": "wrk_40c906687d851692c4d8",
       "canonical_title": "高嶺と花",
       "normalized_title": "高嶺と花",
-      "media_type": "",
+      "media_type": "manga",
       "status": "active"
     },
     {
@@ -838,7 +838,7 @@
       "work_id": "wrk_65bff4a8c47786418f40",
       "canonical_title": "囚われのパルマ",
       "normalized_title": "囚われのパルマ",
-      "media_type": "",
+      "media_type": "video_game",
       "status": "active"
     },
     {
@@ -941,9 +941,9 @@
     },
     {
       "work_id": "wrk_6e3204ae78651cf027ac",
-      "canonical_title": "スパイ教室（小説）",
-      "normalized_title": "スパイ教室(小説)",
-      "media_type": "",
+      "canonical_title": "スパイ教室",
+      "normalized_title": "スパイ教室",
+      "media_type": "light_novel",
       "status": "active"
     },
     {
@@ -1060,9 +1060,9 @@
     },
     {
       "work_id": "wrk_775db3c198f6e12b6c5e",
-      "canonical_title": "SPY×FAMILY（漫画）",
-      "normalized_title": "spy×family(漫画)",
-      "media_type": "",
+      "canonical_title": "SPY×FAMILY",
+      "normalized_title": "spy×family",
+      "media_type": "manga",
       "status": "active"
     },
     {
@@ -1139,7 +1139,7 @@
       "work_id": "wrk_7f76b79c81ada9c3f566",
       "canonical_title": "ロザリオとバンパイア",
       "normalized_title": "ロザリオとバンパイア",
-      "media_type": "",
+      "media_type": "manga",
       "status": "active"
     },
     {
@@ -1468,7 +1468,7 @@
       "work_id": "wrk_9f859ccf09278af37a98",
       "canonical_title": "彼女が公爵邸に行った理由",
       "normalized_title": "彼女が公爵邸に行った理由",
-      "media_type": "",
+      "media_type": "manga",
       "status": "active"
     },
     {
@@ -1608,7 +1608,7 @@
       "work_id": "wrk_b042e58a4d203ab076c9",
       "canonical_title": "初恋モンスター",
       "normalized_title": "初恋モンスター",
-      "media_type": "",
+      "media_type": "manga",
       "status": "active"
     },
     {
@@ -1725,9 +1725,9 @@
     },
     {
       "work_id": "wrk_bca29c62f61207b80d55",
-      "canonical_title": "ロマンティックキラー",
-      "normalized_title": "ロマンティックキラー",
-      "media_type": "",
+      "canonical_title": "ロマンティック・キラー",
+      "normalized_title": "ロマンティック・キラー",
+      "media_type": "manga",
       "status": "active"
     },
     {
@@ -1914,9 +1914,9 @@
     },
     {
       "work_id": "wrk_da9662958963bd3aad58",
-      "canonical_title": "Free!（水泳部BL）",
-      "normalized_title": "free!(水泳部bl)",
-      "media_type": "",
+      "canonical_title": "Free!",
+      "normalized_title": "free!",
+      "media_type": "tv_anime",
       "status": "active"
     },
     {
@@ -2252,7 +2252,7 @@
       "work_id": "wrk_fcb3804f8a5366e74bd8",
       "canonical_title": "美しい彼",
       "normalized_title": "美しい彼",
-      "media_type": "",
+      "media_type": "novel",
       "status": "active"
     },
     {
@@ -2284,7 +2284,9 @@
       "asin": "B0GTLVS5TR",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GTLVS5TR?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_01d2e6c221d8d6466f57",
@@ -2292,7 +2294,9 @@
       "asin": "B0GKZCJF71",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GKZCJF71?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_0202fb0c57733031201e",
@@ -2300,7 +2304,9 @@
       "asin": "B0G1SCKH4Q",
       "canonical_url": "https://www.amazon.co.jp/dp/B0G1SCKH4Q?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_03641b587063c8b55938",
@@ -2308,6 +2314,18 @@
       "asin": "B0DRFM637X",
       "canonical_url": "https://www.amazon.co.jp/dp/B0DRFM637X?tag=hekinator-22",
       "format": "",
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
+    },
+    {
+      "edition_id": "wed_05fafc5089724d936554",
+      "work_id": "wrk_024d35e969ce0e0e60a5",
+      "asin": "",
+      "canonical_url": "https://www.kadokawa.co.jp/product/321904000238/",
+      "edition_title": "悪役令嬢、セシリア・シルビィは死にたくないので男装することにした。",
+      "publisher": "KADOKAWA",
+      "format": "paper",
       "status": "active"
     },
     {
@@ -2316,7 +2334,9 @@
       "asin": "B079DLX4WQ",
       "canonical_url": "https://www.amazon.co.jp/dp/B079DLX4WQ?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_099e49f986787d7d5d5e",
@@ -2324,7 +2344,9 @@
       "asin": "B0FHVLMGJ3",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FHVLMGJ3?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_0af7d0f2d616c23ad2f1",
@@ -2332,7 +2354,9 @@
       "asin": "B07918MQPH",
       "canonical_url": "https://www.amazon.co.jp/dp/B07918MQPH?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_0b0be1f11f9825df1cc1",
@@ -2340,7 +2364,9 @@
       "asin": "B00A20SDQQ",
       "canonical_url": "https://www.amazon.co.jp/dp/B00A20SDQQ?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_0b2ebd9174b190a5de25",
@@ -2348,6 +2374,18 @@
       "asin": "B071RFTDZG",
       "canonical_url": "https://www.amazon.co.jp/dp/B071RFTDZG?tag=hekinator-22",
       "format": "",
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
+    },
+    {
+      "edition_id": "wed_0bd73ec09d3c1f6ab509",
+      "work_id": "wrk_4048f3276783e290bff0",
+      "asin": "",
+      "canonical_url": "https://arianrose.jp/novel/?published_id=37",
+      "edition_title": "悪役令嬢後宮物語 1",
+      "publisher": "フロンティアワークス",
+      "format": "paper",
       "status": "active"
     },
     {
@@ -2356,7 +2394,9 @@
       "asin": "B0GQ9MTFRP",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GQ9MTFRP?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_0cfd82fb15d0eb3bf352",
@@ -2364,7 +2404,9 @@
       "asin": "B0G1B12J5X",
       "canonical_url": "https://www.amazon.co.jp/dp/B0G1B12J5X?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_0e72f77cb7a0599c192e",
@@ -2372,7 +2414,9 @@
       "asin": "B00CM0F5PQ",
       "canonical_url": "https://www.amazon.co.jp/dp/B00CM0F5PQ?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_0f49b44d64526b5c7f71",
@@ -2380,7 +2424,9 @@
       "asin": "B0BXKRTMDM",
       "canonical_url": "https://www.amazon.co.jp/dp/B0BXKRTMDM?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_1051780c39ebf2284517",
@@ -2388,7 +2434,9 @@
       "asin": "B0GXWPY275",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GXWPY275?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_1192f795a69ed77bf351",
@@ -2396,7 +2444,9 @@
       "asin": "B0GS3NTD6R",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GS3NTD6R?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_144684fd3088db47ef72",
@@ -2404,7 +2454,9 @@
       "asin": "B0DQCN3S9H",
       "canonical_url": "https://www.amazon.co.jp/dp/B0DQCN3S9H?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_1510e69ec8bef494df45",
@@ -2412,7 +2464,9 @@
       "asin": "B0BP6BXH3B",
       "canonical_url": "https://www.amazon.co.jp/dp/B0BP6BXH3B?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_186f56f4a56c4072abe3",
@@ -2420,7 +2474,9 @@
       "asin": "B0GK75492K",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GK75492K?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_1a3d192735805e9575e0",
@@ -2428,7 +2484,9 @@
       "asin": "B00TPCZLXA",
       "canonical_url": "https://www.amazon.co.jp/dp/B00TPCZLXA?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_1a63563a4706ad02794f",
@@ -2436,7 +2494,9 @@
       "asin": "B074CF91MQ",
       "canonical_url": "https://www.amazon.co.jp/dp/B074CF91MQ?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_1b730dbbaa3ea6c3675c",
@@ -2444,7 +2504,9 @@
       "asin": "B00FJ1DWJ6",
       "canonical_url": "https://www.amazon.co.jp/dp/B00FJ1DWJ6?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_1bed69b2e035e236b0f4",
@@ -2452,7 +2514,9 @@
       "asin": "B07BGYXVZ9",
       "canonical_url": "https://www.amazon.co.jp/dp/B07BGYXVZ9?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_1fdf04800213f6874665",
@@ -2460,7 +2524,9 @@
       "asin": "B08T9KCJTJ",
       "canonical_url": "https://www.amazon.co.jp/dp/B08T9KCJTJ?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_20862448ea35b142aef0",
@@ -2468,7 +2534,9 @@
       "asin": "B0DYPHB5ST",
       "canonical_url": "https://www.amazon.co.jp/dp/B0DYPHB5ST?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_20f40c5aacab2fcfd40c",
@@ -2476,7 +2544,9 @@
       "asin": "B00A47VS5A",
       "canonical_url": "https://www.amazon.co.jp/dp/B00A47VS5A?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_25e71eb698c5da171be1",
@@ -2484,7 +2554,9 @@
       "asin": "B07BK19YRB",
       "canonical_url": "https://www.amazon.co.jp/dp/B07BK19YRB?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_2797af37993792c2cb2b",
@@ -2492,7 +2564,9 @@
       "asin": "B00BH95ATY",
       "canonical_url": "https://www.amazon.co.jp/dp/B00BH95ATY?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_28364e24e37eda41da1a",
@@ -2500,7 +2574,9 @@
       "asin": "B01KSTEV7K",
       "canonical_url": "https://www.amazon.co.jp/dp/B01KSTEV7K?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_299e44d591e25fe5e7ec",
@@ -2508,7 +2584,9 @@
       "asin": "B07FSJT2BL",
       "canonical_url": "https://www.amazon.co.jp/dp/B07FSJT2BL?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_2a3581450f2d4100ac22",
@@ -2516,7 +2594,9 @@
       "asin": "B0DV52Q98W",
       "canonical_url": "https://www.amazon.co.jp/dp/B0DV52Q98W?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_2acae30bd56d42124bfc",
@@ -2524,7 +2604,9 @@
       "asin": "B009KYC9P6",
       "canonical_url": "https://www.amazon.co.jp/dp/B009KYC9P6?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_2aee608212f494515bab",
@@ -2532,7 +2614,9 @@
       "asin": "B0GJQVHPPQ",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GJQVHPPQ?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_2b34243505d1daf24e6c",
@@ -2540,7 +2624,9 @@
       "asin": "B0GSY48TQZ",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GSY48TQZ?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_2c02911e70580375fee6",
@@ -2548,7 +2634,9 @@
       "asin": "B0GR36VXBK",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GR36VXBK?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_2d0b22fe652d4c4d3bc6",
@@ -2556,7 +2644,9 @@
       "asin": "B0GNS5XKBM",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GNS5XKBM?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_2e98755dd5cc21cc6e56",
@@ -2564,7 +2654,9 @@
       "asin": "B009GYTPXE",
       "canonical_url": "https://www.amazon.co.jp/dp/B009GYTPXE?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_2edbdedeba5e3249b797",
@@ -2572,7 +2664,9 @@
       "asin": "B0F1DRYQ8J",
       "canonical_url": "https://www.amazon.co.jp/dp/B0F1DRYQ8J?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_32c952cdf528c55d0eb6",
@@ -2580,7 +2674,9 @@
       "asin": "B00AMCJ10Q",
       "canonical_url": "https://www.amazon.co.jp/dp/B00AMCJ10Q?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_33c8de99aa77f9c17600",
@@ -2588,7 +2684,9 @@
       "asin": "B07DFY8ZX1",
       "canonical_url": "https://www.amazon.co.jp/dp/B07DFY8ZX1?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_3478cdfcef5fae80655d",
@@ -2596,7 +2694,9 @@
       "asin": "B00JK8L8JU",
       "canonical_url": "https://www.amazon.co.jp/dp/B00JK8L8JU?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_34add2459d66a99b1f4b",
@@ -2604,7 +2704,9 @@
       "asin": "B07F1QJS55",
       "canonical_url": "https://www.amazon.co.jp/dp/B07F1QJS55?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_3536cb55910beee16122",
@@ -2612,7 +2714,9 @@
       "asin": "B009T8RYF8",
       "canonical_url": "https://www.amazon.co.jp/dp/B009T8RYF8?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_36780bc7c4f807bb2e43",
@@ -2620,7 +2724,9 @@
       "asin": "B009SHW4EQ",
       "canonical_url": "https://www.amazon.co.jp/dp/B009SHW4EQ?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_38a90612ccabf9771243",
@@ -2628,7 +2734,9 @@
       "asin": "B00G9S9IV4",
       "canonical_url": "https://www.amazon.co.jp/dp/B00G9S9IV4?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_399e81b560d1b819bfaa",
@@ -2636,7 +2744,9 @@
       "asin": "B00BB1ZTBM",
       "canonical_url": "https://www.amazon.co.jp/dp/B00BB1ZTBM?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_39c56880e0290a7fedf7",
@@ -2644,7 +2754,9 @@
       "asin": "B0G3YRBQJM",
       "canonical_url": "https://www.amazon.co.jp/dp/B0G3YRBQJM?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_3a608d37ca0eb546fa95",
@@ -2652,6 +2764,18 @@
       "asin": "B01BW9F6BU",
       "canonical_url": "https://www.amazon.co.jp/dp/B01BW9F6BU?tag=hekinator-22",
       "format": "",
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
+    },
+    {
+      "edition_id": "wed_3a61471eb4260e1ac945",
+      "work_id": "wrk_775db3c198f6e12b6c5e",
+      "asin": "",
+      "canonical_url": "https://www.shueisha.co.jp/books/items/contents.html?isbn=978-4-08-882011-8",
+      "edition_title": "SPY×FAMILY 1",
+      "publisher": "集英社",
+      "format": "paper",
       "status": "active"
     },
     {
@@ -2660,7 +2784,9 @@
       "asin": "B09N91MJLZ",
       "canonical_url": "https://www.amazon.co.jp/dp/B09N91MJLZ?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_3c1ed257a5fd799d9e5f",
@@ -2668,6 +2794,18 @@
       "asin": "B093K68SSH",
       "canonical_url": "https://www.amazon.co.jp/dp/B093K68SSH?tag=hekinator-22",
       "format": "",
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
+    },
+    {
+      "edition_id": "wed_3cd92c98a8f81fc1da86",
+      "work_id": "wrk_286d342ff0d9ff0e1eba",
+      "asin": "",
+      "canonical_url": "https://www.ichijinsha.co.jp/novels/title/%E7%A7%81%E3%81%AE%E6%8E%A8%E3%81%97%E3%81%AF%E6%82%AA%E5%BD%B9%E4%BB%A4%E5%AC%A2%E3%80%82-revolution/%E7%A7%81%E3%81%AE%E6%8E%A8%E3%81%97%E3%81%AF%E6%82%AA%E5%BD%B9%E4%BB%A4%E5%AC%A2%E3%80%82-revolution-1/",
+      "edition_title": "私の推しは悪役令嬢。-Revolution-(1)",
+      "publisher": "一迅社",
+      "format": "paper",
       "status": "active"
     },
     {
@@ -2676,7 +2814,9 @@
       "asin": "B0D7DPXQT8",
       "canonical_url": "https://www.amazon.co.jp/dp/B0D7DPXQT8?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_3f58ec14bfa5f4f7f0f9",
@@ -2684,7 +2824,9 @@
       "asin": "B06XKSDMC9",
       "canonical_url": "https://www.amazon.co.jp/dp/B06XKSDMC9?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_3fd299588b0b3b215fac",
@@ -2692,7 +2834,9 @@
       "asin": "B0GQDPF6V5",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GQDPF6V5?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_404e4e5b54a4a0fa9bbf",
@@ -2700,7 +2844,9 @@
       "asin": "B00IRU3WI2",
       "canonical_url": "https://www.amazon.co.jp/dp/B00IRU3WI2?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_42a52d228128b884646c",
@@ -2708,7 +2854,9 @@
       "asin": "4866801719",
       "canonical_url": "https://www.amazon.co.jp/dp/4866801719?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_4431a6d05ab3df615cff",
@@ -2716,7 +2864,9 @@
       "asin": "B009LHC7A4",
       "canonical_url": "https://www.amazon.co.jp/dp/B009LHC7A4?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_45afe05162de8b040c7d",
@@ -2724,7 +2874,9 @@
       "asin": "B00QLG0TUS",
       "canonical_url": "https://www.amazon.co.jp/dp/B00QLG0TUS?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_4664daa07d78d14ad664",
@@ -2732,7 +2884,9 @@
       "asin": "B0G2264V2F",
       "canonical_url": "https://www.amazon.co.jp/dp/B0G2264V2F?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_4678f86f4f3df26e5a13",
@@ -2740,7 +2894,9 @@
       "asin": "B009727QE0",
       "canonical_url": "https://www.amazon.co.jp/dp/B009727QE0?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_47a8f80440c0271cb9bd",
@@ -2748,7 +2904,9 @@
       "asin": "B08Z6Z91ZD",
       "canonical_url": "https://www.amazon.co.jp/dp/B08Z6Z91ZD?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_484ba9f0f969a50297d3",
@@ -2756,7 +2914,9 @@
       "asin": "B08G4WFLPC",
       "canonical_url": "https://www.amazon.co.jp/dp/B08G4WFLPC?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_4ae64bdb0441e81a5bbd",
@@ -2764,7 +2924,9 @@
       "asin": "B0GS7MVDXD",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GS7MVDXD?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_4b1409efec342a55ff82",
@@ -2772,7 +2934,9 @@
       "asin": "B00JB92F0Y",
       "canonical_url": "https://www.amazon.co.jp/dp/B00JB92F0Y?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_4da23664ac1c87b45cbf",
@@ -2780,7 +2944,9 @@
       "asin": "B0DB7BGGRV",
       "canonical_url": "https://www.amazon.co.jp/dp/B0DB7BGGRV?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_4eba7b1803aa53ff8c7b",
@@ -2788,7 +2954,9 @@
       "asin": "B00Y2HY0DU",
       "canonical_url": "https://www.amazon.co.jp/dp/B00Y2HY0DU?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_4f03532b3fbc8bb7dcb5",
@@ -2796,7 +2964,9 @@
       "asin": "B0F388MGPF",
       "canonical_url": "https://www.amazon.co.jp/dp/B0F388MGPF?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_4f8186aa39bb2381ade3",
@@ -2804,7 +2974,9 @@
       "asin": "B00E5T9RLU",
       "canonical_url": "https://www.amazon.co.jp/dp/B00E5T9RLU?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_521f52791b667a403d76",
@@ -2812,7 +2984,9 @@
       "asin": "B0CSS5JF64",
       "canonical_url": "https://www.amazon.co.jp/dp/B0CSS5JF64?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_53805ef9157cb8c20955",
@@ -2820,7 +2994,9 @@
       "asin": "B07KY9TVJT",
       "canonical_url": "https://www.amazon.co.jp/dp/B07KY9TVJT?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_54bd36e8632719e28b40",
@@ -2828,7 +3004,9 @@
       "asin": "B0DBHB59Y2",
       "canonical_url": "https://www.amazon.co.jp/dp/B0DBHB59Y2?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_56e47f155e5369e880ab",
@@ -2836,7 +3014,9 @@
       "asin": "B01DVPBW84",
       "canonical_url": "https://www.amazon.co.jp/dp/B01DVPBW84?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_5c2e46d948e1acdbe45f",
@@ -2844,7 +3024,9 @@
       "asin": "B09RMQ8TGT",
       "canonical_url": "https://www.amazon.co.jp/dp/B09RMQ8TGT?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_5c485c38b19592b752c4",
@@ -2852,7 +3034,9 @@
       "asin": "B08QW1T5FC",
       "canonical_url": "https://www.amazon.co.jp/dp/B08QW1T5FC?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_5c5c93f822365798aac5",
@@ -2860,7 +3044,9 @@
       "asin": "B0B8MXZDZX",
       "canonical_url": "https://www.amazon.co.jp/dp/B0B8MXZDZX?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_5c99b65c6f4bf71e19d6",
@@ -2868,7 +3054,9 @@
       "asin": "B00KCC0YKC",
       "canonical_url": "https://www.amazon.co.jp/dp/B00KCC0YKC?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_5d1a3d2f9813efa92de1",
@@ -2876,7 +3064,9 @@
       "asin": "B0FYCVC6BF",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FYCVC6BF?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_5ed90e287b027176ea72",
@@ -2884,7 +3074,9 @@
       "asin": "B081MQJM11",
       "canonical_url": "https://www.amazon.co.jp/dp/B081MQJM11?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_5efe87a8f5972670fa89",
@@ -2892,7 +3084,9 @@
       "asin": "B0114L5LLG",
       "canonical_url": "https://www.amazon.co.jp/dp/B0114L5LLG?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_627373bc2764c6b9e460",
@@ -2900,7 +3094,9 @@
       "asin": "B07539K353",
       "canonical_url": "https://www.amazon.co.jp/dp/B07539K353?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_635907b25c09a91c33a9",
@@ -2908,7 +3104,9 @@
       "asin": "B011KZQVH4",
       "canonical_url": "https://www.amazon.co.jp/dp/B011KZQVH4?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_64215cef4907aaefe83a",
@@ -2916,6 +3114,18 @@
       "asin": "B09SYKMLGL",
       "canonical_url": "https://www.amazon.co.jp/dp/B09SYKMLGL?tag=hekinator-22",
       "format": "",
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
+    },
+    {
+      "edition_id": "wed_64c9f3733263265a788f",
+      "work_id": "wrk_bca29c62f61207b80d55",
+      "asin": "",
+      "canonical_url": "https://www.shueisha.co.jp/books/items/contents.html?isbn=978-4-08-882164-1&mode=1&title=books.shueisha.co.jp",
+      "edition_title": "ロマンティック・キラー 1",
+      "publisher": "集英社",
+      "format": "paper",
       "status": "active"
     },
     {
@@ -2924,7 +3134,9 @@
       "asin": "B0093GA7XC",
       "canonical_url": "https://www.amazon.co.jp/dp/B0093GA7XC?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_66b9379f34d46195d0bb",
@@ -2932,7 +3144,9 @@
       "asin": "B07VQWLVNV",
       "canonical_url": "https://www.amazon.co.jp/dp/B07VQWLVNV?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_66d907e999924f8add90",
@@ -2940,7 +3154,9 @@
       "asin": "B0CW1BTK3J",
       "canonical_url": "https://www.amazon.co.jp/dp/B0CW1BTK3J?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_6722a50fba242b939220",
@@ -2948,7 +3164,9 @@
       "asin": "B0C7BMBF9C",
       "canonical_url": "https://www.amazon.co.jp/dp/B0C7BMBF9C?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_681493161b2a15ea42cb",
@@ -2956,7 +3174,9 @@
       "asin": "B07WPTFJ1H",
       "canonical_url": "https://www.amazon.co.jp/dp/B07WPTFJ1H?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_68e12f356027cda7b459",
@@ -2964,6 +3184,18 @@
       "asin": "B0772T5BVS",
       "canonical_url": "https://www.amazon.co.jp/dp/B0772T5BVS?tag=hekinator-22",
       "format": "",
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
+    },
+    {
+      "edition_id": "wed_691fc25cba5c1908f6dc",
+      "work_id": "wrk_2963e9bc04eb994776e4",
+      "asin": "",
+      "canonical_url": "https://www.kadokawa.co.jp/product/321610000556/",
+      "edition_title": "聖女の魔力は万能です 1",
+      "publisher": "KADOKAWA",
+      "format": "paper",
       "status": "active"
     },
     {
@@ -2972,7 +3204,9 @@
       "asin": "B07DC3VQMR",
       "canonical_url": "https://www.amazon.co.jp/dp/B07DC3VQMR?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_6aac40049f70a2c6b63c",
@@ -2980,7 +3214,9 @@
       "asin": "B00A2MD7K6",
       "canonical_url": "https://www.amazon.co.jp/dp/B00A2MD7K6?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_6aebbea04fef285410ea",
@@ -2988,7 +3224,9 @@
       "asin": "B00JD349L6",
       "canonical_url": "https://www.amazon.co.jp/dp/B00JD349L6?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_6baf34359eab8dffc01b",
@@ -2996,7 +3234,9 @@
       "asin": "B0FTZ443M6",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FTZ443M6?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_6c0edb4b904545e000d9",
@@ -3004,7 +3244,9 @@
       "asin": "B07CNXXYWT",
       "canonical_url": "https://www.amazon.co.jp/dp/B07CNXXYWT?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_6c3a1a96d7d0e5b145f9",
@@ -3012,7 +3254,9 @@
       "asin": "B0FRQBMCNK",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FRQBMCNK?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_6d84eb1305232f9b8dab",
@@ -3020,7 +3264,9 @@
       "asin": "B0GHSGJC24",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GHSGJC24?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_7002d06856f6f83c45e4",
@@ -3028,7 +3274,9 @@
       "asin": "B07J26ZXDD",
       "canonical_url": "https://www.amazon.co.jp/dp/B07J26ZXDD?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_70c7ec0820afa8d25895",
@@ -3036,7 +3284,9 @@
       "asin": "B07WRK3MF8",
       "canonical_url": "https://www.amazon.co.jp/dp/B07WRK3MF8?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_710011091bd2b5f3fab9",
@@ -3044,6 +3294,18 @@
       "asin": "B0GKZCQBLC",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GKZCQBLC?tag=hekinator-22",
       "format": "",
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
+    },
+    {
+      "edition_id": "wed_71fe22d3ae05df7994e4",
+      "work_id": "wrk_6e3204ae78651cf027ac",
+      "asin": "",
+      "canonical_url": "https://www.kadokawa.co.jp/topics/4082/",
+      "edition_title": "スパイ教室01 《花園》のリリィ",
+      "publisher": "KADOKAWA",
+      "format": "paper",
       "status": "active"
     },
     {
@@ -3052,7 +3314,9 @@
       "asin": "B0GSVDV4NH",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GSVDV4NH?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_728bbe580e97a89afe6c",
@@ -3060,7 +3324,9 @@
       "asin": "B076HBF2LG",
       "canonical_url": "https://www.amazon.co.jp/dp/B076HBF2LG?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_731aa7af3e24642c2812",
@@ -3068,7 +3334,9 @@
       "asin": "B00K6THSBE",
       "canonical_url": "https://www.amazon.co.jp/dp/B00K6THSBE?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_740f6686083e940224c0",
@@ -3076,7 +3344,9 @@
       "asin": "B0GLFFG3K5",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GLFFG3K5?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_74ca5e4bbdab2a04ef7a",
@@ -3084,7 +3354,9 @@
       "asin": "B00LNTCUS2",
       "canonical_url": "https://www.amazon.co.jp/dp/B00LNTCUS2?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_7578b1ab89239ac8a087",
@@ -3092,7 +3364,9 @@
       "asin": "B08253CXKK",
       "canonical_url": "https://www.amazon.co.jp/dp/B08253CXKK?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_7586cb024ef886a273a2",
@@ -3100,7 +3374,9 @@
       "asin": "B00G6E99WE",
       "canonical_url": "https://www.amazon.co.jp/dp/B00G6E99WE?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_768d343495592d4c850d",
@@ -3108,7 +3384,9 @@
       "asin": "B07SNP8FQQ",
       "canonical_url": "https://www.amazon.co.jp/dp/B07SNP8FQQ?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_76a08381045d290abf30",
@@ -3116,7 +3394,9 @@
       "asin": "B079PHTTBK",
       "canonical_url": "https://www.amazon.co.jp/dp/B079PHTTBK?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_76c5058220ef0ee69b24",
@@ -3124,7 +3404,9 @@
       "asin": "B0FD2S31CP",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FD2S31CP?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_76f33abd721316df8ca1",
@@ -3132,7 +3414,9 @@
       "asin": "B0GS7HZ27H",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GS7HZ27H?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_79aade98d8b99b8c3d93",
@@ -3140,7 +3424,9 @@
       "asin": "B0GMH3N3RC",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GMH3N3RC?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_7a598f9f1c53c85784c9",
@@ -3148,7 +3434,9 @@
       "asin": "B0FNW89CHN",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FNW89CHN?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_7b4f54c2aaa89777490c",
@@ -3156,7 +3444,9 @@
       "asin": "B0DPMT3VW4",
       "canonical_url": "https://www.amazon.co.jp/dp/B0DPMT3VW4?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_7d0be501a6196f78e431",
@@ -3164,7 +3454,9 @@
       "asin": "B0GQGRJF76",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GQGRJF76?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_7d5376c9774973edc146",
@@ -3172,7 +3464,9 @@
       "asin": "B0D9NJ1S26",
       "canonical_url": "https://www.amazon.co.jp/dp/B0D9NJ1S26?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_82888530a5ba2653cb9a",
@@ -3180,7 +3474,9 @@
       "asin": "B0FHYR6VMF",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FHYR6VMF?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_830232118d60056a31e1",
@@ -3188,7 +3484,9 @@
       "asin": "B0FY61KV74",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FY61KV74?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_834912bdee14c9548fdd",
@@ -3196,7 +3494,9 @@
       "asin": "B07DL4HWPJ",
       "canonical_url": "https://www.amazon.co.jp/dp/B07DL4HWPJ?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_837b330050310672da00",
@@ -3204,7 +3504,9 @@
       "asin": "B0DR2QTKHX",
       "canonical_url": "https://www.amazon.co.jp/dp/B0DR2QTKHX?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_841083d301f5b4ea86b7",
@@ -3212,7 +3514,9 @@
       "asin": "B0FY3YF8HP",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FY3YF8HP?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_84d47527fea221ae1181",
@@ -3220,7 +3524,9 @@
       "asin": "B09NCY6787",
       "canonical_url": "https://www.amazon.co.jp/dp/B09NCY6787?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_875e300c4de51e82ed13",
@@ -3228,7 +3534,9 @@
       "asin": "B07N19VKLX",
       "canonical_url": "https://www.amazon.co.jp/dp/B07N19VKLX?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_8870e0e8eb94ab6a6a3f",
@@ -3236,7 +3544,9 @@
       "asin": "B00V2W3SB8",
       "canonical_url": "https://www.amazon.co.jp/dp/B00V2W3SB8?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_89344a76848ea56b9fe3",
@@ -3244,7 +3554,9 @@
       "asin": "B009KYC6S6",
       "canonical_url": "https://www.amazon.co.jp/dp/B009KYC6S6?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_8a1645481eb2fc9c4aa0",
@@ -3252,6 +3564,18 @@
       "asin": "B089NC55KC",
       "canonical_url": "https://www.amazon.co.jp/dp/B089NC55KC?tag=hekinator-22",
       "format": "",
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
+    },
+    {
+      "edition_id": "wed_8b82e2318521a90f1756",
+      "work_id": "wrk_9f859ccf09278af37a98",
+      "asin": "",
+      "canonical_url": "https://www.kadokawa.co.jp/product/321904000749/",
+      "edition_title": "彼女が公爵邸に行った理由 1",
+      "publisher": "KADOKAWA",
+      "format": "paper",
       "status": "active"
     },
     {
@@ -3260,7 +3584,9 @@
       "asin": "B00IMWMS3U",
       "canonical_url": "https://www.amazon.co.jp/dp/B00IMWMS3U?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_8d17b1d431ba9917118f",
@@ -3268,7 +3594,9 @@
       "asin": "B073WLZXTT",
       "canonical_url": "https://www.amazon.co.jp/dp/B073WLZXTT?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_8e700aa2e4d430828dd6",
@@ -3276,7 +3604,9 @@
       "asin": "B0GRCMSKG4",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GRCMSKG4?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_8e913775791f74dc1756",
@@ -3284,7 +3614,9 @@
       "asin": "B0DMXFD75H",
       "canonical_url": "https://www.amazon.co.jp/dp/B0DMXFD75H?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_8eec177f87358dbd8f9f",
@@ -3292,6 +3624,18 @@
       "asin": "B00ANYH1S2",
       "canonical_url": "https://www.amazon.co.jp/dp/B00ANYH1S2?tag=hekinator-22",
       "format": "",
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
+    },
+    {
+      "edition_id": "wed_8f065372a88193e05c7f",
+      "work_id": "wrk_16e3c1c2c5c6f71ae45d",
+      "asin": "",
+      "canonical_url": "https://www.shueisha.co.jp/books/items/contents.html?jdcn=08680188947409000000",
+      "edition_title": "後宮の烏",
+      "publisher": "集英社",
+      "format": "paper",
       "status": "active"
     },
     {
@@ -3300,7 +3644,9 @@
       "asin": "B01CC9U8D0",
       "canonical_url": "https://www.amazon.co.jp/dp/B01CC9U8D0?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_9017bd429fedc3ef90a7",
@@ -3308,7 +3654,9 @@
       "asin": "B0F532L2XS",
       "canonical_url": "https://www.amazon.co.jp/dp/B0F532L2XS?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_90f69225d9da59ee0a6e",
@@ -3316,7 +3664,9 @@
       "asin": "B009GZJYW0",
       "canonical_url": "https://www.amazon.co.jp/dp/B009GZJYW0?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_910e16270f03d9d3fb48",
@@ -3324,7 +3674,9 @@
       "asin": "B00WGA6W7C",
       "canonical_url": "https://www.amazon.co.jp/dp/B00WGA6W7C?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_9128c5b41285c89d2fcc",
@@ -3332,7 +3684,9 @@
       "asin": "B00NOTKFBS",
       "canonical_url": "https://www.amazon.co.jp/dp/B00NOTKFBS?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_953a7557c1b5dcc5d125",
@@ -3340,7 +3694,9 @@
       "asin": "B0GK5ZK97N",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GK5ZK97N?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_9698407946ef0f1924a8",
@@ -3348,7 +3704,9 @@
       "asin": "B0G4CT7JWF",
       "canonical_url": "https://www.amazon.co.jp/dp/B0G4CT7JWF?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_96c31c37dd7f02ae62f5",
@@ -3356,7 +3714,9 @@
       "asin": "B0FBXGKBL8",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FBXGKBL8?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_971213e00e5e6e0529e2",
@@ -3364,7 +3724,9 @@
       "asin": "B009GZJVDW",
       "canonical_url": "https://www.amazon.co.jp/dp/B009GZJVDW?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_984462446b5c861261c5",
@@ -3372,7 +3734,9 @@
       "asin": "B07KS7VH16",
       "canonical_url": "https://www.amazon.co.jp/dp/B07KS7VH16?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_9b0cb34403d12cb90a16",
@@ -3380,7 +3744,9 @@
       "asin": "B07VNQXQYF",
       "canonical_url": "https://www.amazon.co.jp/dp/B07VNQXQYF?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_9b70748b8f29776d9e3d",
@@ -3388,7 +3754,9 @@
       "asin": "B07PVX5CFT",
       "canonical_url": "https://www.amazon.co.jp/dp/B07PVX5CFT?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_9c45ac883f3175bf417c",
@@ -3396,7 +3764,9 @@
       "asin": "B0DMVGGD35",
       "canonical_url": "https://www.amazon.co.jp/dp/B0DMVGGD35?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_9cd9387eb6f6cfe5f80e",
@@ -3404,7 +3774,9 @@
       "asin": "B009JZHQB8",
       "canonical_url": "https://www.amazon.co.jp/dp/B009JZHQB8?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_9cf147eda94a73ba57b2",
@@ -3412,7 +3784,9 @@
       "asin": "B00CLO6QEM",
       "canonical_url": "https://www.amazon.co.jp/dp/B00CLO6QEM?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_9de7fd7828eb739b8f9e",
@@ -3420,7 +3794,9 @@
       "asin": "B00KT5JODA",
       "canonical_url": "https://www.amazon.co.jp/dp/B00KT5JODA?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_9ebcb62fb35515f6b113",
@@ -3428,7 +3804,9 @@
       "asin": "B07Q5XMW5B",
       "canonical_url": "https://www.amazon.co.jp/dp/B07Q5XMW5B?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_9f9c192f5c4fadd1fb3f",
@@ -3436,6 +3814,18 @@
       "asin": "B0C9HT5QGK",
       "canonical_url": "https://www.amazon.co.jp/dp/B0C9HT5QGK?tag=hekinator-22",
       "format": "",
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
+    },
+    {
+      "edition_id": "wed_a1c2d2032cfcfa16671e",
+      "work_id": "wrk_40c906687d851692c4d8",
+      "asin": "",
+      "canonical_url": "https://www.hakusensha.co.jp/comicslist/46600/",
+      "edition_title": "高嶺と花 1",
+      "publisher": "白泉社",
+      "format": "paper",
       "status": "active"
     },
     {
@@ -3444,7 +3834,9 @@
       "asin": "B00RGM0BY0",
       "canonical_url": "https://www.amazon.co.jp/dp/B00RGM0BY0?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_a40705d71f31fee68d07",
@@ -3452,7 +3844,9 @@
       "asin": "B0DB5TZ33Y",
       "canonical_url": "https://www.amazon.co.jp/dp/B0DB5TZ33Y?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_a51521b2092c2c995be0",
@@ -3460,7 +3854,9 @@
       "asin": "B00E9K5EW6",
       "canonical_url": "https://www.amazon.co.jp/dp/B00E9K5EW6?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_a56255356637a3cfbf97",
@@ -3468,7 +3864,9 @@
       "asin": "B06XKR7P2W",
       "canonical_url": "https://www.amazon.co.jp/dp/B06XKR7P2W?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_ab2e1a766088965cb73c",
@@ -3476,7 +3874,9 @@
       "asin": "B0FMXTJ5QC",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FMXTJ5QC?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_abc4b7a1e21211569a84",
@@ -3484,7 +3884,9 @@
       "asin": "B01EJ7AK5O",
       "canonical_url": "https://www.amazon.co.jp/dp/B01EJ7AK5O?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_abf557e35493b9d93736",
@@ -3492,7 +3894,9 @@
       "asin": "B0BXX617SC",
       "canonical_url": "https://www.amazon.co.jp/dp/B0BXX617SC?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_abfe0f5f491488130d6a",
@@ -3500,7 +3904,9 @@
       "asin": "B00BHTTD9W",
       "canonical_url": "https://www.amazon.co.jp/dp/B00BHTTD9W?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_ac688c2f816a7d0c9191",
@@ -3508,7 +3914,9 @@
       "asin": "B00LY57K0I",
       "canonical_url": "https://www.amazon.co.jp/dp/B00LY57K0I?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_ad4d9657d5dad8fb3e58",
@@ -3516,7 +3924,9 @@
       "asin": "B00JRU5LFS",
       "canonical_url": "https://www.amazon.co.jp/dp/B00JRU5LFS?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_ae55a42303586a39fcd2",
@@ -3524,7 +3934,9 @@
       "asin": "B00HE5PAW2",
       "canonical_url": "https://www.amazon.co.jp/dp/B00HE5PAW2?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_af642c73f613905aa04f",
@@ -3532,7 +3944,9 @@
       "asin": "B06Y1FT9RQ",
       "canonical_url": "https://www.amazon.co.jp/dp/B06Y1FT9RQ?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_afb68a7f630e3d44042a",
@@ -3540,7 +3954,9 @@
       "asin": "B0043R4DYA",
       "canonical_url": "https://www.amazon.co.jp/dp/B0043R4DYA?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_afc959505d2f90f418eb",
@@ -3548,7 +3964,9 @@
       "asin": "B00ABGOABS",
       "canonical_url": "https://www.amazon.co.jp/dp/B00ABGOABS?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_b15fa126167200902579",
@@ -3556,7 +3974,9 @@
       "asin": "B0G5182TKJ",
       "canonical_url": "https://www.amazon.co.jp/dp/B0G5182TKJ?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_b1fae5c5fb865b50f646",
@@ -3564,6 +3984,18 @@
       "asin": "B00UWUE0YA",
       "canonical_url": "https://www.amazon.co.jp/dp/B00UWUE0YA?tag=hekinator-22",
       "format": "",
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
+    },
+    {
+      "edition_id": "wed_b23dd8dd255a886ae310",
+      "work_id": "wrk_0fcf28096047c38c750d",
+      "asin": "",
+      "canonical_url": "https://ndlsearch.ndl.go.jp/books/R100000002-I026447135",
+      "edition_title": "ありふれた職業で世界最強 1",
+      "publisher": "オーバーラップ",
+      "format": "paper",
       "status": "active"
     },
     {
@@ -3572,7 +4004,9 @@
       "asin": "B09KBL9QNF",
       "canonical_url": "https://www.amazon.co.jp/dp/B09KBL9QNF?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_b3189f6c4adc83ff62b7",
@@ -3580,7 +4014,9 @@
       "asin": "B0F47J2YZ1",
       "canonical_url": "https://www.amazon.co.jp/dp/B0F47J2YZ1?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_b4c4354898c0d99bc58a",
@@ -3588,7 +4024,9 @@
       "asin": "B0GV3FCPC2",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GV3FCPC2?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_b5414287d832fcd7a66d",
@@ -3596,7 +4034,9 @@
       "asin": "B07JCT2KV7",
       "canonical_url": "https://www.amazon.co.jp/dp/B07JCT2KV7?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_b5b90867f94bce94089e",
@@ -3604,7 +4044,9 @@
       "asin": "B009KWUCLG",
       "canonical_url": "https://www.amazon.co.jp/dp/B009KWUCLG?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_b6f0e417088db8332fd9",
@@ -3612,7 +4054,9 @@
       "asin": "B0GWYSNXKB",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GWYSNXKB?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_b732473b362d87cb7fcc",
@@ -3620,7 +4064,9 @@
       "asin": "B0DLDNYMVK",
       "canonical_url": "https://www.amazon.co.jp/dp/B0DLDNYMVK?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_b8234d67b2ba4bf7d5ce",
@@ -3628,7 +4074,9 @@
       "asin": "",
       "canonical_url": "https://www.amazon.co.jp/s?k=%E3%83%A4%E3%83%B3%E3%82%AD%E3%83%BC%E3%83%84%E3%83%B3%E3%83%87%E3%83%AC%20%E6%BC%AB%E7%94%BB&tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_b83b82e6b74da13decdc",
@@ -3636,7 +4084,9 @@
       "asin": "B017JQOID2",
       "canonical_url": "https://www.amazon.co.jp/dp/B017JQOID2?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_b948b4388df5c853d4fe",
@@ -3644,7 +4094,9 @@
       "asin": "B0GQHCPTX4",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GQHCPTX4?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_bbf67dddd83d66a94461",
@@ -3652,7 +4104,9 @@
       "asin": "B00JDX5LK4",
       "canonical_url": "https://www.amazon.co.jp/dp/B00JDX5LK4?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_bc02b0a785fc15f94655",
@@ -3660,7 +4114,9 @@
       "asin": "B0FKR67ZJH",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FKR67ZJH?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_be54994bc6d996a5f8f2",
@@ -3668,7 +4124,9 @@
       "asin": "B01C3ZR3X6",
       "canonical_url": "https://www.amazon.co.jp/dp/B01C3ZR3X6?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_be96621c129714907666",
@@ -3676,7 +4134,9 @@
       "asin": "B081D6RYP8",
       "canonical_url": "https://www.amazon.co.jp/dp/B081D6RYP8?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_bebea9b840db12b890dc",
@@ -3684,7 +4144,9 @@
       "asin": "B07BHZ7W3S",
       "canonical_url": "https://www.amazon.co.jp/dp/B07BHZ7W3S?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_c2ce8b5f19e4cc893df6",
@@ -3692,7 +4154,9 @@
       "asin": "B0FNDBR1YM",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FNDBR1YM?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_c413ba828f743a37d28f",
@@ -3700,7 +4164,9 @@
       "asin": "B0FD3J9P82",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FD3J9P82?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_c5214e34ec2b68ce172b",
@@ -3708,7 +4174,9 @@
       "asin": "B0CVLHHDD3",
       "canonical_url": "https://www.amazon.co.jp/dp/B0CVLHHDD3?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_c5bbe5eb46712cd29b8d",
@@ -3716,7 +4184,9 @@
       "asin": "B0GLWJ4TMM",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GLWJ4TMM?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_c65732d9b485a30ef58a",
@@ -3724,7 +4194,9 @@
       "asin": "B0FMXK6CYZ",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FMXK6CYZ?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_c70287b63a406f449dfb",
@@ -3732,7 +4204,9 @@
       "asin": "B00ATLLX24",
       "canonical_url": "https://www.amazon.co.jp/dp/B00ATLLX24?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_c8244ea682dcd06897bc",
@@ -3740,7 +4214,9 @@
       "asin": "B0GXTJWDM2",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GXTJWDM2?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_ca299be14f596cafb7aa",
@@ -3748,7 +4224,9 @@
       "asin": "",
       "canonical_url": "https://www.amazon.co.jp/s?k=%E9%80%83%E3%81%92%E3%82%8B%E3%81%AF%E6%81%A5%E3%81%A0%E3%81%8C%E5%BD%B9%E3%81%AB%E7%AB%8B%E3%81%A4&tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_cb6c91106f0d94747e3e",
@@ -3756,7 +4234,9 @@
       "asin": "B0C1NTXB4R",
       "canonical_url": "https://www.amazon.co.jp/dp/B0C1NTXB4R?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_cc7f0215f1e622c2decd",
@@ -3764,7 +4244,9 @@
       "asin": "B01AJGIG50",
       "canonical_url": "https://www.amazon.co.jp/dp/B01AJGIG50?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_ce017607ff644c4f9506",
@@ -3772,7 +4254,9 @@
       "asin": "B07PSFPMR4",
       "canonical_url": "https://www.amazon.co.jp/dp/B07PSFPMR4?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_d26adbb368614e8b9521",
@@ -3780,7 +4264,9 @@
       "asin": "B0GWZ9GWXV",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GWZ9GWXV?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_d403bf879f651b95350c",
@@ -3788,7 +4274,9 @@
       "asin": "B0CTM99YRQ",
       "canonical_url": "https://www.amazon.co.jp/dp/B0CTM99YRQ?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_d44bd44dc296246c8146",
@@ -3796,7 +4284,9 @@
       "asin": "B07NBHT6JB",
       "canonical_url": "https://www.amazon.co.jp/dp/B07NBHT6JB?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_d5166b4f5d78ad550575",
@@ -3804,7 +4294,9 @@
       "asin": "B0FJLHPSHP",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FJLHPSHP?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_d65a554e1cda9c6ea2a6",
@@ -3812,7 +4304,9 @@
       "asin": "B0G7V2MM7M",
       "canonical_url": "https://www.amazon.co.jp/dp/B0G7V2MM7M?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_d870201346843e8d88db",
@@ -3820,7 +4314,9 @@
       "asin": "B097ZSFLYR",
       "canonical_url": "https://www.amazon.co.jp/dp/B097ZSFLYR?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_da149f5f3aa42e7163f4",
@@ -3828,7 +4324,9 @@
       "asin": "B0FPFRSXVL",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FPFRSXVL?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_da5165ab89830f60fb30",
@@ -3836,7 +4334,9 @@
       "asin": "B0F3HV1RXD",
       "canonical_url": "https://www.amazon.co.jp/dp/B0F3HV1RXD?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_db99d32ab6e2938ba950",
@@ -3844,7 +4344,9 @@
       "asin": "B0GJZLBGMD",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GJZLBGMD?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_dbe816513f987664ca84",
@@ -3852,7 +4354,9 @@
       "asin": "B00008HUMF",
       "canonical_url": "https://www.amazon.co.jp/dp/B00008HUMF?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_dd5bf69a1e58788fa9a3",
@@ -3860,7 +4364,9 @@
       "asin": "B009AAG474",
       "canonical_url": "https://www.amazon.co.jp/dp/B009AAG474?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_ddab21544449ec953687",
@@ -3868,7 +4374,9 @@
       "asin": "B0FB8B6ZMD",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FB8B6ZMD?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_de93b7a1592d5cb2a130",
@@ -3876,7 +4384,9 @@
       "asin": "B08CV481JP",
       "canonical_url": "https://www.amazon.co.jp/dp/B08CV481JP?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_dec3947254cf0fa737f5",
@@ -3884,7 +4394,9 @@
       "asin": "B0GHMGHSR9",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GHMGHSR9?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_df3105a5fda163a6d61c",
@@ -3892,7 +4404,9 @@
       "asin": "B0G1GV71PM",
       "canonical_url": "https://www.amazon.co.jp/dp/B0G1GV71PM?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_df5579abb8d4ddecdfed",
@@ -3900,6 +4414,18 @@
       "asin": "B00006FI51",
       "canonical_url": "https://www.amazon.co.jp/dp/B00006FI51?tag=hekinator-22",
       "format": "",
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
+    },
+    {
+      "edition_id": "wed_e078491d005eab401bea",
+      "work_id": "wrk_fcb3804f8a5366e74bd8",
+      "asin": "",
+      "canonical_url": "https://www.chara-info.net/product/chara-books/8157/",
+      "edition_title": "美しい彼",
+      "publisher": "徳間書店",
+      "format": "paper",
       "status": "active"
     },
     {
@@ -3908,7 +4434,9 @@
       "asin": "B09K7G1BKM",
       "canonical_url": "https://www.amazon.co.jp/dp/B09K7G1BKM?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_e25a09091c384d07ae70",
@@ -3916,7 +4444,9 @@
       "asin": "B00DMUL9GO",
       "canonical_url": "https://www.amazon.co.jp/dp/B00DMUL9GO?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_e25d9d6cae7d4211e2c5",
@@ -3924,7 +4454,9 @@
       "asin": "B00NPWMDD2",
       "canonical_url": "https://www.amazon.co.jp/dp/B00NPWMDD2?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_e28703205e6f34dc58e6",
@@ -3932,7 +4464,9 @@
       "asin": "B0GQ9XKV42",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GQ9XKV42?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_e2e145700329ebc9f858",
@@ -3940,7 +4474,9 @@
       "asin": "B086RZNHCS",
       "canonical_url": "https://www.amazon.co.jp/dp/B086RZNHCS?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_e354097b9265211c8ad1",
@@ -3948,7 +4484,9 @@
       "asin": "B07XK8V4XC",
       "canonical_url": "https://www.amazon.co.jp/dp/B07XK8V4XC?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_e48ef00611750c7eed0a",
@@ -3956,7 +4494,9 @@
       "asin": "B00BQTCQ24",
       "canonical_url": "https://www.amazon.co.jp/dp/B00BQTCQ24?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_e5beb97dd23b479191ff",
@@ -3964,7 +4504,9 @@
       "asin": "B01M0RDBS5",
       "canonical_url": "https://www.amazon.co.jp/dp/B01M0RDBS5?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_e657bc07f8d6769b2253",
@@ -3972,7 +4514,9 @@
       "asin": "B0FSTK3QF8",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FSTK3QF8?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_e67f34ff425d7be17540",
@@ -3980,7 +4524,9 @@
       "asin": "B08SWP8TJF",
       "canonical_url": "https://www.amazon.co.jp/dp/B08SWP8TJF?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_e6b7b528cedc1fe1d4ab",
@@ -3988,7 +4534,9 @@
       "asin": "B00HJYUJ6K",
       "canonical_url": "https://www.amazon.co.jp/dp/B00HJYUJ6K?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_e6cc514cbfd8b8f58b52",
@@ -3996,7 +4544,9 @@
       "asin": "B01KJ5Y0JC",
       "canonical_url": "https://www.amazon.co.jp/dp/B01KJ5Y0JC?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_e74ca81803ec0aa9a29f",
@@ -4004,7 +4554,9 @@
       "asin": "B0GRXC45DN",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GRXC45DN?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_e74e56a44bc3e781646b",
@@ -4012,7 +4564,9 @@
       "asin": "B0GP95QXZR",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GP95QXZR?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_e878c8051e524c07a4a3",
@@ -4020,7 +4574,9 @@
       "asin": "B009PL8124",
       "canonical_url": "https://www.amazon.co.jp/dp/B009PL8124?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_eac72566fe36b396e5fe",
@@ -4028,7 +4584,9 @@
       "asin": "B0G5DQH76D",
       "canonical_url": "https://www.amazon.co.jp/dp/B0G5DQH76D?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_ebcff9d578e29313e2b6",
@@ -4036,7 +4594,9 @@
       "asin": "B07YKHDK28",
       "canonical_url": "https://www.amazon.co.jp/dp/B07YKHDK28?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_ec63e4e33bad636ffcb2",
@@ -4044,7 +4604,9 @@
       "asin": "B0FB3CT8VW",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FB3CT8VW?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_ec86442131148aa11ef7",
@@ -4052,7 +4614,9 @@
       "asin": "B00BEPF5OQ",
       "canonical_url": "https://www.amazon.co.jp/dp/B00BEPF5OQ?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_edb192a43f26c73244fe",
@@ -4060,7 +4624,9 @@
       "asin": "B0GMPL4VN9",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GMPL4VN9?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_ef46e5733794ba2ecadd",
@@ -4068,7 +4634,9 @@
       "asin": "B009KWUID8",
       "canonical_url": "https://www.amazon.co.jp/dp/B009KWUID8?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_f0566c01f0ae1d19ea20",
@@ -4076,7 +4644,9 @@
       "asin": "B00GOO64FG",
       "canonical_url": "https://www.amazon.co.jp/dp/B00GOO64FG?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_f07405999118f6f694d0",
@@ -4084,7 +4654,9 @@
       "asin": "B0FNQQCQ29",
       "canonical_url": "https://www.amazon.co.jp/dp/B0FNQQCQ29?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_f15bb73494e0f2849ec0",
@@ -4092,7 +4664,9 @@
       "asin": "B0GC4Q89S5",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GC4Q89S5?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_f23eb0a343e82a7eccf5",
@@ -4100,7 +4674,9 @@
       "asin": "B07MCGX4YF",
       "canonical_url": "https://www.amazon.co.jp/dp/B07MCGX4YF?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_f3148b4dbe3d156d3b39",
@@ -4108,7 +4684,9 @@
       "asin": "B0001ENW64",
       "canonical_url": "https://www.amazon.co.jp/dp/B0001ENW64?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_f4102a87256354b70485",
@@ -4116,7 +4694,9 @@
       "asin": "B009JZH8R0",
       "canonical_url": "https://www.amazon.co.jp/dp/B009JZH8R0?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_f47c2e024da1850d93c4",
@@ -4124,7 +4704,9 @@
       "asin": "B009GB6TOA",
       "canonical_url": "https://www.amazon.co.jp/dp/B009GB6TOA?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_f525bf966faa44485d8f",
@@ -4132,7 +4714,9 @@
       "asin": "B0GHMVQV3G",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GHMVQV3G?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_f74cba2b7899b11fb703",
@@ -4140,7 +4724,9 @@
       "asin": "B00LUUZG6W",
       "canonical_url": "https://www.amazon.co.jp/dp/B00LUUZG6W?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_f809ddc8ecac1ee4dd1f",
@@ -4148,7 +4734,9 @@
       "asin": "B0D1TK521V",
       "canonical_url": "https://www.amazon.co.jp/dp/B0D1TK521V?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_f8d556d64ea9ad60725d",
@@ -4156,7 +4744,9 @@
       "asin": "B009HPDI30",
       "canonical_url": "https://www.amazon.co.jp/dp/B009HPDI30?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_fab3624cd3101ef4b679",
@@ -4164,7 +4754,9 @@
       "asin": "B09BDYND7N",
       "canonical_url": "https://www.amazon.co.jp/dp/B09BDYND7N?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_faf5d4e5bcee9dcd8ed6",
@@ -4172,7 +4764,9 @@
       "asin": "B0GR3ZF523",
       "canonical_url": "https://www.amazon.co.jp/dp/B0GR3ZF523?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_fd3124540d3b765e687f",
@@ -4180,7 +4774,9 @@
       "asin": "B0BZRDSTQP",
       "canonical_url": "https://www.amazon.co.jp/dp/B0BZRDSTQP?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     },
     {
       "edition_id": "wed_ff8e92c4650ad8ef727f",
@@ -4188,7 +4784,9 @@
       "asin": "B00WHITA4A",
       "canonical_url": "https://www.amazon.co.jp/dp/B00WHITA4A?tag=hekinator-22",
       "format": "",
-      "status": "active"
+      "status": "active",
+      "edition_title": "",
+      "publisher": ""
     }
   ],
   "work_aliases": [
@@ -4293,6 +4891,12 @@
       "work_id": "wrk_b948b4388df5c853d4fe",
       "alias": "小林さんちのメイドラゴン（トール）",
       "normalized_alias": "小林さんちのメイドラゴン(トール)"
+    },
+    {
+      "alias_id": "wal_16d007e15838c8a43dcb",
+      "work_id": "wrk_775db3c198f6e12b6c5e",
+      "alias": "SPY×FAMILY（漫画）",
+      "normalized_alias": "spy×family(漫画)"
     },
     {
       "alias_id": "wal_16dae782cc7b34a4cf78",
@@ -4529,6 +5133,12 @@
       "normalized_alias": "灼眼のシャナ(シャナ)"
     },
     {
+      "alias_id": "wal_62bdaadd2c706b73c30e",
+      "work_id": "wrk_da9662958963bd3aad58",
+      "alias": "Free!（水泳部BL）",
+      "normalized_alias": "free!(水泳部bl)"
+    },
+    {
       "alias_id": "wal_63263f0ec16b414b01dd",
       "work_id": "wrk_6aebbea04fef285410ea",
       "alias": "orange（漫画）",
@@ -4545,6 +5155,12 @@
       "work_id": "wrk_abfe0f5f491488130d6a",
       "alias": "失恋ショコラティエ（参考）",
       "normalized_alias": "失恋ショコラティエ(参考)"
+    },
+    {
+      "alias_id": "wal_654df93e729de21a5d03",
+      "work_id": "wrk_bca29c62f61207b80d55",
+      "alias": "ロマンティックキラー",
+      "normalized_alias": "ロマンティックキラー"
     },
     {
       "alias_id": "wal_66024d075b28504859fd",
@@ -4793,6 +5409,12 @@
       "normalized_alias": "君が望む永遠(純愛の裏切り)"
     },
     {
+      "alias_id": "wal_a6563718b75de210cf05",
+      "work_id": "wrk_024d35e969ce0e0e60a5",
+      "alias": "悪役令嬢、セシリアは死にたくないので男装することにしました",
+      "normalized_alias": "悪役令嬢、セシリアは死にたくないので男装することにしました"
+    },
+    {
       "alias_id": "wal_a7f0e6f43c85c4ceccd1",
       "work_id": "wrk_66d907e999924f8add90",
       "alias": "ユーリ!!! on ICE（スポーツ×BL）",
@@ -4895,10 +5517,22 @@
       "normalized_alias": "黒執事(漫画)"
     },
     {
+      "alias_id": "wal_c00ee958abd09dc5d080",
+      "work_id": "wrk_16e3c1c2c5c6f71ae45d",
+      "alias": "後宮の烏（小説）",
+      "normalized_alias": "後宮の烏(小説)"
+    },
+    {
       "alias_id": "wal_c118ebc4a5f4ac4c8b77",
       "work_id": "wrk_b732473b362d87cb7fcc",
       "alias": "推しの子（アイドル×禁断の溺愛）",
       "normalized_alias": "推しの子(アイドル×禁断の溺愛)"
+    },
+    {
+      "alias_id": "wal_c1a70a0a560c833eda39",
+      "work_id": "wrk_6e3204ae78651cf027ac",
+      "alias": "スパイ教室（小説）",
+      "normalized_alias": "スパイ教室(小説)"
     },
     {
       "alias_id": "wal_c329781e29c53c8dfa4f",
@@ -5091,6 +5725,92 @@
       "work_id": "wrk_3c13292cd5ab3c115ac7",
       "alias": "Re:ゼロ（ベアトリス）",
       "normalized_alias": "re:ゼロ(ベアトリス)"
+    }
+  ],
+  "work_edition_identifiers": [
+    {
+      "identifier_id": "wei_393599622b6e724e0eff",
+      "edition_id": "wed_8b82e2318521a90f1756",
+      "scheme": "isbn",
+      "authority": "isbn",
+      "value": "9784040659039"
+    },
+    {
+      "identifier_id": "wei_524a58a531031726e603",
+      "edition_id": "wed_8f065372a88193e05c7f",
+      "scheme": "isbn",
+      "authority": "isbn",
+      "value": "9784086801881"
+    },
+    {
+      "identifier_id": "wei_627a16df4060fd0dc346",
+      "edition_id": "wed_a1c2d2032cfcfa16671e",
+      "scheme": "isbn",
+      "authority": "isbn",
+      "value": "9784592213512"
+    },
+    {
+      "identifier_id": "wei_64efa1b779b4556e2c35",
+      "edition_id": "wed_691fc25cba5c1908f6dc",
+      "scheme": "isbn",
+      "authority": "isbn",
+      "value": "9784040721859"
+    },
+    {
+      "identifier_id": "wei_6dc1390c2370ccef80e2",
+      "edition_id": "wed_05fafc5089724d936554",
+      "scheme": "isbn",
+      "authority": "isbn",
+      "value": "9784041085189"
+    },
+    {
+      "identifier_id": "wei_730446aec115414d8e2b",
+      "edition_id": "wed_e078491d005eab401bea",
+      "scheme": "isbn",
+      "authority": "isbn",
+      "value": "9784199007804"
+    },
+    {
+      "identifier_id": "wei_7f3c3767b2703d0dc144",
+      "edition_id": "wed_3cd92c98a8f81fc1da86",
+      "scheme": "isbn",
+      "authority": "isbn",
+      "value": "9784758023191"
+    },
+    {
+      "identifier_id": "wei_a94bfe06cda5c9675be2",
+      "edition_id": "wed_64c9f3733263265a788f",
+      "scheme": "isbn",
+      "authority": "isbn",
+      "value": "9784088821641"
+    },
+    {
+      "identifier_id": "wei_b1d477313e1d5e04b66a",
+      "edition_id": "wed_0bd73ec09d3c1f6ab509",
+      "scheme": "isbn",
+      "authority": "isbn",
+      "value": "9784861346385"
+    },
+    {
+      "identifier_id": "wei_cccfd15c5b7becd0f08f",
+      "edition_id": "wed_71fe22d3ae05df7994e4",
+      "scheme": "isbn",
+      "authority": "isbn",
+      "value": "9784040734804"
+    },
+    {
+      "identifier_id": "wei_f26dd28920b033aae83b",
+      "edition_id": "wed_b23dd8dd255a886ae310",
+      "scheme": "isbn",
+      "authority": "isbn",
+      "value": "9784865540550"
+    },
+    {
+      "identifier_id": "wei_fc4fd51434b9cbf19272",
+      "edition_id": "wed_3a61471eb4260e1ac945",
+      "scheme": "isbn",
+      "authority": "isbn",
+      "value": "9784088820118"
     }
   ],
   "fetish_work_links": [
@@ -9198,12 +9918,12 @@
       "recommendation_reason": ""
     },
     {
-      "link_id": "cwl_0cf11f8382f03972b7ec",
+      "link_id": "cwl_db7a5d4b3e3df28174f9",
       "id_a": 2,
       "id_b": 89,
       "work_id": "wrk_da9662958963bd3aad58",
       "edition_id": null,
-      "alias_id": null,
+      "alias_id": "wal_62bdaadd2c706b73c30e",
       "position": 2,
       "context_label": "",
       "recommendation_reason": ""
@@ -9880,12 +10600,12 @@
       "recommendation_reason": ""
     },
     {
-      "link_id": "cwl_76ecff3894ef18327f23",
+      "link_id": "cwl_01220af199057cf8e71b",
       "id_a": 13,
       "id_b": 36,
       "work_id": "wrk_024d35e969ce0e0e60a5",
       "edition_id": null,
-      "alias_id": null,
+      "alias_id": "wal_a6563718b75de210cf05",
       "position": 0,
       "context_label": "",
       "recommendation_reason": ""
@@ -9979,12 +10699,12 @@
       "recommendation_reason": ""
     },
     {
-      "link_id": "cwl_22b89892a7916bfd0df3",
+      "link_id": "cwl_a89bbf547e1b0d0e1b66",
       "id_a": 16,
       "id_b": 23,
       "work_id": "wrk_bca29c62f61207b80d55",
       "edition_id": null,
-      "alias_id": null,
+      "alias_id": "wal_654df93e729de21a5d03",
       "position": 1,
       "context_label": "",
       "recommendation_reason": ""
@@ -10639,12 +11359,12 @@
       "recommendation_reason": ""
     },
     {
-      "link_id": "cwl_b41714e7bb75e4834afc",
+      "link_id": "cwl_15af6988e41ef76331a8",
       "id_a": 70,
       "id_b": 100,
       "work_id": "wrk_16e3c1c2c5c6f71ae45d",
       "edition_id": null,
-      "alias_id": null,
+      "alias_id": "wal_c00ee958abd09dc5d080",
       "position": 1,
       "context_label": "",
       "recommendation_reason": ""
@@ -10738,23 +11458,23 @@
       "recommendation_reason": ""
     },
     {
-      "link_id": "cwl_d08cd62b8e6209d7a77b",
+      "link_id": "cwl_8d77ced687877511d275",
       "id_a": 85,
       "id_b": 103,
       "work_id": "wrk_775db3c198f6e12b6c5e",
       "edition_id": null,
-      "alias_id": null,
+      "alias_id": "wal_16d007e15838c8a43dcb",
       "position": 0,
       "context_label": "",
       "recommendation_reason": ""
     },
     {
-      "link_id": "cwl_b6e968b308d3ba16da46",
+      "link_id": "cwl_a20b990ae84f7f95cbd2",
       "id_a": 85,
       "id_b": 103,
       "work_id": "wrk_6e3204ae78651cf027ac",
       "edition_id": null,
-      "alias_id": null,
+      "alias_id": "wal_c1a70a0a560c833eda39",
       "position": 1,
       "context_label": "",
       "recommendation_reason": ""

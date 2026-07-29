@@ -187,7 +187,15 @@ class RehearsalClient:
 
 
 def _catalog_counts(catalog: Mapping[str, Any]) -> dict[str, int]:
-    keys = ('works_master', 'work_editions', 'work_aliases', 'fetish_work_links', 'compound_work_links', 'review_queue')
+    keys = (
+        'works_master',
+        'work_editions',
+        'work_edition_identifiers',
+        'work_aliases',
+        'fetish_work_links',
+        'compound_work_links',
+        'review_queue',
+    )
     return {key: len(catalog.get(key) or []) for key in keys}
 
 

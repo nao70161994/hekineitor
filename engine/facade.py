@@ -479,6 +479,19 @@ class Engine:
                 return engine_work_catalog.admin_upsert_edition(current, payload, edition_id=payload.get('edition_id'))
             if operation == 'edition_delete':
                 return engine_work_catalog.admin_delete_edition(current, payload.get('edition_id')), None
+            if operation == 'identifier_create':
+                return engine_work_catalog.admin_upsert_edition_identifier(current, payload)
+            if operation == 'identifier_update':
+                return engine_work_catalog.admin_upsert_edition_identifier(
+                    current,
+                    payload,
+                    identifier_id=payload.get('identifier_id'),
+                )
+            if operation == 'identifier_delete':
+                return (
+                    engine_work_catalog.admin_delete_edition_identifier(current, payload.get('identifier_id')),
+                    None,
+                )
             if operation == 'alias_create':
                 return engine_work_catalog.admin_upsert_alias(current, payload)
             if operation == 'alias_update':
@@ -503,6 +516,11 @@ class Engine:
                     'split_count': sum(row.get('type') == 'split_misassigned_edition' for row in rows),
                     'retitle_count': sum(row.get('type') == 'retitle_identity' for row in rows),
                 }
+            if operation == 'bibliography_apply_manifest':
+                updated, counts = engine_work_catalog.apply_bibliography_manifest(
+                    current, payload.get('bibliography_manifest')
+                )
+                return updated, counts
             if operation == 'review_apply_manifest':
                 updated = engine_work_catalog.apply_review_decisions(current, payload.get('decision_manifest'))
                 return updated, {
@@ -1311,8 +1329,7 @@ class Engine:
         _acquire_file_engine_process_lock()
         with self._lock:
             if work_catalog is not None:
-                engine_work_catalog.validate_catalog(work_catalog)
-                work_catalog = copy.deepcopy(work_catalog)
+                work_catalog = engine_work_catalog.upgrade_catalog_schema(work_catalog)
             missing = self._sanitize_restored_player_fetishes(exported_fetishes)
             restored_inline_fetishes = (
                 missing if work_catalog is None and any(row.get('works') for row in missing) else None

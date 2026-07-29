@@ -92,6 +92,55 @@ class WorkCatalogMigrationTests(unittest.TestCase):
         checked_in = json.loads((ROOT / 'data' / 'work_catalog.json').read_text())
         self.assertEqual(checked_in, build_catalog())
 
+    def test_checked_bibliography_is_idempotent_validated_and_preserves_raw_parity(self):
+        catalog = json.loads((ROOT / 'data' / 'work_catalog.json').read_text(encoding='utf-8'))
+        manifest = json.loads((ROOT / 'data' / 'work_catalog_bibliography.json').read_text(encoding='utf-8'))
+        reapplied, counts = work_catalog.apply_bibliography_manifest(catalog, manifest)
+
+        self.assertEqual(reapplied, catalog)
+        self.assertEqual(counts['entry_count'], 18)
+        self.assertEqual(counts['work_update_count'], 0)
+        self.assertEqual(len(catalog['work_edition_identifiers']), 12)
+        self.assertEqual(
+            {row['value'] for row in catalog['work_edition_identifiers']},
+            {entry['edition']['isbn'] for entry in manifest['entries'] if entry.get('edition')},
+        )
+        self.assertNotIn('4199007804', {row['value'] for row in catalog['work_edition_identifiers']})
+        self.assertEqual(sum(bool(row['media_type']) for row in catalog['works_master']), 18)
+        identified_editions = {row['edition_id'] for row in catalog['work_edition_identifiers']}
+        self.assertTrue(
+            all(
+                row.get('edition_title') and row.get('publisher')
+                for row in catalog['work_editions']
+                if row['edition_id'] in identified_editions
+            )
+        )
+
+        fetishes = json.loads((ROOT / 'data' / 'fetishes.json').read_text(encoding='utf-8'))
+        compounds = json.loads((ROOT / 'data' / 'compound_works.json').read_text(encoding='utf-8'))
+        parity = work_catalog.catalog_parity_report(catalog, fetishes, compound_rows=compounds)
+        self.assertTrue(parity['automated_parity_ok'])
+        self.assertEqual(parity['mismatch_count'], 0)
+
+    def test_bibliography_rejects_unsafe_or_missing_evidence(self):
+        catalog = work_catalog.build_catalog_from_inline([{'id': 1, 'works': ['Work']}])
+        expected = catalog['works_master'][0]
+        target = {**expected, 'media_type': 'manga'}
+        manifest = {
+            'schema_version': 1,
+            'catalog_schema_version': 2,
+            'entries': [
+                {
+                    'entry_id': 'bad-evidence',
+                    'expected_work': expected,
+                    'target_work': target,
+                    'evidence_url': 'javascript:x',
+                }
+            ],
+        }
+        with self.assertRaisesRegex(ValueError, 'evidence URL'):
+            work_catalog.apply_bibliography_manifest(catalog, manifest)
+
     def test_builder_rejects_unknown_or_same_compound_fetish(self):
         fetishes = [{'id': 1, 'name': 'A', 'desc': '', 'works': []}]
         with self.assertRaisesRegex(ValueError, 'unknown fetish ids'):
@@ -323,6 +372,147 @@ class WorkCatalogMigrationTests(unittest.TestCase):
             work_catalog.admin_delete_edition(catalog, edition_id)
         with self.assertRaisesRegex(ValueError, 'still referenced'):
             work_catalog.admin_delete_alias(catalog, alias_id)
+
+    def test_isbn_normalization_validates_checksums_and_converts_isbn10(self):
+        self.assertEqual(work_catalog.normalize_isbn('0-306-40615-2'), '9780306406157')
+        self.assertEqual(work_catalog.normalize_isbn('978-0-306-40615-7'), '9780306406157')
+
+        with self.assertRaisesRegex(ValueError, 'ISBN-10 checksum'):
+            work_catalog.normalize_isbn('0-306-40615-3')
+        with self.assertRaisesRegex(ValueError, 'ISBN-13 checksum'):
+            work_catalog.normalize_isbn('978-0-306-40615-8')
+
+    def test_edition_identifier_rejects_asin_child_and_canonicalizes_isbn(self):
+        with self.assertRaisesRegex(ValueError, 'ASIN must remain'):
+            work_catalog.build_edition_identifier(
+                'wed_example',
+                scheme='ASIN',
+                authority='amazon',
+                value='B000000001',
+            )
+
+        identifier = work_catalog.build_edition_identifier(
+            'wed_example',
+            scheme='ISBN',
+            authority='ignored',
+            value='0-306-40615-2',
+        )
+        self.assertEqual(identifier['scheme'], 'isbn')
+        self.assertEqual(identifier['authority'], 'isbn')
+        self.assertEqual(identifier['value'], '9780306406157')
+
+    def test_v1_upgrade_adds_empty_identifiers_without_inferred_backfill(self):
+        catalog = work_catalog.build_catalog_from_inline(
+            [{'id': 1, 'works': [{'title': 'ASIN edition', 'url': 'https://www.amazon.co.jp/dp/B000000001'}]}]
+        )
+        legacy = copy.deepcopy(catalog)
+        legacy['schema_version'] = 1
+        legacy.pop('work_edition_identifiers')
+        before = copy.deepcopy(legacy)
+
+        upgraded = work_catalog.upgrade_catalog_schema(legacy)
+
+        self.assertEqual(legacy, before)
+        self.assertEqual(upgraded['schema_version'], 2)
+        self.assertEqual(upgraded['work_edition_identifiers'], [])
+        self.assertEqual(upgraded['work_editions'][0]['asin'], 'B000000001')
+
+    def test_edition_identifier_is_globally_unique_across_editions(self):
+        catalog = work_catalog.build_catalog_from_inline([{'id': 1, 'works': []}])
+        catalog, first_work_id = work_catalog.admin_create_master(catalog, {'canonical_title': 'First'})
+        catalog, second_work_id = work_catalog.admin_create_master(catalog, {'canonical_title': 'Second'})
+        catalog, first_edition_id = work_catalog.admin_upsert_edition(
+            catalog,
+            {'work_id': first_work_id, 'canonical_url': 'https://example.com/first'},
+        )
+        catalog, second_edition_id = work_catalog.admin_upsert_edition(
+            catalog,
+            {'work_id': second_work_id, 'canonical_url': 'https://example.com/second'},
+        )
+        catalog, _identifier_id = work_catalog.admin_upsert_edition_identifier(
+            catalog,
+            {
+                'edition_id': first_edition_id,
+                'scheme': 'isbn',
+                'authority': 'isbn',
+                'value': '9780306406157',
+            },
+        )
+
+        with self.assertRaisesRegex(ValueError, 'edition identifier already exists'):
+            work_catalog.admin_upsert_edition_identifier(
+                catalog,
+                {
+                    'edition_id': second_edition_id,
+                    'scheme': 'isbn',
+                    'authority': 'isbn',
+                    'value': '0-306-40615-2',
+                },
+            )
+
+    def test_edition_identifier_crud_and_parent_deletion_cascade(self):
+        catalog = work_catalog.build_catalog_from_inline([{'id': 1, 'works': []}])
+        catalog, work_id = work_catalog.admin_create_master(catalog, {'canonical_title': 'Managed identifiers'})
+        catalog, edition_id = work_catalog.admin_upsert_edition(
+            catalog,
+            {'work_id': work_id, 'canonical_url': 'https://example.com/edition'},
+        )
+        catalog, identifier_id = work_catalog.admin_upsert_edition_identifier(
+            catalog,
+            {
+                'edition_id': edition_id,
+                'scheme': 'isbn',
+                'authority': 'isbn',
+                'value': '0-306-40615-2',
+            },
+        )
+        self.assertEqual(catalog['work_edition_identifiers'][0]['identifier_id'], identifier_id)
+
+        catalog, updated_identifier_id = work_catalog.admin_upsert_edition_identifier(
+            catalog,
+            {
+                'edition_id': edition_id,
+                'scheme': 'isbn',
+                'authority': 'isbn',
+                'value': '9783161484100',
+            },
+            identifier_id=identifier_id,
+        )
+        self.assertNotEqual(updated_identifier_id, identifier_id)
+        self.assertEqual(
+            [row['value'] for row in catalog['work_edition_identifiers']],
+            ['9783161484100'],
+        )
+        catalog = work_catalog.admin_delete_edition_identifier(catalog, updated_identifier_id)
+        self.assertEqual(catalog['work_edition_identifiers'], [])
+
+        catalog, identifier_id = work_catalog.admin_upsert_edition_identifier(
+            catalog,
+            {
+                'edition_id': edition_id,
+                'scheme': 'isbn',
+                'authority': 'isbn',
+                'value': '9780306406157',
+            },
+        )
+        catalog = work_catalog.admin_delete_edition(catalog, edition_id)
+        self.assertNotIn(identifier_id, {row['identifier_id'] for row in catalog['work_edition_identifiers']})
+
+        catalog, edition_id = work_catalog.admin_upsert_edition(
+            catalog,
+            {'work_id': work_id, 'canonical_url': 'https://example.com/recreated-edition'},
+        )
+        catalog, identifier_id = work_catalog.admin_upsert_edition_identifier(
+            catalog,
+            {
+                'edition_id': edition_id,
+                'scheme': 'isbn',
+                'authority': 'isbn',
+                'value': '9780306406157',
+            },
+        )
+        catalog = work_catalog.admin_delete_master(catalog, work_id)
+        self.assertNotIn(identifier_id, {row['identifier_id'] for row in catalog['work_edition_identifiers']})
 
     def test_restored_legacy_owner_reuses_curated_ids_and_keeps_review_rows(self):
         catalog = work_catalog.build_catalog_from_inline(

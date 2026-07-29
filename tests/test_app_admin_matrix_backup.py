@@ -15,7 +15,7 @@ class TestAdminMatrixBackup(APITestCase):
         self.assertIn('exported_at', data)
         self.assertIn('metadata', data)
         self.assertEqual(data['metadata']['backup_format_version'], 3)
-        self.assertEqual(data['work_catalog']['schema_version'], 1)
+        self.assertEqual(data['work_catalog']['schema_version'], 2)
         self.assertEqual(data['metadata']['matrix_row_count'], len(data['matrix_rows']))
         self.assertGreater(len(data['matrix_rows']), 0)
 

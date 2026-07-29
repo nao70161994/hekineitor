@@ -271,6 +271,70 @@ class TestEngineMutations(unittest.TestCase):
         self.assertEqual(committed['works_master'][0]['canonical_title'], '作品名')
         self.assertEqual(committed['fetish_work_links'][0]['context_label'], '人物')
 
+    def test_identifier_admin_operations_commit_catalog_atomically(self):
+        fetishes = [
+            {
+                'id': 1,
+                'name': 'Target',
+                'desc': '',
+                'works': [
+                    {
+                        'title': 'Managed edition',
+                        'url': 'https://www.amazon.co.jp/dp/B012345678',
+                    }
+                ],
+            }
+        ]
+        catalog = engine_module.work_catalog.build_catalog_from_inline(fetishes)
+        edition_id = catalog['work_editions'][0]['edition_id']
+        state = {'fetishes': fetishes, 'compound_works': {}, 'work_catalog': catalog}
+
+        def local_state(**values):
+            if not values:
+                return copy.deepcopy(state)
+            return {
+                'fetishes': values['fetishes'],
+                'compound_works': values['compound_works'],
+                'work_catalog': values['work_catalog'],
+            }
+
+        def commit_state(_before, after):
+            state.update(copy.deepcopy(after))
+
+        with (
+            patch.object(engine_module, '_use_db', return_value=False),
+            patch.object(self.engine, '_local_work_catalog_state', side_effect=local_state),
+            patch.object(self.engine, '_commit_local_work_catalog_state', side_effect=commit_state) as commit_catalog,
+        ):
+            created = self.engine.mutate_work_catalog(
+                'identifier_create',
+                {'edition_id': edition_id, 'scheme': 'isbn', 'authority': 'isbn', 'value': '9784199007804'},
+                expected_digest=engine_module.work_catalog.catalog_digest(catalog),
+            )
+            identifier_id = created['result']
+            updated = self.engine.mutate_work_catalog(
+                'identifier_update',
+                {
+                    'identifier_id': identifier_id,
+                    'edition_id': edition_id,
+                    'scheme': 'isbn',
+                    'authority': 'isbn',
+                    'value': '9784101010014',
+                },
+                expected_digest=created['digest'],
+            )
+            next_identifier_id = updated['result']
+            deleted = self.engine.mutate_work_catalog(
+                'identifier_delete',
+                {'identifier_id': next_identifier_id},
+                expected_digest=updated['digest'],
+            )
+
+        self.assertNotEqual(identifier_id, next_identifier_id)
+        self.assertIsNone(deleted['result'])
+        self.assertEqual(state['work_catalog']['work_edition_identifiers'], [])
+        self.assertEqual(commit_catalog.call_count, 3)
+
     def _production_correction_state(self):
         data = Path(__file__).resolve().parents[1] / 'data'
         fetishes = json.loads((data / 'fetishes.json').read_text(encoding='utf-8'))

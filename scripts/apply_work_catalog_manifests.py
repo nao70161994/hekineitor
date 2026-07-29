@@ -34,6 +34,7 @@ LEGACY_COMPATIBLE_DIGESTS = {
 }
 SEED_SHA256 = 'e960ed79e1f77c0af61275d536f311b3d8c3b93b563bf522e55b0ed4dbde32c3'
 CORRECTIONS_SHA256 = '2e629957bd11a85f14269298aa8227298faa16fdba21cf82e19fbceb9d0bf76e'
+BIBLIOGRAPHY_SHA256 = 'e572a91427ecac77bf278766fed35627f645ea885d69366c010e6891bd2cb908'
 CSRF_RE = re.compile(r'csrfToken\s*[:=]\s*["\']([^"\']+)')
 
 
@@ -140,11 +141,13 @@ def apply_manifests(
     legacy_review_path,
     seed_path,
     corrections_path,
+    bibliography_path,
     backup_path,
 ):
     _validate_target(base_url, expected_host)
     primary_review = _load_manifest(review_path, REVIEW_SHA256)
     corrections = _load_manifest(corrections_path, CORRECTIONS_SHA256)
+    bibliography = _load_manifest(bibliography_path, BIBLIOGRAPHY_SHA256)
     legacy_review = _load_manifest(legacy_review_path, LEGACY_REVIEW_SHA256)
     seed = _load_manifest(seed_path, SEED_SHA256)
     if len(primary_review.get('decisions', [])) != 74 or len(legacy_review.get('decisions', [])) != 79:
@@ -153,6 +156,8 @@ def apply_manifests(
         raise RuntimeError('seed manifest counts do not match the approved change set')
     if len(corrections.get('corrections', [])) != 4:
         raise RuntimeError('correction manifest count does not match the approved change set')
+    if len(bibliography.get('entries', [])) != 18:
+        raise RuntimeError('bibliography manifest count does not match the approved change set')
 
     client = AdminClient(base_url, username, password)
     backup = json.loads(backup_path.read_text(encoding='utf-8'))
@@ -254,9 +259,30 @@ def apply_manifests(
     ):
         raise RuntimeError(f'unexpected correction manifest result: {correction_counts!r}')
 
-    after, after_digest = _snapshot(client)
-    if after_digest != expected_final_digest:
+    corrected, corrected_digest = _snapshot(client)
+    if corrected_digest != expected_final_digest:
         raise RuntimeError('post-mutation catalog does not match the preflight result')
+    expected_catalog, expected_bibliography_counts = work_catalog.apply_bibliography_manifest(corrected, bibliography)
+    expected_catalog_digest = work_catalog.catalog_digest(expected_catalog)
+    bibliography_response = _mutate(
+        client,
+        client.csrf_token(),
+        operation='bibliography_apply_manifest',
+        digest=corrected_digest,
+        payload={'bibliography_manifest': bibliography},
+    )
+    bibliography_counts = bibliography_response.get('result') or {}
+    if (
+        bibliography_response['digest'] != expected_catalog_digest
+        or bibliography_counts != expected_bibliography_counts
+        or bibliography_counts.get('entry_count') != 18
+        or bibliography_counts.get('edition_count') not in {0, 12}
+        or bibliography_counts.get('identifier_count') not in {0, 12}
+    ):
+        raise RuntimeError(f'unexpected bibliography manifest result: {bibliography_counts!r}')
+    after, after_digest = _snapshot(client)
+    if after_digest != expected_catalog_digest:
+        raise RuntimeError('post-bibliography catalog does not match the preflight result')
     health = client.json('/api/admin/works_health')
     migration = health.get('migration') or {}
     observation = migration.get('runtime_observation') or {}
@@ -283,6 +309,7 @@ def apply_manifests(
     expected_audits = {
         ('seed_overrides_apply_manifest', SEED_SHA256),
         ('corrections_apply_manifest', CORRECTIONS_SHA256),
+        ('bibliography_apply_manifest', BIBLIOGRAPHY_SHA256),
     }
     if not corrections_already_applied:
         expected_audits.add(('review_apply_manifest', review_sha256))
@@ -300,12 +327,14 @@ def apply_manifests(
         'target_host': expected_host,
         'review_manifest_sha256': review_sha256,
         'corrections_sha256': CORRECTIONS_SHA256,
+        'bibliography_sha256': BIBLIOGRAPHY_SHA256,
         'seed_overrides_sha256': SEED_SHA256,
         'seed_digest': seeded_digest,
         'before_digest': before_digest,
         'review_digest': between_digest,
         'correction_result': correction_counts,
-        'final_digest': expected_final_digest,
+        'bibliography_result': bibliography_counts,
+        'final_digest': expected_catalog_digest,
         'review_result': review_counts,
         'seed_result': seed_counts,
         'migration': {
@@ -332,6 +361,7 @@ def main() -> int:
     parser.add_argument('--backup', type=Path, required=True)
     parser.add_argument('--username', required=True)
     parser.add_argument('--corrections', type=Path, required=True)
+    parser.add_argument('--bibliography', type=Path, required=True)
     parser.add_argument('--password', required=True)
     parser.add_argument('--legacy-review-manifest', type=Path, required=True)
     parser.add_argument('--review-manifest', type=Path, required=True)
@@ -342,6 +372,7 @@ def main() -> int:
         base_url=args.base_url,
         expected_host=args.expected_host,
         corrections_path=args.corrections,
+        bibliography_path=args.bibliography,
         username=args.username,
         legacy_review_path=args.legacy_review_manifest,
         password=args.password,

@@ -10,10 +10,12 @@ CATALOG_PATH = DATA_DIR / 'work_catalog.json'
 DECISIONS_PATH = DATA_DIR / 'work_catalog_review_decisions.json'
 SEED_OVERRIDES_PATH = DATA_DIR / 'work_catalog_seed_overrides.json'
 CORRECTIONS_PATH = DATA_DIR / 'work_catalog_corrections.json'
+BIBLIOGRAPHY_PATH = DATA_DIR / 'work_catalog_bibliography.json'
 
 
 def build_catalog():
     from engine.work_catalog import (
+        apply_bibliography_manifest,
         apply_catalog_corrections,
         apply_review_decisions,
         build_catalog_from_inline,
@@ -41,7 +43,9 @@ def build_catalog():
     )
     decisions = json.loads(DECISIONS_PATH.read_text(encoding='utf-8'))
     reviewed = apply_review_decisions(catalog, decisions)
-    return apply_catalog_corrections(reviewed, corrections)
+    corrected = apply_catalog_corrections(reviewed, corrections)
+    bibliography = json.loads(BIBLIOGRAPHY_PATH.read_text(encoding='utf-8'))
+    return apply_bibliography_manifest(corrected, bibliography)[0]
 
 
 def main(argv=None):

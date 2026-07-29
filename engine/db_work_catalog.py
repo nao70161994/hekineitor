@@ -3,6 +3,7 @@
 import json
 
 from .work_catalog import (
+    apply_bibliography_manifest,
     apply_catalog_corrections,
     apply_review_decisions,
     build_catalog_from_inline,
@@ -10,6 +11,7 @@ from .work_catalog import (
     project_approved_inline_corrections,
     replace_compound_works,
     replace_fetish_works,
+    upgrade_catalog_schema,
     validate_catalog,
 )
 
@@ -19,13 +21,19 @@ _SCHEMA_STATEMENTS = (
     """
     CREATE TABLE IF NOT EXISTS work_catalog_meta (
         singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
-        revision BIGINT NOT NULL DEFAULT 0
+        revision BIGINT NOT NULL DEFAULT 0,
+        schema_version INTEGER NOT NULL DEFAULT 2
     )
     """,
     """
-    INSERT INTO work_catalog_meta (singleton, revision) VALUES (TRUE, 0)
+    ALTER TABLE work_catalog_meta
+    ADD COLUMN IF NOT EXISTS schema_version INTEGER NOT NULL DEFAULT 1
+    """,
+    """
+    INSERT INTO work_catalog_meta (singleton, revision, schema_version) VALUES (TRUE, 0, 2)
     ON CONFLICT (singleton) DO NOTHING
     """,
+    'UPDATE work_catalog_meta SET schema_version = 2 WHERE singleton = TRUE',
     """
     CREATE TABLE IF NOT EXISTS works_master (
         work_id TEXT PRIMARY KEY,
@@ -41,11 +49,31 @@ _SCHEMA_STATEMENTS = (
         work_id TEXT NOT NULL REFERENCES works_master(work_id) ON DELETE CASCADE,
         asin TEXT,
         canonical_url TEXT NOT NULL DEFAULT '',
+        edition_title TEXT NOT NULL DEFAULT '',
+        publisher TEXT NOT NULL DEFAULT '',
         format TEXT NOT NULL DEFAULT '',
         status TEXT NOT NULL DEFAULT 'active'
     )
     """,
+    """
+    ALTER TABLE work_editions
+    ADD COLUMN IF NOT EXISTS edition_title TEXT NOT NULL DEFAULT ''
+    """,
+    """
+    ALTER TABLE work_editions
+    ADD COLUMN IF NOT EXISTS publisher TEXT NOT NULL DEFAULT ''
+    """,
     "CREATE UNIQUE INDEX IF NOT EXISTS work_editions_asin_unique ON work_editions(asin) WHERE asin IS NOT NULL AND asin <> ''",
+    """
+    CREATE TABLE IF NOT EXISTS work_edition_identifiers (
+        identifier_id TEXT PRIMARY KEY,
+        edition_id TEXT NOT NULL REFERENCES work_editions(edition_id) ON DELETE CASCADE,
+        scheme TEXT NOT NULL,
+        authority TEXT NOT NULL,
+        value TEXT NOT NULL,
+        UNIQUE (scheme, authority, value)
+    )
+    """,
     """
     CREATE TABLE IF NOT EXISTS work_aliases (
         alias_id TEXT PRIMARY KEY,
@@ -146,12 +174,14 @@ def catalog_is_empty(cur):
 
 def replace_catalog(cur, catalog, *, execute_values):
     """Replace the complete catalog inside the caller-owned transaction."""
+    catalog = upgrade_catalog_schema(catalog)
     validate_catalog(catalog)
     for table in (
         'work_identity_reviews',
         'compound_work_links',
         'fetish_work_links',
         'work_aliases',
+        'work_edition_identifiers',
         'work_editions',
         'works_master',
     ):
@@ -172,17 +202,33 @@ def replace_catalog(cur, catalog, *, execute_values):
             ],
         ),
         (
-            'INSERT INTO work_editions (edition_id, work_id, asin, canonical_url, format, status) VALUES %s',
+            'INSERT INTO work_editions (edition_id, work_id, asin, canonical_url, edition_title, publisher, '
+            'format, status) VALUES %s',
             [
                 (
                     row['edition_id'],
                     row['work_id'],
                     row.get('asin') or None,
                     row.get('canonical_url', ''),
+                    row.get('edition_title', ''),
+                    row.get('publisher', ''),
                     row.get('format', ''),
                     row.get('status', 'active'),
                 )
                 for row in catalog['work_editions']
+            ],
+        ),
+        (
+            'INSERT INTO work_edition_identifiers (identifier_id, edition_id, scheme, authority, value) VALUES %s',
+            [
+                (
+                    row['identifier_id'],
+                    row['edition_id'],
+                    row['scheme'],
+                    row['authority'],
+                    row['value'],
+                )
+                for row in catalog['work_edition_identifiers']
             ],
         ),
         (
@@ -249,10 +295,11 @@ def replace_catalog(cur, catalog, *, execute_values):
     for statement, rows in batches:
         if rows:
             execute_values(cur, statement, rows)
-    cur.execute('UPDATE work_catalog_meta SET revision = revision + 1 WHERE singleton = TRUE')
+    cur.execute('UPDATE work_catalog_meta SET revision = revision + 1, schema_version = 2 WHERE singleton = TRUE')
     return {
         'works_master': len(catalog['works_master']),
         'work_editions': len(catalog['work_editions']),
+        'work_edition_identifiers': len(catalog['work_edition_identifiers']),
         'work_aliases': len(catalog['work_aliases']),
         'fetish_work_links': len(catalog['fetish_work_links']),
         'compound_work_links': len(catalog['compound_work_links']),
@@ -261,7 +308,14 @@ def replace_catalog(cur, catalog, *, execute_values):
 
 
 def migrate_legacy_catalog(
-    cur, *, compound_data, execute_values, seed_overrides=None, review_decisions=None, corrections=None
+    cur,
+    *,
+    compound_data,
+    execute_values,
+    seed_overrides=None,
+    review_decisions=None,
+    corrections=None,
+    bibliography=None,
 ):
     """Create a shadow catalog exactly once; later writes belong to the catalog repository."""
     ensure_schema(cur)
@@ -288,6 +342,8 @@ def migrate_legacy_catalog(
         catalog = apply_review_decisions(catalog, review_decisions)
     if corrections is not None:
         catalog = apply_catalog_corrections(catalog, corrections)
+    if bibliography is not None:
+        catalog = apply_bibliography_manifest(catalog, bibliography)[0]
     counts = replace_catalog(cur, catalog, execute_values=execute_values)
     return {'migrated': True, **counts}
 
@@ -327,7 +383,8 @@ def load_catalog_from_cursor(cur):
         for row in cur.fetchall()
     ]
     cur.execute(
-        'SELECT edition_id, work_id, asin, canonical_url, format, status FROM work_editions ORDER BY edition_id'
+        'SELECT edition_id, work_id, asin, canonical_url, edition_title, publisher, format, status '
+        'FROM work_editions ORDER BY edition_id'
     )
     work_editions = [
         {
@@ -335,8 +392,24 @@ def load_catalog_from_cursor(cur):
             'work_id': row[1],
             'asin': row[2] or '',
             'canonical_url': row[3],
-            'format': row[4],
-            'status': row[5],
+            'edition_title': row[4],
+            'publisher': row[5],
+            'format': row[6],
+            'status': row[7],
+        }
+        for row in cur.fetchall()
+    ]
+    cur.execute(
+        'SELECT identifier_id, edition_id, scheme, authority, value '
+        'FROM work_edition_identifiers ORDER BY identifier_id'
+    )
+    work_edition_identifiers = [
+        {
+            'identifier_id': row[0],
+            'edition_id': row[1],
+            'scheme': row[2],
+            'authority': row[3],
+            'value': row[4],
         }
         for row in cur.fetchall()
     ]
@@ -402,9 +475,10 @@ def load_catalog_from_cursor(cur):
         for row in cur.fetchall()
     ]
     catalog = {
-        'schema_version': 1,
+        'schema_version': 2,
         'works_master': works_master,
         'work_editions': work_editions,
+        'work_edition_identifiers': work_edition_identifiers,
         'work_aliases': work_aliases,
         'fetish_work_links': fetish_work_links,
         'compound_work_links': compound_work_links,
