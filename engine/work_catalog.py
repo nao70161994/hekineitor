@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 from collections import defaultdict
+from datetime import datetime, timezone
 
 from work_utils import normalized_work_title, safe_work_url, work_title, work_title_candidate_key
 
@@ -1030,6 +1031,247 @@ def apply_seed_overrides(catalog, seed_overrides):
                 {normalizations.get(title, {}).get('canonical_title', title) for title in review.get('titles', [])}
             )
     _canonicalize_alias_and_link_ids(updated, reindex_positions=True)
+    validate_catalog(updated)
+    return updated
+
+
+def apply_catalog_corrections(catalog, manifest):
+    """Apply declarative, input-locked identity corrections atomically."""
+    validate_catalog(catalog)
+    if not isinstance(manifest, dict):
+        raise ValueError('unsupported work catalog corrections schema_version')
+    try:
+        schema_version = int(manifest.get('schema_version', 0))
+        catalog_schema_version = int(manifest.get('catalog_schema_version', 0))
+    except (TypeError, ValueError):
+        raise ValueError('unsupported work catalog corrections schema_version')
+    if schema_version != 1 or catalog_schema_version != CATALOG_SCHEMA_VERSION:
+        raise ValueError('unsupported work catalog corrections schema_version')
+    corrections = manifest.get('corrections')
+    if not isinstance(corrections, list) or not all(isinstance(row, dict) for row in corrections):
+        raise ValueError('work catalog corrections must be a list')
+    correction_ids = [str(row.get('correction_id') or '') for row in corrections]
+    if not all(correction_ids) or len(correction_ids) != len(set(correction_ids)):
+        raise ValueError('work catalog corrections contain missing or duplicate correction ids')
+
+    updated = copy.deepcopy(catalog)
+
+    def find_row(collection, id_field, row_id):
+        matches = [row for row in updated[collection] if row.get(id_field) == row_id]
+        if len(matches) > 1:
+            raise ValueError(f'work catalog correction duplicate {id_field}: {row_id}')
+        return matches[0] if matches else None
+
+    def rows_equal(collection, actual, expected):
+        if actual == expected:
+            return True
+        if collection != 'review_queue' or not isinstance(actual, dict) or not isinstance(expected, dict):
+            return False
+        actual_without_time = copy.deepcopy(actual)
+        expected_without_time = copy.deepcopy(expected)
+        actual_updated_at = actual_without_time.pop('updated_at', None)
+        expected_updated_at = expected_without_time.pop('updated_at', None)
+        if actual_without_time != expected_without_time:
+            return False
+
+        def utc_instant(value):
+            value = str(value or '').strip()
+            if re.fullmatch(r'\d{4}-\d{2}-\d{2}', value):
+                value += 'T00:00:00+00:00'
+            elif value.endswith('Z'):
+                value = value[:-1] + '+00:00'
+            try:
+                parsed = datetime.fromisoformat(value)
+            except ValueError:
+                return None
+            if parsed.tzinfo is None:
+                return None
+            return parsed.astimezone(timezone.utc)
+
+        actual_instant = utc_instant(actual_updated_at)
+        expected_instant = utc_instant(expected_updated_at)
+        return actual_instant is not None and actual_instant == expected_instant
+
+    def require_exact(collection, id_field, expected, correction_id):
+        if not isinstance(expected, dict) or not expected.get(id_field):
+            raise ValueError(f'work catalog correction {correction_id} has invalid expected {collection} row')
+        actual = find_row(collection, id_field, expected[id_field])
+        if not rows_equal(collection, actual, expected):
+            raise ValueError(f'work catalog correction source drift: {correction_id} {expected[id_field]}')
+        return actual
+
+    def target_link(expected, table, work_id, edition_id, alias_id, context_label):
+        owner_fields = ('fetish_id',) if table == 'fetish_work_links' else ('id_a', 'id_b')
+        prefix = 'fwl' if table == 'fetish_work_links' else 'cwl'
+        target = copy.deepcopy(expected)
+        target.update(
+            {
+                'work_id': work_id,
+                'edition_id': edition_id,
+                'alias_id': alias_id,
+                'context_label': context_label,
+                'link_id': _stable_id(
+                    prefix,
+                    *[int(expected[field]) for field in owner_fields],
+                    work_id,
+                    edition_id,
+                    alias_id,
+                ),
+            }
+        )
+        return target
+
+    for correction in corrections:
+        correction_id = str(correction['correction_id'])
+        correction_type = str(correction.get('type') or '')
+        if correction_type not in {'split_misassigned_edition', 'retitle_identity'}:
+            raise ValueError(f'work catalog correction has unsupported type: {correction_id}')
+        expected_work = correction.get('expected_work')
+        target_work = correction.get('target_work')
+        if not isinstance(expected_work, dict) or not isinstance(target_work, dict):
+            raise ValueError(f'work catalog correction requires expected_work and target_work: {correction_id}')
+        source_work_id = str(expected_work.get('work_id') or '')
+        target_work_id = str(target_work.get('work_id') or '')
+        canonical_title = str(target_work.get('canonical_title') or '').strip()
+        if (
+            not source_work_id
+            or not target_work_id
+            or not canonical_title
+            or target_work.get('normalized_title') != normalized_work_title(canonical_title)
+        ):
+            raise ValueError(f'work catalog correction has invalid target work: {correction_id}')
+        if correction_type == 'retitle_identity' and target_work_id != source_work_id:
+            raise ValueError(f'work catalog correction retitle must preserve work_id: {correction_id}')
+
+        edition_updates = correction.get('edition_updates', [])
+        alias_removals = correction.get('alias_removals', [])
+        link_updates = correction.get('link_updates', [])
+        review_updates = correction.get('review_updates', [])
+        if not all(
+            isinstance(rows, list) and all(isinstance(row, dict) for row in rows)
+            for rows in (edition_updates, alias_removals, link_updates, review_updates)
+        ):
+            raise ValueError(f'work catalog correction row collections must be lists: {correction_id}')
+
+        if correction_type == 'split_misassigned_edition':
+            if len(edition_updates) != 1:
+                raise ValueError(f'work catalog correction split requires one edition: {correction_id}')
+            expected_edition = edition_updates[0].get('expected')
+            if not isinstance(expected_edition, dict):
+                raise ValueError(f'work catalog correction split has invalid edition: {correction_id}')
+            expected_target_id = _stable_id(
+                'wrk', _identity_key(canonical_title, expected_edition.get('canonical_url'))
+            )
+            if target_work_id != expected_target_id or target_work_id == source_work_id:
+                raise ValueError(f'work catalog correction split has non-deterministic work_id: {correction_id}')
+
+        target_editions = []
+        for edition_update in edition_updates:
+            expected = edition_update.get('expected')
+            if not isinstance(expected, dict) or expected.get('work_id') != source_work_id:
+                raise ValueError(f'work catalog correction has invalid edition update: {correction_id}')
+            target = copy.deepcopy(expected)
+            target['work_id'] = target_work_id
+            target_editions.append((expected, target))
+
+        target_links = []
+        for link_update in link_updates:
+            table = str(link_update.get('table') or '')
+            expected = link_update.get('expected')
+            if table not in {'fetish_work_links', 'compound_work_links'} or not isinstance(expected, dict):
+                raise ValueError(f'work catalog correction has invalid link update: {correction_id}')
+            if expected.get('work_id') != source_work_id:
+                raise ValueError(f'work catalog correction link source mismatch: {correction_id}')
+            target = target_link(
+                expected,
+                table,
+                target_work_id,
+                link_update.get('edition_id'),
+                link_update.get('alias_id'),
+                str(link_update.get('context_label') or ''),
+            )
+            target_links.append((table, expected, target))
+
+        target_reviews = []
+        for review_update in review_updates:
+            expected = review_update.get('expected')
+            target = review_update.get('target')
+            if (
+                not isinstance(expected, dict)
+                or not isinstance(target, dict)
+                or expected.get('review_id') != target.get('review_id')
+            ):
+                raise ValueError(f'work catalog correction has invalid review update: {correction_id}')
+            target_reviews.append((expected, target))
+
+        removed_aliases = []
+        for alias_removal in alias_removals:
+            expected = alias_removal.get('expected')
+            if not isinstance(expected, dict) or expected.get('work_id') != source_work_id:
+                raise ValueError(f'work catalog correction has invalid alias removal: {correction_id}')
+            removed_aliases.append(expected)
+        removed_alias_ids = [row.get('alias_id') for row in removed_aliases]
+        if not all(removed_alias_ids) or len(removed_alias_ids) != len(set(removed_alias_ids)):
+            raise ValueError(f'work catalog correction contains invalid alias removals: {correction_id}')
+
+        already_applied = (
+            find_row('works_master', 'work_id', target_work_id) == target_work
+            and all(
+                find_row('work_editions', 'edition_id', target['edition_id']) == target for _, target in target_editions
+            )
+            and all(find_row(table, 'link_id', target['link_id']) == target for table, _, target in target_links)
+            and all(find_row('work_aliases', 'alias_id', alias_id) is None for alias_id in removed_alias_ids)
+            and all(
+                rows_equal('review_queue', find_row('review_queue', 'review_id', target['review_id']), target)
+                for _, target in target_reviews
+            )
+        )
+        if already_applied:
+            continue
+
+        require_exact('works_master', 'work_id', expected_work, correction_id)
+        if any(
+            row['work_id'] != source_work_id and row.get('normalized_title') == target_work['normalized_title']
+            for row in updated['works_master']
+        ):
+            raise ValueError(f'work catalog correction canonical collision: {correction_id}')
+        if correction_type == 'split_misassigned_edition':
+            if find_row('works_master', 'work_id', target_work_id) is not None:
+                raise ValueError(f'work catalog correction target collision: {correction_id}')
+            updated['works_master'].append(copy.deepcopy(target_work))
+        else:
+            source_work = find_row('works_master', 'work_id', source_work_id)
+            source_work.clear()
+            source_work.update(copy.deepcopy(target_work))
+
+        for expected, target in target_editions:
+            edition = require_exact('work_editions', 'edition_id', expected, correction_id)
+            edition.clear()
+            edition.update(target)
+        for table, expected, target in target_links:
+            link = require_exact(table, 'link_id', expected, correction_id)
+            collision = find_row(table, 'link_id', target['link_id'])
+            if collision is not None and collision is not link:
+                raise ValueError(f'work catalog correction link collision: {correction_id}')
+            link.clear()
+            link.update(target)
+        for expected in removed_aliases:
+            require_exact('work_aliases', 'alias_id', expected, correction_id)
+            if any(
+                link.get('alias_id') == expected['alias_id']
+                for link in updated['fetish_work_links'] + updated['compound_work_links']
+            ):
+                raise ValueError(f'work catalog correction alias still referenced: {correction_id}')
+            updated['work_aliases'] = [
+                row for row in updated['work_aliases'] if row['alias_id'] != expected['alias_id']
+            ]
+        for expected, target in target_reviews:
+            review = require_exact('review_queue', 'review_id', expected, correction_id)
+            review.clear()
+            review.update(copy.deepcopy(target))
+        _sort_catalog_rows(updated)
+        validate_catalog(updated)
+
     validate_catalog(updated)
     return updated
 

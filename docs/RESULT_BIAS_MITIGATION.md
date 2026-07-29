@@ -100,6 +100,8 @@ adjusted_score = clamp(raw_posterior * exposure_factor, 0, 1)
 
 動的priorの経験値は「結果として表示された回数 (`guessed`)」を分母、「その表示結果が正解だった回数 (`correct`)」を分子にします。訂正画面で別候補を選んだ回数は `correction_selected` として分離します。旧データで `correct > guessed` の行は、runtimeでは`correct`を`guessed`までclampし、`get_dynamic_prior_shadow_report()`で旧計算との差を監査できます。これにより訂正候補の人気を結果露出の正解率として誤用しません。
 
+旧`correct`イベントには「表示結果への正解」か「訂正画面で選ばれた候補」かを復元できる由来情報がないため、推測による不可逆な再分類は行いません。移行方針は`non_destructive_runtime_clamp`とし、確実に母集団外と判定できる`correct - guessed`だけを実行時に除外します。`/api/admin/operations_snapshot`の`dynamic_prior_shadow`で対象行、除外件数、旧weightとの差、非破壊方針を継続観測します。
+
 ## Expected Effect
 
 序盤ではカテゴリ分散と追加probeで候補を分離し、最終表示では強いexposure correctionによって同じ結果の連続を抑えます。視覚、世界観、役割、価値観などの結果にも実表示とfeedback learningの機会が回ることを狙います。

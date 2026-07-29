@@ -3,6 +3,7 @@
 import json
 
 from .work_catalog import (
+    apply_catalog_corrections,
     apply_review_decisions,
     build_catalog_from_inline,
     merge_restored_fetish_works,  # noqa: F401 - compatibility re-export for db_matrix
@@ -258,7 +259,9 @@ def replace_catalog(cur, catalog, *, execute_values):
     }
 
 
-def migrate_legacy_catalog(cur, *, compound_data, execute_values, seed_overrides=None, review_decisions=None):
+def migrate_legacy_catalog(
+    cur, *, compound_data, execute_values, seed_overrides=None, review_decisions=None, corrections=None
+):
     """Create a shadow catalog exactly once; later writes belong to the catalog repository."""
     ensure_schema(cur)
     lock_catalog(cur)
@@ -271,6 +274,8 @@ def migrate_legacy_catalog(cur, *, compound_data, execute_values, seed_overrides
     )
     if review_decisions is not None:
         catalog = apply_review_decisions(catalog, review_decisions)
+    if corrections is not None:
+        catalog = apply_catalog_corrections(catalog, corrections)
     counts = replace_catalog(cur, catalog, execute_values=execute_values)
     return {'migrated': True, **counts}
 

@@ -985,6 +985,7 @@ def operations_snapshot(ctx):
             'matrix_heatmap': ctx.engine.get_matrix_heatmap(n_fetishes=20, n_questions=20),
             'axis_stats': ctx.engine.get_axis_stats(),
             'quality_report': ctx.engine.get_quality_report(),
+            'dynamic_prior_shadow': ctx.engine.get_dynamic_prior_shadow_report(),
             'completion': ctx.build_completion_metrics(app_stats, stats_history, dropoff_summary),
             'analysis_logs': analysis_log_status(
                 ctx, stats_history=stats_history, share_events=share_events, question_events=question_events
@@ -1591,6 +1592,7 @@ def mutate_work_catalog_admin(ctx):
         'review_decide',
         'review_apply_manifest',
         'seed_overrides_apply_manifest',
+        'corrections_apply_manifest',
     }
     if operation not in allowed:
         return ctx.jsonify({'status': 'error', 'message': '不正な作品catalog操作です'}), 400
@@ -1603,6 +1605,7 @@ def mutate_work_catalog_admin(ctx):
     destructive = (
         operation.endswith('_delete')
         or operation == 'review_apply_manifest'
+        or operation == 'corrections_apply_manifest'
         or operation == 'seed_overrides_apply_manifest'
         or (operation == 'review_decide' and payload.get('decision') == 'merge')
     )
@@ -1629,6 +1632,19 @@ def mutate_work_catalog_admin(ctx):
             normalization_count=len(manifest.get('title_normalizations', [])),
             removal_count=len(manifest.get('remove_display_titles', [])),
             manifest_sha256=hashlib.sha256(encoded_manifest).hexdigest(),
+        )
+    if operation == 'corrections_apply_manifest':
+        manifest = payload.get('corrections_manifest', {})
+        corrections = manifest.get('corrections', [])
+        encoded_manifest = json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode(
+            'utf-8'
+        )
+        audit_payload.update(
+            correction_count=len(corrections),
+            split_count=sum(row.get('type') == 'split_misassigned_edition' for row in corrections),
+            retitle_count=sum(row.get('type') == 'retitle_identity' for row in corrections),
+            manifest_sha256=hashlib.sha256(encoded_manifest).hexdigest(),
+            reviewed_by=str(manifest.get('reviewed_by') or '')[:80],
         )
     if operation == 'review_apply_manifest':
         manifest = payload.get('decision_manifest', {})

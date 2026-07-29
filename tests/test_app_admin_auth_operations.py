@@ -183,6 +183,8 @@ class TestAdminAuthOperations(APITestCase):
         self.assertIn('domain_suggestions', data)
         self.assertIn('matrix_heatmap', data)
         self.assertIn('axis_stats', data)
+        self.assertIn('dynamic_prior_shadow', data)
+        self.assertIn('migration_policy', data['dynamic_prior_shadow'])
         self.assertIn('compound_works', data)
         self.assertIn('analysis_logs', data)
         self.assertIn('question_events_summary', data)
@@ -646,6 +648,46 @@ class TestAdminAuthOperations(APITestCase):
             )
         self.assertEqual(response.status_code, 200)
         mutate.assert_called_once_with('seed_overrides_apply_manifest', seed_payload, expected_digest=digest)
+
+        corrections_payload = {
+            'corrections_manifest': {
+                'schema_version': 1,
+                'catalog_schema_version': 1,
+                'reviewed_by': 'test reviewer',
+                'corrections': [],
+            }
+        }
+        response = self.client.post(
+            '/api/admin/work_catalog/mutate',
+            headers=headers,
+            json={
+                'operation': 'corrections_apply_manifest',
+                'expected_digest': digest,
+                'payload': corrections_payload,
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()['required_confirm_text'], 'WORK_CATALOG')
+        with patch.object(
+            app_engine,
+            'mutate_work_catalog',
+            return_value={
+                'result': {'correction_count': 0, 'split_count': 0, 'retitle_count': 0},
+                'digest': 'e' * 64,
+            },
+        ) as mutate:
+            response = self.client.post(
+                '/api/admin/work_catalog/mutate',
+                headers=headers,
+                json={
+                    'operation': 'corrections_apply_manifest',
+                    'expected_digest': digest,
+                    'confirm_text': 'WORK_CATALOG',
+                    'payload': corrections_payload,
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        mutate.assert_called_once_with('corrections_apply_manifest', corrections_payload, expected_digest=digest)
 
     def test_admin_csrf_token_expires_when_enabled(self):
         app.config['ENFORCE_CSRF'] = True

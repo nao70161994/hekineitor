@@ -99,6 +99,8 @@ DAILY:
 
 未学習質問は `/api/admin/question_events` の `cold_start_summary` と `cold_start_questions` で確認します。20回未満はデータ収集中なので通知せず、20回以上のfeedback learning後もdiscriminationが `0.02` 未満の場合だけ `needs_review` としてINSIGHTSに出します。このシグナルはntfy WARNにはせず、質問を自動停止しません。`/api/admin/operations_snapshot` にも同じ集約が含まれます。
 
+動的priorの旧データ母集団は `/api/admin/operations_snapshot` の `dynamic_prior_shadow` で確認します。`mismatched_count` は `correct > guessed` の性癖数、`excess_correct_count` は露出母集団を超えた正解イベント総数です。由来を復元できない旧イベントは書き換えず、runtime clampと旧weightとの差をshadow比較します。本番デプロイ後はこの値を記録し、新しい`correction_selected`分離後に増加しないことを確認します。
+
 ## 通知例
 
 ```text

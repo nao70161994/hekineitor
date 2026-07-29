@@ -1,5 +1,6 @@
 import json
 import unittest
+from unittest.mock import patch
 
 from engine import db_work_catalog
 
@@ -137,6 +138,28 @@ class TestDbWorkCatalog(unittest.TestCase):
         self.assertEqual(masters[0][1], '作品名')
         self.assertEqual(aliases[0][2], '作品名（人物）')
         self.assertEqual(links[0][6], '人物')
+
+    def test_migrate_legacy_catalog_applies_corrections_after_review(self):
+        legacy_rows = [(7, 'Example', 'Desc', json.dumps(['作品']))]
+        corrections = {'schema_version': 1, 'catalog_schema_version': 1, 'corrections': []}
+        observed = []
+
+        def apply(catalog, manifest):
+            observed.append((catalog, manifest))
+            return catalog
+
+        with patch.object(db_work_catalog, 'apply_catalog_corrections', side_effect=apply):
+            db_work_catalog.migrate_legacy_catalog(
+                RoutingCursor(legacy_rows=legacy_rows),
+                compound_data={},
+                review_decisions={'schema_version': 1, 'reviewed_at': '2026-07-29', 'decisions': []},
+                corrections=corrections,
+                execute_values=lambda _cur, _sql, _rows: None,
+            )
+
+        self.assertEqual(len(observed), 1)
+        self.assertIs(observed[0][1], corrections)
+        self.assertEqual(observed[0][0]['works_master'][0]['canonical_title'], '作品')
 
     def test_migration_does_not_replace_an_existing_catalog(self):
         cursor = RoutingCursor(catalog_count=1, legacy_rows=[(1, 'Ignored', '', '["Ignored"]')])

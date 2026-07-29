@@ -197,6 +197,7 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                 execute_values=execute_values,
                 seed_overrides=engine._load_json('work_catalog_seed_overrides.json'),
                 review_decisions=engine._load_json('work_catalog_review_decisions.json'),
+                corrections=engine._load_json('work_catalog_corrections.json'),
             )
             nq = len(engine.questions)
             cur.execute('SELECT MAX(question_id) FROM matrix')

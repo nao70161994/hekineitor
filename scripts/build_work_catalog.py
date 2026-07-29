@@ -9,10 +9,11 @@ DATA_DIR = ROOT / 'data'
 CATALOG_PATH = DATA_DIR / 'work_catalog.json'
 DECISIONS_PATH = DATA_DIR / 'work_catalog_review_decisions.json'
 SEED_OVERRIDES_PATH = DATA_DIR / 'work_catalog_seed_overrides.json'
+CORRECTIONS_PATH = DATA_DIR / 'work_catalog_corrections.json'
 
 
 def build_catalog():
-    from engine.work_catalog import apply_review_decisions, build_catalog_from_inline
+    from engine.work_catalog import apply_catalog_corrections, apply_review_decisions, build_catalog_from_inline
 
     fetishes = json.loads((DATA_DIR / 'fetishes.json').read_text(encoding='utf-8'))
     compound_data = json.loads((DATA_DIR / 'compound_works.json').read_text(encoding='utf-8'))
@@ -23,7 +24,9 @@ def build_catalog():
     seed_overrides = json.loads(SEED_OVERRIDES_PATH.read_text(encoding='utf-8'))
     catalog = build_catalog_from_inline(fetishes, compound_rows=compound_rows, seed_overrides=seed_overrides)
     decisions = json.loads(DECISIONS_PATH.read_text(encoding='utf-8'))
-    return apply_review_decisions(catalog, decisions)
+    reviewed = apply_review_decisions(catalog, decisions)
+    corrections = json.loads(CORRECTIONS_PATH.read_text(encoding='utf-8'))
+    return apply_catalog_corrections(reviewed, corrections)
 
 
 def main(argv=None):

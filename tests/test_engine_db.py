@@ -232,6 +232,8 @@ class FakeEngine:
             return {}
         if name == 'work_catalog_seed_overrides.json':
             return {'schema_version': 1, 'title_normalizations': []}
+        if name == 'work_catalog_corrections.json':
+            return {'schema_version': 1, 'catalog_schema_version': 1, 'corrections': []}
         if name == 'work_catalog_review_decisions.json':
             return {'schema_version': 1, 'reviewed_at': '2026-07-28', 'decisions': []}
         raise AssertionError(name)

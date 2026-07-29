@@ -487,6 +487,15 @@ class Engine:
                     'normalized_title_count': len(manifest.get('title_normalizations', [])),
                     'removed_work_count': len(current['works_master']) - len(updated['works_master']),
                 }
+            if operation == 'corrections_apply_manifest':
+                manifest = payload.get('corrections_manifest')
+                updated = engine_work_catalog.apply_catalog_corrections(current, manifest)
+                rows = manifest.get('corrections', [])
+                return updated, {
+                    'correction_count': len(rows),
+                    'split_count': sum(row.get('type') == 'split_misassigned_edition' for row in rows),
+                    'retitle_count': sum(row.get('type') == 'retitle_identity' for row in rows),
+                }
             if operation == 'review_apply_manifest':
                 updated = engine_work_catalog.apply_review_decisions(current, payload.get('decision_manifest'))
                 return updated, {

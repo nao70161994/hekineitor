@@ -1,0 +1,338 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-07-29",
+  "reviewed_by": "catalog data-quality review",
+  "catalog_schema_version": 1,
+  "corrections": [
+    {
+      "correction_id": "split-zero-no-tsukaima-b0cvlhhdd3",
+      "type": "split_misassigned_edition",
+      "expected_work": {
+        "work_id": "wrk_76a08381045d290abf30",
+        "canonical_title": "ゼロの使い魔",
+        "normalized_title": "ゼロの使い魔",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_c5214e34ec2b68ce172b",
+        "canonical_title": "Lv2からチートだった元勇者候補のまったり異世界ライフ",
+        "normalized_title": "lv2からチートだった元勇者候補のまったり異世界ライフ",
+        "media_type": "",
+        "status": "active"
+      },
+      "edition_updates": [
+        {
+          "expected": {
+            "edition_id": "wed_c5214e34ec2b68ce172b",
+            "work_id": "wrk_76a08381045d290abf30",
+            "asin": "B0CVLHHDD3",
+            "canonical_url": "https://www.amazon.co.jp/dp/B0CVLHHDD3?tag=hekinator-22",
+            "format": "",
+            "status": "active"
+          }
+        }
+      ],
+      "alias_removals": [
+        {
+          "expected": {
+            "alias_id": "wal_461f29db4e2b82b4ea07",
+            "work_id": "wrk_76a08381045d290abf30",
+            "alias": "釘宮理恵出演作（ゼロの使い魔・ルイズ）",
+            "normalized_alias": "釘宮理恵出演作(ゼロの使い魔・ルイズ)"
+          }
+        }
+      ],
+      "link_updates": [
+        {
+          "table": "fetish_work_links",
+          "expected": {
+            "link_id": "fwl_e2ed81fe1389c80a6818",
+            "fetish_id": 23,
+            "work_id": "wrk_76a08381045d290abf30",
+            "edition_id": "wed_c5214e34ec2b68ce172b",
+            "alias_id": "wal_461f29db4e2b82b4ea07",
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_c5214e34ec2b68ce172b",
+          "alias_id": null,
+          "context_label": "フェンリース（CV：釘宮理恵）"
+        }
+      ],
+      "review_updates": [
+        {
+          "expected": {
+            "review_id": "wrv_66989c04b744aa1a5b64",
+            "review_type": "identity_override",
+            "candidate_key": "identity_override:zero-no-tsukaima-context",
+            "work_ids": [
+              "wrk_76a08381045d290abf30"
+            ],
+            "titles": [
+              "ゼロの使い魔",
+              "釘宮理恵出演作（ゼロの使い魔・ルイズ）"
+            ],
+            "asins": [
+              "B079PHTTBK",
+              "B0CVLHHDD3"
+            ],
+            "status": "resolved",
+            "decision": "merge",
+            "target_work_id": "wrk_76a08381045d290abf30",
+            "version": 1,
+            "updated_at": "2026-07-28"
+          },
+          "target": {
+            "review_id": "wrv_66989c04b744aa1a5b64",
+            "review_type": "identity_override",
+            "candidate_key": "identity_override:zero-no-tsukaima-context",
+            "work_ids": [
+              "wrk_76a08381045d290abf30",
+              "wrk_c5214e34ec2b68ce172b"
+            ],
+            "titles": [
+              "Lv2からチートだった元勇者候補のまったり異世界ライフ",
+              "ゼロの使い魔"
+            ],
+            "asins": [
+              "B079PHTTBK",
+              "B0CVLHHDD3"
+            ],
+            "status": "resolved",
+            "decision": "keep_separate",
+            "target_work_id": "wrk_76a08381045d290abf30",
+            "version": 2,
+            "updated_at": "2026-07-29T00:00:00+00:00"
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "retitle-school-otome-game-b0fycvc6bf",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_5d1a3d2f9813efa92de1",
+        "canonical_title": "乙女ゲーム転生もの（アンジェリーク）",
+        "normalized_title": "乙女ゲーム転生もの(アンジェリーク)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_5d1a3d2f9813efa92de1",
+        "canonical_title": "学園物の乙女ゲームの世界に転生したけど、チート持ちの背景男子生徒だったようです。",
+        "normalized_title": "学園物の乙女ゲームの世界に転生したけど、チート持ちの背景男子生徒だったようです。",
+        "media_type": "",
+        "status": "active"
+      },
+      "edition_updates": [
+        {
+          "expected": {
+            "edition_id": "wed_5d1a3d2f9813efa92de1",
+            "work_id": "wrk_5d1a3d2f9813efa92de1",
+            "asin": "B0FYCVC6BF",
+            "canonical_url": "https://www.amazon.co.jp/dp/B0FYCVC6BF?tag=hekinator-22",
+            "format": "",
+            "status": "active"
+          }
+        }
+      ],
+      "alias_removals": [
+        {
+          "expected": {
+            "alias_id": "wal_737e31ce734e769e93f6",
+            "work_id": "wrk_5d1a3d2f9813efa92de1",
+            "alias": "乙女ゲーム転生もの（悪役令嬢系）",
+            "normalized_alias": "乙女ゲーム転生もの(悪役令嬢系)"
+          }
+        }
+      ],
+      "link_updates": [
+        {
+          "table": "fetish_work_links",
+          "expected": {
+            "link_id": "fwl_0f4dad22fd2dbae8c773",
+            "fetish_id": 13,
+            "work_id": "wrk_5d1a3d2f9813efa92de1",
+            "edition_id": "wed_5d1a3d2f9813efa92de1",
+            "alias_id": null,
+            "position": 2,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_5d1a3d2f9813efa92de1",
+          "alias_id": null,
+          "context_label": "乙女ゲーム転生もの"
+        },
+        {
+          "table": "fetish_work_links",
+          "expected": {
+            "link_id": "fwl_64120979d6d5a2214e82",
+            "fetish_id": 71,
+            "work_id": "wrk_5d1a3d2f9813efa92de1",
+            "edition_id": "wed_5d1a3d2f9813efa92de1",
+            "alias_id": "wal_737e31ce734e769e93f6",
+            "position": 2,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_5d1a3d2f9813efa92de1",
+          "alias_id": null,
+          "context_label": "悪役令嬢系"
+        }
+      ],
+      "review_updates": []
+    },
+    {
+      "correction_id": "retitle-vesperia-guide-b07n19vklx",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_875e300c4de51e82ed13",
+        "canonical_title": "テイルズシリーズ（執事キャラ）",
+        "normalized_title": "テイルズシリーズ(執事キャラ)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_875e300c4de51e82ed13",
+        "canonical_title": "テイルズ オブ ヴェスペリア REMASTER パーフェクトガイド",
+        "normalized_title": "テイルズ オブ ヴェスペリア remaster パーフェクトガイド",
+        "media_type": "",
+        "status": "active"
+      },
+      "edition_updates": [
+        {
+          "expected": {
+            "edition_id": "wed_875e300c4de51e82ed13",
+            "work_id": "wrk_875e300c4de51e82ed13",
+            "asin": "B07N19VKLX",
+            "canonical_url": "https://www.amazon.co.jp/dp/B07N19VKLX?tag=hekinator-22",
+            "format": "",
+            "status": "active"
+          }
+        }
+      ],
+      "alias_removals": [],
+      "link_updates": [
+        {
+          "table": "fetish_work_links",
+          "expected": {
+            "link_id": "fwl_457e0d3155f4cc762cfb",
+            "fetish_id": 86,
+            "work_id": "wrk_875e300c4de51e82ed13",
+            "edition_id": "wed_875e300c4de51e82ed13",
+            "alias_id": null,
+            "position": 2,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_875e300c4de51e82ed13",
+          "alias_id": null,
+          "context_label": "執事キャラ"
+        }
+      ],
+      "review_updates": []
+    },
+    {
+      "correction_id": "retitle-yura-kairi-artbook-b011kzqvh4",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_635907b25c09a91c33a9",
+        "canonical_title": "アンジェリーク（コーエーテクモ）",
+        "normalized_title": "アンジェリーク(コーエーテクモ)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_635907b25c09a91c33a9",
+        "canonical_title": "由羅カイリ画集 ～アンジェリーク 20th Anniversary～",
+        "normalized_title": "由羅カイリ画集 ~アンジェリーク 20th anniversary~",
+        "media_type": "",
+        "status": "active"
+      },
+      "edition_updates": [
+        {
+          "expected": {
+            "edition_id": "wed_635907b25c09a91c33a9",
+            "work_id": "wrk_635907b25c09a91c33a9",
+            "asin": "B011KZQVH4",
+            "canonical_url": "https://www.amazon.co.jp/dp/B011KZQVH4?tag=hekinator-22",
+            "format": "",
+            "status": "active"
+          }
+        }
+      ],
+      "alias_removals": [
+        {
+          "expected": {
+            "alias_id": "wal_d6cfef435e8063b178c5",
+            "work_id": "wrk_635907b25c09a91c33a9",
+            "alias": "アンジェリーク",
+            "normalized_alias": "アンジェリーク"
+          }
+        },
+        {
+          "expected": {
+            "alias_id": "wal_e40db4294f780d1b4c4f",
+            "work_id": "wrk_635907b25c09a91c33a9",
+            "alias": "アンジェリーク（身分差×政略）",
+            "normalized_alias": "アンジェリーク(身分差×政略)"
+          }
+        }
+      ],
+      "link_updates": [
+        {
+          "table": "fetish_work_links",
+          "expected": {
+            "link_id": "fwl_611d35ac406d9d8aa3b7",
+            "fetish_id": 97,
+            "work_id": "wrk_635907b25c09a91c33a9",
+            "edition_id": "wed_635907b25c09a91c33a9",
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_635907b25c09a91c33a9",
+          "alias_id": null,
+          "context_label": ""
+        },
+        {
+          "table": "fetish_work_links",
+          "expected": {
+            "link_id": "fwl_0491358730a92c95b5dc",
+            "fetish_id": 104,
+            "work_id": "wrk_635907b25c09a91c33a9",
+            "edition_id": "wed_635907b25c09a91c33a9",
+            "alias_id": "wal_d6cfef435e8063b178c5",
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_635907b25c09a91c33a9",
+          "alias_id": null,
+          "context_label": ""
+        },
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_47fed52e0b4d9e348476",
+            "id_a": 68,
+            "id_b": 97,
+            "work_id": "wrk_635907b25c09a91c33a9",
+            "edition_id": null,
+            "alias_id": "wal_e40db4294f780d1b4c4f",
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": null,
+          "alias_id": null,
+          "context_label": "身分差×政略"
+        }
+      ],
+      "review_updates": []
+    }
+  ]
+}

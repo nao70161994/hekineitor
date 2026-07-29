@@ -33,6 +33,7 @@ LEGACY_COMPATIBLE_DIGESTS = {
     LEGACY_DURABLE_FINAL_DIGEST,
 }
 SEED_SHA256 = 'e960ed79e1f77c0af61275d536f311b3d8c3b93b563bf522e55b0ed4dbde32c3'
+CORRECTIONS_SHA256 = 'f8ddcdbe0b29ef4ff266c2ce8bd8ceefaa073ef471d60778ee414a2ddfdaf37d'
 CSRF_RE = re.compile(r'csrfToken\s*[:=]\s*["\']([^"\']+)')
 
 
@@ -138,16 +139,20 @@ def apply_manifests(
     review_path,
     legacy_review_path,
     seed_path,
+    corrections_path,
     backup_path,
 ):
     _validate_target(base_url, expected_host)
     primary_review = _load_manifest(review_path, REVIEW_SHA256)
+    corrections = _load_manifest(corrections_path, CORRECTIONS_SHA256)
     legacy_review = _load_manifest(legacy_review_path, LEGACY_REVIEW_SHA256)
     seed = _load_manifest(seed_path, SEED_SHA256)
     if len(primary_review.get('decisions', [])) != 74 or len(legacy_review.get('decisions', [])) != 79:
         raise RuntimeError('review manifest counts do not match the approved change sets')
     if len(seed.get('title_normalizations', [])) != 46 or len(seed.get('remove_display_titles', [])) != 4:
         raise RuntimeError('seed manifest counts do not match the approved change set')
+    if len(corrections.get('corrections', [])) != 4:
+        raise RuntimeError('correction manifest count does not match the approved change set')
 
     client = AdminClient(base_url, username, password)
     backup = json.loads(backup_path.read_text(encoding='utf-8'))
@@ -155,7 +160,7 @@ def apply_manifests(
     if not isinstance(backup_catalog, dict):
         raise RuntimeError('validated v3 backup does not contain work_catalog')
     before, before_digest = _snapshot(client)
-    if before_digest in LEGACY_COMPATIBLE_DIGESTS:
+    if before_digest in LEGACY_COMPATIBLE_DIGESTS or len(before.get('review_queue', [])) == 79:
         review = legacy_review
         review_sha256 = LEGACY_REVIEW_SHA256
     else:
@@ -163,32 +168,44 @@ def apply_manifests(
         review_sha256 = REVIEW_SHA256
     if work_catalog.catalog_digest(backup_catalog) != before_digest:
         raise RuntimeError('fresh backup catalog digest does not match production before mutation')
-    expected_after_review = work_catalog.apply_review_decisions(before, review)
-    expected_review_digest = work_catalog.catalog_digest(expected_after_review)
-    expected_final = work_catalog.apply_seed_overrides(expected_after_review, seed)
-    expected_final_digest = work_catalog.catalog_digest(expected_final)
+    try:
+        corrections_already_applied = work_catalog.apply_catalog_corrections(before, corrections) == before
+    except ValueError:
+        # Pre-review and pre-seed catalogs intentionally do not satisfy the
+        # correction manifest's exact source locks. The ordered preflight
+        # below must decide whether they are approved migration sources.
+        corrections_already_applied = False
+    if corrections_already_applied:
+        expected_after_review = before
+        review_counts = {'skipped': True, 'reason': 'corrections_already_applied'}
+        between, between_digest = before, before_digest
+    else:
+        expected_after_review = work_catalog.apply_review_decisions(before, review)
+        expected_review_digest = work_catalog.catalog_digest(expected_after_review)
+        review_response = _mutate(
+            client,
+            client.csrf_token(),
+            operation='review_apply_manifest',
+            digest=before_digest,
+            payload={'decision_manifest': review},
+        )
+        review_counts = review_response.get('result') or {}
+        if (
+            review_response['digest'] != expected_review_digest
+            or review_counts.get('resolved_count') != len(review['decisions'])
+            or review_counts.get('pending_count') != 0
+        ):
+            raise RuntimeError(f'unexpected review manifest result: {review_counts!r}')
 
-    review_response = _mutate(
-        client,
-        client.csrf_token(),
-        operation='review_apply_manifest',
-        digest=before_digest,
-        payload={'decision_manifest': review},
-    )
-    review_counts = review_response.get('result') or {}
-    if (
-        review_response['digest'] != expected_review_digest
-        or review_counts.get('resolved_count') != len(review['decisions'])
-        or review_counts.get('pending_count') != 0
-    ):
-        raise RuntimeError(f'unexpected review manifest result: {review_counts!r}')
+        between, between_digest = _snapshot(client)
+        expected_durable_review_digest = (
+            LEGACY_DURABLE_AFTER_REVIEW_DIGEST if before_digest == LEGACY_SOURCE_DIGEST else expected_review_digest
+        )
+        if between_digest != expected_durable_review_digest:
+            raise RuntimeError('catalog drift detected between manifest operations')
 
-    between, between_digest = _snapshot(client)
-    expected_durable_review_digest = (
-        LEGACY_DURABLE_AFTER_REVIEW_DIGEST if before_digest == LEGACY_SOURCE_DIGEST else expected_review_digest
-    )
-    if between_digest != expected_durable_review_digest:
-        raise RuntimeError('catalog drift detected between manifest operations')
+    expected_after_seed = work_catalog.apply_seed_overrides(expected_after_review, seed)
+    expected_seed_digest = work_catalog.catalog_digest(expected_after_seed)
     seed_response = _mutate(
         client,
         client.csrf_token(),
@@ -197,13 +214,37 @@ def apply_manifests(
         payload={'seed_overrides': seed},
     )
     seed_counts = seed_response.get('result') or {}
-    expected_removed = len(expected_after_review['works_master']) - len(expected_final['works_master'])
+    expected_removed = len(expected_after_review['works_master']) - len(expected_after_seed['works_master'])
     if (
-        seed_response['digest'] != expected_final_digest
+        seed_response['digest'] != expected_seed_digest
         or seed_counts.get('normalized_title_count') != 46
         or seed_counts.get('removed_work_count') != expected_removed
     ):
         raise RuntimeError(f'unexpected seed override result: {seed_counts!r}')
+
+    seeded, seeded_digest = _snapshot(client)
+    if seeded_digest != expected_seed_digest:
+        raise RuntimeError('catalog drift detected before correction manifest')
+    expected_final = work_catalog.apply_catalog_corrections(seeded, corrections)
+    expected_final_digest = work_catalog.catalog_digest(expected_final)
+    correction_response = _mutate(
+        client,
+        client.csrf_token(),
+        operation='corrections_apply_manifest',
+        digest=seeded_digest,
+        payload={'corrections_manifest': corrections},
+    )
+    correction_counts = correction_response.get('result') or {}
+    correction_rows = corrections['corrections']
+    expected_splits = sum(row.get('type') == 'split_misassigned_edition' for row in correction_rows)
+    expected_retitles = sum(row.get('type') == 'retitle_identity' for row in correction_rows)
+    if (
+        correction_response['digest'] != expected_final_digest
+        or correction_counts.get('correction_count') != len(correction_rows)
+        or correction_counts.get('split_count') != expected_splits
+        or correction_counts.get('retitle_count') != expected_retitles
+    ):
+        raise RuntimeError(f'unexpected correction manifest result: {correction_counts!r}')
 
     after, after_digest = _snapshot(client)
     if after_digest != expected_final_digest:
@@ -230,9 +271,11 @@ def apply_manifests(
     audit = client.json('/api/admin/audit_log?limit=20')
     rows = audit.get('audit_log') if isinstance(audit, dict) else None
     expected_audits = {
-        ('review_apply_manifest', review_sha256),
         ('seed_overrides_apply_manifest', SEED_SHA256),
+        ('corrections_apply_manifest', CORRECTIONS_SHA256),
     }
+    if not corrections_already_applied:
+        expected_audits.add(('review_apply_manifest', review_sha256))
     observed_audits = {
         (row.get('detail', {}).get('operation'), row.get('detail', {}).get('manifest_sha256'))
         for row in (rows or [])
@@ -246,9 +289,12 @@ def apply_manifests(
         'applied_at': datetime.now(timezone.utc).isoformat(),
         'target_host': expected_host,
         'review_manifest_sha256': review_sha256,
+        'corrections_sha256': CORRECTIONS_SHA256,
         'seed_overrides_sha256': SEED_SHA256,
+        'seed_digest': seeded_digest,
         'before_digest': before_digest,
         'review_digest': between_digest,
+        'correction_result': correction_counts,
         'final_digest': expected_final_digest,
         'review_result': review_counts,
         'seed_result': seed_counts,
@@ -273,6 +319,7 @@ def main() -> int:
     parser.add_argument('--expected-host', required=True)
     parser.add_argument('--backup', type=Path, required=True)
     parser.add_argument('--username', required=True)
+    parser.add_argument('--corrections', type=Path, required=True)
     parser.add_argument('--password', required=True)
     parser.add_argument('--legacy-review-manifest', type=Path, required=True)
     parser.add_argument('--review-manifest', type=Path, required=True)
@@ -282,6 +329,7 @@ def main() -> int:
     evidence = apply_manifests(
         base_url=args.base_url,
         expected_host=args.expected_host,
+        corrections_path=args.corrections,
         username=args.username,
         legacy_review_path=args.legacy_review_manifest,
         password=args.password,

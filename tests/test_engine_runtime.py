@@ -65,6 +65,9 @@ class TestEngineRuntimeHelpers(unittest.TestCase):
         shadow = engine_runtime.dynamic_prior_shadow_report(fetishes, log, {1: 1.0})
         self.assertEqual(shadow['mismatched_count'], 1)
         self.assertEqual(shadow['rows'][0]['correction_selected'], 7)
+        self.assertEqual(shadow['excess_correct_count'], 48)
+        self.assertEqual(shadow['migration_policy']['strategy'], 'non_destructive_runtime_clamp')
+        self.assertFalse(shadow['migration_policy']['irreversible_reclassification_performed'])
         self.assertLess(shadow['rows'][0]['current_weight'], shadow['rows'][0]['legacy_weight'])
 
     def test_entropy_ignores_zero_and_tiny_probabilities(self):

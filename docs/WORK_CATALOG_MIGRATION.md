@@ -2,9 +2,9 @@
 
 inline `fetishes.works` / `compound_works`をsource of truthから外すための運用手順です。`/api/admin/works_health`の`migration`は判定材料であり、単独では旧データ削除を許可しません。
 
-## Checked-in evidence (2026-07-28)
+## Checked-in evidence (2026-07-29)
 
-`data/work_catalog_review_decisions.json`は74件のinput-locked判断（merge 72、keep separate 2）を持ち、`data/work_catalog_seed_overrides.json`は確実な46表記のcanonical/alias/context分離とplaceholder 4件の削除を固定します。両方を適用済みのseedはmaster 324、edition 239、alias 154、fetish link 376、compound link 185、context付きlink 52、pending 0です。legacy projectionとのfetish/compound mismatchはいずれも0で、`automated_parity_ok=true`です。
+`data/work_catalog_review_decisions.json`は74件のinput-locked判断（merge 72、keep separate 2）を持ち、`data/work_catalog_seed_overrides.json`は確実な46表記のcanonical/alias/context分離とplaceholder 4件の削除を固定します。両方を適用済みのseedはmaster 325、edition 239、alias 150、fetish link 376、compound link 185、context付きlink 52、pending 0です。legacy projectionとのfetish/compound mismatchはいずれも0で、`automated_parity_ok=true`です。
 
 既存DBへ適用するときは、まず`GET /api/admin/work_catalog`で最新`digest`を取得し、`POST /api/admin/work_catalog/mutate`へ次を送ります。
 
@@ -21,7 +21,6 @@ inline `fetishes.works` / `compound_works`をsource of truthから外すため�
 
 manifestは全件を一つのtransaction/journalで適用します。同一manifestを適用済みcatalogへ再送した場合はno-opです。成功応答の`result.resolved_count=74`、`result.pending_count=0`と新digestを保存し、監査ログの`manifest_sha256`をchecked-in fileと照合します。409なら再取得して差分を調べ、別manifestとして再reviewするまでは強制適用しません。
 
-
 既存catalogへsafe seed cleanupを適用する場合は、同じ最新digestを取得し直して次を送ります。
 
 ```json
@@ -36,6 +35,21 @@ manifestは全件を一つのtransaction/journalで適用します。同一manif
 ```
 
 この操作もDBではcatalog lock内の一transaction、localでは一つのmutation journalで適用されます。displayの欠落・複数work一致、canonical衝突、削除後の参照残りはfail-closedです。成功時は`normalized_title_count=46`、初回のみ`removed_work_count=4`を確認し、監査ログの`manifest_sha256=e960ed79e1f77c0af61275d536f311b3d8c3b93b563bf522e55b0ed4dbde32c3`を照合します。再適用は`removed_work_count=0`のno-opとなり、digestも変化しません。
+
+`data/work_catalog_corrections.json`は、一次情報で確認したP0誤紐付け4件を、source row完全一致・決定的ID・冪等適用で訂正します。1件は別作品editionを新masterへ分離し、3件は誤ったmaster identityを正式作品名へretitleします。edition/linkのownerとpositionを維持し、誤aliasを削除して推薦文脈をlink contextへ移します。`review_queue.updated_at`だけはPostgreSQLのdate/ISO serializationを同一UTC瞬間として比較し、他fieldは完全一致しなければfail-closedです。
+
+```json
+{
+  "operation": "corrections_apply_manifest",
+  "expected_digest": "seed cleanup後に再取得した64桁digest",
+  "confirm_text": "WORK_CATALOG",
+  "payload": {
+    "corrections_manifest": "data/work_catalog_corrections.jsonのJSON object"
+  }
+}
+```
+
+成功時は`correction_count=4`、`split_count=1`、`retitle_count=3`と監査fingerprint `f8ddcdbe0b29ef4ff266c2ce8bd8ceefaa073ef471d60778ee414a2ddfdaf37d`を照合します。訂正済みcatalogへworkflowを再実行すると、訂正内容を上書きする旧review段階はskipし、seed cleanupとcorrection manifestだけを冪等確認します。
 
 本番ではGitHub Actionsの`Apply Work Catalog Manifests`を使用します。成功した直近の`Matrix Backup & DB Expiry Check` run ID、デプロイ済みmain commit SHA、正確な本番hostname、確認文`APPLY WORK CATALOG MANIFESTS TO PRODUCTION`が必要です。workflowはbackup v3とそのcatalog digestを現在の本番catalogに照合し、本番source digestに対応するchecked-in review manifestのcanonical SHA-256、ローカルpreflight結果、各操作直前のdigest optimistic lock、応答件数、適用後catalog・監査fingerprint・healthを検証します。credentialやcatalog本文を含まない証跡だけを30日保存します。全workerの継続観測は、この適用後に別の`Work Catalog Rollout Gate`で行います。
 
@@ -56,10 +70,11 @@ manifestは全件を一つのtransaction/journalで適用します。同一manif
 - 通常/compound診断の手動完走: 確認済み
 
 この証跡は本番移行の自動gateを満たしますが、staging v3 restore rehearsalと旧inline廃止の最終承認を代替しません。
+
 ## Deploy前
 
 1. backup format v3のmatrix backupを保存し、`work_catalog`を含むことを確認する。
-2. 既存DBのreview manifestとsafe seed cleanup manifestを順に適用し、それぞれの監査fingerprint、応答件数、新digestを保存する。fresh DBが適用済みseedから作られた場合は両方のno-op確認だけでよい。
+2. 既存DBへreview、safe seed cleanup、P0 correctionの3 manifestを順に適用し、それぞれの監査fingerprint、応答件数、新digestを保存する。fresh DBが訂正済みseedから作られた場合、workflowは旧reviewをskipし、seed/correctionのno-opだけを確認する。
 3. `/api/admin/works_health`で`migration.automated_parity_ok=true`、`mismatch_count=0`、`pending_review_count=0`を確認する。差異は表示順、実効title、安全化後URLまで確認する。
 4. platformのinstance一覧から各workerへ直接probeするか、十分な回数アクセスしてresponseの`worker_id`を収集し、想定worker集合を網羅する。各responseで`snapshot_revision == database_revision == cached_revision`も確認する。
 5. 十分な観測期間、各workerの`legacy_fallback_reads_since_start`と`catalog_load_failures_since_start`が0であることを確認する。

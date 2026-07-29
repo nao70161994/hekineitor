@@ -766,8 +766,8 @@
     },
     {
       "work_id": "wrk_5d1a3d2f9813efa92de1",
-      "canonical_title": "乙女ゲーム転生もの（アンジェリーク）",
-      "normalized_title": "乙女ゲーム転生もの(アンジェリーク)",
+      "canonical_title": "学園物の乙女ゲームの世界に転生したけど、チート持ちの背景男子生徒だったようです。",
+      "normalized_title": "学園物の乙女ゲームの世界に転生したけど、チート持ちの背景男子生徒だったようです。",
       "media_type": "",
       "status": "active"
     },
@@ -808,8 +808,8 @@
     },
     {
       "work_id": "wrk_635907b25c09a91c33a9",
-      "canonical_title": "アンジェリーク（コーエーテクモ）",
-      "normalized_title": "アンジェリーク(コーエーテクモ)",
+      "canonical_title": "由羅カイリ画集 ～アンジェリーク 20th Anniversary～",
+      "normalized_title": "由羅カイリ画集 ~アンジェリーク 20th anniversary~",
       "media_type": "",
       "status": "active"
     },
@@ -1214,8 +1214,8 @@
     },
     {
       "work_id": "wrk_875e300c4de51e82ed13",
-      "canonical_title": "テイルズシリーズ（執事キャラ）",
-      "normalized_title": "テイルズシリーズ(執事キャラ)",
+      "canonical_title": "テイルズ オブ ヴェスペリア REMASTER パーフェクトガイド",
+      "normalized_title": "テイルズ オブ ヴェスペリア remaster パーフェクトガイド",
       "media_type": "",
       "status": "active"
     },
@@ -1776,6 +1776,13 @@
       "work_id": "wrk_c42a26c4c27d0c3c51b0",
       "canonical_title": "御曹司エリートの恋（漫画）",
       "normalized_title": "御曹司エリートの恋(漫画)",
+      "media_type": "",
+      "status": "active"
+    },
+    {
+      "work_id": "wrk_c5214e34ec2b68ce172b",
+      "canonical_title": "Lv2からチートだった元勇者候補のまったり異世界ライフ",
+      "normalized_title": "lv2からチートだった元勇者候補のまったり異世界ライフ",
       "media_type": "",
       "status": "active"
     },
@@ -3697,7 +3704,7 @@
     },
     {
       "edition_id": "wed_c5214e34ec2b68ce172b",
-      "work_id": "wrk_76a08381045d290abf30",
+      "work_id": "wrk_c5214e34ec2b68ce172b",
       "asin": "B0CVLHHDD3",
       "canonical_url": "https://www.amazon.co.jp/dp/B0CVLHHDD3?tag=hekinator-22",
       "format": "",
@@ -4420,12 +4427,6 @@
       "normalized_alias": "囀る鳥は羽ばたかない(長年の関係)"
     },
     {
-      "alias_id": "wal_461f29db4e2b82b4ea07",
-      "work_id": "wrk_76a08381045d290abf30",
-      "alias": "釘宮理恵出演作（ゼロの使い魔・ルイズ）",
-      "normalized_alias": "釘宮理恵出演作(ゼロの使い魔・ルイズ)"
-    },
-    {
       "alias_id": "wal_471aa3b48fc01fa3e418",
       "work_id": "wrk_74ca5e4bbdab2a04ef7a",
       "alias": "ドメスティックな彼女（参考）",
@@ -4622,12 +4623,6 @@
       "work_id": "wrk_6a20615d0de229457acb",
       "alias": "私の少年",
       "normalized_alias": "私の少年"
-    },
-    {
-      "alias_id": "wal_737e31ce734e769e93f6",
-      "work_id": "wrk_5d1a3d2f9813efa92de1",
-      "alias": "乙女ゲーム転生もの（悪役令嬢系）",
-      "normalized_alias": "乙女ゲーム転生もの(悪役令嬢系)"
     },
     {
       "alias_id": "wal_7be9484e49271561af38",
@@ -4966,12 +4961,6 @@
       "normalized_alias": "school days(参考)"
     },
     {
-      "alias_id": "wal_d6cfef435e8063b178c5",
-      "work_id": "wrk_635907b25c09a91c33a9",
-      "alias": "アンジェリーク",
-      "normalized_alias": "アンジェリーク"
-    },
-    {
       "alias_id": "wal_d8c7d44b89a3ecb5f01e",
       "work_id": "wrk_bebea9b840db12b890dc",
       "alias": "薬屋のひとりごと",
@@ -5036,12 +5025,6 @@
       "work_id": "wrk_9017bd429fedc3ef90a7",
       "alias": "赤髪の白雪姫（王族×悪役的立場）",
       "normalized_alias": "赤髪の白雪姫(王族×悪役的立場)"
-    },
-    {
-      "alias_id": "wal_e40db4294f780d1b4c4f",
-      "work_id": "wrk_635907b25c09a91c33a9",
-      "alias": "アンジェリーク（身分差×政略）",
-      "normalized_alias": "アンジェリーク(身分差×政略)"
     },
     {
       "alias_id": "wal_e67c86f94d4d4ae3a3a1",
@@ -5528,7 +5511,7 @@
       "edition_id": "wed_5d1a3d2f9813efa92de1",
       "alias_id": null,
       "position": 2,
-      "context_label": "",
+      "context_label": "乙女ゲーム転生もの",
       "recommendation_reason": ""
     },
     {
@@ -5812,13 +5795,13 @@
       "recommendation_reason": ""
     },
     {
-      "link_id": "fwl_e2ed81fe1389c80a6818",
+      "link_id": "fwl_02e6dd08dc303434f38c",
       "fetish_id": 23,
-      "work_id": "wrk_76a08381045d290abf30",
+      "work_id": "wrk_c5214e34ec2b68ce172b",
       "edition_id": "wed_c5214e34ec2b68ce172b",
-      "alias_id": "wal_461f29db4e2b82b4ea07",
+      "alias_id": null,
       "position": 1,
-      "context_label": "",
+      "context_label": "フェンリース（CV：釘宮理恵）",
       "recommendation_reason": ""
     },
     {
@@ -7252,13 +7235,13 @@
       "recommendation_reason": ""
     },
     {
-      "link_id": "fwl_64120979d6d5a2214e82",
+      "link_id": "fwl_419b9bbad3bcf6e94a79",
       "fetish_id": 71,
       "work_id": "wrk_5d1a3d2f9813efa92de1",
       "edition_id": "wed_5d1a3d2f9813efa92de1",
-      "alias_id": "wal_737e31ce734e769e93f6",
+      "alias_id": null,
       "position": 2,
-      "context_label": "",
+      "context_label": "悪役令嬢系",
       "recommendation_reason": ""
     },
     {
@@ -7708,7 +7691,7 @@
       "edition_id": "wed_875e300c4de51e82ed13",
       "alias_id": null,
       "position": 2,
-      "context_label": "",
+      "context_label": "執事キャラ",
       "recommendation_reason": ""
     },
     {
@@ -8202,11 +8185,11 @@
       "recommendation_reason": ""
     },
     {
-      "link_id": "fwl_0491358730a92c95b5dc",
+      "link_id": "fwl_2a49e482e9692ba85778",
       "fetish_id": 104,
       "work_id": "wrk_635907b25c09a91c33a9",
       "edition_id": "wed_635907b25c09a91c33a9",
-      "alias_id": "wal_d6cfef435e8063b178c5",
+      "alias_id": null,
       "position": 1,
       "context_label": "",
       "recommendation_reason": ""
@@ -10579,14 +10562,14 @@
       "recommendation_reason": ""
     },
     {
-      "link_id": "cwl_47fed52e0b4d9e348476",
+      "link_id": "cwl_851347970fb2a0d0c3e2",
       "id_a": 68,
       "id_b": 97,
       "work_id": "wrk_635907b25c09a91c33a9",
       "edition_id": null,
-      "alias_id": "wal_e40db4294f780d1b4c4f",
+      "alias_id": null,
       "position": 1,
-      "context_label": "",
+      "context_label": "身分差×政略",
       "recommendation_reason": ""
     },
     {
@@ -11529,21 +11512,22 @@
       "review_type": "identity_override",
       "candidate_key": "identity_override:zero-no-tsukaima-context",
       "work_ids": [
-        "wrk_76a08381045d290abf30"
+        "wrk_76a08381045d290abf30",
+        "wrk_c5214e34ec2b68ce172b"
       ],
       "titles": [
-        "ゼロの使い魔",
-        "釘宮理恵出演作（ゼロの使い魔・ルイズ）"
+        "Lv2からチートだった元勇者候補のまったり異世界ライフ",
+        "ゼロの使い魔"
       ],
       "asins": [
         "B079PHTTBK",
         "B0CVLHHDD3"
       ],
       "status": "resolved",
-      "decision": "merge",
+      "decision": "keep_separate",
       "target_work_id": "wrk_76a08381045d290abf30",
-      "version": 1,
-      "updated_at": "2026-07-28"
+      "version": 2,
+      "updated_at": "2026-07-29T00:00:00+00:00"
     },
     {
       "review_id": "wrv_67dd6a9335c60f966a1e",

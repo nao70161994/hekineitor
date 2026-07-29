@@ -7,9 +7,9 @@
 | Priority | Current identity | Finding | Safe action | Source |
 | --- | --- | --- | --- | --- |
 | P0 | `wrk_76a08381045d290abf30` ゼロの使い魔 / edition `wed_c5214e34ec2b68ce172b` | ASIN `B0CVLHHDD3`は別作品『Lv2からチートだった元勇者候補のまったり異世界ライフ』。声優文脈だけで誤統合されている | editionとlinkを新masterへ分離。context=`フェンリース（CV：釘宮理恵）`。既存master/editionを上書きしない | [作品公式](https://lv2-cheat.com/character) |
-| P0 | `wrk_5d1ae22372e6c59ba22e` 乙女ゲーム転生もの（アンジェリーク） | ASIN `B0FYCVC6BF`は『学園物の乙女ゲームの世界に転生したけど、チート持ちの背景男子生徒だったようです。（コミック）：9』 | 正式seriesをmaster、巻9をedition、乙女ゲーム転生をcontextへ。アンジェリーク関連付けを除去 | Amazon商品metadataで照合済み。推薦ownerとの適合は要review |
-| P0 | `wrk_875e0ca59674fc5b1dbb` テイルズシリーズ（執事キャラ） | ASIN `B07N19VKLX`は『テイルズ オブ ヴェスペリア REMASTER パーフェクトガイド』 | 書名をcanonicalへ。執事キャラ文脈とlink適合性はreview | [バンダイナムコ公式表記](https://www.bandainamcoent.co.jp/license/detail6/) |
-| P0 | `wrk_635907c3a00191458698` アンジェリーク（コーエーテクモ） | ASIN `B011KZQVH4`は『由羅カイリ画集 ～アンジェリーク 20th Anniversary～』 | 画集名をcanonicalへ。brandはpublisher metadataへ。別作品identityのaliasを付けない | Amazon商品metadataで照合済み |
+| P0 | `wrk_5d1a3d2f9813efa92de1` 乙女ゲーム転生もの（アンジェリーク） | ASIN `B0FYCVC6BF`は『学園物の乙女ゲームの世界に転生したけど、チート持ちの背景男子生徒だったようです。（コミック）：9』 | 正式seriesをmaster、巻9をedition、乙女ゲーム転生をcontextへ。アンジェリーク関連付けを除去 | Amazon商品metadataで照合済み。推薦ownerとの適合は要review |
+| P0 | `wrk_875e300c4de51e82ed13` テイルズシリーズ（執事キャラ） | ASIN `B07N19VKLX`は『テイルズ オブ ヴェスペリア REMASTER パーフェクトガイド』 | 書名をcanonicalへ。執事キャラ文脈とlink適合性はreview | [バンダイナムコ公式表記](https://www.bandainamcoent.co.jp/license/detail6/) |
+| P0 | `wrk_635907b25c09a91c33a9` アンジェリーク（コーエーテクモ） | ASIN `B011KZQVH4`は『由羅カイリ画集 ～アンジェリーク 20th Anniversary～』 | 画集名をcanonicalへ。brandはpublisher metadataへ。別作品identityのaliasを付けない | Amazon商品metadataで照合済み |
 | P1 | `wrk_33c8b635e0949835b8cb` NTR同人誌（燃堂力作品） | 燃堂力は『斉木楠雄のΨ難』の登場人物でcreator表記ではない | ASINの商品名・作者確認までlinkをreview/quarantine | [テレビ東京公式人物一覧](https://www.tv-tokyo.co.jp/anime/saikikusuo/chara/index.html) |
 
 P0は別identityのedition混入であり、通常の表記normalizationとして処理しません。新master作成、edition/link再割当、alias/context整理を一つのtransactionで行い、前後projectionと監査digestを保存します。
@@ -58,10 +58,13 @@ ASINはAmazon直商品ページと照合できた場合だけ登録します。�
 - `カノジョも彼女（直子）`の`直子`は公式人物一覧に存在せず、意図候補を自動選定しない。[作品公式](https://kanokano-anime.com/1st/character/)
 - `ミライニッキ`は誤記。canonicalは[KADOKAWA公式](https://www.kadokawa.co.jp/product/200605000102/)の`未来日記`。`Future Diary`は有効な英語alias、人物・場面はlink contextへ分離する。
 
+## Applied P0 correction manifest
+
+`data/work_catalog_corrections.json`で上記P0 4件を実装済みです。canonical SHA-256は`f8ddcdbe0b29ef4ff266c2ce8bd8ceefaa073ef471d60778ee414a2ddfdaf37d`、内訳はsplit 1件・retitle 3件です。checked seedはmaster 325、edition 239、alias 150、fetish link 376、compound link 185、review 74、pending 0です。source row完全一致、PostgreSQL timestamp同値、owner/position維持、冪等再適用、collision/dangling参照拒否を自動テストで固定しています。本番追加データはfresh v3 backupとcatalog digestを照合してから同manifestを適用します。
+
 ## Remaining gates
 
-1. P0 identity correctionをtransactional manifestとして実装し、checked seedと本番追加データの両方を保持する。
-2. `work_editions`へISBNなどASIN以外の書誌識別子を保持できる設計を追加する。
-3. 確認済みmedia typeとedition evidenceをseedへ取り込み、未確認値は空のままにする。
-4. 残り37件の書誌・実在性を一次ソースで調査する。
-5. adult product 4件と推薦意図衝突2件を人手確認する。
+1. `work_editions`へISBNなどASIN以外の書誌識別子を保持できる設計を追加する。
+2. 確認済みmedia typeとedition evidenceをseedへ取り込み、未確認値は空のままにする。
+3. 残り37件の書誌・実在性を一次ソースで調査する。
+4. adult product 4件と推薦意図衝突2件を人手確認する。

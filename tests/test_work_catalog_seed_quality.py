@@ -183,6 +183,7 @@ def test_checked_in_seed_has_only_verified_safe_normalizations():
     catalog = build_catalog()
     overrides = json.loads((ROOT / 'data/work_catalog_seed_overrides.json').read_text(encoding='utf-8'))
     compound_source = json.loads((ROOT / 'data/compound_works.json').read_text(encoding='utf-8'))
+    corrections = json.loads((ROOT / 'data/work_catalog_corrections.json').read_text(encoding='utf-8'))
     masters = {row['work_id']: row for row in catalog['works_master']}
     aliases = {row['alias_id']: row for row in catalog['work_aliases']}
     links = catalog['fetish_work_links'] + catalog['compound_work_links']
@@ -204,16 +205,32 @@ def test_checked_in_seed_has_only_verified_safe_normalizations():
         ]
         assert matching_links, expected['display_title']
         assert all(row['context_label'] == expected['context_label'] for row in matching_links)
+    corrected_fetish_titles = {}
+    corrected_compound_titles = {}
+    for correction in corrections['corrections']:
+        title = correction['target_work']['canonical_title']
+        for update in correction['link_updates']:
+            expected_link = update['expected']
+            if update['table'] == 'fetish_work_links':
+                corrected_fetish_titles[(expected_link['fetish_id'], expected_link['position'])] = title
+            else:
+                key = f'{expected_link["id_a"]},{expected_link["id_b"]}'
+                corrected_compound_titles[(key, expected_link['position'])] = title
 
     fetish_source = json.loads((ROOT / 'data/fetishes.json').read_text(encoding='utf-8'))
     materialized_fetishes = work_catalog.materialize_fetish_works(catalog)
     materialized_compounds = work_catalog.materialize_compound_works(catalog)
     for fetish in fetish_source:
-        assert [row['title'] for row in materialized_fetishes.get(fetish['id'], [])] == [
-            work_title(row) for row in fetish.get('works', [])
+        expected_titles = [
+            corrected_fetish_titles.get((fetish['id'], position), work_title(row))
+            for position, row in enumerate(fetish.get('works', []))
         ]
+        assert [row['title'] for row in materialized_fetishes.get(fetish['id'], [])] == expected_titles
     for key, works in compound_source.items():
-        assert [row['title'] for row in materialized_compounds.get(key, [])] == [work_title(row) for row in works]
+        expected_titles = [
+            corrected_compound_titles.get((key, position), work_title(row)) for position, row in enumerate(works)
+        ]
+        assert [row['title'] for row in materialized_compounds.get(key, [])] == expected_titles
 
     canonical_titles = {row['canonical_title'] for row in masters.values()}
     assert '現実で30歳独身・無職、仮想現実でリア充（参考）' in canonical_titles

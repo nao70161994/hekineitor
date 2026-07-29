@@ -50,15 +50,28 @@ def dynamic_prior_shadow_report(fetishes, log, static_weights, *, alpha=2.0):
         rows.append(
             {
                 'fetish_id': fetish_id,
+                'fetish_name': fetish.get('name', ''),
                 'guessed': guessed,
                 'correct': correct,
+                'excess_correct': correct - guessed,
                 'correction_selected': max(0, int(entry.get('correction_selected', 0) or 0)),
                 'legacy_weight': legacy,
                 'current_weight': current[fetish_id],
                 'delta': current[fetish_id] - legacy,
             }
         )
-    return {'mismatched_count': len(rows), 'rows': rows}
+    rows.sort(key=lambda row: (-row['excess_correct'], row['fetish_id']))
+    return {
+        'schema_version': 1,
+        'mismatched_count': len(rows),
+        'excess_correct_count': sum(row['excess_correct'] for row in rows),
+        'rows': rows,
+        'migration_policy': {
+            'strategy': 'non_destructive_runtime_clamp',
+            'irreversible_reclassification_performed': False,
+            'reason': 'legacy correct events do not retain whether they came from exposure or correction selection',
+        },
+    }
 
 
 def entropy(probs):

@@ -1,3 +1,4 @@
+import copy
 import os
 import sys
 import unittest
@@ -267,3 +268,44 @@ class TestEngineMutations(unittest.TestCase):
         committed = commit_catalog.call_args.args[1]['work_catalog']
         self.assertEqual(committed['works_master'][0]['canonical_title'], '作品名')
         self.assertEqual(committed['fetish_work_links'][0]['context_label'], '人物')
+
+    def test_correction_manifest_commits_catalog_atomically(self):
+        catalog = engine_module.work_catalog.build_catalog_from_inline([{'id': 1, 'works': ['Before']}])
+        corrected = copy.deepcopy(catalog)
+        corrected['works_master'][0]['canonical_title'] = 'After'
+        corrected['works_master'][0]['normalized_title'] = 'after'
+        manifest = {
+            'schema_version': 1,
+            'catalog_schema_version': 1,
+            'corrections': [
+                {'correction_id': 'fix-1', 'type': 'retitle_identity'},
+                {'correction_id': 'fix-2', 'type': 'split_misassigned_edition'},
+            ],
+        }
+        before = {'fetishes': [], 'compound_works': {}, 'work_catalog': catalog}
+
+        def local_state(**values):
+            if not values:
+                return before
+            return {
+                'fetishes': values['fetishes'],
+                'compound_works': values['compound_works'],
+                'work_catalog': values['work_catalog'],
+            }
+
+        with (
+            patch.object(engine_module, '_use_db', return_value=False),
+            patch.object(self.engine, '_local_work_catalog_state', side_effect=local_state),
+            patch.object(self.engine, '_commit_local_work_catalog_state', return_value=None) as commit_catalog,
+            patch.object(engine_module.work_catalog, 'apply_catalog_corrections', return_value=corrected) as apply,
+        ):
+            result = self.engine.mutate_work_catalog(
+                'corrections_apply_manifest',
+                {'corrections_manifest': manifest},
+                expected_digest=engine_module.work_catalog.catalog_digest(catalog),
+            )
+
+        self.assertEqual(result['result'], {'correction_count': 2, 'split_count': 1, 'retitle_count': 1})
+        apply.assert_called_once_with(catalog, manifest)
+        commit_catalog.assert_called_once()
+        self.assertEqual(commit_catalog.call_args.args[1]['work_catalog'], corrected)
