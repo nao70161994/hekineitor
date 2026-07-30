@@ -124,16 +124,30 @@ test('covers continue, feedback, history, and mobile transitions', async ({page}
   await page.getByRole('button', {name: 'はい', exact: true}).click();
   await expect(page.locator('#result-name')).toHaveText('NTR（寝取られ）');
   await expect(page.locator('#result-name')).toBeInViewport();
-  await expect(page.locator('.work-recommendation.featured')).toHaveCount(3);
+  const featuredWorks = page.locator('.work-recommendation.featured');
+  await expect(featuredWorks).toHaveCount(3);
+  for (let index = 0; index < 3; index += 1) {
+    await featuredWorks.nth(index).scrollIntoViewIfNeeded();
+    await expect(featuredWorks.nth(index)).toBeInViewport();
+    await expect.poll(() => gameplayEvents.some(event => event.work_id === `wrk_${index + 1}`)).toBe(true);
+  }
   await expect.poll(() => gameplayEvents.filter(event => event.event_name === 'work_impression').length).toBe(3);
-  expect(gameplayEvents.filter(event => event.event_name === 'work_impression').map(event => [event.work_id, event.edition_id]))
+  expect(gameplayEvents.filter(event => event.event_name === 'work_impression')
+    .map(event => [event.work_id, event.edition_id]).sort())
     .toEqual([['wrk_1', 'wed_1'], ['wrk_2', 'wed_2'], ['wrk_3', 'wed_3']]);
   expect(gameplayEvents.some(event => event.work_id === 'wrk_4')).toBe(false);
   await expect(page.locator('.works-more')).toBeHidden();
   await page.getByRole('button', {name: 'ほか2作品を見る'}).click();
   await expect(page.locator('.works-more')).toBeVisible();
+  const moreWorks = page.locator('.works-more .work-recommendation');
+  await expect(moreWorks).toHaveCount(2);
+  for (let index = 0; index < 2; index += 1) {
+    await moreWorks.nth(index).scrollIntoViewIfNeeded();
+    await expect(moreWorks.nth(index)).toBeInViewport();
+    await expect.poll(() => gameplayEvents.some(event => event.work_id === `wrk_${index + 4}`)).toBe(true);
+  }
   await expect.poll(() => gameplayEvents.filter(event => event.event_name === 'work_impression').length).toBe(5);
-  expect(gameplayEvents.filter(event => event.event_name === 'work_impression').map(event => event.work_id))
+  expect(gameplayEvents.filter(event => event.event_name === 'work_impression').map(event => event.work_id).sort())
     .toEqual(['wrk_1', 'wrk_2', 'wrk_3', 'wrk_4', 'wrk_5']);
 
   await page.getByRole('button', {name: '追加質問で精度を上げる'}).click();
