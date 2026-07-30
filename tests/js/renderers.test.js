@@ -93,12 +93,13 @@ describe('HekiRenderers screen transitions', () => {
   });
 
   it.each([
-    ['question-screen', 'question-text'],
-    ['result-screen', 'result-name'],
-  ])('scrolls and focuses the main heading for %s', (screenId, headingId) => {
+    ['question-screen', 'question-text', 'question-text'],
+    ['result-screen', 'result-name', 'result-screen'],
+  ])('scrolls to the intended content and focuses the main heading for %s', (screenId, headingId, scrollTargetId) => {
     window.HekiRenderers.showScreen(screenId);
     const heading = document.getElementById(headingId);
-    expect(heading.scrollIntoView).toHaveBeenCalledWith({block: 'start', behavior: 'auto'});
+    const scrollTarget = document.getElementById(scrollTargetId);
+    expect(scrollTarget.scrollIntoView).toHaveBeenCalledWith({block: 'start', behavior: 'auto'});
 
     expect(document.activeElement).toBe(heading);
 

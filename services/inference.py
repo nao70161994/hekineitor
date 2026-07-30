@@ -146,8 +146,10 @@ def compute_guess(ctx, answers):
         )
 
     seen_titles = set()
-    cross_works = []
-    merged_works = []
+    cross_works: list[object] = []
+    merged_works: list[object] = []
+    cross_recommendations: list[dict[str, object]] = []
+    merged_recommendations: list[dict[str, object]] = []
 
     def fetish_works(fetish_id):
         provider = getattr(engine, 'get_recommended_works', None)
@@ -160,29 +162,66 @@ def compute_guess(ctx, answers):
             )
         return engine.fetishes[fetish_index].get('works', []) if fetish_index is not None else []
 
-    def add_work(work, target):
+    def recommendation_reason(work, source_names, *, is_cross):
+        if isinstance(work, dict):
+            supplied = str(work.get('recommendation_reason') or '').strip()
+            if supplied:
+                return supplied
+            context_label = str(work.get('context_label') or '').strip()
+        else:
+            context_label = ''
+        title = ctx.work_title(work)
+        quoted_sources = '」と「'.join(source_names)
+        source_text = f'「{quoted_sources}」'
+        if is_cross:
+            match_text = f'{source_text}の組み合わせ'
+        else:
+            match_text = f'今回強く表れた{source_text}の要素'
+        context_text = f'{context_label}として、' if context_label else ''
+        return f'「{title}」は、{context_text}{match_text}を楽しめる作品として選びました。'
+
+    def add_work(work, target, recommendations, source_names, *, is_cross=False):
         title = ctx.work_title(work)
         if title and title not in seen_titles:
             seen_titles.add(title)
             target.append(work)
+            recommendations.append(
+                {
+                    'work': work,
+                    'reason': recommendation_reason(work, source_names, is_cross=is_cross),
+                }
+            )
 
     if compound:
         for item in compound:
             for work in ctx.get_compound_works(best_db, item['fetish_id']):
-                add_work(work, cross_works)
+                add_work(
+                    work,
+                    cross_works,
+                    cross_recommendations,
+                    [best_f['name'], item['fetish_name']],
+                    is_cross=True,
+                )
         compound_ids = [item['fetish_id'] for item in compound]
+        compound_names = {item['fetish_id']: item['fetish_name'] for item in compound}
         for i in range(len(compound_ids)):
             for j in range(i + 1, len(compound_ids)):
                 for work in ctx.get_compound_works(compound_ids[i], compound_ids[j]):
-                    add_work(work, cross_works)
+                    add_work(
+                        work,
+                        cross_works,
+                        cross_recommendations,
+                        [compound_names[compound_ids[i]], compound_names[compound_ids[j]]],
+                        is_cross=True,
+                    )
 
     for work in fetish_works(best_db):
-        add_work(work, merged_works)
+        add_work(work, merged_works, merged_recommendations, [best_f['name']])
     for item in compound:
         candidate_index = engine.index_of(item['fetish_id'])
         if candidate_index is not None:
             for work in fetish_works(item['fetish_id']):
-                add_work(work, merged_works)
+                add_work(work, merged_works, merged_recommendations, [item['fetish_name']])
 
     result_db_ids = {best_db} | compound_db_ids
     runner_i = next(
@@ -207,8 +246,7 @@ def compute_guess(ctx, answers):
     compound_explanation = (
         '「' + '」と「'.join(result_names) + '」の回答傾向が同時に強く表れました。' if compound else ''
     )
-    recommendation_reason = compound_explanation or f'「{best_f["name"]}」の回答傾向と相性のよい作品です。'
-    work_recommendations = [{'work': work, 'reason': recommendation_reason} for work in cross_works + merged_works]
+    work_recommendations = cross_recommendations + merged_recommendations
 
     return {
         'action': 'guess',

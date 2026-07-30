@@ -336,6 +336,65 @@ class TestServiceInference(unittest.TestCase):
         self.assertEqual(result['compound'][0]['fetish_name'], '眼鏡')
         self.assertEqual(result['compound'][0]['probability'], 45.0)
 
+    def test_inference_builds_work_specific_recommendation_reasons(self):
+        class Engine:
+            fetishes = [
+                {
+                    'id': 1,
+                    'name': '離別',
+                    'desc': 'parting',
+                    'works': [
+                        {'title': '作品A'},
+                        {'title': '作品B', 'context_label': '余韻を味わう一本'},
+                        {'title': '作品C', 'recommendation_reason': '登録済みの作品固有理由'},
+                    ],
+                },
+                {'id': 2, 'name': '制服', 'desc': 'uniform', 'works': [{'title': '作品D'}]},
+            ]
+            questions = []
+            config = {'compound_ratio': 0.8, 'triple_ratio': 0.7}
+
+            def posteriors(self, answers):
+                return [0.8, 0.7]
+
+            def get_related(self, source_db_id):
+                return []
+
+            def get_answer_contributions(self, answers, fetish_idx):
+                return []
+
+            def index_of(self, fetish_id):
+                return fetish_id - 1
+
+        ctx = type(
+            'Ctx',
+            (),
+            {
+                'engine': Engine(),
+                'session': {},
+                'work_title': staticmethod(lambda work: work['title']),
+                'get_compound_works': staticmethod(
+                    lambda a, b: [{'title': '複合作品'}] if {a, b} == {1, 2} else []
+                ),
+                'profile_min_ratio': 0.25,
+                'profile_min_prob': 0.08,
+                'compound_ratio': 0.8,
+                'triple_ratio': 0.7,
+            },
+        )()
+
+        result = inference.compute_guess(ctx, {})
+        reasons = [item['reason'] for item in result['work_recommendations']]
+
+        self.assertIn('「複合作品」', reasons[0])
+        self.assertIn('「離別」と「制服」の組み合わせ', reasons[0])
+        self.assertIn('「作品A」', reasons[1])
+        self.assertIn('今回強く表れた「離別」の要素', reasons[1])
+        self.assertIn('余韻を味わう一本として', reasons[2])
+        self.assertEqual(reasons[3], '登録済みの作品固有理由')
+        self.assertIn('今回強く表れた「制服」の要素', reasons[4])
+        self.assertEqual(len(reasons), len(set(reasons)))
+
     def test_inference_applies_adjusted_scores_when_excluding_results(self):
         class Engine:
             fetishes = [

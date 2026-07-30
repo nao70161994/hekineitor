@@ -354,6 +354,8 @@ test('submits compound detail feedback atomically and tracks a work click', asyn
   await page.goto('/');
   await page.getByRole('button', {name: 'スタート'}).click();
   await page.getByRole('button', {name: 'はい', exact: true}).click();
+  await expect(page.locator('.result-icon')).toBeInViewport();
+  await expect(page.locator('#result-name')).toBeInViewport();
   await expect(page.getByRole('region', {name: '対抗候補「対抗候補」との差になった回答'}))
     .toContainText('対抗候補との差になった決め手');
   await expect(page.locator('#result-rival')).toContainText('対抗候補「対抗候補」');
