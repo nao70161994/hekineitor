@@ -108,6 +108,20 @@ schema v2と一次書誌18件を本番へ適用しました。最終catalogはma
 
 最終backupをchecked compound sourceと照合したraw parityはfetish owner 137、compound owner 77、mismatch 0です。公開healthもPostgreSQL、degraded reasonなし、matrix 137x153、4xx/5xx 0を確認しました。
 
+### 露出少女日記 P0 correction rollout (2026-07-30)
+
+誤って紐付いていたASIN `B097ZSFLYR`を削除し、作者のFantia版`https://fantia.jp/products/685549`へ推薦を付け替えました。旧表示alias、fetish owner 55、position 1は維持しています。本番catalogはmaster 375、edition 307、edition identifier 12、alias 159、fetish link 396、compound link 185、resolved review 79、pending 0です。最終digestは`755464ef6731ca1b09883b2224d8707e7b8d2ac87985a1e4e6c9b25a0c4da845`です。
+
+- correction release CI: workflow run `30504290394`（全check、coverage、Chromium E2E 8件成功）
+- 初回適用前v3 backup: workflow run `30504705532`
+- 初回preflight: workflow run `30504732377`（旧79件reviewを再適用しようとしたcandidate driftをmutation前に検出して安全停止）
+- 部分rollout安全化release CI: workflow run `30505719463`（resolved reviewの意味検証と74/79件全行fingerprint、correction source lockをすべて満たす場合だけreviewをskip）
+- 最終適用前v3 backup: workflow run `30506083944`
+- manifest適用成功: workflow run `30506104611`（review skip、correction 5件、inline fetish owner 1件、bibliography no-op、raw/approved mismatch 0、pending 0、全revision 23）
+- 最終適用後v3 backup: workflow run `30506142764`（誤ASIN 0件、Fantia edition 1件、上記digest・件数・owner/positionを再確認）
+
+公開healthはPostgreSQL、degraded reasonなし、matrix 137x153、監査6件、4xx/5xx 0です。適用証跡と適用後backupの双方でcatalog validationとdigest一致を確認しました。
+
 ## Deploy前
 
 1. backup format v3のmatrix backupを保存し、`work_catalog`を含むことを確認する。
