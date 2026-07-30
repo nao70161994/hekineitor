@@ -191,3 +191,17 @@ local preflightでは、39 linkのinline同期、reverse/forward round-trip、de
 - 観測期間中にfallback/load failureがない。
 - v3 backup restore rehearsalが成功している。
 - 運用担当者が件数・リンク・衝突レポートへ手動サインオフしている。
+
+## Latest production evidence (2026-07-30)
+
+release `e0711f6`のphase 2 rolloutは完了しています。
+
+- 適用前backup: workflow run `30528863296`
+- manifest適用: workflow run `30528898955`
+- 適用後rollout gate: workflow run `30528967729`
+- 本番catalog digest: `4952e3628a7431570265dadb64653699638fa82fdc653d2e3fcb1de8c576c268`
+- catalog revision: 38
+- 12 sample / 65.048秒 / 1 worker
+- raw/approved parity mismatch 0、pending review 0、legacy fallback 0、catalog load failure 0
+
+`retirement_ready=true`かつ`automated_eligible=true`ですが、`manual_signoff_required=true`です。staging v3 restore rehearsalと手動サインオフが済むまで、旧inline source of truthを廃止してはいけません。

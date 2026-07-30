@@ -114,3 +114,11 @@ correction2は公開linkの安全な隔離、bibliography2は一次情報で確�
 
 1. staging v3 restore rehearsalと手動サインオフを完了する。
 2. 必要な観測期間を満たしてから旧inline source of truthを廃止する。
+
+### Phase 2 production rollout (2026-07-30)
+
+release `e0711f6`でbatch 2のcorrection、bibliography、link bindingと、既適用catalogを安全に受理するparity判定を本番へ反映しました。適用前backupはworkflow run `30528863296`、冪等なmanifest適用はrun `30528898955`、適用後rollout gateはrun `30528967729`です。
+
+本番catalogの最終digestは`4952e3628a7431570265dadb64653699638fa82fdc653d2e3fcb1de8c576c268`、revisionは38です。manifest適用ではbatch 2 correction 20件、bibliography 13件、link binding 12件を確認し、再適用時の変更は0件でした。raw/approved projectionはいずれもmismatch 0、pending review 0です。
+
+rollout gateは12 sampleを65.048秒観測し、1 workerのsnapshot/database/cache revisionがすべて38、legacy fallback 0、catalog load failure 0、`retirement_ready=true`、`automated_eligible=true`を確認しました。自動検証は完了していますが、`manual_signoff_required=true`のため、staging v3 restore rehearsalと運用担当者の手動サインオフを終えるまで旧inline source of truthは廃止しません。
