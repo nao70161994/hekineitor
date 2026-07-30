@@ -221,7 +221,7 @@ def test_checked_in_seed_has_only_verified_safe_normalizations():
     assert '賭ケグルイ（参考）' in {row['alias'] for row in aliases.values()}
     assert len([title for title in canonical_titles if title.startswith('ベルセルク')]) == 2
     assert len([title for title in canonical_titles if title.startswith('小林さんちのメイドラゴン')]) == 2
-    assert sum(bool(row['media_type']) for row in masters.values()) == 22
+    assert sum(bool(row['media_type']) for row in masters.values()) == 23
     assert sum(row['format'] == 'paper' for row in catalog['work_editions']) == 12
     assert len(catalog['work_edition_identifiers']) == 14
     assert Counter((row['scheme'], row['authority']) for row in catalog['work_edition_identifiers']) == {

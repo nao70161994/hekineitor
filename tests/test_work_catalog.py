@@ -107,7 +107,7 @@ class WorkCatalogMigrationTests(unittest.TestCase):
             | {'9784063409116', '9784799211441'},
         )
         self.assertNotIn('4199007804', {row['value'] for row in catalog['work_edition_identifiers']})
-        self.assertEqual(sum(bool(row['media_type']) for row in catalog['works_master']), 22)
+        self.assertEqual(sum(bool(row['media_type']) for row in catalog['works_master']), 23)
         identified_editions = {row['edition_id'] for row in catalog['work_edition_identifiers']}
         self.assertTrue(
             all(
@@ -614,9 +614,9 @@ class WorkCatalogMigrationTests(unittest.TestCase):
             corrections=corrections,
         )
 
-        self.assertEqual(reverse['applied_link_count'], 18)
+        self.assertEqual(reverse['applied_link_count'], 57)
         self.assertEqual(reverse['fetish_owner_count'], 10)
-        self.assertEqual(reverse['compound_owner_count'], 7)
+        self.assertEqual(reverse['compound_owner_count'], 27)
         self.assertEqual(forward['fetishes'], fetishes)
         self.assertEqual(forward['compound_rows'], compounds)
 
@@ -657,11 +657,11 @@ class WorkCatalogMigrationTests(unittest.TestCase):
             corrections=corrections,
         )
 
-        self.assertEqual(raw['mismatch_count'], 16)
+        self.assertEqual(raw['mismatch_count'], 36)
         self.assertFalse(raw['automated_parity_ok'])
         self.assertTrue(approved['approved_projection_ok'])
         self.assertEqual(approved['approved_mismatch_count'], 0)
-        self.assertEqual(approved['approved_projection_applied_count'], 17)
+        self.assertEqual(approved['approved_projection_applied_count'], 56)
         self.assertEqual(approved['approved_projection_missing_count'], 2)
 
     def test_approved_projection_rejects_unapproved_signature_and_shape_drift(self):

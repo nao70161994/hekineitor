@@ -60,20 +60,22 @@ ASINはAmazon直商品ページと照合できた場合だけ登録します。�
 
 ## Applied correction manifest
 
-`data/work_catalog_corrections.json`はschema v3、16件（split 1、retitle 7、quarantine 7、link rebind 1）です。canonical SHA-256は`6e5880216de2cb67bd434dd9e2a440e0acdfc62b7ed674de6f399bdd4f86b665`です。checked seedはmaster 325、edition 252、edition identifier 14、alias 158、fetish link 373、compound link 179、review 74、pending 0で、根拠不足7作品を`archived`として保持しつつ公開linkだけを除去しています。
+`data/work_catalog_corrections.json`はschema v3、55件（split 1、retitle 8、quarantine 45、link rebind 1）です。canonical SHA-256は`ad70a6240291b0c5b9501d6c83e9bc617c8060be1a8e9314379e0f5570f7f3c4`です。checked seedはmaster 325、edition 253、edition identifier 14、alias 159、fetish link 373、compound link 141、review 74、pending 0です。根拠不足45作品は同じwork IDの`archived`行として監査可能に保ち、公開linkだけを除去しています。
 
 quarantineはsource work/linkの全field、owner、position、edition URLを固定し、削除後のowner positionを連番化します。inline projectionはforwardでupdate後にremove、reverseでremove復元後にupdateし、同一manifest内の削除から算出した最終positionだけを許容します。`allow_missing`は既適用の不在だけを許容し、同signatureの別owner・別position移動は拒否します。catalog更新・inline同期・逆projectionはいずれもatomic、冪等、fail-closedです。既存のreview timestamp互換とplayer-added owner 104の保護も維持します。
-16件目は本番で追加された性癖owner 107の推薦だけを対象にするoptionalな`link_rebind`です。作品・版・owner・position・旧link ID・旧aliasなし・表示title・URLをすべて固定し、既存alias `逃げるは恥だが役に立つ（漫画）`へ接続します。canonical titleは短い正式名のまま、inlineの表示titleとURLは変えません。checked seedでは対象linkが存在しないため`allow_missing=true`のno-opです。
+既存のlink rebindは本番で追加された性癖owner 107の推薦だけを対象にするoptionalな`link_rebind`です。作品・版・owner・position・旧link ID・旧aliasなし・表示title・URLをすべて固定し、既存alias `逃げるは恥だが役に立つ（漫画）`へ接続します。canonical titleは短い正式名のまま、inlineの表示titleとURLは変えません。checked seedでは対象linkが存在しないため`allow_missing=true`のno-opです。
 
 ## Applied bibliography manifest
 
-schema v2と`data/work_catalog_bibliography.json`で上記12版のISBN-13、版名、出版社、一次情報URLを登録し、媒体だけ確認できた6作品はmedia typeと根拠URLだけを登録しました。canonical SHA-256は`e572a91427ecac77bf278766fed35627f645ea885d69366c010e6891bd2cb908`です。ISBNは全件checksum検証済みで、ISBN-10入力もISBN-13へ正規化されます。現行seedはmaster 325、edition 251、edition identifier 12、alias 157、fetish link 376、compound link 185、review 74、pending 0です。正式名を変更した5作品と`Free!`は旧表示をaliasとして保持し、追加版を推薦linkへ接続しないことでraw parity 0を維持します。
+schema v2と`data/work_catalog_bibliography.json`で上記12版のISBN-13、版名、出版社、一次情報URLを登録し、媒体だけ確認できた6作品はmedia typeと根拠URLだけを登録しました。canonical SHA-256は`e572a91427ecac77bf278766fed35627f645ea885d69366c010e6891bd2cb908`です。ISBNは全件checksum検証済みで、ISBN-10入力もISBN-13へ正規化されます。全correctionを重ねた現行seedはmaster 325、edition 253、edition identifier 14、alias 159、fetish link 373、compound link 141、review 74、pending 0です。正式名を変更した作品は旧表示をaliasとして保持し、raw parity 0を維持します。
 
 ## Auditable research queue
 
 旧記録の「残り37件」は、初期の要調査57件から具体化済み20件を引いた算術だけが保存され、元57件のwork ID一覧と選定規則が残っていません。このため37件を事後に断定すると恣意的な除外が生じます。
 
-`data/work_catalog_research_queue.json`は監査母集団46件を保持します。39件は現在もpendingで、raw compound推薦の「object形式・URL空・対応する正規workにeditionなし」と完全一致します。7件は一次情報を確認できず公開linkを除去した`quarantined`履歴で、元owner pair・position・work IDを失わず、catalog側が`archived`かつ無参照であることをCIで検証します。
+`data/work_catalog_research_queue.json`は、確認済み1件を除いた監査履歴45件をすべて`quarantined`として保持します。旧pending 39件はJPO Books、NDL Search、出版社・著者公式ページ、正規電子書店を完全一致titleで再調査しました。`シンデレラの偽装婚約（漫画）`だけは[A-WAGON表記を持つBOOK☆WALKER作品ページ](https://bookwalker.jp/series/549171/)と[コミックシーモア作品ページ](https://www.cmoa.jp/title/335103/)で、原作・鳴田るな、漫画・シキユリ、全8話の同一作品を確認できました。canonicalを`シンデレラの偽装婚約`、media typeを`manga`とし、旧表示はaliasとして保持します。seriesページはidentity根拠に限定し、editionは[BOOK☆WALKERの合本版1商品ページ](https://bookwalker.jp/dedd8698ce-91a7-4354-8239-3cc82613c858/)を`シンデレラの偽装婚約〖合本版〗 1`、publisher `A-WAGON`、format `digital`として登録します。
+
+残る38件は完全一致書誌を確認できず、似た語を含む別作品からidentityを推定しません。既存7件と合わせた45件は元owner pair・position・work ID・理由を失わず、catalog側が`archived`かつ無参照であることをCIで検証します。research queueのpendingは0です。
 
 ## Adult and intent-conflict audit (2026-07-30)
 
@@ -89,7 +91,7 @@ schema v2と`data/work_catalog_bibliography.json`で上記12版のISBN-13、版�
 
 ## Remaining gates
 
-schema v3 correctionの本番適用は完了しました。workflow run `30514530917`で適用し、適用後backup `30514560153`とrollout gate `30514599569`により、最終digest、全件数、revision 29、raw/approved parity mismatch 0、fallback/load failure 0を保存しています。
+16件版schema v3 correctionの本番適用は完了しています。workflow run `30514530917`で適用し、適用後backup `30514560153`とrollout gate `30514599569`により、最終digest、全件数、revision 29、raw/approved parity mismatch 0、fallback/load failure 0を保存しています。一方、今回の55件版manifestはchecked seedへのlocal preflight、inline round-trip、catalog validationまでが完了した段階で、本番には未適用です。
 
-1. pending 39件を一次ソースで順に調査し、確認済み版への置換または推薦quarantineを明示判断する。
+1. fresh v3 backupを取得し、55件版manifestを本番backupへpreflightしてから適用する。適用後backup、全件数、digest、raw/approved parity、全worker revision、fallback/load failureを保存する。
 2. staging v3 restore rehearsalと手動サインオフを完了し、必要な観測期間を満たしてから旧inline source of truthを廃止する。

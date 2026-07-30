@@ -4,7 +4,7 @@ inline `fetishes.works` / `compound_works`をsource of truthから外すため�
 
 ## Checked-in evidence (2026-07-29)
 
-`data/work_catalog_review_decisions.json`は74件のinput-locked判断（merge 72、keep separate 2）を持ち、seed override、P0 correction、schema v2 bibliography manifestを順に適用します。現行seedはmaster 325、edition 252、edition identifier 14、alias 158、fetish link 373、compound link 179、pending 0です。22作品の媒体と14件のISBNを保持しながら、legacy projectionとのfetish/compound mismatchはいずれも0で、`automated_parity_ok=true`です。
+`data/work_catalog_review_decisions.json`は74件のinput-locked判断（merge 72、keep separate 2）を持ち、seed override、schema v3 correction、schema v2 bibliography manifestを順に適用します。現行seedはmaster 325、edition 253、edition identifier 14、alias 159、fetish link 373、compound link 141、pending 0です。23作品の媒体と14件のISBNを保持しながら、legacy projectionとのfetish/compound mismatchはいずれも0で、`automated_parity_ok=true`です。
 
 既存DBへ適用するときは、まず`GET /api/admin/work_catalog`で最新`digest`を取得し、`POST /api/admin/work_catalog/mutate`へ次を送ります。
 
@@ -38,7 +38,7 @@ manifestは全件を一つのtransaction/journalで適用します。同一manif
 
 この操作もDBではcatalog lock内の一transaction、localでは一つのmutation journalで適用されます。displayの欠落・複数work一致、canonical衝突、削除後の参照残りはfail-closedです。成功時は`normalized_title_count=46`、初回のみ`removed_work_count=4`を確認し、監査ログの`manifest_sha256=e960ed79e1f77c0af61275d536f311b3d8c3b93b563bf522e55b0ed4dbde32c3`を照合します。再適用は`removed_work_count=0`のno-opとなり、digestも変化しません。
 
-`data/work_catalog_corrections.json`はschema v3、16件（split 1、retitle 7、quarantine 7、link rebind 1）です。canonical SHA-256は`6e5880216de2cb67bd434dd9e2a440e0acdfc62b7ed674de6f399bdd4f86b665`です。既存P0訂正に加え、正式identityを確認した2作品、講談社版へ置換した`逃げるは恥だが役に立つ`、根拠不足7作品の公開link除去を一つのinput-locked manifestで扱います。quarantine workは同一IDのまま`archived`にし、master/editionを監査用に保持します。
+`data/work_catalog_corrections.json`はschema v3、55件（split 1、retitle 8、quarantine 45、link rebind 1）です。canonical SHA-256は`ad70a6240291b0c5b9501d6c83e9bc617c8060be1a8e9314379e0f5570f7f3c4`です。旧pending 39件の完全一致書誌調査により、`シンデレラの偽装婚約`は[A-WAGON表記のBOOK☆WALKER series](https://bookwalker.jp/series/549171/)と[コミックシーモア](https://www.cmoa.jp/title/335103/)で正式identityを確認しました。editionはseries landingではなく[合本版1の直接商品ページ](https://bookwalker.jp/dedd8698ce-91a7-4354-8239-3cc82613c858/)へ固定し、残る38件をquarantineしました。quarantine workは同一IDのまま`archived`にし、masterを監査用に保持します。
 
 link removalはsource row全fieldと、edition付きの場合は`source_url`も固定します。forwardはlink update後にremove、reverseはremove復元後にupdateし、同manifestの削除から計算した最終positionだけを冪等状態として許容します。既適用inlineの不在は明示`allow_missing`かつ同signatureが他ownerへ移動していない場合だけskipします。`review_queue.updated_at`の既知UTC instant互換、player-added owner 104の保護、部分rollout時のresolved review fingerprint検証は従来どおりです。
 `link_rebind`は本番で追加された性癖owner 107の推薦に限定し、旧link ID、作品、版、owner、position、aliasなし、表示title、URLをinput lockします。既存の表示aliasへ付け替えるだけなのでcanonical titleは正式名のまま、inline titleとURLも不変です。checked seedには対象linkがなく、`allow_missing=true`によりno-opになります。
@@ -54,7 +54,7 @@ link removalはsource row全fieldと、edition付きの場合は`source_url`も�
 }
 ```
 
-成功時は`correction_count=16`、`split_count=1`、`retitle_count=7`、`quarantine_count=7`、`link_rebind_count=1`、4つの`inline_*_count`、監査fingerprint `6e5880216de2cb67bd434dd9e2a440e0acdfc62b7ed674de6f399bdd4f86b665`を照合します。DBではcatalog訂正と対象`fetishes.works`を同一transactionへ含めます。review queueが全件解決済みで、現行correction manifestのsource lockに完全適合するcatalogでは、旧review段階をskipします。skip前には明示的な`review_updates.target`だけを検証用copyで`expected`へ戻し、review manifestの再適用が完全no-opであることに加え、UTC instant正規化後の全resolved row fingerprintを照合します。74件版は`97a4405d95af9031ae5fa4f275272f7e559037f520a73a5ba48609cb96aab217`、旧79件版は`9fdb1d44dfb930eb91dd1a679dddbd95116d9058748aa48ca0bdd841e6e2e215`です。これにより既存訂正の適用後に新しい訂正を追加した部分状態でも、旧reviewで訂正内容を上書きせず、seed cleanup、既存訂正の冪等確認、新規訂正、inline同期を順に実行します。source lock、review意味、titles/ASIN/version/timestampを含むrow fingerprintのいずれかが不適合ならfail-closedで停止します。
+成功時は`correction_count=55`、`split_count=1`、`retitle_count=8`、`quarantine_count=45`、`link_rebind_count=1`、4つの`inline_*_count`、監査fingerprint `ad70a6240291b0c5b9501d6c83e9bc617c8060be1a8e9314379e0f5570f7f3c4`を照合します。DBではcatalog訂正と対象`fetishes.works`を同一transactionへ含めます。review queueが全件解決済みで、現行correction manifestのsource lockに完全適合するcatalogでは、旧review段階をskipします。skip前には明示的な`review_updates.target`だけを検証用copyで`expected`へ戻し、review manifestの再適用が完全no-opであることに加え、UTC instant正規化後の全resolved row fingerprintを照合します。74件版は`97a4405d95af9031ae5fa4f275272f7e559037f520a73a5ba48609cb96aab217`、旧79件版は`9fdb1d44dfb930eb91dd1a679dddbd95116d9058748aa48ca0bdd841e6e2e215`です。これにより既存訂正の適用後に新しい訂正を追加した部分状態でも、旧reviewで訂正内容を上書きせず、seed cleanup、既存訂正の冪等確認、新規訂正、inline同期を順に実行します。source lock、review意味、titles/ASIN/version/timestampを含むrow fingerprintのいずれかが不適合ならfail-closedで停止します。
 
 healthは2種類のparityを混同しません。`approved_projection_ok` / `approved_mismatch_count`はcorrection manifestで固定されたowner・position・旧title/URLを新title/URLへ厳密投影した期待値との比較です。`automated_parity_ok` / `mismatch_count`は同期済みinlineとのraw比較であり、実際のlegacy fallback同値性とinline廃止可否を判定します。旧signatureの別position・別ownerへの移動、owner・件数・順序・URLの差、未承認titleはfail-closedです。`allow_missing`は真偽値だけを許可し、旧sourceが全ownerから不存在の場合だけno-opにします。
 
@@ -140,6 +140,12 @@ release `eceb3ce`でschema v3 quarantineと本番追加推薦向けのoptional a
 - 12 sample rollout gate: workflow run `30514599569`（68.428秒、1 worker、revision 29、fallback 0、catalog load failure 0、raw/approved parity mismatch 0、`automated_eligible=true`）
 
 本番追加linkはsource `fwl_6eb279e52350c546dd7c`が消え、target `fwl_35eef2046426b62f78ae`が既存alias `wal_e3fdfa57179ebc08db2e`を参照しています。canonical titleは`逃げるは恥だが役に立つ`のまま、公開表示title `逃げるは恥だが役に立つ（漫画）`とURL `https://www.amazon.co.jp/dp/B00GWVP77W?tag=hekinator-22`は不変です。自動gateは成功していますが、staging restore rehearsalと運用担当者の手動サインオフは引き続き必須です。
+
+### Pending research resolution preflight (2026-07-30)
+
+旧pending 39件を完全一致titleで再調査し、`シンデレラの偽装婚約`だけを正式identityとしてedition・aliasへ接続し、残る38件をquarantineしました。research queueはpending 0、quarantined 45です。55件版correction manifestのcanonical SHA-256は`ad70a6240291b0c5b9501d6c83e9bc617c8060be1a8e9314379e0f5570f7f3c4`で、checked seedはmaster 325、edition 253、edition identifier 14、alias 159、fetish link 373、compound link 141、review 74、pending 0です。
+
+local preflightでは、39 linkのinline同期、reverse/forward round-trip、deterministic rebuild、catalog validation、raw parity mismatch 0を確認しました。この55件版はまだ本番へ適用していません。fresh v3 backupのdigestを現在の本番catalogと照合し、mutation前preflight、適用後backup、rollout gateを新しい証跡として保存するまで、上記16件版の本番証跡と混同しません。
 
 ## Deploy前
 

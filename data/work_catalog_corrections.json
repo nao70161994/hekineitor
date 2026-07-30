@@ -917,6 +917,1401 @@
           "allow_missing": true
         }
       ]
+    },
+    {
+      "correction_id": "retitle-cinderella-fake-engagement",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_7b93591a02cbb78feac8",
+        "canonical_title": "シンデレラの偽装婚約（漫画）",
+        "normalized_title": "シンデレラの偽装婚約(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_7b93591a02cbb78feac8",
+        "canonical_title": "シンデレラの偽装婚約",
+        "normalized_title": "シンデレラの偽装婚約",
+        "media_type": "manga",
+        "status": "active"
+      },
+      "edition_updates": [],
+      "edition_additions": [
+        {
+          "target": {
+            "edition_id": "wed_c53d4d8ca8c5c6f797c5",
+            "work_id": "wrk_7b93591a02cbb78feac8",
+            "asin": "",
+            "canonical_url": "https://bookwalker.jp/dedd8698ce-91a7-4354-8239-3cc82613c858/",
+            "format": "digital",
+            "status": "active",
+            "edition_title": "シンデレラの偽装婚約〖合本版〗 1",
+            "publisher": "A-WAGON"
+          },
+          "identifiers": []
+        }
+      ],
+      "alias_additions": [
+        {
+          "target": {
+            "alias_id": "wal_4249a6775a94f450f82e",
+            "work_id": "wrk_7b93591a02cbb78feac8",
+            "alias": "シンデレラの偽装婚約（漫画）",
+            "normalized_alias": "シンデレラの偽装婚約(漫画)"
+          }
+        }
+      ],
+      "alias_removals": [],
+      "link_updates": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_649559d92ecebcbbffab",
+            "id_a": 68,
+            "id_b": 104,
+            "work_id": "wrk_7b93591a02cbb78feac8",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_c53d4d8ca8c5c6f797c5",
+          "alias_id": "wal_4249a6775a94f450f82e",
+          "context_label": ""
+        }
+      ],
+      "review_updates": []
+    },
+    {
+      "correction_id": "quarantine-unverified-aae9d0dfe6095c9edf5d",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_aae9d0dfe6095c9edf5d",
+        "canonical_title": "歪んだ愛の檻（漫画）",
+        "normalized_title": "歪んだ愛の檻(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_aae9d0dfe6095c9edf5d",
+        "canonical_title": "歪んだ愛の檻（漫画）",
+        "normalized_title": "歪んだ愛の檻(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_f3c6c1cd92e5e52d5c2f",
+            "id_a": 10,
+            "id_b": 99,
+            "work_id": "wrk_aae9d0dfe6095c9edf5d",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-13d797cacda9c9ab4d7f",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_13d797cacda9c9ab4d7f",
+        "canonical_title": "闇の中の甘い罠（BL）",
+        "normalized_title": "闇の中の甘い罠(bl)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_13d797cacda9c9ab4d7f",
+        "canonical_title": "闇の中の甘い罠（BL）",
+        "normalized_title": "闇の中の甘い罠(bl)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_40a1265695290a7c0a3a",
+            "id_a": 10,
+            "id_b": 99,
+            "work_id": "wrk_13d797cacda9c9ab4d7f",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-c5da8813d7b9fb127bd9",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_c5da8813d7b9fb127bd9",
+        "canonical_title": "極道の甘い溺愛（漫画）",
+        "normalized_title": "極道の甘い溺愛(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_c5da8813d7b9fb127bd9",
+        "canonical_title": "極道の甘い溺愛（漫画）",
+        "normalized_title": "極道の甘い溺愛(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_48ddb72575a79d9033a1",
+            "id_a": 17,
+            "id_b": 99,
+            "work_id": "wrk_c5da8813d7b9fb127bd9",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-d93cce664b869211b757",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_d93cce664b869211b757",
+        "canonical_title": "俺だけ見ていろ（漫画）",
+        "normalized_title": "俺だけ見ていろ(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_d93cce664b869211b757",
+        "canonical_title": "俺だけ見ていろ（漫画）",
+        "normalized_title": "俺だけ見ていろ(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_5af07bf3882883eeb598",
+            "id_a": 17,
+            "id_b": 99,
+            "work_id": "wrk_d93cce664b869211b757",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-8c9cc5d74f2461ae3781",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_8c9cc5d74f2461ae3781",
+        "canonical_title": "ヤクザ×刑事（BL小説）",
+        "normalized_title": "ヤクザ×刑事(bl小説)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_8c9cc5d74f2461ae3781",
+        "canonical_title": "ヤクザ×刑事（BL小説）",
+        "normalized_title": "ヤクザ×刑事(bl小説)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_c6ced020f7e1f9934b28",
+            "id_a": 2,
+            "id_b": 99,
+            "work_id": "wrk_8c9cc5d74f2461ae3781",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-069742180658d2d3c100",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_069742180658d2d3c100",
+        "canonical_title": "裏稼業の甘い罠（BL漫画）",
+        "normalized_title": "裏稼業の甘い罠(bl漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_069742180658d2d3c100",
+        "canonical_title": "裏稼業の甘い罠（BL漫画）",
+        "normalized_title": "裏稼業の甘い罠(bl漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_cf86f0074b685f29bebe",
+            "id_a": 2,
+            "id_b": 99,
+            "work_id": "wrk_069742180658d2d3c100",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-532b20f73f9ddfcb27c5",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_532b20f73f9ddfcb27c5",
+        "canonical_title": "冷酷皇帝の後宮入り（漫画）",
+        "normalized_title": "冷酷皇帝の後宮入り(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_532b20f73f9ddfcb27c5",
+        "canonical_title": "冷酷皇帝の後宮入り（漫画）",
+        "normalized_title": "冷酷皇帝の後宮入り(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_75e06b54af7565ab4b64",
+            "id_a": 97,
+            "id_b": 100,
+            "work_id": "wrk_532b20f73f9ddfcb27c5",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-44a3027a1ec92fe60206",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_44a3027a1ec92fe60206",
+        "canonical_title": "政略後宮の花嫁（小説）",
+        "normalized_title": "政略後宮の花嫁(小説)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_44a3027a1ec92fe60206",
+        "canonical_title": "政略後宮の花嫁（小説）",
+        "normalized_title": "政略後宮の花嫁(小説)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_6051cbd8759eeeb75a78",
+            "id_a": 97,
+            "id_b": 100,
+            "work_id": "wrk_44a3027a1ec92fe60206",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-8767bc9cd98abcfa748b",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_8767bc9cd98abcfa748b",
+        "canonical_title": "ループする転生令嬢（漫画）",
+        "normalized_title": "ループする転生令嬢(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_8767bc9cd98abcfa748b",
+        "canonical_title": "ループする転生令嬢（漫画）",
+        "normalized_title": "ループする転生令嬢(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_e1185c9198cca5e7afec",
+            "id_a": 58,
+            "id_b": 101,
+            "work_id": "wrk_8767bc9cd98abcfa748b",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-40f47625a918467c617f",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_40f47625a918467c617f",
+        "canonical_title": "繰り返す宿命の恋（小説）",
+        "normalized_title": "繰り返す宿命の恋(小説)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_40f47625a918467c617f",
+        "canonical_title": "繰り返す宿命の恋（小説）",
+        "normalized_title": "繰り返す宿命の恋(小説)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_695bf04a544b5bd14b50",
+            "id_a": 58,
+            "id_b": 101,
+            "work_id": "wrk_40f47625a918467c617f",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-94cdd3dff7ca8af00ab6",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_94cdd3dff7ca8af00ab6",
+        "canonical_title": "何度でも君を殺す（小説）",
+        "normalized_title": "何度でも君を殺す(小説)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_94cdd3dff7ca8af00ab6",
+        "canonical_title": "何度でも君を殺す（小説）",
+        "normalized_title": "何度でも君を殺す(小説)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_ed2c19d9f7176c863615",
+            "id_a": 10,
+            "id_b": 101,
+            "work_id": "wrk_94cdd3dff7ca8af00ab6",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-7341a1c4ed1547872d0d",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_7341a1c4ed1547872d0d",
+        "canonical_title": "ループする彼の狂愛（漫画）",
+        "normalized_title": "ループする彼の狂愛(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_7341a1c4ed1547872d0d",
+        "canonical_title": "ループする彼の狂愛（漫画）",
+        "normalized_title": "ループする彼の狂愛(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_c9de969ca97c5e96a3e2",
+            "id_a": 10,
+            "id_b": 101,
+            "work_id": "wrk_7341a1c4ed1547872d0d",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-976ffe94307b55e34d6a",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_976ffe94307b55e34d6a",
+        "canonical_title": "拾われた伯爵令嬢は騎士団長に溺愛される（漫画）",
+        "normalized_title": "拾われた伯爵令嬢は騎士団長に溺愛される(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_976ffe94307b55e34d6a",
+        "canonical_title": "拾われた伯爵令嬢は騎士団長に溺愛される（漫画）",
+        "normalized_title": "拾われた伯爵令嬢は騎士団長に溺愛される(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_ec859a715c8463349913",
+            "id_a": 17,
+            "id_b": 102,
+            "work_id": "wrk_976ffe94307b55e34d6a",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-a914dd8462e43b759d40",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_a914dd8462e43b759d40",
+        "canonical_title": "捨て猫のような恋をする（漫画）",
+        "normalized_title": "捨て猫のような恋をする(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_a914dd8462e43b759d40",
+        "canonical_title": "捨て猫のような恋をする（漫画）",
+        "normalized_title": "捨て猫のような恋をする(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_4c50db812d950ba9386b",
+            "id_a": 17,
+            "id_b": 102,
+            "work_id": "wrk_a914dd8462e43b759d40",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-a42d7ef8febc00534f57",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_a42d7ef8febc00534f57",
+        "canonical_title": "拾われた僕を甘やかしてください（漫画）",
+        "normalized_title": "拾われた僕を甘やかしてください(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_a42d7ef8febc00534f57",
+        "canonical_title": "拾われた僕を甘やかしてください（漫画）",
+        "normalized_title": "拾われた僕を甘やかしてください(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_856bf4bca7024249c4a3",
+            "id_a": 91,
+            "id_b": 102,
+            "work_id": "wrk_a42d7ef8febc00534f57",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-782173d3e91db360656e",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_782173d3e91db360656e",
+        "canonical_title": "保護者のくせに溺愛しすぎ（漫画）",
+        "normalized_title": "保護者のくせに溺愛しすぎ(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_782173d3e91db360656e",
+        "canonical_title": "保護者のくせに溺愛しすぎ（漫画）",
+        "normalized_title": "保護者のくせに溺愛しすぎ(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_d1c2082093e35798cad4",
+            "id_a": 91,
+            "id_b": 102,
+            "work_id": "wrk_782173d3e91db360656e",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-fe464de39314dda71edb",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_fe464de39314dda71edb",
+        "canonical_title": "エージェントの禁断恋愛（漫画）",
+        "normalized_title": "エージェントの禁断恋愛(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_fe464de39314dda71edb",
+        "canonical_title": "エージェントの禁断恋愛（漫画）",
+        "normalized_title": "エージェントの禁断恋愛(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_623da0160503fec51d67",
+            "id_a": 92,
+            "id_b": 103,
+            "work_id": "wrk_fe464de39314dda71edb",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-39a95ba7db07f126abd9",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_39a95ba7db07f126abd9",
+        "canonical_title": "秘密工作員の甘い罠（小説）",
+        "normalized_title": "秘密工作員の甘い罠(小説)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_39a95ba7db07f126abd9",
+        "canonical_title": "秘密工作員の甘い罠（小説）",
+        "normalized_title": "秘密工作員の甘い罠(小説)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_dac666e17c800596b8bd",
+            "id_a": 92,
+            "id_b": 103,
+            "work_id": "wrk_39a95ba7db07f126abd9",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-5e73c4275662c6a0ff3f",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_5e73c4275662c6a0ff3f",
+        "canonical_title": "敵国スパイとの偽装結婚（漫画）",
+        "normalized_title": "敵国スパイとの偽装結婚(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_5e73c4275662c6a0ff3f",
+        "canonical_title": "敵国スパイとの偽装結婚（漫画）",
+        "normalized_title": "敵国スパイとの偽装結婚(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_e42e9fccf7af86aefe1d",
+            "id_a": 84,
+            "id_b": 103,
+            "work_id": "wrk_5e73c4275662c6a0ff3f",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-34167ed216f30e6d5673",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_34167ed216f30e6d5673",
+        "canonical_title": "ライバル諜報員との誤算（小説）",
+        "normalized_title": "ライバル諜報員との誤算(小説)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_34167ed216f30e6d5673",
+        "canonical_title": "ライバル諜報員との誤算（小説）",
+        "normalized_title": "ライバル諜報員との誤算(小説)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_e459c5aa6b12acaf2d6e",
+            "id_a": 84,
+            "id_b": 103,
+            "work_id": "wrk_34167ed216f30e6d5673",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-e51b481e0cbf1cca34a3",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_e51b481e0cbf1cca34a3",
+        "canonical_title": "仮面夫婦の契約婚（漫画）",
+        "normalized_title": "仮面夫婦の契約婚(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_e51b481e0cbf1cca34a3",
+        "canonical_title": "仮面夫婦の契約婚（漫画）",
+        "normalized_title": "仮面夫婦の契約婚(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_6c620c22f2560842fd07",
+            "id_a": 97,
+            "id_b": 104,
+            "work_id": "wrk_e51b481e0cbf1cca34a3",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-fc889611266d25834ea0",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_fc889611266d25834ea0",
+        "canonical_title": "政略婚約の偽恋人（小説）",
+        "normalized_title": "政略婚約の偽恋人(小説)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_fc889611266d25834ea0",
+        "canonical_title": "政略婚約の偽恋人（小説）",
+        "normalized_title": "政略婚約の偽恋人(小説)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_248a352981028b92b14f",
+            "id_a": 97,
+            "id_b": 104,
+            "work_id": "wrk_fc889611266d25834ea0",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-ac47875f05a3836b83ea",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_ac47875f05a3836b83ea",
+        "canonical_title": "格差カップルのフリ恋（漫画）",
+        "normalized_title": "格差カップルのフリ恋(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_ac47875f05a3836b83ea",
+        "canonical_title": "格差カップルのフリ恋（漫画）",
+        "normalized_title": "格差カップルのフリ恋(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_d361cc3e7d9de919003d",
+            "id_a": 68,
+            "id_b": 104,
+            "work_id": "wrk_ac47875f05a3836b83ea",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-65955b336babf3474e63",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_65955b336babf3474e63",
+        "canonical_title": "溺愛社長と偽りの関係（漫画）",
+        "normalized_title": "溺愛社長と偽りの関係(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_65955b336babf3474e63",
+        "canonical_title": "溺愛社長と偽りの関係（漫画）",
+        "normalized_title": "溺愛社長と偽りの関係(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_b07bd52332cbc990559a",
+            "id_a": 17,
+            "id_b": 104,
+            "work_id": "wrk_65955b336babf3474e63",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-4158c08e039429f79848",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_4158c08e039429f79848",
+        "canonical_title": "契約から始まる甘い溺愛（漫画）",
+        "normalized_title": "契約から始まる甘い溺愛(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_4158c08e039429f79848",
+        "canonical_title": "契約から始まる甘い溺愛（漫画）",
+        "normalized_title": "契約から始まる甘い溺愛(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_e5357c0cb3939d8bf805",
+            "id_a": 17,
+            "id_b": 104,
+            "work_id": "wrk_4158c08e039429f79848",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-804aeb4b94b48e631e14",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_804aeb4b94b48e631e14",
+        "canonical_title": "強制同居から始まる恋（漫画）",
+        "normalized_title": "強制同居から始まる恋(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_804aeb4b94b48e631e14",
+        "canonical_title": "強制同居から始まる恋（漫画）",
+        "normalized_title": "強制同居から始まる恋(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_e7a1750048b670d6352c",
+            "id_a": 65,
+            "id_b": 104,
+            "work_id": "wrk_804aeb4b94b48e631e14",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-837bba300a414d691448",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_837bba300a414d691448",
+        "canonical_title": "偽装ルームメイトのはずが（漫画）",
+        "normalized_title": "偽装ルームメイトのはずが(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_837bba300a414d691448",
+        "canonical_title": "偽装ルームメイトのはずが（漫画）",
+        "normalized_title": "偽装ルームメイトのはずが(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_df9f2d2e34d3f09adad2",
+            "id_a": 65,
+            "id_b": 104,
+            "work_id": "wrk_837bba300a414d691448",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-21603261d85974b98285",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_21603261d85974b98285",
+        "canonical_title": "腹黒探偵の甘い罠（漫画）",
+        "normalized_title": "腹黒探偵の甘い罠(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_21603261d85974b98285",
+        "canonical_title": "腹黒探偵の甘い罠（漫画）",
+        "normalized_title": "腹黒探偵の甘い罠(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_786f8863882ea1311fc0",
+            "id_a": 85,
+            "id_b": 105,
+            "work_id": "wrk_21603261d85974b98285",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-9f92d4aaf2b3c5867769",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_9f92d4aaf2b3c5867769",
+        "canonical_title": "謎解き二面性のパートナー（小説）",
+        "normalized_title": "謎解き二面性のパートナー(小説)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_9f92d4aaf2b3c5867769",
+        "canonical_title": "謎解き二面性のパートナー（小説）",
+        "normalized_title": "謎解き二面性のパートナー(小説)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_6574b1938272f5f982eb",
+            "id_a": 85,
+            "id_b": 105,
+            "work_id": "wrk_9f92d4aaf2b3c5867769",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-7d9ef771a43cf3890f14",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_7d9ef771a43cf3890f14",
+        "canonical_title": "スパイと探偵の秘密（小説）",
+        "normalized_title": "スパイと探偵の秘密(小説)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_7d9ef771a43cf3890f14",
+        "canonical_title": "スパイと探偵の秘密（小説）",
+        "normalized_title": "スパイと探偵の秘密(小説)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_1492796616b959e9a0a8",
+            "id_a": 103,
+            "id_b": 105,
+            "work_id": "wrk_7d9ef771a43cf3890f14",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-63a1b6fb274c148b29de",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_63a1b6fb274c148b29de",
+        "canonical_title": "諜報戦の謎解きロマンス（漫画）",
+        "normalized_title": "諜報戦の謎解きロマンス(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_63a1b6fb274c148b29de",
+        "canonical_title": "諜報戦の謎解きロマンス（漫画）",
+        "normalized_title": "諜報戦の謎解きロマンス(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_4030ce5069650bf8b96e",
+            "id_a": 103,
+            "id_b": 105,
+            "work_id": "wrk_63a1b6fb274c148b29de",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-dc6ec33d15b63fed4d50",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_dc6ec33d15b63fed4d50",
+        "canonical_title": "不良少年のギャップ萌え（漫画）",
+        "normalized_title": "不良少年のギャップ萌え(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_dc6ec33d15b63fed4d50",
+        "canonical_title": "不良少年のギャップ萌え（漫画）",
+        "normalized_title": "不良少年のギャップ萌え(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_2faaa3d6f300b47e14d7",
+            "id_a": 23,
+            "id_b": 106,
+            "work_id": "wrk_dc6ec33d15b63fed4d50",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-85918e0a3c3bc66949b8",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_85918e0a3c3bc66949b8",
+        "canonical_title": "ライバルのくせに優しいじゃないか（漫画）",
+        "normalized_title": "ライバルのくせに優しいじゃないか(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_85918e0a3c3bc66949b8",
+        "canonical_title": "ライバルのくせに優しいじゃないか（漫画）",
+        "normalized_title": "ライバルのくせに優しいじゃないか(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_1644ba91ebd891c1898b",
+            "id_a": 84,
+            "id_b": 106,
+            "work_id": "wrk_85918e0a3c3bc66949b8",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-60fd2515ae4bb67de890",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_60fd2515ae4bb67de890",
+        "canonical_title": "不良×天敵の恋（漫画）",
+        "normalized_title": "不良×天敵の恋(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_60fd2515ae4bb67de890",
+        "canonical_title": "不良×天敵の恋（漫画）",
+        "normalized_title": "不良×天敵の恋(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_d70b0c1b7ec356ac7f5b",
+            "id_a": 84,
+            "id_b": 106,
+            "work_id": "wrk_60fd2515ae4bb67de890",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-5ce181474ea36d4d4b24",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_5ce181474ea36d4d4b24",
+        "canonical_title": "社内恋愛は禁止のはずが（漫画）",
+        "normalized_title": "社内恋愛は禁止のはずが(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_5ce181474ea36d4d4b24",
+        "canonical_title": "社内恋愛は禁止のはずが（漫画）",
+        "normalized_title": "社内恋愛は禁止のはずが(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_b7a5fdebf3c481ec6e40",
+            "id_a": 42,
+            "id_b": 107,
+            "work_id": "wrk_5ce181474ea36d4d4b24",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-da0f21471fe8cd675728",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_da0f21471fe8cd675728",
+        "canonical_title": "仕事バカな上司と私（漫画）",
+        "normalized_title": "仕事バカな上司と私(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_da0f21471fe8cd675728",
+        "canonical_title": "仕事バカな上司と私（漫画）",
+        "normalized_title": "仕事バカな上司と私(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_3b620ef4205b635082f6",
+            "id_a": 42,
+            "id_b": 107,
+            "work_id": "wrk_da0f21471fe8cd675728",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-c42a26c4c27d0c3c51b0",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_c42a26c4c27d0c3c51b0",
+        "canonical_title": "御曹司エリートの恋（漫画）",
+        "normalized_title": "御曹司エリートの恋(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_c42a26c4c27d0c3c51b0",
+        "canonical_title": "御曹司エリートの恋（漫画）",
+        "normalized_title": "御曹司エリートの恋(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_c890c2536d915a9ef431",
+            "id_a": 83,
+            "id_b": 107,
+            "work_id": "wrk_c42a26c4c27d0c3c51b0",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-4c8852d591d756e168f3",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_4c8852d591d756e168f3",
+        "canonical_title": "完璧CEOの不器用な愛（漫画）",
+        "normalized_title": "完璧ceoの不器用な愛(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_4c8852d591d756e168f3",
+        "canonical_title": "完璧CEOの不器用な愛（漫画）",
+        "normalized_title": "完璧ceoの不器用な愛(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_fe132944bd656e0de149",
+            "id_a": 83,
+            "id_b": 107,
+            "work_id": "wrk_4c8852d591d756e168f3",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
     }
   ]
 }

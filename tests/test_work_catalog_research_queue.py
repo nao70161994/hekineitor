@@ -19,15 +19,15 @@ def _entry_key(row):
     return 'compound', row['id_a'], row['id_b'], row['position']
 
 
-def test_research_queue_has_46_unique_entries():
+def test_research_queue_has_45_unique_entries():
     queue = _load(QUEUE_PATH)
     entries = queue['entries']
 
     assert queue['schema_version'] == 1
     assert queue['generated_at'] == '2026-07-30'
-    assert len(entries) == 46
-    assert len({row['work_id'] for row in entries}) == 46
-    assert len({_entry_key(row) for row in entries}) == 46
+    assert len(entries) == 45
+    assert len({row['work_id'] for row in entries}) == 45
+    assert len({_entry_key(row) for row in entries}) == 45
 
 
 def test_research_queue_matches_current_links_and_titles():
@@ -102,9 +102,9 @@ def test_research_queue_status_and_issue_enums():
     queue = _load(QUEUE_PATH)
     entries = queue['entries']
 
-    assert Counter(row['status'] for row in entries) == {'pending': 39, 'quarantined': 7}
+    assert Counter(row['status'] for row in entries) == {'quarantined': 45}
     assert Counter(row['issue'] for row in entries) == {
-        'unverified_bibliography': 43,
+        'unverified_bibliography': 42,
         'adult_metadata_unverified': 1,
         'ambiguous_identity': 1,
         'edition_identity_unverified': 1,
