@@ -91,7 +91,7 @@ schema v2と`data/work_catalog_bibliography.json`で上記12版のISBN-13、版�
 
 ## Remaining gates
 
-16件版schema v3 correctionの本番適用は完了しています。workflow run `30514530917`で適用し、適用後backup `30514560153`とrollout gate `30514599569`により、最終digest、全件数、revision 29、raw/approved parity mismatch 0、fallback/load failure 0を保存しています。一方、今回の55件版manifestはchecked seedへのlocal preflight、inline round-trip、catalog validationまでが完了した段階で、本番には未適用です。
+55件版schema v3 correctionの本番適用は完了しています。workflow run `30517950724`で適用し、適用後backup `30517999082`とrollout gate `30518120489`により、最終digest `a106ff6d35574d48b53e5f554b491ca87800bc7f043efd754d172ebd10966747`、全件数、revision 32、raw/approved parity mismatch 0、fallback/load failure 0を保存しています。適用後catalogはローカルpreflight結果とbyte-equivalentです。
 
-1. fresh v3 backupを取得し、55件版manifestを本番backupへpreflightしてから適用する。適用後backup、全件数、digest、raw/approved parity、全worker revision、fallback/load failureを保存する。
-2. staging v3 restore rehearsalと手動サインオフを完了し、必要な観測期間を満たしてから旧inline source of truthを廃止する。
+1. staging v3 restore rehearsalと手動サインオフを完了する。
+2. 必要な観測期間を満たしてから旧inline source of truthを廃止する。

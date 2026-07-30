@@ -141,11 +141,19 @@ release `eceb3ce`でschema v3 quarantineと本番追加推薦向けのoptional a
 
 本番追加linkはsource `fwl_6eb279e52350c546dd7c`が消え、target `fwl_35eef2046426b62f78ae`が既存alias `wal_e3fdfa57179ebc08db2e`を参照しています。canonical titleは`逃げるは恥だが役に立つ`のまま、公開表示title `逃げるは恥だが役に立つ（漫画）`とURL `https://www.amazon.co.jp/dp/B00GWVP77W?tag=hekinator-22`は不変です。自動gateは成功していますが、staging restore rehearsalと運用担当者の手動サインオフは引き続き必須です。
 
-### Pending research resolution preflight (2026-07-30)
+### Pending research resolution rollout (2026-07-30)
 
 旧pending 39件を完全一致titleで再調査し、`シンデレラの偽装婚約`だけを正式identityとしてedition・aliasへ接続し、残る38件をquarantineしました。research queueはpending 0、quarantined 45です。55件版correction manifestのcanonical SHA-256は`ad70a6240291b0c5b9501d6c83e9bc617c8060be1a8e9314379e0f5570f7f3c4`で、checked seedはmaster 325、edition 253、edition identifier 14、alias 159、fetish link 373、compound link 141、review 74、pending 0です。
 
-local preflightでは、39 linkのinline同期、reverse/forward round-trip、deterministic rebuild、catalog validation、raw parity mismatch 0を確認しました。この55件版はまだ本番へ適用していません。fresh v3 backupのdigestを現在の本番catalogと照合し、mutation前preflight、適用後backup、rollout gateを新しい証跡として保存するまで、上記16件版の本番証跡と混同しません。
+local preflightでは、39 linkのinline同期、reverse/forward round-trip、deterministic rebuild、catalog validation、raw parity mismatch 0を確認しました。release `0339a8d`の55件版を本番へ適用した結果はmaster 375、edition 309、edition identifier 14、alias 161、fetish link 393、compound link 141、resolved review 79、pending 0です。45件は`archived`かつ推薦link 0で、検証済み作品は合本版1の直接商品URLを保持します。最終digestは`a106ff6d35574d48b53e5f554b491ca87800bc7f043efd754d172ebd10966747`です。
+
+- release CI: workflow run `30517524073`
+- 適用前v3 backup: workflow run `30517929031`
+- manifest適用成功: workflow run `30517950724`（55 corrections、manifest SHA-256一致、raw/approved parity mismatch 0、revision 32）
+- 適用後v3 backup: workflow run `30517999082`（上記digest・全件数・45 quarantineの推薦参照0を再確認）
+- 12 sample rollout gate: workflow run `30518120489`（83.395秒、1 worker、全revision 32、fallback 0、catalog load failure 0、raw/approved parity mismatch 0、`automated_eligible=true`）
+
+事前backupからchecked-in seed override、correction、bibliographyを同じ順序で適用したローカル結果と、事後backupのcatalogはbyte-equivalentです。自動gateは成功していますが、staging restore rehearsal、必要な観測期間、運用担当者の手動サインオフは引き続き必須です。
 
 ## Deploy前
 
