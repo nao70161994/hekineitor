@@ -373,9 +373,7 @@ class TestServiceInference(unittest.TestCase):
                 'engine': Engine(),
                 'session': {},
                 'work_title': staticmethod(lambda work: work['title']),
-                'get_compound_works': staticmethod(
-                    lambda a, b: [{'title': '複合作品'}] if {a, b} == {1, 2} else []
-                ),
+                'get_compound_works': staticmethod(lambda a, b: [{'title': '複合作品'}] if {a, b} == {1, 2} else []),
                 'profile_min_ratio': 0.25,
                 'profile_min_prob': 0.08,
                 'compound_ratio': 0.8,
