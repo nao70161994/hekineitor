@@ -7,6 +7,7 @@ from engine import work_catalog
 from work_utils import work_title
 
 ROOT = Path(__file__).resolve().parents[1]
+LEGACY_DIR = ROOT / 'tests' / 'fixtures' / 'legacy_work_catalog'
 
 
 class WorkCatalogMigrationTests(unittest.TestCase):
@@ -64,8 +65,8 @@ class WorkCatalogMigrationTests(unittest.TestCase):
         self.assertEqual(review['status'], 'pending')
 
     def test_catalog_materialization_preserves_seed_titles_urls_and_order(self):
-        fetishes = json.loads((ROOT / 'data' / 'fetishes.json').read_text())
-        compounds = json.loads((ROOT / 'data' / 'compound_works.json').read_text())
+        fetishes = json.loads((LEGACY_DIR / 'fetishes.json').read_text())
+        compounds = json.loads((LEGACY_DIR / 'compound_works.json').read_text())
         correction_manifests = tuple(
             json.loads((ROOT / 'data' / name).read_text(encoding='utf-8'))
             for name in (
@@ -146,8 +147,8 @@ class WorkCatalogMigrationTests(unittest.TestCase):
             )
         )
 
-        fetishes = json.loads((ROOT / 'data' / 'fetishes.json').read_text(encoding='utf-8'))
-        compounds = json.loads((ROOT / 'data' / 'compound_works.json').read_text(encoding='utf-8'))
+        fetishes = json.loads((LEGACY_DIR / 'fetishes.json').read_text(encoding='utf-8'))
+        compounds = json.loads((LEGACY_DIR / 'compound_works.json').read_text(encoding='utf-8'))
         parity = work_catalog.catalog_parity_report(catalog, fetishes, compound_rows=compounds)
         self.assertTrue(parity['automated_parity_ok'])
         self.assertEqual(parity['mismatch_count'], 0)
@@ -882,8 +883,8 @@ class WorkCatalogMigrationTests(unittest.TestCase):
     def _production_correction_projection_fixture(self):
         data = ROOT / 'data'
         catalog = json.loads((data / 'work_catalog.json').read_text(encoding='utf-8'))
-        fetishes = json.loads((data / 'fetishes.json').read_text(encoding='utf-8'))
-        compounds = json.loads((data / 'compound_works.json').read_text(encoding='utf-8'))
+        fetishes = json.loads((LEGACY_DIR / 'fetishes.json').read_text(encoding='utf-8'))
+        compounds = json.loads((LEGACY_DIR / 'compound_works.json').read_text(encoding='utf-8'))
         correction_manifests = tuple(
             json.loads((data / name).read_text(encoding='utf-8'))
             for name in (
@@ -916,8 +917,8 @@ class WorkCatalogMigrationTests(unittest.TestCase):
 
     def test_strict_inline_projection_round_trips_checked_sources(self):
         data = ROOT / 'data'
-        fetishes = json.loads((data / 'fetishes.json').read_text(encoding='utf-8'))
-        compounds = json.loads((data / 'compound_works.json').read_text(encoding='utf-8'))
+        fetishes = json.loads((LEGACY_DIR / 'fetishes.json').read_text(encoding='utf-8'))
+        compounds = json.loads((LEGACY_DIR / 'compound_works.json').read_text(encoding='utf-8'))
         correction_manifests = tuple(
             json.loads((data / name).read_text(encoding='utf-8'))
             for name in (
@@ -959,8 +960,8 @@ class WorkCatalogMigrationTests(unittest.TestCase):
     def test_checked_inline_fallback_has_raw_parity_with_the_checked_catalog(self):
         data = ROOT / 'data'
         catalog = json.loads((data / 'work_catalog.json').read_text(encoding='utf-8'))
-        fetishes = json.loads((data / 'fetishes.json').read_text(encoding='utf-8'))
-        compounds = json.loads((data / 'compound_works.json').read_text(encoding='utf-8'))
+        fetishes = json.loads((LEGACY_DIR / 'fetishes.json').read_text(encoding='utf-8'))
+        compounds = json.loads((LEGACY_DIR / 'compound_works.json').read_text(encoding='utf-8'))
 
         parity = work_catalog.catalog_parity_report(
             catalog,

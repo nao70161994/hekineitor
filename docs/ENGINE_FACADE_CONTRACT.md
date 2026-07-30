@@ -13,7 +13,6 @@ from engine import PLAYER_FETISH_BASE_ID, FOCUS_THRESHOLD, FOCUS_TOP_N
 from engine import UCB_EXPLORE_C, EARLY_RANDOM_DEPTH, EARLY_RANDOM_TOP_K
 from engine import AXIS_INDIRECT_BONUS, PSEUDO
 from engine import QUESTION_AXES, DOMAIN_PRIORS, FETISH_RELATIONS, FETISH_PRIOR_WEIGHTS
-from engine import get_compound_works, list_compound_works, set_compound_works, delete_compound_works
 from engine import parse_works_list
 ```
 
@@ -52,7 +51,6 @@ These behaviors are already safe to live outside `engine.py` as long as facade t
 - Question selection: `engine/question_selection.py` with a legacy top-level shim.
 - Learning row updates: `engine/learning.py` with a legacy top-level shim.
 - Large constants/data: `engine/constants.py`, `engine/data.py` with legacy top-level shims.
-- Compound works helpers: `engine/compound_works.py` with a legacy top-level shim.
 - Local JSON stats/flags/log helpers: `engine/stats.py` with a legacy top-level shim.
 - Read-only reports: `engine/reporting.py`, `engine/admin_reports.py` with legacy top-level shims.
 - Correlation helpers: `engine/correlation.py` with a legacy top-level shim.
@@ -113,14 +111,14 @@ The following public `Engine` methods are route/script contract. Their names, ca
 - `promote_fetish(old_id)` -> new id or `None`.
 - `capture_learned_priors()` -> snapshot side effect.
 - `get_related(fetish_id)` -> related fetish ids/names.
-- `get_recommended_works(fetish_id)` -> catalog-first normalized work links; legacy inline fallback only when the catalog is unavailable.
-- `get_compound_recommended_works(id_a, id_b)` -> catalog-first normalized pair links with the same fallback rule.
+- `recommended_works_snapshot()` -> all per-fetish normalized work links from one catalog read (admin/report batching).
+- `get_recommended_works(fetish_id)` -> catalog-only normalized work links; catalog failure is explicit and never falls back to inline data.
+- `get_compound_recommended_works(id_a, id_b)` -> catalog-only normalized pair links with the same fail-closed rule.
 - `list_compound_work_rows()` -> catalog-backed compound owner rows for administration.
-- `list_legacy_compound_work_rows()` -> explicit legacy JSON projection used only for migration parity evidence.
 - `work_catalog_admin_snapshot()` -> normalized catalog plus optimistic-concurrency digest.
 - `mutate_work_catalog(operation, payload, *, expected_digest)` -> transactional validated admin mutation result.
-- `work_catalog_migration_report(*, compound_rows=())` -> per-worker parity, revision, fallback, and retirement blockers.
-- `set_compound_work_rows(id_a, id_b, works)` -> canonical pair key; transactionally updates the normalized catalog and the local legacy projection when applicable.
+- `work_catalog_migration_report()` -> catalog revision, load health, and completed retirement status.
+- `set_compound_work_rows(id_a, id_b, works)` -> canonical pair key; transactionally updates only the normalized catalog.
 - `delete_compound_work_rows(id_a, id_b)` -> bool; transactionally removes the pair links.
 
 ## Package Conversion Rules

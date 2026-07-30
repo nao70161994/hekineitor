@@ -190,9 +190,6 @@ def _works_count(works_health: dict[str, Any]) -> int | None:
         return maintenance['total_works']
     if isinstance(maintenance.get('works_count'), int):
         return maintenance['works_count']
-    seed = works_health.get('seed_backfill') or {}
-    if isinstance(seed.get('works_count'), int):
-        return seed['works_count']
     return None
 
 

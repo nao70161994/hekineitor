@@ -14,7 +14,6 @@ def register_routes(
     work_catalog_admin,
     mutate_work_catalog_admin,
     works_link_queue_payload,
-    seed_works_backfill_payload,
 ):
     """Register works administration routes on ``bp``."""
 
@@ -57,17 +56,3 @@ def register_routes(
         except ValueError:
             sample_limit = 20
         return ctx.jsonify(works_link_queue_payload(ctx, sample_limit=sample_limit))
-
-    @bp.route('/api/admin/works_seed_backfill', methods=['GET', 'POST'])
-    @require_admin
-    def works_seed_backfill_route():
-        ctx = ctx_factory()
-        try:
-            sample_limit = max(1, min(int(ctx.request.args.get('sample_limit', 50)), 200))
-        except ValueError:
-            sample_limit = 50
-        return seed_works_backfill_payload(
-            ctx,
-            sample_limit=sample_limit,
-            apply=ctx.request.method == 'POST',
-        )

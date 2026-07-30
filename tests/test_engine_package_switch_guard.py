@@ -30,7 +30,6 @@ class TestEnginePackageSwitchGuard(unittest.TestCase):
     def test_legacy_engine_helper_shims_remain_for_import_compatibility(self):
         helper_files = [
             'engine_admin_reports.py',
-            'engine_compound_works.py',
             'engine_constants.py',
             'engine_correlation.py',
             'engine_data.py',
@@ -48,7 +47,6 @@ class TestEnginePackageSwitchGuard(unittest.TestCase):
         self.assertEqual(missing, [])
         package_helpers = [
             'admin_reports.py',
-            'compound_works.py',
             'constants.py',
             'correlation.py',
             'data.py',

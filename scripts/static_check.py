@@ -46,7 +46,9 @@ def iter_python_files():
     )
     for relative_path in result.stdout.decode().split('\0'):
         if relative_path:
-            yield ROOT / relative_path
+            path = ROOT / relative_path
+            if path.exists():
+                yield path
 
 
 def main():

@@ -103,7 +103,7 @@ def work_links(ctx, works, fallback_name=None):
 
 def recommended_works(engine, fetish):
     provider = getattr(engine, 'get_recommended_works', None)
-    return provider(fetish['id']) if callable(provider) else fetish.get('works') or []
+    return provider(fetish['id']) if callable(provider) else []
 
 
 def fetish_index(ctx):

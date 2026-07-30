@@ -96,74 +96,6 @@ class RestoreMatrixScriptTests(unittest.TestCase):
             )
 
 
-class FetchKindleAsinsScriptTests(unittest.TestCase):
-    def test_save_progress_uses_atomic_writer(self):
-        fetch_kindle = load_module('fetch_kindle_under_test', ROOT / 'fetch_kindle_asins.py')
-        calls = []
-
-        def fake_atomic_write_json(path, data, **kwargs):
-            calls.append((path, data, kwargs))
-
-        fetch_kindle.atomic_write_json = fake_atomic_write_json
-        fetch_kindle.save_progress({'title': 'B000000000'})
-
-        self.assertEqual(len(calls), 1)
-        self.assertEqual(calls[0][0], fetch_kindle.PROGRESS)
-        self.assertEqual(calls[0][1], {'title': 'B000000000'})
-        self.assertTrue(calls[0][2]['ensure_ascii'] is False)
-
-    def test_known_asin_lookup_handles_search_and_title_variants(self):
-        fetch_kindle = load_module('fetch_kindle_lookup_under_test', ROOT / 'fetch_kindle_asins.py')
-
-        fetishes = [
-            {
-                'works': [
-                    {
-                        'title': 'orange',
-                        'url': 'https://www.amazon.co.jp/dp/B00JD349L6?tag=hekinator-22',
-                    }
-                ]
-            }
-        ]
-        exact, canonical = fetch_kindle.known_asin_maps({}, fetishes)
-
-        self.assertTrue(fetch_kindle.is_search_url('https://www.amazon.co.jp/s?k=orange&tag=hekinator-22'))
-        self.assertEqual(
-            fetch_kindle.lookup_known_asin('orange（漫画）', exact, canonical),
-            'B00JD349L6',
-        )
-
-    def test_known_asin_lookup_handles_descriptive_prefix(self):
-        fetch_kindle = load_module('fetch_kindle_suffix_under_test', ROOT / 'fetch_kindle_asins.py')
-
-        exact, canonical = fetch_kindle.known_asin_maps(
-            {
-                '君が望む永遠（NTR√）': 'B0FNDBR1YM',
-                '君が望む永遠（遥√）': 'B0FNDBR1YM',
-            },
-            [],
-        )
-
-        self.assertEqual(
-            fetch_kindle.lookup_known_asin('NTRエロゲの金字塔・君が望む永遠', exact, canonical),
-            'B0FNDBR1YM',
-        )
-
-    def test_dry_run_report_lists_direct_link_candidates(self):
-        fetch_kindle = load_module('fetch_kindle_report_under_test', ROOT / 'fetch_kindle_asins.py')
-        fetishes = [
-            {
-                'id': 1,
-                'name': 'テスト',
-                'works': [{'title': '作品A', 'url': 'https://www.amazon.co.jp/s?k=%E4%BD%9C%E5%93%81A'}],
-            }
-        ]
-        report = fetch_kindle.print_dry_run_report(fetishes, {'作品A': 'B000000000'})
-        self.assertEqual(report['count'], 1)
-        self.assertEqual(report['samples'][0]['asin'], 'B000000000')
-        self.assertIn('/dp/B000000000', report['samples'][0]['direct_url'])
-
-
 class RuntimeConfigTests(unittest.TestCase):
     def test_fetish_log_path_prefers_environment_override(self):
         config = load_module('config_under_test_override', ROOT / 'config.py')
@@ -252,20 +184,27 @@ class WorksLinksScriptTests(unittest.TestCase):
                 os.chdir(tmp)
                 data_dir = Path('data')
                 data_dir.mkdir()
-                (data_dir / 'fetishes.json').write_text(
-                    json.dumps(
-                        [
+                from engine import work_catalog
+
+                source = [
+                    {
+                        'id': 1,
+                        'name': '<img src=x onerror=alert(1)>',
+                        'desc': '',
+                        'works': [
                             {
-                                'name': '<img src=x onerror=alert(1)>',
-                                'works': [
-                                    {
-                                        'title': 'A&B <script>alert(1)</script>',
-                                        'url': 'https://example.test/dp/B000000000?q="x"&a=<b>',
-                                    }
-                                ],
+                                'title': 'A&B <script>alert(1)</script>',
+                                'url': 'https://example.test/dp/B000000000?q="x"&a=<b>',
                             }
-                        ]
-                    ),
+                        ],
+                    }
+                ]
+                (data_dir / 'fetishes.json').write_text(
+                    json.dumps([{key: row[key] for key in ('id', 'name', 'desc')} for row in source]),
+                    encoding='utf-8',
+                )
+                (data_dir / 'work_catalog.json').write_text(
+                    json.dumps(work_catalog.build_catalog_from_inline(source)),
                     encoding='utf-8',
                 )
 
@@ -307,7 +246,6 @@ class CheckScriptTests(unittest.TestCase):
         for filename in (
             'check_works_links.py',
             'config.py',
-            'fetch_kindle_asins.py',
             'restore_matrix.py',
             'run_coverage.py',
         ):

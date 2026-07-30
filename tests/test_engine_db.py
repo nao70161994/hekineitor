@@ -231,6 +231,8 @@ class FakeEngine:
     def _load_json(self, name):
         if name == 'fetishes.json':
             return [{'id': 0, 'name': 'Seed', 'desc': 'Desc', 'works': ['Work']}]
+        if name == 'work_catalog.json':
+            return work_catalog.build_catalog_from_inline([{'id': 0, 'works': ['Work']}])
         if name == 'compound_works.json':
             return {}
         if name == 'work_catalog_seed_overrides.json':
@@ -252,7 +254,7 @@ class FakeEngine:
 
 
 class TestEngineDbLoadAndConfigHelpers(unittest.TestCase):
-    def test_parse_fetish_rows_decodes_works_and_falls_back_to_empty_list(self):
+    def test_parse_fetish_rows_ignores_retired_inline_works(self):
         self.assertEqual(
             engine_db.parse_fetish_rows(
                 [
@@ -263,22 +265,22 @@ class TestEngineDbLoadAndConfigHelpers(unittest.TestCase):
                 ]
             ),
             [
-                {'id': 1, 'name': 'A', 'desc': 'desc', 'works': ['W']},
-                {'id': 2, 'name': 'B', 'desc': 'desc', 'works': []},
-                {'id': 3, 'name': 'C', 'desc': 'desc', 'works': []},
-                {'id': 4, 'name': 'D', 'desc': 'desc', 'works': []},
+                {'id': 1, 'name': 'A', 'desc': 'desc'},
+                {'id': 2, 'name': 'B', 'desc': 'desc'},
+                {'id': 3, 'name': 'C', 'desc': 'desc'},
+                {'id': 4, 'name': 'D', 'desc': 'desc'},
             ],
         )
 
     def test_load_fetishes_keeps_select_contract_and_returns_connection(self):
-        cursor = FakeCursor(fetchall_values=[[(1, 'A', 'desc', '["W"]')]])
+        cursor = FakeCursor(fetchall_values=[[(1, 'A', 'desc')]])
         conn = FakeConn(cursor)
         returned = []
 
         rows = engine_db.load_fetishes(get_conn=lambda: conn, put_conn=returned.append)
 
-        self.assertEqual(rows, [{'id': 1, 'name': 'A', 'desc': 'desc', 'works': ['W']}])
-        self.assertEqual(cursor.executed[0][0], 'SELECT id, name, "desc", works FROM fetishes ORDER BY id')
+        self.assertEqual(rows, [{'id': 1, 'name': 'A', 'desc': 'desc'}])
+        self.assertEqual(cursor.executed[0][0], 'SELECT id, name, "desc" FROM fetishes ORDER BY id')
         self.assertEqual(returned, [conn])
 
     def test_matrix_from_rows_skips_unknown_fetish_and_out_of_range_question(self):
@@ -400,7 +402,8 @@ class TestEngineDbLoadAndConfigHelpers(unittest.TestCase):
         self.assertEqual(len(engine.seed_calls), 1)
         self.assertIn('INSERT INTO fetishes', execute_values_calls[0][0])
         matrix_insert = next(call for call in execute_values_calls if 'INSERT INTO matrix' in call[0])
-        self.assertEqual(matrix_insert[1], [(0, 1, 2.0, 4.0), (1, 1, 2.0, 4.0)])
+        self.assertEqual(matrix_insert[1], [(0, 1, 2.0, 4.0)])
+        self.assertIn("UPDATE fetishes SET works='[]'", executed_sql)
         self.assertEqual(returned, [conn])
 
 
@@ -435,8 +438,8 @@ class TestEngineDbCatalogRestore(unittest.TestCase):
         self.assertIn('INSERT INTO matrix', inserts[0][1])
         self.assertEqual(returned, [conn])
 
-    def test_restore_persists_existing_inline_works_from_the_backup(self):
-        cursor = FakeCursor(fetchall_values=[[(1, 'Name', 'Desc', '["DB work"]')]])
+    def test_restore_does_not_persist_retired_inline_works_from_the_backup(self):
+        cursor = FakeCursor()
         conn = FakeConn(cursor)
         catalog = {
             'schema_version': 1,
@@ -448,39 +451,18 @@ class TestEngineDbCatalogRestore(unittest.TestCase):
             'review_queue': [],
         }
 
-        def project(fetishes, **_kwargs):
-            self.assertEqual(fetishes[0]['works'], ['Backup work'])
-            return {
-                'fetishes': fetishes,
-                'applied_link_count': 0,
-                'fetish_owner_count': 0,
-                'compound_owner_count': 0,
-                'missing_count': 0,
-                'error_count': 0,
-                'errors': [],
-            }
-
-        with (
-            patch.object(
-                engine_db.db_work_catalog,
-                'project_approved_inline_correction_manifests',
-                side_effect=project,
-            ),
-            patch.object(engine_db.db_work_catalog, 'replace_catalog'),
-        ):
+        with patch.object(engine_db.db_work_catalog, 'replace_catalog'):
             engine_db.restore_matrix_snapshot(
-                [],
+                [{'id': 1, 'name': 'Name', 'desc': 'Desc', 'works': ['Backup work']}],
                 [],
                 get_conn=lambda: conn,
                 put_conn=lambda _conn: None,
                 execute_values=lambda *_args: None,
                 work_catalog=catalog,
-                inline_corrections={},
-                legacy_projection_fetishes=[{'id': 1, 'name': 'Name', 'desc': 'Desc', 'works': ['Backup work']}],
             )
 
         updates = [call for call in cursor.executed if call[0] == 'UPDATE fetishes SET works=%s WHERE id=%s']
-        self.assertEqual(updates, [('UPDATE fetishes SET works=%s WHERE id=%s', ('["Backup work"]', 1))])
+        self.assertEqual(updates, [])
 
 
 class TestEngineDbMutationAdapters(unittest.TestCase):
@@ -524,7 +506,7 @@ class TestEngineDbMutationAdapters(unittest.TestCase):
         self.assertEqual(sql, 'UPDATE fetishes SET name=%s WHERE id=%s')
         self.assertEqual(params, ['Name', 7])
 
-    def test_update_fetish_works_replaces_legacy_and_catalog_in_one_transaction(self):
+    def test_update_fetish_works_replaces_catalog_without_inline_write(self):
         cursor = FakeCursor()
         conn = FakeConn(cursor)
         current = {'schema_version': 1}
@@ -550,8 +532,8 @@ class TestEngineDbMutationAdapters(unittest.TestCase):
         replace_works.assert_called_once_with(current, 7, ['作品'])
         replace_catalog.assert_called_once_with(cursor, updated, execute_values=execute_values)
         sql, params = cursor.executed[0]
-        self.assertEqual(sql, 'UPDATE fetishes SET name=%s, works=%s WHERE id=%s')
-        self.assertEqual(params, ['Name', '["作品"]', 7])
+        self.assertEqual(sql, 'UPDATE fetishes SET name=%s WHERE id=%s')
+        self.assertEqual(params, ['Name', 7])
 
     def test_delete_fetish_rows_updates_catalog_in_same_transaction(self):
         cursor = FakeCursor()
@@ -928,45 +910,10 @@ class TestEngineDbStatsAdapters(unittest.TestCase):
         self.assertEqual(dual_params, (10, 1, 1))
 
 
-class TestWorkCatalogInlineTransaction(unittest.TestCase):
-    def _fixture(self):
-        data = Path(__file__).resolve().parents[1] / 'data'
-        catalog = json.loads((data / 'work_catalog.json').read_text(encoding='utf-8'))
-        fetishes = json.loads((data / 'fetishes.json').read_text(encoding='utf-8'))
-        corrections = json.loads((data / 'work_catalog_corrections.json').read_text(encoding='utf-8'))
-        correction_manifests = (
-            corrections,
-            json.loads((data / 'work_catalog_corrections_batch2.json').read_text(encoding='utf-8')),
-            json.loads((data / 'work_catalog_link_bindings_batch2.json').read_text(encoding='utf-8')),
-        )
-        source = work_catalog.project_approved_inline_correction_manifests(
-            fetishes,
-            correction_manifests=correction_manifests,
-            direction='reverse',
-            tables={'fetish_work_links'},
-        )
-        fetishes = source['fetishes']
-        player_works = [
-            {
-                'title': '誰かこの状況を説明してください！',
-                'url': 'https://www.amazon.co.jp/dp/B07DL6G318?tag=hekinator-22',
-            },
-            {
-                'title': 'わたしの幸せな結婚',
-                'url': 'https://www.amazon.co.jp/dp/B07X25T546?tag=hekinator-22',
-            },
-        ]
-        next(row for row in fetishes if row['id'] == 104)['works'] = player_works
-        catalog = work_catalog.replace_fetish_works(catalog, 104, player_works)
-        rows = [
-            (row['id'], row['name'], row['desc'], json.dumps(row.get('works') or [], ensure_ascii=False))
-            for row in fetishes
-        ]
-        return catalog, corrections, rows, player_works
-
-    def test_correction_updates_inline_fetishes_under_the_catalog_transaction(self):
-        catalog, corrections, rows, player_works = self._fixture()
-        cursor = FakeCursor(fetchall_values=[rows])
+class TestWorkCatalogOnlyTransaction(unittest.TestCase):
+    def test_catalog_mutation_has_no_inline_database_writes(self):
+        catalog = work_catalog.build_catalog_from_inline([{'id': 1, 'works': ['Work']}])
+        cursor = FakeCursor()
         conn = FakeConn(cursor)
 
         with (
@@ -974,27 +921,22 @@ class TestWorkCatalogInlineTransaction(unittest.TestCase):
             patch.object(engine_db.db_work_catalog, 'load_catalog_from_cursor', return_value=catalog),
             patch.object(engine_db.db_work_catalog, 'replace_catalog') as replace_catalog,
         ):
-            updated, result, inline_fetishes = engine_db.mutate_work_catalog(
-                lambda current: (current, {}),
+            updated, result = engine_db.mutate_work_catalog(
+                lambda current: (current, {'ok': True}),
                 expected_digest=work_catalog.catalog_digest(catalog),
                 get_conn=lambda: conn,
                 put_conn=lambda _conn: None,
                 execute_values=lambda *_args: None,
-                inline_corrections=corrections,
             )
 
-        update_rows = [call for call in cursor.executed if call[0] == 'UPDATE fetishes SET works=%s WHERE id=%s']
-        self.assertEqual(len(update_rows), 9)
-        self.assertEqual(result['inline_applied_link_count'], 9)
-        self.assertEqual(result['inline_fetish_owner_count'], 9)
-        self.assertEqual(result['inline_missing_count'], 2)
-        self.assertEqual(next(row for row in inline_fetishes if row['id'] == 104)['works'], player_works)
         self.assertIs(updated, catalog)
+        self.assertEqual(result, {'ok': True})
+        self.assertFalse(any('fetishes SET works' in sql for sql, _params in cursor.executed))
         replace_catalog.assert_called_once()
 
-    def test_catalog_failure_rolls_back_inline_updates_in_the_same_context(self):
-        catalog, corrections, rows, _player_works = self._fixture()
-        cursor = FakeCursor(fetchall_values=[rows])
+    def test_catalog_failure_rolls_back_the_transaction(self):
+        catalog = work_catalog.build_catalog_from_inline([{'id': 1, 'works': ['Work']}])
+        cursor = FakeCursor()
 
         class RollbackConn(FakeConn):
             exit_type = None
@@ -1016,11 +958,10 @@ class TestWorkCatalogInlineTransaction(unittest.TestCase):
                 get_conn=lambda: conn,
                 put_conn=lambda _conn: None,
                 execute_values=lambda *_args: None,
-                inline_corrections=corrections,
             )
 
         self.assertIs(conn.exit_type, OSError)
-        self.assertTrue(any(sql == 'UPDATE fetishes SET works=%s WHERE id=%s' for sql, _params in cursor.executed))
+        self.assertFalse(any('fetishes SET works' in sql for sql, _params in cursor.executed))
 
 
 class TestEngineDbSeedAdapters(unittest.TestCase):

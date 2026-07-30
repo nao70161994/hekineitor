@@ -276,7 +276,7 @@ class TestAdminReporting(APITestCase):
         data = res.get_json()
         admin_page = self.client.get('/admin', headers=headers)
         self.assertEqual(admin_page.status_code, 200)
-        self.assertIn(b'apply-works-seed-backfill', admin_page.data)
+        self.assertNotIn(b'apply-works-seed-backfill', admin_page.data)
         self.assertIn(b'repair-promoted-stats-dry-run', admin_page.data)
         self.assertIn(b'repair-promoted-stats-apply', admin_page.data)
         self.assertIn(b'move-stats-history-dry-run', admin_page.data)
@@ -318,20 +318,15 @@ class TestAdminReporting(APITestCase):
         self.assertIn('normalization_conflict_count', catalog)
         self.assertIn('compound_work_count', catalog)
 
-    def test_works_health_migration_uses_explicit_legacy_compound_source(self):
+    def test_works_health_reports_completed_catalog_only_migration(self):
         from app import engine as app_engine
 
-        legacy = [{'key': '1,2', 'id_a': 1, 'id_b': 2, 'works': ['Legacy Pair']}]
-        report = {'status': 'ok', 'retirement': {'automated_eligible': False}}
-        with (
-            patch.object(app_engine, 'list_legacy_compound_work_rows', return_value=legacy) as legacy_reader,
-            patch.object(app_engine, 'work_catalog_migration_report', return_value=report) as migration,
-        ):
+        report = {'status': 'ok', 'retirement': {'completed': True, 'policy': 'catalog_only'}}
+        with patch.object(app_engine, 'work_catalog_migration_report', return_value=report) as migration:
             res = self.client.get('/api/admin/works_health', headers=self._admin_headers())
 
         self.assertEqual(res.status_code, 200)
-        legacy_reader.assert_called_once_with()
-        migration.assert_called_once_with(compound_rows=legacy)
+        migration.assert_called_once_with()
         self.assertEqual(res.get_json()['migration'], report)
 
     def test_edit_question(self):

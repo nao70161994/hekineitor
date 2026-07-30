@@ -33,7 +33,6 @@ def _export_fetishes_to_restore(ctx, exported_fetishes, *, include_managed=False
                 'id': fetish_id,
                 'name': name,
                 'desc': str(fetish.get('desc') or name).strip()[:500] or name,
-                'works': fetish.get('works') if isinstance(fetish.get('works'), list) else [],
             }
         )
         seen.add(fetish_id)

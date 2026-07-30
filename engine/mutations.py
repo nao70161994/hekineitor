@@ -16,13 +16,11 @@ def append_fetish(fetishes, matrix, *, db_id, name, desc, yes_row, total_row):
     return array_idx
 
 
-def apply_fetish_edits(fetish, *, name=None, desc=None, works=None):
+def apply_fetish_edits(fetish, *, name=None, desc=None):
     if name is not None:
         fetish['name'] = name
     if desc is not None:
         fetish['desc'] = desc
-    if works is not None:
-        fetish['works'] = works
 
 
 def delete_fetish_at(fetishes, matrix, idx):

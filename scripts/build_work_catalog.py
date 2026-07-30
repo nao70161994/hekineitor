@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / 'data'
+LEGACY_FIXTURE_DIR = ROOT / 'tests' / 'fixtures' / 'legacy_work_catalog'
 CATALOG_PATH = DATA_DIR / 'work_catalog.json'
 DECISIONS_PATH = DATA_DIR / 'work_catalog_review_decisions.json'
 SEED_OVERRIDES_PATH = DATA_DIR / 'work_catalog_seed_overrides.json'
@@ -26,8 +27,8 @@ def build_catalog():
         project_approved_inline_correction_manifests,
     )
 
-    fetishes = json.loads((DATA_DIR / 'fetishes.json').read_text(encoding='utf-8'))
-    compound_data = json.loads((DATA_DIR / 'compound_works.json').read_text(encoding='utf-8'))
+    fetishes = json.loads((LEGACY_FIXTURE_DIR / 'fetishes.json').read_text(encoding='utf-8'))
+    compound_data = json.loads((LEGACY_FIXTURE_DIR / 'compound_works.json').read_text(encoding='utf-8'))
     compound_rows = []
     for key, works in sorted(compound_data.items()):
         id_a, id_b = key.split(',', 1)

@@ -1,7 +1,5 @@
 """Compatibility facade for database persistence helpers."""
 
-import json
-
 from . import db_work_catalog
 from . import work_catalog as engine_work_catalog
 from .db_config import load_config, save_config_value
@@ -87,7 +85,7 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                             fetish['id'],
                             fetish['name'],
                             fetish['desc'],
-                            json.dumps(fetish.get('works', []), ensure_ascii=False),
+                            '[]',
                         )
                         for fetish in seed_fetishes
                     ],
@@ -166,7 +164,7 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                             fetish['id'],
                             fetish['name'],
                             fetish['desc'],
-                            json.dumps(fetish.get('works', []), ensure_ascii=False),
+                            '[]',
                         )
                         for fetish in new_fetishes
                     ],
@@ -194,20 +192,14 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                     'UPDATE fetishes SET name=%s, "desc"=%s WHERE id=%s',
                     (fetish['name'], fetish['desc'], fetish['id']),
                 )
-            backfill_empty_recommended_works(cur)
-            backfill_recommended_work_urls(cur, seed)
-            db_work_catalog.migrate_legacy_catalog(
-                cur,
-                compound_data=engine._load_json('compound_works.json'),
-                execute_values=execute_values,
-                seed_overrides=engine._load_json('work_catalog_seed_overrides.json'),
-                review_decisions=engine._load_json('work_catalog_review_decisions.json'),
-                corrections=engine._load_json('work_catalog_corrections.json'),
-                bibliography=engine._load_json('work_catalog_bibliography.json'),
-                corrections_batch2=engine._load_json('work_catalog_corrections_batch2.json'),
-                bibliography_batch2=engine._load_json('work_catalog_bibliography_batch2.json'),
-                link_bindings_batch2=engine._load_json('work_catalog_link_bindings_batch2.json'),
-            )
+            db_work_catalog.ensure_schema(cur)
+            if db_work_catalog.catalog_is_empty(cur):
+                db_work_catalog.replace_catalog(
+                    cur,
+                    engine._load_json('work_catalog.json'),
+                    execute_values=execute_values,
+                )
+            cur.execute("UPDATE fetishes SET works='[]' WHERE works <> '[]'")
             nq = len(engine.questions)
             cur.execute('SELECT MAX(question_id) FROM matrix')
             max_qid = cur.fetchone()[0]
@@ -258,7 +250,7 @@ def insert_fetishes_with_neutral_matrix(fetishes, question_count, *, get_conn, p
                         fetish['id'],
                         fetish['name'],
                         fetish.get('desc', fetish['name']),
-                        json.dumps(fetish.get('works', []), ensure_ascii=False),
+                        '[]',
                     )
                     for fetish in fetishes
                 ],
@@ -326,9 +318,6 @@ def update_fetish_fields(fetish_id, *, name=None, desc=None, works=None, get_con
             if desc is not None:
                 updates.append('"desc"=%s')
                 params.append(desc)
-            if works is not None:
-                updates.append('works=%s')
-                params.append(json.dumps(works, ensure_ascii=False))
             if updates:
                 params.append(fetish_id)
                 cur.execute(f'UPDATE fetishes SET {", ".join(updates)} WHERE id=%s', params)
@@ -365,7 +354,6 @@ def mutate_work_catalog(
     get_conn,
     put_conn,
     execute_values,
-    inline_corrections=None,
 ):
     """Apply one optimistic admin mutation under the global catalog lock."""
     conn = get_conn()
@@ -378,34 +366,8 @@ def mutate_work_catalog(
                 raise ValueError('work catalog version conflict')
             updated, result = mutator(current)
             engine_work_catalog.validate_catalog(updated)
-            inline_fetishes = None
-            if inline_corrections is not None:
-                cur.execute('SELECT id, name, "desc", works FROM fetishes ORDER BY id FOR UPDATE')
-                inline_fetishes = parse_fetish_rows(cur.fetchall())
-                projection = engine_work_catalog.project_approved_inline_corrections(
-                    inline_fetishes,
-                    corrections=inline_corrections,
-                    tables={'fetish_work_links'},
-                )
-                projected_by_id = {row['id']: row for row in projection['fetishes']}
-                for fetish in inline_fetishes:
-                    projected = projected_by_id[fetish['id']]
-                    if projected.get('works') == fetish.get('works'):
-                        continue
-                    cur.execute(
-                        'UPDATE fetishes SET works=%s WHERE id=%s',
-                        (json.dumps(projected.get('works') or [], ensure_ascii=False), fetish['id']),
-                    )
-                inline_fetishes = projection['fetishes']
-                result = dict(result or {})
-                result.update(
-                    inline_applied_link_count=projection['applied_link_count'],
-                    inline_fetish_owner_count=projection['fetish_owner_count'],
-                    inline_compound_owner_count=0,
-                    inline_missing_count=projection['missing_count'],
-                )
             db_work_catalog.replace_catalog(cur, updated, execute_values=execute_values)
-            return updated, result, inline_fetishes
+            return updated, result
     finally:
         put_conn(conn)
 

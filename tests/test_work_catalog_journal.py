@@ -18,13 +18,13 @@ class WorkCatalogMutationJournalTests(unittest.TestCase):
             fetishes,
             compound_rows=[{'id_a': 1, 'id_b': 2, 'works': [title]}],
         )
-        return {'fetishes': fetishes, 'compound_works': compounds, 'work_catalog': catalog}
+        fetishes = [{key: value for key, value in row.items() if key != 'works'} for row in fetishes]
+        return {'fetishes': fetishes, 'work_catalog': catalog}
 
     def _paths(self, root):
         return (
             root / 'journal.json',
             root / 'fetishes.json',
-            root / 'compound.json',
             root / 'catalog.json',
         )
 
@@ -43,8 +43,7 @@ class WorkCatalogMutationJournalTests(unittest.TestCase):
             )
             self.assertFalse(paths[0].exists())
             self.assertEqual(json.loads(paths[1].read_text()), after['fetishes'])
-            self.assertEqual(json.loads(paths[2].read_text()), after['compound_works'])
-            self.assertEqual(json.loads(paths[3].read_text()), after['work_catalog'])
+            self.assertEqual(json.loads(paths[2].read_text()), after['work_catalog'])
 
     def test_failed_commit_rolls_back_all_files(self):
         before = self._state('Before')
@@ -57,7 +56,7 @@ class WorkCatalogMutationJournalTests(unittest.TestCase):
 
             def fail_catalog_once(path, value, **kwargs):
                 nonlocal failed_once
-                if Path(path) == paths[3] and not failed_once:
+                if Path(path) == paths[2] and not failed_once:
                     failed_once = True
                     raise OSError('catalog write failed')
                 atomic_write_json(path, value, **kwargs)
@@ -71,8 +70,7 @@ class WorkCatalogMutationJournalTests(unittest.TestCase):
                 )
             self.assertFalse(paths[0].exists())
             self.assertEqual(json.loads(paths[1].read_text()), before['fetishes'])
-            self.assertEqual(json.loads(paths[2].read_text()), before['compound_works'])
-            self.assertEqual(json.loads(paths[3].read_text()), before['work_catalog'])
+            self.assertEqual(json.loads(paths[2].read_text()), before['work_catalog'])
 
     def test_recovery_rolls_forward_valid_after_snapshot(self):
         before = self._state('Before')
@@ -91,8 +89,7 @@ class WorkCatalogMutationJournalTests(unittest.TestCase):
             self.assertTrue(recovered)
             self.assertFalse(paths[0].exists())
             self.assertEqual(json.loads(paths[1].read_text()), after['fetishes'])
-            self.assertEqual(json.loads(paths[2].read_text()), after['compound_works'])
-            self.assertEqual(json.loads(paths[3].read_text()), after['work_catalog'])
+            self.assertEqual(json.loads(paths[2].read_text()), after['work_catalog'])
 
     def test_lifecycle_recovery_rolls_matrix_and_log_forward_with_catalog(self):
         before = self._state('Before')
@@ -104,7 +101,6 @@ class WorkCatalogMutationJournalTests(unittest.TestCase):
             }
         )
         after['fetishes'] = after['fetishes'][:1]
-        after['compound_works'] = {}
         after['work_catalog'] = work_catalog.delete_fetish_references(after['work_catalog'], 2)
         after.update(
             {
@@ -130,7 +126,7 @@ class WorkCatalogMutationJournalTests(unittest.TestCase):
             self.assertTrue(recovered)
             self.assertEqual(json.loads(matrix_path.read_text()), after['matrix'])
             self.assertEqual(json.loads(log_path.read_text()), after['fetish_log'])
-            self.assertEqual(json.loads(paths[3].read_text()), after['work_catalog'])
+            self.assertEqual(json.loads(paths[2].read_text()), after['work_catalog'])
 
     def test_recovery_rejects_catalog_with_unknown_fetish(self):
         before = self._state('Before')

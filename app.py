@@ -16,7 +16,6 @@ from engine import (
     _get_conn,
     _put_conn,
     _use_db,
-    get_compound_works,
     parse_works_list,
 )
 from routes import admin as admin_routes
@@ -169,7 +168,7 @@ def _game_context():
         guess_threshold=BOOTSTRAP.guess_threshold,
         focus_threshold=FOCUS_THRESHOLD,
         work_title=work_title,
-        get_compound_works=get_compound_works,
+        get_compound_works=engine.get_compound_recommended_works,
         record_share_event=_record_valid_share_event,
         record_gameplay_event=lambda *args, **kwargs: gameplay_events_service.safe_record_event(
             *args, environ=os.environ, **kwargs

@@ -122,8 +122,9 @@ class TestServiceAppConfig(unittest.TestCase):
 
     def test_seed_work_catalog_has_no_within_owner_exact_duplicates(self):
         root = Path(__file__).resolve().parents[1]
-        fetishes = json.loads((root / 'data' / 'fetishes.json').read_text())
-        compound_data = json.loads((root / 'data' / 'compound_works.json').read_text())
+        legacy = root / 'tests' / 'fixtures' / 'legacy_work_catalog'
+        fetishes = json.loads((legacy / 'fetishes.json').read_text())
+        compound_data = json.loads((legacy / 'compound_works.json').read_text())
         compound_rows = []
         for key, works in compound_data.items():
             id_a, id_b = key.split(',', 1)

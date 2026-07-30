@@ -3,8 +3,8 @@
   "generated_at": "2026-07-30",
   "selection_rule": {
     "source": [
-      "data/compound_works.json",
-      "data/fetishes.json",
+      "tests/fixtures/legacy_work_catalog/compound_works.json",
+      "tests/fixtures/legacy_work_catalog/fetishes.json",
       "data/work_catalog_corrections.json"
     ],
     "catalog": "data/work_catalog.json",

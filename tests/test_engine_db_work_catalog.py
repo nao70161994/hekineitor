@@ -228,9 +228,11 @@ class TestDbWorkCatalog(unittest.TestCase):
         )
 
     def test_fresh_migration_reverses_corrected_inline_to_the_stable_checked_catalog(self):
-        data = Path(__file__).resolve().parents[1] / 'data'
-        fetishes = json.loads((data / 'fetishes.json').read_text(encoding='utf-8'))
-        compounds = json.loads((data / 'compound_works.json').read_text(encoding='utf-8'))
+        root = Path(__file__).resolve().parents[1]
+        data = root / 'data'
+        legacy = root / 'tests' / 'fixtures' / 'legacy_work_catalog'
+        fetishes = json.loads((legacy / 'fetishes.json').read_text(encoding='utf-8'))
+        compounds = json.loads((legacy / 'compound_works.json').read_text(encoding='utf-8'))
         seed = json.loads((data / 'work_catalog_seed_overrides.json').read_text(encoding='utf-8'))
         review = json.loads((data / 'work_catalog_review_decisions.json').read_text(encoding='utf-8'))
         corrections = json.loads((data / 'work_catalog_corrections.json').read_text(encoding='utf-8'))

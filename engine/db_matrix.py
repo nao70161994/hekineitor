@@ -1,7 +1,5 @@
 """Matrix row conversion and persistence helpers."""
 
-import json
-
 from . import db_work_catalog
 
 SAVE_MATRIX_SQL = """
@@ -84,22 +82,14 @@ def restore_matrix_snapshot(
     put_conn,
     execute_values,
     work_catalog=None,
-    restored_inline_fetishes=None,
-    inline_corrections=None,
-    inline_correction_manifests=None,
-    legacy_projection_fetishes=None,
-    inline_projection_direction='forward',
 ):
     conn = get_conn()
     try:
         with conn:
             cur = conn.cursor()
-            if work_catalog is not None or restored_inline_fetishes:
+            if work_catalog is not None:
                 db_work_catalog.ensure_schema(cur)
                 db_work_catalog.lock_catalog(cur)
-            if work_catalog is None and restored_inline_fetishes:
-                current = db_work_catalog.load_catalog_from_cursor(cur)
-                work_catalog = db_work_catalog.merge_restored_fetish_works(current, restored_inline_fetishes)
             if fetishes:
                 execute_values(
                     cur,
@@ -109,62 +99,11 @@ def restore_matrix_snapshot(
                             fetish['id'],
                             fetish['name'],
                             fetish.get('desc', fetish['name']),
-                            json.dumps(fetish.get('works', []), ensure_ascii=False),
+                            '[]',
                         )
                         for fetish in fetishes
                     ],
                 )
-            inline_fetishes = None
-            if work_catalog is not None and (inline_corrections is not None or inline_correction_manifests is not None):
-                cur.execute('SELECT id, name, "desc", works FROM fetishes ORDER BY id FOR UPDATE')
-                inline_fetishes = parse_fetish_rows(cur.fetchall())
-                persisted_works = {row['id']: row.get('works') or [] for row in inline_fetishes}
-                if legacy_projection_fetishes is not None:
-                    restored_works = {row['id']: row.get('works') or [] for row in legacy_projection_fetishes}
-                    for fetish in inline_fetishes:
-                        if fetish['id'] in restored_works:
-                            fetish['works'] = restored_works[fetish['id']]
-                manifests = (
-                    tuple(inline_correction_manifests)
-                    if inline_correction_manifests is not None
-                    else (inline_corrections,)
-                )
-                if inline_projection_direction == 'canonical':
-                    try:
-                        projection = db_work_catalog.project_approved_inline_correction_manifests(
-                            inline_fetishes,
-                            correction_manifests=manifests,
-                            tables={'fetish_work_links'},
-                        )
-                    except ValueError:
-                        source = db_work_catalog.project_approved_inline_correction_manifests(
-                            inline_fetishes,
-                            correction_manifests=manifests,
-                            direction='reverse',
-                            tables={'fetish_work_links'},
-                        )
-                        projection = db_work_catalog.project_approved_inline_correction_manifests(
-                            source['fetishes'],
-                            correction_manifests=manifests,
-                            tables={'fetish_work_links'},
-                        )
-                else:
-                    projection = db_work_catalog.project_approved_inline_correction_manifests(
-                        inline_fetishes,
-                        correction_manifests=manifests,
-                        direction=inline_projection_direction,
-                        tables={'fetish_work_links'},
-                    )
-                projected_by_id = {row['id']: row for row in projection['fetishes']}
-                for fetish in inline_fetishes:
-                    projected = projected_by_id[fetish['id']]
-                    if projected.get('works') == persisted_works[fetish['id']]:
-                        continue
-                    cur.execute(
-                        'UPDATE fetishes SET works=%s WHERE id=%s',
-                        (json.dumps(projected.get('works') or [], ensure_ascii=False), fetish['id']),
-                    )
-                inline_fetishes = projection['fetishes']
             if work_catalog is not None:
                 db_work_catalog.replace_catalog(cur, work_catalog, execute_values=execute_values)
             rows = [
@@ -178,29 +117,20 @@ def restore_matrix_snapshot(
             ]
             if rows:
                 execute_values(cur, IMPORT_MATRIX_SQL, rows)
-            return inline_fetishes
+            return None
     finally:
         put_conn(conn)
 
 
 def parse_fetish_rows(rows):
-    parsed = []
-    for row in rows:
-        try:
-            works = json.loads(row[3]) if row[3] else []
-            if not isinstance(works, list):
-                works = []
-        except (TypeError, json.JSONDecodeError):
-            works = []
-        parsed.append({'id': row[0], 'name': row[1], 'desc': row[2], 'works': works})
-    return parsed
+    return [{'id': row[0], 'name': row[1], 'desc': row[2]} for row in rows]
 
 
 def load_fetishes(*, get_conn, put_conn):
     conn = get_conn()
     try:
         cur = conn.cursor()
-        cur.execute('SELECT id, name, "desc", works FROM fetishes ORDER BY id')
+        cur.execute('SELECT id, name, "desc" FROM fetishes ORDER BY id')
         return parse_fetish_rows(cur.fetchall())
     finally:
         put_conn(conn)

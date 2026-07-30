@@ -5,7 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 QUEUE_PATH = ROOT / 'data/work_catalog_research_queue.json'
 CATALOG_PATH = ROOT / 'data/work_catalog.json'
-COMPOUND_PATH = ROOT / 'data/compound_works.json'
+COMPOUND_PATH = ROOT / 'tests/fixtures/legacy_work_catalog/compound_works.json'
 CORRECTIONS_PATH = ROOT / 'data/work_catalog_corrections.json'
 
 

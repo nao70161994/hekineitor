@@ -902,7 +902,6 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (action === 'refresh-matrix-backups') refreshMatrixBackups();
     else if (action === 'load-preflight') loadPreflight();
     else if (action === 'load-performance') loadPerformance();
-    else if (action === 'apply-works-seed-backfill') applyWorksSeedBackfill();
     else if (action === 'preview-result-exposure-backfill') previewResultExposureBackfill();
     else if (action === 'apply-result-exposure-backfill') applyResultExposureBackfill();
     else if (action === 'load-works-link-queue') loadWorksLinkQueue();

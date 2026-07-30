@@ -31,7 +31,6 @@ known-first-party = [
 
 [tool.ruff.lint.per-file-ignores]
 "check_works_links.py" = ["E402"]
-"fetch_kindle_asins.py" = ["E402"]
 "restore_matrix.py" = ["E402"]
 "engine/__init__.py" = ["F821"]
 "engine/db.py" = ["F401"]

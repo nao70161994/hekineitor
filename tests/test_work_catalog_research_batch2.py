@@ -9,6 +9,7 @@ from work_utils import safe_work_url
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / 'data'
+LEGACY_DATA = ROOT / 'tests' / 'fixtures' / 'legacy_work_catalog'
 TABLES = (
     'works_master',
     'work_editions',
@@ -59,6 +60,10 @@ BIBLIOGRAPHY_ENTRY_IDS = {
 
 def _load(name):
     return json.loads((DATA / name).read_text(encoding='utf-8'))
+
+
+def _load_legacy(name):
+    return json.loads((LEGACY_DATA / name).read_text(encoding='utf-8'))
 
 
 def _build_phase1_catalog():
@@ -265,8 +270,8 @@ def test_batch2_reindexes_every_owner_and_preserves_identifier_uniqueness_and_sa
 
 
 def test_batch2_inline_projection_round_trips_phase2_source():
-    fetishes = _load('fetishes.json')
-    compounds = _load('compound_works.json')
+    fetishes = _load_legacy('fetishes.json')
+    compounds = _load_legacy('compound_works.json')
     correction_manifests = tuple(
         _load(name)
         for name in (

@@ -22,10 +22,6 @@ EXPECTED_MODULE_EXPORTS = {
     'DOMAIN_PRIORS',
     'FETISH_RELATIONS',
     'FETISH_PRIOR_WEIGHTS',
-    'get_compound_works',
-    'list_compound_works',
-    'set_compound_works',
-    'delete_compound_works',
     'parse_works_list',
 }
 
@@ -83,13 +79,13 @@ EXPECTED_PUBLIC_METHOD_SIGNATURES = {
     'promote_fetish': '(self, old_id)',
     'capture_learned_priors': '(self)',
     'get_related': '(self, fetish_id)',
+    'recommended_works_snapshot': '(self)',
     'get_recommended_works': '(self, fetish_id)',
     'get_compound_recommended_works': '(self, id_a, id_b)',
     'list_compound_work_rows': '(self)',
-    'list_legacy_compound_work_rows': '(self)',
     'work_catalog_admin_snapshot': '(self)',
     'mutate_work_catalog': '(self, operation, payload, *, expected_digest)',
-    'work_catalog_migration_report': '(self, *, compound_rows=())',
+    'work_catalog_migration_report': '(self)',
     'set_compound_work_rows': '(self, id_a, id_b, works)',
     'delete_compound_work_rows': '(self, id_a, id_b)',
 }

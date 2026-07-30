@@ -140,20 +140,22 @@ class FakeClient:
                 'retitle_count': sum(row.get('type') == 'retitle_identity' for row in rows),
                 'quarantine_count': sum(row.get('type') == 'quarantine_recommendation' for row in rows),
                 'link_rebind_count': sum(row.get('type') == 'link_rebind' for row in rows),
-                'inline_applied_link_count': 0,
-                'inline_fetish_owner_count': 0,
-                'inline_compound_owner_count': 0,
-                'inline_missing_count': 0,
             }
-        return {'status': 'ok', 'digest': work_catalog.catalog_digest(self.catalog), 'result': result}
+        return {
+            'status': 'ok',
+            'digest': work_catalog.catalog_digest(self.catalog),
+            'result': result,
+            'storage_model': 'catalog_only',
+        }
 
 
 class ApplyWorkCatalogManifestsTests(unittest.TestCase):
     def setUp(self):
         self.root = Path(__file__).resolve().parents[1]
         data = self.root / 'data'
-        fetishes = json.loads((data / 'fetishes.json').read_text(encoding='utf-8'))
-        compounds = json.loads((data / 'compound_works.json').read_text(encoding='utf-8'))
+        legacy = self.root / 'tests' / 'fixtures' / 'legacy_work_catalog'
+        fetishes = json.loads((legacy / 'fetishes.json').read_text(encoding='utf-8'))
+        compounds = json.loads((legacy / 'compound_works.json').read_text(encoding='utf-8'))
         self.bibliography = json.loads((data / 'work_catalog_bibliography.json').read_text(encoding='utf-8'))
         compound_rows = []
         for key, works in sorted(compounds.items()):

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only production gate for catalog runtime and legacy retirement readiness."""
+"""Read-only production gate for catalog-only runtime health."""
 
 from __future__ import annotations
 
@@ -88,6 +88,7 @@ def build_report(
                 'errors': set(),
                 'retirement_ready': True,
                 'retirement_blockers': set(),
+                'retirement_completed': True,
             },
         )
         row['sample_count'] += 1
@@ -109,11 +110,13 @@ def build_report(
             row[key] = max(row[key], int(runtime.get(field) or 0))
         row['errors'].update(_migration_errors(migration))
         retirement = migration.get('retirement') or {}
+        completed = retirement.get('completed') is True
+        row['retirement_completed'] = row['retirement_completed'] and completed
         raw_parity_ok = migration.get('automated_parity_ok') is True and not int(migration.get('mismatch_count') or 0)
-        if not raw_parity_ok:
+        if not completed and not raw_parity_ok:
             row['retirement_blockers'].add('catalog_inline_mismatch')
         row['retirement_blockers'].update(str(value) for value in retirement.get('blockers') or [])
-        if not retirement.get('automated_eligible') or not raw_parity_ok:
+        if not retirement.get('automated_eligible') or (not completed and not raw_parity_ok):
             row['retirement_ready'] = False
 
     if len(workers) < expected_worker_count:
@@ -151,11 +154,15 @@ def build_report(
         'workers': serialized_workers,
         'errors': errors,
         'automated_gate_ok': not errors,
-        'manual_signoff_required': True,
+        'manual_signoff_required': not (
+            bool(workers) and all(row['retirement_completed'] for row in serialized_workers.values())
+        ),
         'retirement_readiness': {
             'automated_eligible': bool(workers) and all(row['retirement_ready'] for row in serialized_workers.values()),
             'blockers': sorted(retirement_blockers),
-            'raw_inline_parity_required': True,
+            'raw_inline_parity_required': not (
+                bool(workers) and all(row['retirement_completed'] for row in serialized_workers.values())
+            ),
         },
     }
 

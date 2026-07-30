@@ -389,14 +389,13 @@ class OperationsMonitoringTests(unittest.TestCase):
                 'unsafe_url_work_count': 0,
             },
             'link_queue': {'count': 0, 'samples': []},
-            'seed_backfill': {'candidate_count': 0, 'candidates': []},
         }
 
         self.assertEqual(operations_check._works_count(works_health), 42)
 
-    def test_works_count_keeps_legacy_fallbacks(self):
+    def test_works_count_accepts_maintenance_alias_only(self):
         self.assertEqual(operations_check._works_count({'maintenance': {'works_count': 7}}), 7)
-        self.assertEqual(operations_check._works_count({'seed_backfill': {'works_count': 8}}), 8)
+        self.assertIsNone(operations_check._works_count({'seed_backfill': {'works_count': 8}}))
 
     def test_operations_report_demotes_public_timeout_critical_when_metrics_exist(self):
         critical = ['/health failed: TimeoutError', 'OGP PNG failure: TimeoutError', 'matrix shape mismatch']

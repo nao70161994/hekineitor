@@ -268,12 +268,6 @@ def apply_manifests(
         review_sha256 = REVIEW_SHA256
     if work_catalog.catalog_digest(backup_catalog) != before_digest:
         raise RuntimeError('fresh backup catalog digest does not match production before mutation')
-    inline_count_fields = (
-        'inline_applied_link_count',
-        'inline_fetish_owner_count',
-        'inline_compound_owner_count',
-        'inline_missing_count',
-    )
     batch1_already_final = False
     if phase2_enabled:
         try:
@@ -383,8 +377,7 @@ def apply_manifests(
             or correction_counts.get('retitle_count') != expected_retitles
             or correction_counts.get('quarantine_count') != expected_quarantines
             or correction_counts.get('link_rebind_count') != expected_link_rebinds
-            or any(type(correction_counts.get(field)) is not int for field in inline_count_fields)
-            or any(correction_counts[field] < 0 for field in inline_count_fields)
+            or correction_response.get('storage_model') != 'catalog_only'
         ):
             raise RuntimeError(f'unexpected correction manifest result: {correction_counts!r}')
 
@@ -456,8 +449,7 @@ def apply_manifests(
                 corrections_batch2_counts.get(field) != value
                 for field, value in expected_batch2_correction_counts.items()
             )
-            or any(type(corrections_batch2_counts.get(field)) is not int for field in inline_count_fields)
-            or any(corrections_batch2_counts[field] < 0 for field in inline_count_fields)
+            or correction_batch2_response.get('storage_model') != 'catalog_only'
         ):
             raise RuntimeError(f'unexpected phase2 correction manifest result: {corrections_batch2_counts!r}')
         after_batch2_corrections, after_batch2_corrections_digest = _snapshot(client)
@@ -501,8 +493,7 @@ def apply_manifests(
         if (
             link_binding_response['digest'] != expected_catalog_digest_after_batch2
             or any(link_binding_counts.get(field) != value for field, value in expected_link_binding_counts.items())
-            or any(type(link_binding_counts.get(field)) is not int for field in inline_count_fields)
-            or any(link_binding_counts[field] < 0 for field in inline_count_fields)
+            or link_binding_response.get('storage_model') != 'catalog_only'
         ):
             raise RuntimeError(f'unexpected phase2 link binding result: {link_binding_counts!r}')
         expected_catalog = expected_after_link_bindings

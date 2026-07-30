@@ -109,22 +109,14 @@ def _validate_work_catalog_mutation_snapshot(snapshot, *, question_count=None):
     if not isinstance(snapshot, dict):
         raise ValueError('work catalog mutation snapshot must be an object')
     fetishes = snapshot.get('fetishes')
-    compound_works = snapshot.get('compound_works')
     catalog = snapshot.get('work_catalog')
-    if not isinstance(fetishes, list) or not isinstance(compound_works, dict):
+    if not isinstance(fetishes, list):
         raise ValueError('work catalog mutation snapshot is incomplete')
     fetish_ids = set()
     for fetish in fetishes:
         if not isinstance(fetish, dict) or type(fetish.get('id')) is not int or fetish['id'] in fetish_ids:
             raise ValueError('work catalog mutation contains an invalid fetish')
         fetish_ids.add(fetish['id'])
-    for key, works in compound_works.items():
-        parts = str(key).split(',')
-        if len(parts) != 2 or not all(part.isdigit() for part in parts):
-            raise ValueError('work catalog mutation contains an invalid compound key')
-        id_a, id_b = (int(part) for part in parts)
-        if id_a >= id_b or id_a not in fetish_ids or id_b not in fetish_ids or not isinstance(works, list):
-            raise ValueError('work catalog mutation contains an invalid compound owner')
     validate_catalog_fetish_references(catalog, fetish_ids)
     if 'matrix' in snapshot or 'fetish_log' in snapshot:
         if question_count is None or not valid_matrix(snapshot.get('matrix'), len(fetishes), question_count):
@@ -137,7 +129,6 @@ def _validate_work_catalog_mutation_snapshot(snapshot, *, question_count=None):
 def recover_work_catalog_mutation(
     journal_path,
     fetishes_path,
-    compound_path,
     catalog_path,
     *,
     atomic_write,
@@ -151,18 +142,19 @@ def recover_work_catalog_mutation(
         with open(journal_path, encoding='utf-8') as source:
             journal = json.load(source)
         version = journal.get('format_version') if isinstance(journal, dict) else None
-        if version not in (1, 2):
+        if version not in (1, 2, 3):
             raise ValueError('unsupported format')
         after = journal['after']
         _validate_work_catalog_mutation_snapshot(after, question_count=question_count)
-        if version == 2 and (matrix_path is None or fetish_log_path is None):
+        lifecycle = 'matrix' in after or 'fetish_log' in after
+        if lifecycle and (matrix_path is None or fetish_log_path is None):
             raise ValueError('lifecycle recovery paths are required')
     except (KeyError, OSError, json.JSONDecodeError, ValueError) as exc:
         raise RuntimeError('work catalog mutation journal is invalid') from exc
-    atomic_write(fetishes_path, after['fetishes'], ensure_ascii=False, indent=2)
-    atomic_write(compound_path, after['compound_works'], ensure_ascii=False, indent=2)
+    fetishes = [{key: value for key, value in row.items() if key != 'works'} for row in after['fetishes']]
+    atomic_write(fetishes_path, fetishes, ensure_ascii=False, indent=2)
     atomic_write(catalog_path, after['work_catalog'], ensure_ascii=False, indent=2)
-    if version == 2:
+    if lifecycle:
         atomic_write(matrix_path, after['matrix'])
         atomic_write(fetish_log_path, after['fetish_log'], ensure_ascii=False, indent=2)
     durable_unlink(journal_path)
@@ -172,7 +164,6 @@ def recover_work_catalog_mutation(
 def commit_work_catalog_mutation(
     journal_path,
     fetishes_path,
-    compound_path,
     catalog_path,
     *,
     before,
@@ -187,13 +178,12 @@ def commit_work_catalog_mutation(
     lifecycle = 'matrix' in after or 'fetish_log' in after
     if lifecycle and (matrix_path is None or fetish_log_path is None):
         raise ValueError('lifecycle mutation paths are required')
-    journal = {'format_version': 2 if lifecycle else 1, 'before': before, 'after': after}
+    journal = {'format_version': 3, 'before': before, 'after': after}
     journal_written = False
     try:
         atomic_write(journal_path, journal, ensure_ascii=False, indent=2)
         journal_written = True
         atomic_write(fetishes_path, after['fetishes'], ensure_ascii=False, indent=2)
-        atomic_write(compound_path, after['compound_works'], ensure_ascii=False, indent=2)
         atomic_write(catalog_path, after['work_catalog'], ensure_ascii=False, indent=2)
         if lifecycle:
             atomic_write(matrix_path, after['matrix'])
@@ -203,7 +193,6 @@ def commit_work_catalog_mutation(
         if journal_written:
             try:
                 atomic_write(fetishes_path, before['fetishes'], ensure_ascii=False, indent=2)
-                atomic_write(compound_path, before['compound_works'], ensure_ascii=False, indent=2)
                 atomic_write(catalog_path, before['work_catalog'], ensure_ascii=False, indent=2)
                 if lifecycle:
                     atomic_write(matrix_path, before['matrix'])

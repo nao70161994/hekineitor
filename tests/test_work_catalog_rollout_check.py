@@ -21,7 +21,7 @@ def migration_payload(worker_id='worker-a:1', revision=7, **overrides):
             'legacy_fallback_reads_since_start': 0,
             'catalog_load_failures_since_start': 0,
         },
-        'retirement': {'automated_eligible': True, 'blockers': []},
+        'retirement': {'automated_eligible': True, 'blockers': [], 'completed': True},
     }
     migration.update(overrides)
     return {'status': 'ok', 'migration': migration}
@@ -38,8 +38,9 @@ class WorkCatalogRolloutCheckTests(unittest.TestCase):
         )
 
         self.assertTrue(report['automated_gate_ok'])
-        self.assertTrue(report['manual_signoff_required'])
+        self.assertFalse(report['manual_signoff_required'])
         self.assertEqual(report['observed_worker_count'], 2)
+        self.assertFalse(report['retirement_readiness']['raw_inline_parity_required'])
         self.assertEqual(report['workers']['worker-a:1']['sample_count'], 2)
         self.assertEqual(report['workers']['worker-b:2']['database_revisions'], [7])
 
@@ -47,7 +48,7 @@ class WorkCatalogRolloutCheckTests(unittest.TestCase):
         payload = migration_payload(
             automated_parity_ok=False,
             mismatch_count=6,
-            retirement={'automated_eligible': False, 'blockers': ['catalog_inline_mismatch']},
+            retirement={'automated_eligible': False, 'blockers': ['catalog_inline_mismatch'], 'completed': False},
         )
 
         report = work_catalog_rollout_check.build_report(

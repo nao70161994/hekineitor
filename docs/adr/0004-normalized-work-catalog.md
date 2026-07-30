@@ -1,11 +1,12 @@
 # ADR 0004: Normalize recommended-work identity and recommendation links
 
-- Status: Accepted
+- Status: Implemented
 - Date: 2026-07-19
+- Completed: 2026-07-31
 
 ## Context
 
-推薦作品は現在、`fetishes.works` と `compound_works.json` に `{title, url}` をinline保存しています。同じ作品・ASINが複数箇所に複製され、タイトル表記がanalytics上のidentityにもなっています。このため、URL修正、別名統合、複合作品、クリック集計、backup/restoreを一貫して扱えません。
+推薦作品は以前、`fetishes.works` と `compound_works.json` に `{title, url}` をinline保存していました。同じ作品・ASINが複数箇所に複製され、タイトル表記がanalytics上のidentityにもなっていたため、URL修正、別名統合、複合作品、クリック集計、backup/restoreを一貫して扱えませんでした。
 
 実データには同一ASINの別名、括弧内のキャラクター・版・場面ラベル、同じ正規化候補でも異なるASINを持つ例があります。タイトル正規化だけで自動統合すると別作品・別版を誤ってまとめるため、作品本体、販売版、別名、推薦文脈を分離します。
 
@@ -43,7 +44,7 @@
 5. 管理CRUD、compound lifecycle、analyticsを安定IDへ移す。
 6. 本番parityとrestoreを確認後、inline `works`と`compound_works.json`をsource of truthから外す。
 
-移行中も旧backupと旧イベントは読み取り可能にし、catalog snapshotからlegacy projectionを再生成できる状態をrollback境界とします。
+このtransitionは2026-07-31に完了しました。ownerが旧推薦の消失を許容して即時廃止を明示承認したため、旧inline保全だけを目的とした7日/28回の追加観測はwaiveしました。runtime fallback、dual-write、旧JSON、旧cache API、inline backfillを削除し、catalog障害時はfail closedします。rollback境界はlegacy projectionではなくv3 catalog backupです。旧イベントはtitle identityで引き続き集計できます。
 
 ## Consequences
 

@@ -157,14 +157,13 @@ class PostgresWorkCatalogIntegrationTests(unittest.TestCase):
         def mutate(catalog):
             return work_catalog.admin_create_master(catalog, {'canonical_title': 'Atomic Work'})
 
-        updated, result, inline = engine_db.mutate_work_catalog(
+        updated, result = engine_db.mutate_work_catalog(
             mutate,
             expected_digest=digest,
             get_conn=self.get_conn,
             put_conn=self.put_conn,
             execute_values=extras.execute_values,
         )
-        self.assertIsNone(inline)
         self.assertEqual(
             result, next(row['work_id'] for row in updated['works_master'] if row['canonical_title'] == 'Atomic Work')
         )

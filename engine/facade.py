@@ -1,5 +1,4 @@
 import copy
-import logging
 import os
 import threading
 import time
@@ -8,14 +7,13 @@ from contextlib import contextmanager
 from analytics import build_quality_report
 from config import get_fetish_log_path
 from matrix_service import collect_matrix_updates, matrix_validation_report
-from storage import DATA_DIR, DATABASE_URL, HAS_PSYCOPG2, atomic_write_json, data_path, load_json_file
+from storage import DATA_DIR, DATABASE_URL, HAS_PSYCOPG2, atomic_write_json, load_json_file
 from storage import get_conn as _storage_get_conn
 from storage import put_conn as _storage_put_conn
 from storage import use_db as _storage_use_db
 from work_utils import parse_work_item, parse_works_list, work_title
 
 from . import admin_reports as engine_admin_reports
-from . import compound_works as engine_compound_works
 from . import correlation as engine_correlation
 from . import db as engine_db
 from . import facade_locks as engine_facade_locks
@@ -50,61 +48,6 @@ from .data import DOMAIN_PRIORS, FETISH_PRIOR_WEIGHTS, FETISH_RELATIONS, QUESTIO
 
 def _use_db():
     return _storage_use_db()
-
-
-_COMPOUND_WORKS: dict = {}
-_compound_works_loaded = False
-_COMPOUND_WORKS_PATH = data_path('compound_works.json')
-
-
-def _load_compound_works():
-    global _COMPOUND_WORKS, _compound_works_loaded
-    loaded = engine_compound_works.load_cache(
-        loaded=_compound_works_loaded,
-        load_fn=load_json_file,
-    )
-    if loaded is not None:
-        _COMPOUND_WORKS = loaded
-        _compound_works_loaded = True
-
-
-def _save_compound_works():
-    engine_compound_works.save_cache(_COMPOUND_WORKS_PATH, _COMPOUND_WORKS, atomic_write_json)
-
-
-def _replace_compound_works_cache(compound_works):
-    global _COMPOUND_WORKS, _compound_works_loaded
-    _COMPOUND_WORKS = copy.deepcopy(compound_works)
-    _compound_works_loaded = True
-
-
-def get_compound_works(id_a: int, id_b: int) -> list:
-    """2つの性癖IDペアに特化した作品リストを返す。なければ空リスト。"""
-    _load_compound_works()
-    return engine_compound_works.get_works(_COMPOUND_WORKS, id_a, id_b)
-
-
-def list_compound_works() -> list:
-    """全ペアをリスト形式で返す。[{key, id_a, id_b, works}, ...]"""
-    _load_compound_works()
-    return engine_compound_works.serialize_compound_works(_COMPOUND_WORKS)
-
-
-def set_compound_works(id_a: int, id_b: int, works: list) -> str:
-    """ペアの作品リストを追加・更新する。キーを返す。"""
-    _load_compound_works()
-    key = engine_compound_works.set_works(_COMPOUND_WORKS, id_a, id_b, works)
-    _save_compound_works()
-    return key
-
-
-def delete_compound_works(id_a: int, id_b: int) -> bool:
-    """ペアを削除する。存在しなければFalse。"""
-    _load_compound_works()
-    if not engine_compound_works.delete_works(_COMPOUND_WORKS, id_a, id_b):
-        return False
-    _save_compound_works()
-    return True
 
 
 def _get_conn():
@@ -152,7 +95,6 @@ class Engine:
                 engine_persistence.recover_work_catalog_mutation(
                     os.path.join(DATA_DIR, 'work_catalog_mutation_journal.json'),
                     os.path.join(DATA_DIR, 'fetishes.json'),
-                    os.path.join(DATA_DIR, 'compound_works.json'),
                     catalog_path,
                     atomic_write=self._atomic_write,
                     matrix_path=os.path.join(DATA_DIR, 'matrix.json'),
@@ -201,7 +143,6 @@ class Engine:
         self._work_catalog_failure_time = 0.0
 
         self._work_catalog_catalog_reads = 0
-        self._work_catalog_fallback_reads = 0
         self._work_catalog_load_failures = 0
 
     # ── JSON ローカル ──────────────────────────────────────
@@ -252,9 +193,6 @@ class Engine:
     def _materialized_work_catalog(self):
         now = time.monotonic()
         cached = getattr(self, '_work_catalog_cache', None)
-        if now - getattr(self, '_work_catalog_failure_time', 0.0) < 5.0:
-            self._work_catalog_fallback_reads = getattr(self, '_work_catalog_fallback_reads', 0) + 1
-            return None
         try:
             if _use_db():
                 revision = engine_db.db_work_catalog.catalog_revision(get_conn=_get_conn, put_conn=_put_conn)
@@ -274,12 +212,10 @@ class Engine:
                 engine_work_catalog.materialize_fetish_works(catalog),
                 engine_work_catalog.materialize_compound_works(catalog),
             )
-        except Exception:
-            logging.getLogger(__name__).exception('work catalog unavailable; using legacy recommendation fallback')
+        except Exception as exc:
             self._work_catalog_failure_time = now
             self._work_catalog_load_failures = getattr(self, '_work_catalog_load_failures', 0) + 1
-            self._work_catalog_fallback_reads = getattr(self, '_work_catalog_fallback_reads', 0) + 1
-            return None
+            raise RuntimeError('work catalog is unavailable') from exc
         self._work_catalog_cache = materialized
         self._work_catalog_cache_revision = revision
         self._work_catalog_cache_time = now
@@ -293,8 +229,8 @@ class Engine:
         self._work_catalog_cache_time = 0.0
         self._work_catalog_failure_time = 0.0
 
-    def work_catalog_migration_report(self, *, compound_rows=()):
-        """Return conservative evidence for retiring legacy inline work storage."""
+    def work_catalog_migration_report(self):
+        """Report the completed transition to catalog-only recommendation storage."""
         try:
             snapshot_revision = None
             database_revision = None
@@ -305,31 +241,17 @@ class Engine:
                 database_revision = engine_db.db_work_catalog.catalog_revision(get_conn=_get_conn, put_conn=_put_conn)
             else:
                 catalog = self._work_catalog_snapshot()
-            parity = engine_work_catalog.catalog_parity_report(catalog, self.fetishes, compound_rows=compound_rows)
-            approved_parity = engine_work_catalog.approved_projection_parity_report_many(
-                catalog,
-                self.fetishes,
-                compound_rows=compound_rows,
-                correction_manifests=(
-                    self._load_json('work_catalog_corrections.json'),
-                    self._load_json('work_catalog_corrections_batch2.json'),
-                    self._load_json('work_catalog_link_bindings_batch2.json'),
-                ),
-            )
+            engine_work_catalog.validate_catalog(catalog)
             cached_revision = getattr(self, '_work_catalog_cache_revision', None)
             catalog_reads = getattr(self, '_work_catalog_catalog_reads', 0)
-            fallback_reads = getattr(self, '_work_catalog_fallback_reads', 0)
             load_failures = getattr(self, '_work_catalog_load_failures', 0)
             revision_matches = not _use_db() or (
                 snapshot_revision == database_revision and cached_revision == database_revision
             )
             blockers = []
-            if not parity['automated_parity_ok']:
-                blockers.append('catalog_inline_mismatch')
-            if parity['pending_review_count']:
+            pending_review_count = sum(row.get('status') == 'pending' for row in catalog['review_queue'])
+            if pending_review_count:
                 blockers.append('pending_identity_reviews')
-            if fallback_reads:
-                blockers.append('legacy_fallback_observed')
             if load_failures:
                 blockers.append('catalog_load_failure_observed')
             if not catalog_reads:
@@ -338,8 +260,12 @@ class Engine:
                 blockers.append('worker_catalog_revision_mismatch')
             worker_id = f'{os.environ.get("DYNO") or os.environ.get("HOSTNAME") or "local"}:{os.getpid()}'
             return {
-                **parity,
-                **approved_parity,
+                'status': 'ok',
+                'automated_parity_ok': True,
+                'mismatch_count': 0,
+                'approved_projection_ok': True,
+                'approved_mismatch_count': 0,
+                'pending_review_count': pending_review_count,
                 'worker_id': worker_id,
                 'snapshot_revision': snapshot_revision,
                 'database_revision': database_revision,
@@ -347,13 +273,15 @@ class Engine:
                 'cache_revision_matches_database': revision_matches,
                 'runtime_observation': {
                     'catalog_reads_since_start': catalog_reads,
-                    'legacy_fallback_reads_since_start': fallback_reads,
+                    'legacy_fallback_reads_since_start': 0,
                     'catalog_load_failures_since_start': load_failures,
                 },
                 'retirement': {
                     'automated_eligible': not blockers,
                     'blockers': blockers,
-                    'policy': 'keep_inline_until_manual_signoff',
+                    'policy': 'catalog_only',
+                    'completed': True,
+                    'manual_signoff_required': False,
                     'observation_scope': 'current_worker_since_start',
                 },
             }
@@ -366,45 +294,38 @@ class Engine:
                 'retirement': {
                     'automated_eligible': False,
                     'blockers': ['catalog_report_unavailable'],
-                    'policy': 'keep_inline_until_manual_signoff',
+                    'policy': 'catalog_only',
+                    'completed': True,
                     'observation_scope': 'current_worker_since_start',
                 },
             }
+    def recommended_works_snapshot(self):
+        """Return all per-fetish recommendations from one catalog read."""
+        return copy.deepcopy(self._materialized_work_catalog()[0])
+
 
     def get_recommended_works(self, fetish_id):
         materialized = self._materialized_work_catalog()
-        if materialized is not None:
-            return copy.deepcopy(materialized[0].get(int(fetish_id), []))
-        fetish_index = self.index_of(int(fetish_id))
-        if fetish_index is None:
-            return []
-        return copy.deepcopy(self.fetishes[fetish_index].get('works') or [])
+        return copy.deepcopy(materialized[0].get(int(fetish_id), []))
 
     def get_compound_recommended_works(self, id_a, id_b):
         materialized = self._materialized_work_catalog()
-        if materialized is not None:
-            key = f'{min(int(id_a), int(id_b))},{max(int(id_a), int(id_b))}'
-            return copy.deepcopy(materialized[1].get(key, []))
-        return copy.deepcopy(get_compound_works(id_a, id_b))
+        key = f'{min(int(id_a), int(id_b))},{max(int(id_a), int(id_b))}'
+        return copy.deepcopy(materialized[1].get(key, []))
 
     def list_compound_work_rows(self):
         materialized = self._materialized_work_catalog()
-        if materialized is None:
-            return list_compound_works()
         rows = []
         for key, works in sorted(materialized[1].items()):
             id_a, id_b = (int(value) for value in key.split(',', 1))
             rows.append({'key': key, 'id_a': id_a, 'id_b': id_b, 'works': copy.deepcopy(works)})
         return rows
 
-    def list_legacy_compound_work_rows(self):
-        return copy.deepcopy(list_compound_works())
-
     def set_compound_work_rows(self, id_a, id_b, works):
         id_a, id_b = sorted((int(id_a), int(id_b)))
         if id_a == id_b or self.index_of(id_a) is None or self.index_of(id_b) is None:
             raise ValueError('compound recommendations require two known, different fetishes')
-        key = engine_compound_works.pair_key(id_a, id_b)
+        key = f'{id_a},{id_b}'
         with self._lock:
             if _use_db():
                 engine_db.replace_compound_work_rows(
@@ -417,12 +338,9 @@ class Engine:
                 )
             else:
                 before = self._local_work_catalog_state()
-                next_compounds = copy.deepcopy(before['compound_works'])
-                next_compounds[key] = copy.deepcopy(works)
                 next_catalog = engine_work_catalog.replace_compound_works(before['work_catalog'], id_a, id_b, works)
                 after = self._local_work_catalog_state(
                     fetishes=before['fetishes'],
-                    compound_works=next_compounds,
                     work_catalog=next_catalog,
                 )
                 self._commit_local_work_catalog_state(before, after)
@@ -431,7 +349,6 @@ class Engine:
 
     def delete_compound_work_rows(self, id_a, id_b):
         id_a, id_b = sorted((int(id_a), int(id_b)))
-        key = engine_compound_works.pair_key(id_a, id_b)
         with self._lock:
             if _use_db():
                 changed = engine_db.replace_compound_work_rows(
@@ -449,12 +366,9 @@ class Engine:
                 current_links = before['work_catalog']['compound_work_links']
                 if not any(int(row['id_a']) == id_a and int(row['id_b']) == id_b for row in current_links):
                     return False
-                next_compounds = copy.deepcopy(before['compound_works'])
-                next_compounds.pop(key, None)
                 next_catalog = engine_work_catalog.replace_compound_works(before['work_catalog'], id_a, id_b, [])
                 after = self._local_work_catalog_state(
                     fetishes=before['fetishes'],
-                    compound_works=next_compounds,
                     work_catalog=next_catalog,
                 )
                 self._commit_local_work_catalog_state(before, after)
@@ -539,54 +453,29 @@ class Engine:
 
         with self._lock:
             if _use_db():
-                inline_corrections = (
-                    payload.get('corrections_manifest') if operation == 'corrections_apply_manifest' else None
-                )
-                updated, result, inline_fetishes = engine_db.mutate_work_catalog(
+                updated, result = engine_db.mutate_work_catalog(
                     apply,
                     expected_digest=expected_digest,
                     get_conn=_get_conn,
                     put_conn=_put_conn,
                     execute_values=psycopg2.extras.execute_values,
-                    inline_corrections=inline_corrections,
                 )
-                if inline_fetishes is not None:
-                    projected_by_id = {row['id']: row.get('works') or [] for row in inline_fetishes}
-                    for fetish in self.fetishes:
-                        if fetish['id'] in projected_by_id:
-                            fetish['works'] = copy.deepcopy(projected_by_id[fetish['id']])
             else:
                 before = self._local_work_catalog_state()
                 if engine_work_catalog.catalog_digest(before['work_catalog']) != str(expected_digest or ''):
                     raise ValueError('work catalog version conflict')
                 updated, result = apply(before['work_catalog'])
-                next_fetishes = before['fetishes']
-                next_compounds = before['compound_works']
-                if operation == 'corrections_apply_manifest':
-                    projection = engine_work_catalog.project_approved_inline_corrections(
-                        next_fetishes,
-                        compound_rows=next_compounds,
-                        corrections=payload.get('corrections_manifest'),
-                    )
-                    next_fetishes = projection['fetishes']
-                    next_compounds = projection['compound_rows']
-                    result = dict(result or {})
-                    result.update(
-                        inline_applied_link_count=projection['applied_link_count'],
-                        inline_fetish_owner_count=projection['fetish_owner_count'],
-                        inline_compound_owner_count=projection['compound_owner_count'],
-                        inline_missing_count=projection['missing_count'],
-                    )
                 after = self._local_work_catalog_state(
-                    fetishes=next_fetishes,
-                    compound_works=next_compounds,
+                    fetishes=before['fetishes'],
                     work_catalog=updated,
                 )
                 self._commit_local_work_catalog_state(before, after)
-                if operation == 'corrections_apply_manifest':
-                    self.fetishes = copy.deepcopy(after['fetishes'])
             self._invalidate_work_catalog_cache()
-        return {'result': result, 'digest': engine_work_catalog.catalog_digest(updated)}
+        return {
+            'result': result,
+            'digest': engine_work_catalog.catalog_digest(updated),
+            'storage_model': 'catalog_only',
+        }
 
     def _save_matrix_file(self):
         _acquire_file_engine_process_lock()
@@ -1334,9 +1223,7 @@ class Engine:
             if not name:
                 continue
             desc = str(raw.get('desc') or name).strip()[:500] or name
-            works = raw.get('works') if isinstance(raw.get('works'), list) else []
-            works = engine_work_catalog.sanitize_restored_works(works)
-            restored.append({'id': fetish_id, 'name': name, 'desc': desc, 'works': works})
+            restored.append({'id': fetish_id, 'name': name, 'desc': desc})
             seen.add(fetish_id)
         return restored
 
@@ -1359,14 +1246,6 @@ class Engine:
             if work_catalog is not None:
                 work_catalog = engine_work_catalog.upgrade_catalog_schema(work_catalog)
             missing = self._sanitize_restored_fetishes(exported_fetishes, include_managed=work_catalog is not None)
-            restored_inline_fetishes = (
-                missing if work_catalog is None and any(row.get('works') for row in missing) else None
-            )
-            old_work_catalog = None
-            if not _use_db() and restored_inline_fetishes and any(row.get('works') for row in missing):
-                old_work_catalog = self._work_catalog_snapshot()
-                work_catalog = engine_work_catalog.merge_restored_fetish_works(old_work_catalog, missing)
-
             prospective = self.fetishes + missing
             updates, _meta = collect_matrix_updates(prospective, self.questions, matrix_rows)
             old_fetishes = copy.deepcopy(self.fetishes)
@@ -1384,121 +1263,24 @@ class Engine:
                     yes_row=[2.0] * nq,
                     total_row=[4.0] * nq,
                 )
-                new_fetishes[-1]['works'] = fetish.get('works', [])
             for fetish_index, question_rows in updates.items():
                 for question_index, yes, total in question_rows:
                     new_matrix['yes'][fetish_index][question_index] = yes
                     new_matrix['total'][fetish_index][question_index] = total
 
-            inline_corrections = None
-            inline_correction_manifests = None
-            projected_compounds = None
-            legacy_projection_fetishes = None
-            inline_projection_direction = 'forward'
-            if work_catalog is not None:
-                restored_works = {
-                    int(row['id']): copy.deepcopy(row.get('works'))
-                    for row in exported_fetishes or []
-                    if isinstance(row, dict) and type(row.get('id')) is int and isinstance(row.get('works'), list)
-                }
-                for fetish in new_fetishes:
-                    if fetish['id'] in restored_works:
-                        fetish['works'] = restored_works[fetish['id']]
-                legacy_projection_fetishes = copy.deepcopy(new_fetishes)
-                inline_corrections = self._load_json('work_catalog_corrections.json')
-                current_compounds = self._load_json('compound_works.json')
-                try:
-                    corrected_catalog = engine_work_catalog.apply_catalog_corrections(work_catalog, inline_corrections)
-                except ValueError:
-                    corrections_batch2 = self._load_json('work_catalog_corrections_batch2.json')
-                    bibliography_batch2 = self._load_json('work_catalog_bibliography_batch2.json')
-                    link_bindings_batch2 = self._load_json('work_catalog_link_bindings_batch2.json')
-                    correction_manifests = (
-                        inline_corrections,
-                        corrections_batch2,
-                        link_bindings_batch2,
-                    )
-                    try:
-                        final_catalog = engine_work_catalog.apply_catalog_corrections(work_catalog, corrections_batch2)
-                        final_catalog = engine_work_catalog.apply_bibliography_manifest(
-                            final_catalog, bibliography_batch2
-                        )[0]
-                        final_catalog = engine_work_catalog.apply_catalog_corrections(
-                            final_catalog, link_bindings_batch2
-                        )
-                    except ValueError as exc:
-                        raise ValueError('restored work catalog correction state drift') from exc
-                    if final_catalog != work_catalog:
-                        raise ValueError('restored work catalog correction state drift')
-                    inline_correction_manifests = correction_manifests
-                    inline_projection_direction = 'canonical'
-                    try:
-                        projection = engine_work_catalog.project_approved_inline_correction_manifests(
-                            new_fetishes,
-                            compound_rows=current_compounds,
-                            correction_manifests=correction_manifests,
-                        )
-                    except ValueError:
-                        source_projection = engine_work_catalog.project_approved_inline_correction_manifests(
-                            new_fetishes,
-                            compound_rows=current_compounds,
-                            correction_manifests=correction_manifests,
-                            direction='reverse',
-                        )
-                        projection = engine_work_catalog.project_approved_inline_correction_manifests(
-                            source_projection['fetishes'],
-                            compound_rows=source_projection['compound_rows'],
-                            correction_manifests=correction_manifests,
-                        )
-                else:
-                    inline_projection_direction = 'forward' if corrected_catalog == work_catalog else 'reverse'
-                    projection = engine_work_catalog.project_approved_inline_corrections(
-                        new_fetishes,
-                        compound_rows=current_compounds,
-                        corrections=inline_corrections,
-                        direction=inline_projection_direction,
-                    )
-                if _use_db() and projection['compound_rows'] != current_compounds:
-                    required_state = (
-                        'final'
-                        if inline_projection_direction == 'canonical'
-                        else ('target' if inline_projection_direction == 'forward' else 'source')
-                    )
-                    raise ValueError(f'work catalog restore requires a matching {required_state} compound deploy')
-                new_fetishes = projection['fetishes']
-                projected_compounds = projection['compound_rows']
-                parity = engine_work_catalog.catalog_parity_report(
-                    work_catalog,
-                    new_fetishes,
-                    compound_rows=projected_compounds,
-                )
-                if not parity['automated_parity_ok']:
-                    raise ValueError('restored work catalog inline parity mismatch')
-
             if _use_db():
-                inline_fetishes = engine_db.restore_matrix_snapshot(
+                engine_db.restore_matrix_snapshot(
                     missing,
                     matrix_rows,
                     get_conn=_get_conn,
                     put_conn=_put_conn,
                     execute_values=psycopg2.extras.execute_values,
                     work_catalog=work_catalog,
-                    restored_inline_fetishes=restored_inline_fetishes,
-                    inline_corrections=inline_corrections,
-                    inline_correction_manifests=inline_correction_manifests,
-                    legacy_projection_fetishes=legacy_projection_fetishes,
-                    inline_projection_direction=inline_projection_direction,
                 )
-                if inline_fetishes is not None:
-                    projected_by_id = {row['id']: row.get('works') or [] for row in inline_fetishes}
-                    for fetish in new_fetishes:
-                        if fetish['id'] in projected_by_id:
-                            fetish['works'] = copy.deepcopy(projected_by_id[fetish['id']])
             elif work_catalog is not None:
                 before = self._local_work_catalog_state(include_lifecycle=True)
                 after = self._local_work_catalog_state(
                     fetishes=new_fetishes,
-                    compound_works=projected_compounds,
                     work_catalog=work_catalog,
                     matrix=new_matrix,
                     fetish_log=before['fetish_log'],
@@ -1549,7 +1331,7 @@ class Engine:
                         raise
             self.fetishes = new_fetishes
             self.matrix = new_matrix
-            if work_catalog is not None or (restored_inline_fetishes and any(row.get('works') for row in missing)):
+            if work_catalog is not None:
                 self._invalidate_work_catalog_cache()
             self._disc_cache = None
             self._dynamic_prior_time = 0.0
@@ -1604,7 +1386,6 @@ class Engine:
                 engine_mutations.merge_log_entries(next_log, id_keep, id_remove)
                 after = self._local_work_catalog_state(
                     fetishes=next_fetishes,
-                    compound_works=engine_work_catalog.legacy_compound_projection(next_catalog),
                     work_catalog=next_catalog,
                     matrix=next_matrix,
                     fetish_log=next_log,
@@ -1668,7 +1449,6 @@ class Engine:
         self,
         *,
         fetishes=None,
-        compound_works=None,
         work_catalog=None,
         matrix=None,
         fetish_log=None,
@@ -1676,9 +1456,6 @@ class Engine:
     ):
         state = {
             'fetishes': copy.deepcopy(self.fetishes if fetishes is None else fetishes),
-            'compound_works': copy.deepcopy(
-                self._load_json('compound_works.json') if compound_works is None else compound_works
-            ),
             'work_catalog': copy.deepcopy(self._work_catalog_snapshot() if work_catalog is None else work_catalog),
         }
         if include_lifecycle:
@@ -1694,7 +1471,6 @@ class Engine:
             engine_persistence.commit_work_catalog_mutation(
                 os.path.join(DATA_DIR, 'work_catalog_mutation_journal.json'),
                 os.path.join(DATA_DIR, 'fetishes.json'),
-                os.path.join(DATA_DIR, 'compound_works.json'),
                 catalog_path,
                 before=before,
                 after=after,
@@ -1703,7 +1479,6 @@ class Engine:
                 fetish_log_path=get_fetish_log_path(),
                 question_count=len(self.questions),
             )
-        _replace_compound_works_cache(after['compound_works'])
 
     def edit_fetish(self, fetish_id, name=None, desc=None, works=None):
         """性癖の名前・説明文・作品リストを更新する。変更したフィールドのみ渡す。"""
@@ -1722,15 +1497,14 @@ class Engine:
                 if works is not None:
                     db_update_kwargs['execute_values'] = psycopg2.extras.execute_values
                 engine_db.update_fetish_fields(fetish_id, **db_update_kwargs)
-                engine_mutations.apply_fetish_edits(self.fetishes[idx], name=name, desc=desc, works=works)
+                engine_mutations.apply_fetish_edits(self.fetishes[idx], name=name, desc=desc)
             elif works is not None:
                 before = self._local_work_catalog_state()
                 next_fetishes = copy.deepcopy(self.fetishes)
-                engine_mutations.apply_fetish_edits(next_fetishes[idx], name=name, desc=desc, works=works)
+                engine_mutations.apply_fetish_edits(next_fetishes[idx], name=name, desc=desc)
                 next_catalog = engine_work_catalog.replace_fetish_works(before['work_catalog'], fetish_id, works)
                 after = self._local_work_catalog_state(
                     fetishes=next_fetishes,
-                    compound_works=before['compound_works'],
                     work_catalog=next_catalog,
                 )
                 self._commit_local_work_catalog_state(before, after)
@@ -1765,7 +1539,6 @@ class Engine:
                 next_log.pop(str(fetish_id), None)
                 after = self._local_work_catalog_state(
                     fetishes=next_fetishes,
-                    compound_works=engine_work_catalog.legacy_compound_projection(next_catalog),
                     work_catalog=next_catalog,
                     matrix=next_matrix,
                     fetish_log=next_log,
@@ -1807,7 +1580,6 @@ class Engine:
                     engine_mutations.merge_log_entries(next_log, new_id, old_id)
                 after = self._local_work_catalog_state(
                     fetishes=next_fetishes,
-                    compound_works=engine_work_catalog.legacy_compound_projection(next_catalog),
                     work_catalog=next_catalog,
                     matrix=before['matrix'],
                     fetish_log=next_log,

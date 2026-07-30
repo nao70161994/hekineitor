@@ -182,7 +182,9 @@ def test_existing_reviewed_catalog_migrates_to_exact_fresh_seed():
 def test_checked_in_seed_has_only_verified_safe_normalizations():
     catalog = build_catalog()
     overrides = json.loads((ROOT / 'data/work_catalog_seed_overrides.json').read_text(encoding='utf-8'))
-    compound_source = json.loads((ROOT / 'data/compound_works.json').read_text(encoding='utf-8'))
+    compound_source = json.loads(
+        (ROOT / 'tests/fixtures/legacy_work_catalog/compound_works.json').read_text(encoding='utf-8')
+    )
     corrections = json.loads((ROOT / 'data/work_catalog_corrections.json').read_text(encoding='utf-8'))
     corrections_batch2 = json.loads((ROOT / 'data/work_catalog_corrections_batch2.json').read_text(encoding='utf-8'))
     link_bindings_batch2 = json.loads(
@@ -209,7 +211,9 @@ def test_checked_in_seed_has_only_verified_safe_normalizations():
         ]
         assert matching_links, expected['display_title']
         assert all(row['context_label'] == expected['context_label'] for row in matching_links)
-    fetish_source = json.loads((ROOT / 'data/fetishes.json').read_text(encoding='utf-8'))
+    fetish_source = json.loads(
+        (ROOT / 'tests/fixtures/legacy_work_catalog/fetishes.json').read_text(encoding='utf-8')
+    )
     correction_manifests = (corrections, corrections_batch2, link_bindings_batch2)
     unprojected = work_catalog.project_approved_inline_correction_manifests(
         fetish_source,

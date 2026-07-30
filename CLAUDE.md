@@ -9,7 +9,7 @@
 - `templates/index.html` — シングルページUI（PWA対応）
 - `templates/admin.html` — 管理画面（学習データ量・質問無効化・診断ログ・相関分析・ヒートマップ・統合）
 - `templates/result_share.html` — OGPシェアカード（/r ルート）
-- `data/` — questions.json（105問）/ fetishes.json（123件シード）/ compound_works.json（複合作品54ペア）/ matrix.json・learned_priors.json（ローカル用・gitignore済み）
+- `data/` — questions.json（153問）/ fetishes.json（129件シードmetadata）/ work_catalog.json（推薦作品の唯一のsource of truth）/ matrix.json・learned_priors.json（ローカル用・gitignore済み）
 - `templates/offline.html` — PWAオフラインフォールバックページ（/offline ルート）
 - `pyproject.toml` — Ruff、段階導入mypy、主要Python packageのcoverage対象と最低基準
 - `requirements.in` / `requirements-dev.in` — 直接依存の入力、対応する`.txt`は完全pinしたinstall用lock
@@ -20,7 +20,7 @@
 
 - `DATABASE_URL` 環境変数があればPostgreSQL（Render）を使用
 - なければ `data/` 以下にローカル保存（matrix.json / fetish_log.json / question_flags.json / config.json）
-- DBテーブル: `fetishes`, `matrix`, `stats`, `fetish_log`, `sessions`, `config`, `stats_history`
+- DBテーブル: `fetishes`, `matrix`, `stats`, `fetish_log`, `sessions`, `config`, `stats_history`に加え、正規化作品用の`works_master`, `work_editions`, `work_edition_identifiers`, `work_aliases`, `fetish_work_links`, `compound_work_links`, `work_identity_reviews`
 - 起動時に fetishes.json・questions.json との差分を自動マイグレーション（新規追加のみ）
 
 ## 推論ロジック（engine package）
@@ -63,8 +63,8 @@
 - `merge_fetishes(id_keep, id_remove)` で2性癖のmatrixを加算して統合（DB/JSON両対応）
 - `edit_fetish(fetish_id, name, desc, works)` で性癖の名前・説明・推薦作品を更新
 - `parse_work_item(raw)` / `parse_works_list(raw_list)` / `work_title(w)` — works の文字列・dict混在形式をパース/タイトル取得するヘルパー
-- `get_compound_works(id_a, id_b)` / `set_compound_works(id_a, id_b, works)` / `delete_compound_works(id_a, id_b)` — 複合性癖ペア専用作品の管理（`data/compound_works.json`）
-- `list_compound_works()` — 全ペア一覧を返す
+- `get_compound_recommended_works(id_a, id_b)` / `set_compound_work_rows(id_a, id_b, works)` / `delete_compound_work_rows(id_a, id_b)` — 正規化catalog上の複合性癖ペア推薦を管理
+- `list_compound_work_rows()` — 正規化catalogから全ペア一覧を返す
 - `_save_async(all_updates, idx_to_db_id)` — matrix 保存をバックグラウンドスレッドで実行（学習ボタン後のレスポンスをブロックしない）
 - `edit_question(q_idx, text)` で質問テキストをインメモリ・questions.json に反映
 - `fetish_similarity(id_a, id_b)` で2性癖のコサイン類似度と差異TOP5質問を返す
@@ -72,11 +72,11 @@
 
 ## 質問の設計方針
 
-93問を3層構造で設計：
+153問を3層構造で設計（軸範囲の詳細は`config.py`を正とする）：
 
-1. **コンテンツ軸（0〜54）** — 力関係・禁断・年齢差・異種族など、作品・関係の特徴を直接聞く（55問）
-2. **抽象軸（55〜62, 87〜92）** — 感情の方向性・激しさ・堕落・共依存・禁断感・守護・孤独・運命など、全性癖にまたがる汎用軸（14問）
-3. **パーソナリティ軸（63〜86）** — 性癖から離れた間接的な質問（服装・嗜好・性格など）で性癖を間接推定（24問）
+1. **コンテンツ軸** — 力関係・禁断・年齢差・異種族など、作品・関係の特徴を直接聞く
+2. **抽象軸** — 感情の方向性・激しさ・堕落・共依存・禁断感・守護・孤独・運命など、全性癖にまたがる汎用軸
+3. **パーソナリティ軸** — 性癖から離れた間接的な質問（服装・嗜好・性格など）で性癖を間接推定
 
 パーソナリティ軸の狙い：プレイヤー自身の属性や行動傾向から性癖を推定。「スカートよりズボンが好き？」「嫉妬しやすい？」など、性癖を直接聞かずに絞り込む。
 
@@ -148,9 +148,9 @@
 | POST | /api/admin/merge_fetishes | 2性癖のmatrixを統合（`id_keep`, `id_remove`）（Basic認証必須） |
 | POST | /api/admin/fetish_similarity | 2性癖のコサイン類似度と差異TOP5を返す（`id_a`, `id_b`）（Basic認証必須） |
 | GET  | /api/admin/fetish_history/&lt;id&gt; | 指定性癖の日別正解/外れ件数（`?days=30`）（Basic認証必須） |
-| GET  | /api/admin/compound_works | 複合ペア専用作品の一覧（Basic認証必須） |
-| POST | /api/admin/compound_works | 複合ペア専用作品を追加・更新（`id_a`, `id_b`, `works`）（Basic認証必須） |
-| DELETE | /api/admin/compound_works/&lt;key&gt; | 複合ペア専用作品を削除（Basic認証必須） |
+| GET  | /api/admin/compound_works | 正規化catalog上の複合ペア推薦一覧（Basic認証必須） |
+| POST | /api/admin/compound_works | 正規化catalog上の複合ペア推薦を追加・更新（`id_a`, `id_b`, `works`）（Basic認証必須） |
+| DELETE | /api/admin/compound_works/&lt;key&gt; | 正規化catalog上の複合ペア推薦を削除（Basic認証必須） |
 | GET  | /api/admin/export_matrix | matrix全体をJSON形式でダウンロード（Basic認証必須） |
 | POST | /api/admin/import_matrix | matrix_rowsでmatrixを上書き復元（Basic認証必須） |
 | GET  | /api/admin/export_log | 診断ログをCSV形式でダウンロード（Basic認証必須） |
@@ -177,7 +177,7 @@
 - **性癖統合フォーム**：2性癖のmatrixを加算して1つにマージ（名前検索datalist付き）
 - 推論パラメータ更新 / セッションクリーンアップ / 手動性癖追加 / learned_priorsキャプチャ
 - matrix JSONエクスポート
-- **複合ペア専用作品管理**：性癖ペアに特有の推薦作品を追加・削除（`compound_works.json`）
+- **複合ペア専用作品管理**：性癖ペアに特有の推薦作品を追加・削除（正規化`work_catalog.json`）
 - **性癖ごとの推薦作品編集**：作品名またはリンク付き作品（`title|url` 形式）をインライン編集
 
 ## index.html のUX
@@ -273,7 +273,7 @@ gunicorn app:app --workers 2 --threads 4
 ## 注意
 
 - `data/matrix.json`・`data/learned_priors.json`・`data/stats_history.json`・`.coverage` は `.gitignore` 済み
-- `data/compound_works.json` は git 管理対象（性癖ペア専用作品定義）
+- 推薦作品は`data/work_catalog.json`だけに保存し、`fetishes.works`や`data/compound_works.json`へ戻さない
 - works の dedup は `seen_works` セット（dict非対応）ではなく `work_title()` によるタイトル文字列で行う（dict要素を含む場合のTypeError対策）
 - learn 系メソッド（`learn` / `learn_negative` / `learn_cooccurrence` / `_learn_silent`）は `_save_async()` でバックグラウンド保存。`add_fetish` / `promote_fetish` は同期保存（稀な操作のため）
 - Termux環境では長いコマンドはスクリプトファイルに書いて実行する

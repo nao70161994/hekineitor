@@ -6,14 +6,15 @@ from pathlib import Path
 from engine import work_catalog
 
 ROOT = Path(__file__).resolve().parents[1]
+LEGACY_DIR = ROOT / 'tests' / 'fixtures' / 'legacy_work_catalog'
 
 
 class WorkCatalogCorrectionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         data = ROOT / 'data'
-        fetishes = json.loads((data / 'fetishes.json').read_text(encoding='utf-8'))
-        compounds = json.loads((data / 'compound_works.json').read_text(encoding='utf-8'))
+        fetishes = json.loads((LEGACY_DIR / 'fetishes.json').read_text(encoding='utf-8'))
+        compounds = json.loads((LEGACY_DIR / 'compound_works.json').read_text(encoding='utf-8'))
         compound_rows = []
         for key, works in sorted(compounds.items()):
             id_a, id_b = key.split(',', 1)

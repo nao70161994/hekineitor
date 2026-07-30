@@ -97,12 +97,13 @@ class TestEnginePersistenceRegression(unittest.TestCase):
         self.assertEqual(e.get_recommended_works(10)[0]['title'], 'Catalog A')
         self.assertEqual(e.get_recommended_works(20), [])
 
-    def test_recommended_works_fall_back_to_legacy_when_catalog_is_unavailable(self):
+    def test_recommended_works_fail_closed_when_catalog_is_unavailable(self):
         e = minimal_engine()
         e.fetishes[0]['works'] = ['legacy A']
         e._work_catalog_snapshot = lambda: (_ for _ in ()).throw(ValueError('unavailable'))
-        with self.assertLogs('engine.facade', level='ERROR'):
-            self.assertEqual(e.get_recommended_works(10), ['legacy A'])
+        with self.assertRaisesRegex(RuntimeError, 'work catalog is unavailable'):
+            e.get_recommended_works(10)
+        self.assertEqual(e._work_catalog_load_failures, 1)
 
     def test_database_catalog_revision_refreshes_other_worker_cache_immediately(self):
         e = minimal_engine()
@@ -114,7 +115,7 @@ class TestEnginePersistenceRegression(unittest.TestCase):
         )
         e._work_catalog_cache_revision = 1
         e._work_catalog_failure_time = 0.0
-        e._work_catalog_catalog_reads = e._work_catalog_fallback_reads = e._work_catalog_load_failures = 0
+        e._work_catalog_catalog_reads = e._work_catalog_load_failures = 0
         with (
             patch.object(engine_module, '_use_db', return_value=True),
             patch.object(engine_module.engine_db.db_work_catalog, 'catalog_revision', return_value=2),
@@ -136,14 +137,13 @@ class TestEnginePersistenceRegression(unittest.TestCase):
         )
         e._work_catalog_cache_revision = 1
         e._work_catalog_failure_time = 0.0
-        e._work_catalog_catalog_reads = e._work_catalog_fallback_reads = e._work_catalog_load_failures = 0
+        e._work_catalog_catalog_reads = e._work_catalog_load_failures = 0
         with (
             patch.object(engine_module, '_use_db', return_value=True),
             patch.object(engine_module.engine_db.db_work_catalog, 'catalog_revision', side_effect=RuntimeError),
-            self.assertLogs('engine.facade', level='ERROR'),
+            self.assertRaisesRegex(RuntimeError, 'work catalog is unavailable'),
         ):
-            self.assertEqual(e.get_recommended_works(10), ['Legacy'])
-        self.assertEqual(e._work_catalog_fallback_reads, 1)
+            e.get_recommended_works(10)
         self.assertEqual(e._work_catalog_load_failures, 1)
 
     def test_validate_matrix_rows_reports_valid_skipped_and_input_counts(self):

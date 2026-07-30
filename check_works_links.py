@@ -1,5 +1,5 @@
 """
-fetishes.json の作品リンクをまとめたHTMLレポートを生成する。
+work_catalog.json の作品リンクをまとめたHTMLレポートを生成する。
 ブラウザで開いてリンクをクリックして確認できる。
 
 使い方:
@@ -17,14 +17,17 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+from engine import work_catalog
 from services.works_links import work_url_status
-
 with open('data/fetishes.json') as f:
     fetishes = json.load(f)
+with open('data/work_catalog.json') as f:
+    catalog = json.load(f)
+works_by_fetish = work_catalog.materialize_fetish_works(catalog)
 
 rows = []
 for fe in fetishes:
-    for w in fe.get('works', []):
+    for w in works_by_fetish.get(int(fe['id']), []):
         title = w['title'] if isinstance(w, dict) else w
         url = w.get('url', '') if isinstance(w, dict) else ''
         asin = ''

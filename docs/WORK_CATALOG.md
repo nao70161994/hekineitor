@@ -1,6 +1,6 @@
 # Work Catalog
 
-おすすめ作品のsource of truthをinline `{title, url}` から安定ID付きcatalogへ移行するためのデータ契約です。設計判断は[`adr/0004-normalized-work-catalog.md`](adr/0004-normalized-work-catalog.md)を参照してください。
+おすすめ作品の唯一のsource of truthである、安定ID付きcatalogのデータ契約です。旧inline保存は2026-07-31に廃止しました。設計判断は[`adr/0004-normalized-work-catalog.md`](adr/0004-normalized-work-catalog.md)を参照してください。
 
 ## Seed snapshot
 
@@ -23,11 +23,9 @@ schema v2は版名と出版社を`work_editions.edition_title` / `publisher`へ�
 書誌manifestはschema version 1のまま、版ごとに従来の`edition.isbn`、単一の汎用`edition.identifier`（`scheme`、`authority`、`value`）、または識別子なしのいずれかを受け付けます。`isbn`と`identifier`の併記は曖昧なため拒否します。汎用識別子はschemeとauthorityを小文字へ正規化し、scheme・authority・valueの組をcatalog全体で一意に保ちます。ISBNは従来どおりchecksumを検証してISBN-13へ正規化します。版のcanonical URL自体が根拠になる場合は識別子なしでも登録でき、ASINは汎用識別子にせずURLから`work_editions.asin`へ保持します。先に媒体種別と根拠URLだけを適用したentryへ版を追加する場合や、識別子なしの版へ後から識別子を補う場合は、既存work・旧名alias・版metadataが完全一致するときだけ不足行を追加します。
 
 ```sh
-PYTHONPATH=. python scripts/sync_work_catalog_inline.py --write
 PYTHONPATH=. python scripts/build_work_catalog.py --write
 PYTHONPATH=. python scripts/build_work_catalog_research_candidates.py --write
 PYTHONPATH=. python scripts/build_recommended_works_list.py --write
-PYTHONPATH=. python scripts/sync_work_catalog_inline.py
 PYTHONPATH=. python scripts/build_work_catalog.py
 PYTHONPATH=. python scripts/build_work_catalog_research_candidates.py
 PYTHONPATH=. python scripts/build_recommended_works_list.py
@@ -41,11 +39,11 @@ PYTHONPATH=. python scripts/build_recommended_works_list.py
 
 active・参照中・版なし33件の再調査は、一次情報で13件を確認し、19件をidentity未確認、`囚われのパルマ`1件を推薦文脈不適合と判定しました。`data/work_catalog_bibliography_batch2.json`は確認済み13件のうち12件へ直接版を追加し、`花は咲くか`は作品identityと媒体だけを根拠URLで固定します。実写映画ページは原作漫画の直接版ではないためeditionとして登録しません。`data/work_catalog_corrections_batch2.json`は未確認19件と不適合1件の計20 masterを監査可能な`archived`状態へ移し、21 compound linkを除去します。`data/work_catalog_link_bindings_batch2.json`は確認済み12版を既存推薦linkへ接続し、表示aliasを維持したまま空URLを一次情報のdirect URLへ置き換えます。
 
-適用順はreview→seed override→corrections batch 1→bibliography batch 1→corrections batch 2→bibliography batch 2→link bindings batch 2です。inline forwardは3つのcorrectionをbatch 1→batch 2→link bindingsの順、buildと初回DB移行のreverseは厳密な逆順で投影します。quarantineの`link_removals.source_title`はschema v3のquarantineだけで利用でき、catalog linkの完全一致検証を弱めず、旧alias表示をinline signatureとして固定します。
+適用順はreview→seed override→corrections batch 1→bibliography batch 1→corrections batch 2→bibliography batch 2→link bindings batch 2です。初期catalogの再現性検証だけは、`tests/fixtures/legacy_work_catalog/`の固定fixtureを厳密に逆投影してから同じ順序でmanifestを適用します。quarantineの`link_removals.source_title`はschema v3のquarantineだけで利用でき、catalog linkの完全一致検証を弱めません。
 
 候補generatorは通常書誌manifestとbatch2を合わせて`bibliography_state`を判定します。correction manifestは公開可否と参照除去、bibliography manifestは確認できたidentity・媒体・版metadataだけを担当し、類似題や別媒体から版を推定しません。最終候補は媒体確認済み・版なしの`花は咲くか`1件です。
 
-`sync_work_catalog_inline.py`はcorrection manifestで承認されたtitle/URL差分だけを、ownerとpositionを変えずに`fetishes.json`と`compound_works.json`へ投影します。位置・source signature・URL・ownerのdriftはfail-closedです。catalog buildは訂正済みinlineを厳密にsource状態へ逆投影してからreviewとcorrectionを再適用するため、既存の安定IDとcatalog digestは変わりません。検証コマンドは`scripts/check.sh`とCIでも実行されます。手動でIDや承認済み表示を変更せず、manifestと同期scriptを通して更新します。
+旧inline同期scriptは削除済みです。catalog buildはテスト専用の固定legacy fixtureをsource状態へ逆投影してからreviewとcorrectionを再適用するため、移行履歴の安定IDとcatalog digestを再検証できます。新しい作品情報は正規catalogとmanifestだけを更新し、fixtureをruntimeデータへ戻しません。
 
 `data/work_catalog_review_decisions.json`はraw inline入力に対する人手判断を固定するmanifestです。buildは候補keyと元`work_ids`が一致する場合だけ全判断を適用し、同じmanifestの再適用はno-opになります。英題・略称など緩い正規化では拾えない明白な同一作品は、`identity_override`として元IDを固定したreviewを追加してから統合します。
 
@@ -69,15 +67,15 @@ resolverはlinkを表示順に解決し、次の互換shapeを返します。
 
 `title`と`url`は従来の推薦表示、SEO、affiliate linkを維持します。新しいIDは管理・分析・重複排除に使います。
 
-公開結果とSEOはcatalogを優先して読み、catalog全体を読めない場合だけlegacy inline dataへfallbackします。同じownerについてcatalogとlegacyを結合しません。materialized IDは結果JSON、作品linkのDOM属性、クリックeventへ渡され、旧eventはtitle identityで集計できます。checked inlineとcorrection適用時のDB `fetishes.works`は承認済み表示へ同期し、fallbackでもcatalogと同じtitle/URL/orderを返します。healthのapproved projection parityはmanifest適用の正当性を、raw parityは実際のfallback同値性とinline廃止可否を独立に検証します。
+公開結果、SEO、管理reportはすべてcatalogだけを読みます。catalogを取得・検証できない場合はfail closedし、旧データへfallbackしません。materialized IDは結果JSON、作品linkのDOM属性、クリックeventへ渡され、旧eventはtitle identityでも集計できます。
 
 ## Runtime writes
 
 管理画面からの性癖作品・複合作品更新は`Engine`のcatalog repositoryを唯一のproduction入口として扱います。対象ownerのlinkだけcopy-on-writeで差し替えるため、他owner、作品master、販売版metadata、review判断は保持されます。同一ASINは既存`work_id`/`edition_id`を再利用し、異なるASINや曖昧な同名候補は自動統合しません。
-- correction manifestはcatalogとlegacy inlineを同じcommit単位で同期します。PostgreSQLはcatalog lock下で対象`fetishes.works`を同一transactionへ含め、Local JSONはfetish・compound・catalogを一つのjournalへ含めます。player-added ownerでmanifest sourceが既に置換済みの場合は、その作品を保持したまま明示された`allow_missing`だけをno-opにします。成功応答には適用link数、fetish/compound owner数、許可済みmissing数を含めます。
+- correction manifestはcatalogだけを一つのcommit単位で更新します。旧inline向けの件数やprojectionは成功応答に含めません。
 
-- PostgreSQL: catalog advisory lockを最初に取得し、`fetishes.works`と正規化tableを一つのtransactionで更新します。compoundは正規化tableをruntime source of truthとし、worker間の書き込みを同じlockで直列化します。全catalog transactionは`work_catalog_meta.revision`を増分し、各workerはread前にrevisionを照合します。変更を検出したworkerはcatalogとrevisionを同じrepeatable-read snapshotから再取得するため、古いcacheをTTL終了まで返しません。
-- Local JSON: `fetishes.json`、`compound_works.json`、`work_catalog.json`のbefore/afterを`work_catalog_mutation_journal.json`へ先にdurable保存します。全ファイルの置換成功後だけjournalを削除し、途中停止時は次回起動でafterへroll-forwardします。通常の書き込み失敗時はbeforeへrollbackします。
+- PostgreSQL: catalog advisory lockを最初に取得し、正規化tableを一つのtransactionで更新します。互換列`fetishes.works`は起動時に空へし、読み書きしません。全catalog transactionは`work_catalog_meta.revision`を増分し、各workerはread前にrevisionを照合します。
+- Local JSON: `fetishes.json`と`work_catalog.json`のbefore/afterをjournal format version 3で先にdurable保存します。lifecycle操作ではmatrixとfetish logも同じjournalへ含めます。全置換成功後だけjournalを削除し、途中停止時はafterへroll-forward、通常の失敗時はbeforeへrollbackします。
 - 管理API: 既存のadmin認証・CSRFを維持し、成功した作品更新は件数とowner IDだけを監査ログへ記録します。
 - 性癖lifecycle: deleteはその性癖の直接linkとcompound pairを削除し、promoteは新IDへ全ownerをrekeyします。mergeは削除側の直接作品を破棄し、compound pairは保持側へ統合して、既存pairを先・削除側pairを後の順で重複排除します。
 - lifecycleのPostgreSQL更新はcatalog、matrix、fetish log、fetish rowを同じtransactionに置きます。ローカル更新はjournal version 2でmatrixとfetish logもbefore/afterへ含め、成功後だけin-memory state/cacheを切り替えます。
@@ -106,15 +104,14 @@ reviewの`keep_separate`または`merge`には現在の`expected_version`が必�
 
 `/api/admin/export_matrix`とimport/restore前snapshotは`backup_format_version: 3`として、matrix、全fetish metadata、question schema、`work_catalog`を一つのpayloadへ保存します。
 
-- v3 importはcatalogのschemaと参照整合性をwrite前に検証し、backupのinline fetish worksをcatalogのcorrection状態へforward/reverse投影してraw parity 0を要求します。
-- v3ではseedにないmanaged/player fetishをIDとmetadataごとすべて復元し、既存ownerを含むbackup inline works、catalog、matrixを同一transaction/journalで復元します。旧v1/v2はplayer fetishだけを復元する互換挙動を維持します。compound inlineはdeploy artifactであるため、backup catalogに合わせたforward/reverse投影が現行compound fileを変更する場合は、matching source/target code/data revisionを要求してDB write前にfail-closedします。
-- ローカルではrestore journal version 2にfetish inline、compound inline、catalog、matrixのbefore/afterを保存し、途中停止時は同じ世代へroll-forwardします。
-- 通常の作品編集journal version 1は3つの作品data fileを、性癖lifecycle journal version 2はさらにmatrixとfetish logを同じ世代へ復旧します。
-- 旧v1/v2 matrix backupも従来どおりimportでき、復元されたplayer-added fetishにinline作品がある場合は既存の管理済みID・metadata・review判断を保持したまま、その新規ownerのcatalog linkを同じtransaction/journalへ追加します。
+- v3 importはcatalogのschemaと参照整合性をwrite前に検証し、catalog、fetish metadata、matrixを同一transaction/journalで復元します。
+- v3ではseedにないmanaged/player fetishをIDとmetadataごと復元します。作品情報は`work_catalog`だけから復元します。
+- ローカルのcatalog/lifecycle restoreはjournal format version 3で同じ世代へroll-forwardします。
+- 旧v1/v2 matrix backupは引き続きimportできますが、そこに含まれるinline作品は意図的に無視します。
 - review queueの`decision`、`target_work_id`、`version`、`updated_at`もDB snapshotとrestoreで保持します。
 
 ## Migration safety
 
-初回DB移行は訂正済みchecked inlineをsource状態へ厳密に逆投影してから、同一transaction内でcatalog tableへ展開し、review、seed override、corrections 1、bibliography 1、corrections 2、bibliography 2、link bindings 2を順に適用します。これにより公開projectionを保ったまま、版識別子と根拠metadataを正規化できます。ASINまたは厳密な正規化titleだけを自動identityに使い、緩い候補はreview queueへ残します。存在しないfetish IDや同一ID pairを参照するcompound linkは生成時に拒否します。
+fresh DBはchecked-in `data/work_catalog.json`を同一transaction内で正規化tableへ展開します。既存DBにcatalogがある場合は置換しません。存在しないfetish IDや同一ID pairを参照するcompound linkは検証時に拒否します。旧inlineからの決定的移行は完了済みで、再現性だけをテストfixtureで検証します。
 
 forward/reverse投影は任意の履歴変換ではありません。checked correction manifestが認識するsourceまたはtarget signatureだけを受け入れます。古いbackupへ戻す場合は、catalog snapshotと同じ世代のcode/data artifactを組にして扱います。

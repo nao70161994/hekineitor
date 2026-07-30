@@ -275,13 +275,16 @@ def build_admin_maintenance_checklist(engine, works_summary_fn):
 def build_work_maintenance_summary(engine, work_title_fn, safe_work_url_fn, sample_limit=8):
     from services import works_links
 
+    works_by_fetish = engine.recommended_works_snapshot()
     return works_links.build_work_maintenance_summary(
-        engine.fetishes,
+        [
+            {**fetish, 'works': works_by_fetish.get(int(fetish['id']), [])}
+            for fetish in engine.fetishes
+        ],
         work_title_fn=work_title_fn,
         safe_work_url_fn=safe_work_url_fn,
         sample_limit=sample_limit,
     )
-
 
 def make_admin_maintenance_checklist(engine, work_title_fn, safe_work_url_fn):
     def checklist():

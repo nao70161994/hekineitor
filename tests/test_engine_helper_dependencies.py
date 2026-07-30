@@ -10,7 +10,6 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 TOP_LEVEL_HELPER_SHIMS = [
     'engine_admin_reports.py',
-    'engine_compound_works.py',
     'engine_constants.py',
     'engine_correlation.py',
     'engine_data.py',
@@ -27,7 +26,6 @@ TOP_LEVEL_HELPER_SHIMS = [
 
 PACKAGE_HELPER_MODULES = [
     'engine.admin_reports',
-    'engine.compound_works',
     'engine.constants',
     'engine.correlation',
     'engine.data',
@@ -75,7 +73,6 @@ class TestEngineHelperDependencies(unittest.TestCase):
     def test_top_level_moved_shims_alias_package_modules(self):
         aliases = {
             'engine_admin_reports': 'engine.admin_reports',
-            'engine_compound_works': 'engine.compound_works',
             'engine_constants': 'engine.constants',
             'engine_correlation': 'engine.correlation',
             'engine_data': 'engine.data',

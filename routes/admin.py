@@ -277,8 +277,20 @@ def stop_test_play(ctx):
     return ctx.Response('', status=302, headers={'Location': '/admin'})
 
 
+def _fetishes_with_recommended_works(ctx):
+    works_by_fetish = ctx.engine.recommended_works_snapshot()
+    return [
+        {**fetish, 'works': works_by_fetish.get(int(fetish['id']), [])}
+        for fetish in ctx.engine.fetishes
+    ]
+
+
 def works_link_queue_payload(ctx, *, sample_limit=20):
-    return collect_work_link_queue(ctx.engine.fetishes, sample_limit=sample_limit, associate_id=ctx.amazon_associate_id)
+    return collect_work_link_queue(
+        _fetishes_with_recommended_works(ctx),
+        sample_limit=sample_limit,
+        associate_id=ctx.amazon_associate_id,
+    )
 
 
 def _admin_work_url(ctx, work, title):
@@ -292,56 +304,6 @@ def _admin_work_url(ctx, work, title):
         separator = '&' if '?' in url else '?'
         url = url + f'{separator}tag={urllib.parse.quote(ctx.amazon_associate_id)}'
     return url
-
-
-def _seed_fetish_works(ctx):
-    rows = ctx.load_json_file('fetishes.json', default=[])
-    return {int(row['id']): row.get('works') or [] for row in rows if isinstance(row, dict) and 'id' in row}
-
-
-def seed_works_backfill_payload(ctx, *, sample_limit=50, apply=False):
-    seed_works = _seed_fetish_works(ctx)
-    candidates = []
-    for fetish in ctx.engine.fetishes:
-        fetish_id = fetish.get('id')
-        if fetish_id is None or fetish_id >= ctx.player_fetish_base_id:
-            continue
-        current_works = fetish.get('works') or []
-        replacement = seed_works.get(fetish_id) or []
-        if current_works or not replacement:
-            continue
-        normalized = ctx.parse_works_list(replacement)
-        if not normalized:
-            continue
-        candidates.append(
-            {
-                'id': fetish_id,
-                'name': fetish.get('name', ''),
-                'seed_work_count': len(normalized),
-                'seed_titles': [ctx.work_title(work) for work in normalized[:5]],
-            }
-        )
-
-    updated = 0
-    if apply:
-        confirm_error = ctx.require_confirm('BACKFILL_WORKS')
-        if confirm_error:
-            return confirm_error
-        for row in candidates:
-            if ctx.engine.edit_fetish(row['id'], works=ctx.parse_works_list(seed_works[row['id']])):
-                updated += 1
-        ctx.write_audit('works_seed_backfill', 'ok', {'updated_count': updated})
-
-    return ctx.jsonify(
-        {
-            'status': 'ok',
-            'mode': 'applied' if apply else 'dry_run',
-            'candidate_count': len(candidates),
-            'updated_count': updated,
-            'required_confirm_text': 'BACKFILL_WORKS',
-            'candidates': candidates[:sample_limit],
-        }
-    )
 
 
 def export_log(ctx):
@@ -410,7 +372,7 @@ def low_exposure_fetishes(ctx):
     enriched = []
     for row in rows:
         fetish = fetish_by_id.get(row['id'], {})
-        works = fetish.get('works') or []
+        works = ctx.engine.get_recommended_works(row['id'])
         item = {
             'id': row['id'],
             'name': row['name'],
@@ -704,7 +666,7 @@ def maintenance_checklist(ctx):
 def fetishes_snapshot(ctx):
     rows = []
     for fetish in ctx.engine.fetishes:
-        works = fetish.get('works') or []
+        works = ctx.engine.get_recommended_works(fetish['id'])
         rows.append(
             {
                 'id': fetish.get('id'),
@@ -751,21 +713,18 @@ def question_stats(ctx):
 def works_health(ctx):
     maintenance = ctx.build_admin_maintenance_checklist().get('works', {})
     queue = works_link_queue_payload(ctx, sample_limit=50)
-    seed_backfill = seed_works_backfill_payload(ctx, sample_limit=50, apply=False).get_json()
     compound_rows = ctx.list_compound_works()
-    legacy_compound_rows = ctx.engine.list_legacy_compound_work_rows()
     catalog = build_work_catalog_report(
-        ctx.engine.fetishes,
+        _fetishes_with_recommended_works(ctx),
         compound_rows=compound_rows,
         sample_limit=50,
     )
-    migration = ctx.engine.work_catalog_migration_report(compound_rows=legacy_compound_rows)
+    migration = ctx.engine.work_catalog_migration_report()
     return ctx.jsonify(
         {
             'status': 'ok',
             'maintenance': maintenance,
             'link_queue': queue,
-            'seed_backfill': seed_backfill,
             'catalog': catalog,
             'migration': migration,
         }
@@ -831,7 +790,7 @@ def player_fetishes(ctx):
             'id': fetish.get('id'),
             'name': fetish.get('name', ''),
             'desc': fetish.get('desc', ''),
-            'works_count': len(fetish.get('works') or []),
+            'works_count': len(ctx.engine.get_recommended_works(fetish['id'])),
         }
         for fetish in ctx.engine.fetishes
         if fetish.get('id', 0) >= ctx.player_fetish_base_id
@@ -865,7 +824,7 @@ def added_fetishes(ctx):
                 'player_id': bool(isinstance(fetish_id, int) and fetish_id >= ctx.player_fetish_base_id),
                 'seed_id_present': fetish_id in seed_ids,
                 'seed_name_present': name in seed_names,
-                'works_count': len(fetish.get('works') or []),
+                'works_count': len(ctx.engine.get_recommended_works(fetish_id)),
             }
         )
     rows.sort(key=lambda row: (0 if row['source'] == 'player_added' else 1, row.get('id') or 0, row.get('name') or ''))
@@ -1492,7 +1451,12 @@ def edit_fetish(ctx, fetish_id):
         ctx.request,
     )
     return ctx.jsonify(
-        {'status': 'ok', 'name': fetish['name'], 'desc': fetish['desc'], 'works': fetish.get('works', [])}
+        {
+            'status': 'ok',
+            'name': fetish['name'],
+            'desc': fetish['desc'],
+            'works': ctx.engine.get_recommended_works(fetish_id),
+        }
     )
 
 
@@ -1682,7 +1646,7 @@ def mutate_work_catalog_admin(ctx):
 
 def works_review(ctx):
     rows = []
-    for fetish in ctx.engine.fetishes:
+    for fetish in _fetishes_with_recommended_works(ctx):
         for work in fetish.get('works', []):
             title = work['title'] if isinstance(work, dict) else work
             url = work.get('url', '') if isinstance(work, dict) else ''
@@ -1780,7 +1744,6 @@ def create_blueprint(ctx_factory, require_admin, require_admin_or_read=None):
         work_catalog_admin=lambda ctx: work_catalog_admin(ctx),
         mutate_work_catalog_admin=lambda ctx: mutate_work_catalog_admin(ctx),
         works_link_queue_payload=lambda ctx, **kwargs: works_link_queue_payload(ctx, **kwargs),
-        seed_works_backfill_payload=lambda ctx, **kwargs: seed_works_backfill_payload(ctx, **kwargs),
     )
 
     analytics_routes.register_routes(

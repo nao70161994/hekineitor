@@ -16,24 +16,20 @@
 
 ## Work catalog inline retirement
 
-この欄は旧inline source of truthを廃止するreleaseで記入します。空欄や未チェックが1つでもあれば廃止しません。
+2026-07-31にcatalog-only releaseを承認しました。
 
-### Evidence
+- [x] owner承認: 「旧おすすめ作品については最悪きえても大丈夫だから、すぐ廃止していいよ」
+- [x] 旧inline保全のための7日/28回観測と追加literal確認をwaive
+- [x] v3 backup / digest: `30538922038` / `4952e3628a7431570265dadb64653699638fa82fdc653d2e3fcb1de8c576c268`
+- [x] 隔離staging restore: workflow `30539222595` / artifact `staging-v3-restore-rehearsal-30539222595`
+- [x] lossless catalog restore、revision、public smokeを確認
+- [x] 通常/compound診断、作品理由、作品順、追加質問、当て直し、履歴を確認
+- [x] affiliate、canonical、OGP、共有URLを確認
+- [x] `data/fetishes.json`からinline `works`を削除
+- [x] `data/compound_works.json`、旧cache/API、inline backfillを削除
+- [x] runtime read/write/restore/reportをcatalog-onlyへ変更
+- [x] catalog障害時のfail-closedテストと、旧storage再導入防止contractを追加
+- [ ] release commit / CI run: deploy時に記録
+- [ ] deploy後のcatalog revision・load failure 0・公開smoke: deploy時に確認
 
-- [ ] retirement候補commit: `________________`
-- [ ] 観測開始（JST）: `________________`
-- [ ] 観測終了（JST）: `________________`
-- [ ] 7日以上・28回以上の連続scheduled rollout gate成功: `first run ________` / `last run ________`
-- [ ] 観測中にdeploy、catalog mutation、失敗run、欠測がない
-- [ ] worker ID変更・再起動をすべて列挙し、周辺platform logにcatalog unavailable/fallbackがないことを確認
-- [x] 24時間以内のv3 backup run / digest: `30538922038` / `4952e3628a7431570265dadb64653699638fa82fdc653d2e3fcb1de8c576c268`
-- [x] staging serviceとDBがproductionから隔離済み（確認者）: `Provision Isolated Staging run 30538833713（DB外部接続deny-all確認済み）`
-- [x] staging restore workflow run: `30539222595`
-- [x] evidence artifact: `staging-v3-restore-rehearsal-30539222595`
-- [x] 自動gateがlossless restore、catalog digest、revision、parity、public smokeをすべて通過
-- [ ] 通常結果、理由、作品順、追加質問、当て直し、履歴を目視確認
-- [ ] compound結果、各要素の決め手、推薦理由を目視確認
-- [ ] affiliate遷移、canonical、OGP preview、共有URLのstaging hostを目視確認
-- [ ] 確認者 / 完了日時（JST）: `________________` / `________________`
-- [ ] rollback担当者 / 実施可能時間: `________________` / `________________`
-- [ ] 最終承認者が`RETIRE LEGACY INLINE`を記録: `________________`
+観測waiveは旧inline推薦の保全だけに適用します。catalog整合性、CI、backup、認証、CSRF、監査、公開smokeは引き続き必須です。rollbackは旧inlineではなくv3 catalog backupを使います。

@@ -7,22 +7,13 @@ class TestCompoundWorks(FileSnapshotMixin, unittest.TestCase):
     """compound_works機能のテスト"""
 
     def setUp(self):
-        import engine as em
-
-        self._save_patch = patch.object(em, '_save_compound_works', return_value=None)
-        self._save_patch.start()
-        # テスト前にキャッシュをリセット
-        em._compound_works_loaded = False
-        em._COMPOUND_WORKS = {}
         app.config['TESTING'] = True
         self.client = app.test_client()
 
     def tearDown(self):
-        import engine as em
+        from app import engine as app_engine
 
-        em._compound_works_loaded = False
-        em._COMPOUND_WORKS = {}
-        self._save_patch.stop()
+        app_engine._invalidate_work_catalog_cache()
 
     @classmethod
     def tearDownClass(cls):
@@ -43,40 +34,40 @@ class TestCompoundWorks(FileSnapshotMixin, unittest.TestCase):
         return {'Authorization': f'Basic {creds}'}
 
     def test_get_compound_works_returns_empty_for_unknown_pair(self):
-        from engine import get_compound_works
+        from app import engine as app_engine
 
-        result = get_compound_works(9999, 9998)
+        result = app_engine.get_compound_recommended_works(9999, 9998)
         self.assertEqual(result, [])
 
     def test_set_and_get_compound_works(self):
-        from engine import get_compound_works, set_compound_works
+        from app import engine as app_engine
 
-        set_compound_works(100, 200, ['作品A', '作品B'])
-        result = get_compound_works(100, 200)
-        self.assertEqual(result, ['作品A', '作品B'])
+        app_engine.set_compound_work_rows(0, 1, ['作品A', '作品B'])
+        result = app_engine.get_compound_recommended_works(0, 1)
+        self.assertEqual([work['title'] for work in result], ['作品A', '作品B'])
         # 逆順のIDでも同じ結果
-        result2 = get_compound_works(200, 100)
-        self.assertEqual(result2, ['作品A', '作品B'])
+        result2 = app_engine.get_compound_recommended_works(1, 0)
+        self.assertEqual([work['title'] for work in result2], ['作品A', '作品B'])
 
     def test_delete_compound_works(self):
-        from engine import delete_compound_works, get_compound_works, set_compound_works
+        from app import engine as app_engine
 
-        set_compound_works(100, 200, ['作品A'])
-        ok = delete_compound_works(100, 200)
+        app_engine.set_compound_work_rows(0, 1, ['作品A'])
+        ok = app_engine.delete_compound_work_rows(0, 1)
         self.assertTrue(ok)
-        self.assertEqual(get_compound_works(100, 200), [])
+        self.assertEqual(app_engine.get_compound_recommended_works(0, 1), [])
 
     def test_delete_nonexistent_returns_false(self):
-        from engine import delete_compound_works
+        from app import engine as app_engine
 
-        self.assertFalse(delete_compound_works(9999, 9998))
+        self.assertFalse(app_engine.delete_compound_work_rows(9999, 9998))
 
     def test_list_compound_works(self):
-        from engine import list_compound_works, set_compound_works
+        from app import engine as app_engine
 
-        set_compound_works(1, 2, ['作品X'])
-        set_compound_works(3, 4, ['作品Y', '作品Z'])
-        items = list_compound_works()
+        app_engine.set_compound_work_rows(1, 2, ['作品X'])
+        app_engine.set_compound_work_rows(3, 4, ['作品Y', '作品Z'])
+        items = app_engine.list_compound_work_rows()
         keys = [i['key'] for i in items]
         self.assertIn('1,2', keys)
         self.assertIn('3,4', keys)
@@ -138,9 +129,9 @@ class TestCompoundWorks(FileSnapshotMixin, unittest.TestCase):
 
     def test_cross_works_in_guess_response(self):
         """複合診断時にcross_worksフィールドが返る"""
-        from engine import set_compound_works
+        from app import engine as app_engine
 
-        set_compound_works(0, 1, ['複合専用テスト作品'])
+        app_engine.set_compound_work_rows(0, 1, ['複合専用テスト作品'])
         client = app.test_client()
         res = client.post('/api/start')
         q_id = res.get_json()['question_id']
@@ -163,8 +154,10 @@ class TestCompoundWorks(FileSnapshotMixin, unittest.TestCase):
         fid = eng.fetishes[0]['id']
         ok = eng.edit_fetish(fid, works=['テスト作品1', 'テスト作品2'])
         self.assertTrue(ok)
-        idx = eng.index_of(fid)
-        self.assertEqual(eng.fetishes[idx]['works'], ['テスト作品1', 'テスト作品2'])
+        self.assertEqual(
+            [work['title'] for work in eng.get_recommended_works(fid)],
+            ['テスト作品1', 'テスト作品2'],
+        )
 
     def test_admin_api_edit_fetish_works(self):
         """APIからworks編集ができる（テスト後に元に戻す）"""
@@ -172,15 +165,14 @@ class TestCompoundWorks(FileSnapshotMixin, unittest.TestCase):
 
         headers = self._admin_headers()
         fid = app_engine.fetishes[0]['id']
-        idx = app_engine.index_of(fid)
-        original_works = list(app_engine.fetishes[idx].get('works', []))
+        original_works = app_engine.get_recommended_works(fid)
         try:
             res = self.client.post(
                 f'/api/admin/edit_fetish/{fid}', json={'works': ['API作品A', 'API作品B']}, headers=headers
             )
             self.assertEqual(res.status_code, 200)
             data = res.get_json()
-            self.assertIn('API作品A', data['works'])
+            self.assertIn('API作品A', [work['title'] for work in data['works']])
         finally:
             app_engine.edit_fetish(fid, works=original_works)
 

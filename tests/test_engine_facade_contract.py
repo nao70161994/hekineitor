@@ -213,10 +213,6 @@ class TestEngineFacadeContract(unittest.TestCase):
             'PLAYER_FETISH_BASE_ID',
             'FOCUS_THRESHOLD',
             'FETISH_RELATIONS',
-            'get_compound_works',
-            'list_compound_works',
-            'set_compound_works',
-            'delete_compound_works',
             'parse_works_list',
         ]
         for name in expected_exports:
