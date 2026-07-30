@@ -58,8 +58,16 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
 
         self.assertTrue(work_catalog.validate_catalog(corrected))
         self.assertEqual(len(corrected['works_master']), len(self.catalog['works_master']) + 1)
-        self.assertEqual(len(corrected['work_editions']), len(self.catalog['work_editions']))
-        self.assertEqual(len(corrected['work_aliases']), len(self.catalog['work_aliases']) - 3)
+        edition_delta = sum(
+            len(correction.get('edition_additions') or []) - len(correction.get('edition_removals') or [])
+            for correction in self.manifest['corrections']
+        )
+        alias_delta = sum(
+            len(correction.get('alias_additions') or []) - len(correction.get('alias_removals') or [])
+            for correction in self.manifest['corrections']
+        )
+        self.assertEqual(len(corrected['work_editions']), len(self.catalog['work_editions']) + edition_delta)
+        self.assertEqual(len(corrected['work_aliases']), len(self.catalog['work_aliases']) + alias_delta)
         works = {row['work_id']: row for row in corrected['works_master']}
         editions = {row['edition_id']: row for row in corrected['work_editions']}
         self.assertEqual(works['wrk_76a08381045d290abf30']['canonical_title'], 'ゼロの使い魔')
@@ -114,7 +122,15 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
         source_ids = {
             update['expected']['link_id']
             for correction in self.manifest['corrections']
-            for update in correction['link_updates']
+            for update in correction.get('link_updates') or []
+            if update['expected']['work_id']
+            in {
+                'wrk_76a08381045d290abf30',
+                'wrk_5d1a3d2f9813efa92de1',
+                'wrk_875e300c4de51e82ed13',
+                'wrk_635907b25c09a91c33a9',
+                'wrk_d870201346843e8d88db',
+            }
         }
         expected_locations = {before_locations[link_id] for link_id in source_ids}
         actual_locations = {
@@ -312,7 +328,13 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
                     self.apply(manifest=manifest)
 
     def test_v2_additions_removal_and_projection_fail_closed(self):
-        correction = copy.deepcopy(self.manifest['corrections'][-1])
+        correction = copy.deepcopy(
+            next(
+                row
+                for row in self.manifest['corrections']
+                if row['correction_id'] == 'replace-misassigned-exposure-diary-b097zsflyr'
+            )
+        )
         manifest = {
             'schema_version': 2,
             'catalog_schema_version': 2,
@@ -421,11 +443,412 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
         )
         self.assertEqual(reverse['fetishes'], inline)
 
+    def quarantine_fixture(self, *, allow_missing=False):
+        inline = [{'id': 1, 'name': 'owner', 'works': ['Before', 'Remove me', 'After']}]
+        catalog = work_catalog.build_catalog_from_inline(inline)
+        expected_work = next(row for row in catalog['works_master'] if row['canonical_title'] == 'Remove me')
+        expected_link = next(
+            row for row in catalog['fetish_work_links'] if row['work_id'] == expected_work['work_id']
+        )
+        target_work = copy.deepcopy(expected_work)
+        target_work['status'] = 'archived'
+        removal = {'table': 'fetish_work_links', 'expected': copy.deepcopy(expected_link)}
+        if allow_missing:
+            removal['allow_missing'] = True
+        manifest = {
+            'schema_version': 3,
+            'catalog_schema_version': 2,
+            'corrections': [
+                {
+                    'correction_id': 'wcc_test_quarantine',
+                    'type': 'quarantine_recommendation',
+                    'expected_work': copy.deepcopy(expected_work),
+                    'target_work': target_work,
+                    'edition_updates': [],
+                    'edition_additions': [],
+                    'edition_removals': [],
+                    'alias_additions': [],
+                    'alias_removals': [],
+                    'link_updates': [],
+                    'link_removals': [removal],
+                    'review_updates': [],
+                }
+            ],
+        }
+        return inline, catalog, manifest, expected_work, expected_link
+
+    def test_v3_quarantine_is_atomic_idempotent_and_reindexes_owner(self):
+        _, catalog, manifest, expected_work, expected_link = self.quarantine_fixture()
+        original = copy.deepcopy(catalog)
+
+        corrected = work_catalog.apply_catalog_corrections(catalog, manifest)
+
+        self.assertEqual(catalog, original)
+        self.assertEqual(
+            next(row for row in corrected['works_master'] if row['work_id'] == expected_work['work_id'])['status'],
+            'archived',
+        )
+        self.assertNotIn(expected_link['link_id'], {row['link_id'] for row in corrected['fetish_work_links']})
+        owner_links = sorted(corrected['fetish_work_links'], key=lambda row: row['position'])
+        self.assertEqual([row['position'] for row in owner_links], [0, 1])
+        self.assertEqual(
+            [
+                next(
+                    work['canonical_title']
+                    for work in corrected['works_master']
+                    if work['work_id'] == row['work_id']
+                )
+                for row in owner_links
+            ],
+            ['Before', 'After'],
+        )
+        self.assertEqual(work_catalog.apply_catalog_corrections(corrected, manifest), corrected)
+
+        drifted = copy.deepcopy(catalog)
+        next(row for row in drifted['fetish_work_links'] if row['link_id'] == expected_link['link_id'])[
+            'context_label'
+        ] = 'drift'
+        before = copy.deepcopy(drifted)
+        with self.assertRaisesRegex(ValueError, 'source drift'):
+            work_catalog.apply_catalog_corrections(drifted, manifest)
+        self.assertEqual(drifted, before)
+
+    def test_v3_quarantine_allow_missing_is_explicit_and_fail_closed(self):
+        _, catalog, manifest, expected_work, expected_link = self.quarantine_fixture(allow_missing=True)
+        catalog['fetish_work_links'] = [
+            row for row in catalog['fetish_work_links'] if row['link_id'] != expected_link['link_id']
+        ]
+        for position, row in enumerate(sorted(catalog['fetish_work_links'], key=lambda item: item['position'])):
+            row['position'] = position
+
+        corrected = work_catalog.apply_catalog_corrections(catalog, manifest)
+
+        self.assertEqual(
+            next(row for row in corrected['works_master'] if row['work_id'] == expected_work['work_id'])['status'],
+            'archived',
+        )
+
+        drifted = copy.deepcopy(catalog)
+        moved = copy.deepcopy(expected_link)
+        moved.update(fetish_id=2, link_id='fwl_moved', position=0)
+        drifted['fetish_work_links'].append(moved)
+        before = copy.deepcopy(drifted)
+        with self.assertRaisesRegex(ValueError, 'quarantined work still referenced'):
+            work_catalog.apply_catalog_corrections(drifted, manifest)
+        self.assertEqual(drifted, before)
+
+    def test_v3_inline_quarantine_forward_reverse_and_drift_guards(self):
+        inline, _, manifest, _, _ = self.quarantine_fixture()
+
+        forward = work_catalog.project_approved_inline_corrections(inline, corrections=manifest)
+        self.assertEqual(forward['fetishes'][0]['works'], ['Before', 'After'])
+        reverse = work_catalog.project_approved_inline_corrections(
+            forward['fetishes'], corrections=manifest, direction='reverse'
+        )
+        self.assertEqual(reverse['fetishes'], inline)
+        reverse_again = work_catalog.project_approved_inline_corrections(
+            reverse['fetishes'], corrections=manifest, direction='reverse'
+        )
+        self.assertEqual(reverse_again['fetishes'], inline)
+
+        cases = []
+        moved_owner = copy.deepcopy(inline)
+        moved_owner[0]['works'].pop(1)
+        moved_owner.append({'id': 2, 'name': 'other', 'works': ['Remove me']})
+        cases.append((moved_owner, 'source_owner_drift'))
+        moved_position = copy.deepcopy(inline)
+        moved_position[0]['works'] = ['Remove me', 'Before', 'After']
+        cases.append((moved_position, 'source_position_drift'))
+        signature_drift = copy.deepcopy(inline)
+        signature_drift[0]['works'][1] = 'Changed'
+        cases.append((signature_drift, 'source_absent'))
+        duplicate = copy.deepcopy(inline)
+        duplicate.append({'id': 2, 'name': 'other', 'works': ['Remove me']})
+        cases.append((duplicate, 'duplicate_source_signature'))
+        for rows, reason in cases:
+            with self.subTest(reason=reason):
+                with self.assertRaisesRegex(ValueError, reason):
+                    work_catalog.project_approved_inline_corrections(rows, corrections=manifest)
+
+    def test_v3_reverse_restores_removal_before_reversing_shifted_update(self):
+        compounds = {'1,2': ['Remove me', 'Middle', 'Old title']}
+        compound_rows = [{'key': '1,2', 'id_a': 1, 'id_b': 2, 'works': compounds['1,2']}]
+        fetishes = [{'id': 1, 'name': 'one', 'works': []}, {'id': 2, 'name': 'two', 'works': []}]
+        catalog = work_catalog.build_catalog_from_inline(fetishes, compound_rows=compound_rows)
+        remove_work = next(row for row in catalog['works_master'] if row['canonical_title'] == 'Remove me')
+        update_work = next(row for row in catalog['works_master'] if row['canonical_title'] == 'Old title')
+        remove_link = next(row for row in catalog['compound_work_links'] if row['work_id'] == remove_work['work_id'])
+        update_link = next(row for row in catalog['compound_work_links'] if row['work_id'] == update_work['work_id'])
+        archived = copy.deepcopy(remove_work)
+        archived['status'] = 'archived'
+        renamed = copy.deepcopy(update_work)
+        renamed.update(canonical_title='New title', normalized_title='new title')
+        empty_rows = {
+            'edition_updates': [],
+            'edition_additions': [],
+            'edition_removals': [],
+            'alias_additions': [],
+            'alias_removals': [],
+            'review_updates': [],
+        }
+        manifest = {
+            'schema_version': 3,
+            'catalog_schema_version': 2,
+            'corrections': [
+                {
+                    'correction_id': 'wcc_update_original_pos_2',
+                    'type': 'retitle_identity',
+                    'expected_work': update_work,
+                    'target_work': renamed,
+                    **copy.deepcopy(empty_rows),
+                    'link_updates': [
+                        {
+                            'table': 'compound_work_links',
+                            'expected': update_link,
+                            'edition_id': None,
+                            'alias_id': None,
+                            'context_label': '',
+                        }
+                    ],
+                    'link_removals': [],
+                },
+                {
+                    'correction_id': 'wcc_remove_pos_0',
+                    'type': 'quarantine_recommendation',
+                    'expected_work': remove_work,
+                    'target_work': archived,
+                    **copy.deepcopy(empty_rows),
+                    'link_updates': [],
+                    'link_removals': [
+                        {'table': 'compound_work_links', 'expected': remove_link, 'allow_missing': True}
+                    ],
+                },
+            ],
+        }
+
+        forward = work_catalog.project_approved_inline_corrections(
+            [], compound_rows=compounds, corrections=manifest
+        )
+        self.assertEqual(forward['compound_rows'], {'1,2': ['Middle', 'New title']})
+        forward_again = work_catalog.project_approved_inline_corrections(
+            [], compound_rows=forward['compound_rows'], corrections=manifest
+        )
+        self.assertEqual(forward_again['compound_rows'], forward['compound_rows'])
+        reverse = work_catalog.project_approved_inline_corrections(
+            [], compound_rows=forward['compound_rows'], corrections=manifest, direction='reverse'
+        )
+        self.assertEqual(reverse['compound_rows'], compounds)
+
+        corrected = work_catalog.apply_catalog_corrections(catalog, manifest)
+        self.assertEqual(work_catalog.apply_catalog_corrections(corrected, manifest), corrected)
+        drifted = copy.deepcopy(corrected)
+        owner_links = [row for row in drifted['compound_work_links'] if (row['id_a'], row['id_b']) == (1, 2)]
+        updated_link = next(row for row in owner_links if row['work_id'] == update_work['work_id'])
+        other_link = next(row for row in owner_links if row['work_id'] != update_work['work_id'])
+        updated_link['position'], other_link['position'] = other_link['position'], updated_link['position']
+        with self.assertRaisesRegex(ValueError, 'source drift'):
+            work_catalog.apply_catalog_corrections(drifted, manifest)
+
+    def test_v3_source_url_locks_existing_removal_edition_for_projection(self):
+        url = 'https://www.amazon.co.jp/dp/B07WRK3MF8?tag=hekinator-22'
+        inline = [{'id': 1, 'name': 'owner', 'works': [{'title': 'Remove me', 'url': url}]}]
+        catalog = work_catalog.build_catalog_from_inline(inline)
+        expected_work = next(row for row in catalog['works_master'] if row['canonical_title'] == 'Remove me')
+        expected_link = next(row for row in catalog['fetish_work_links'] if row['work_id'] == expected_work['work_id'])
+        expected_edition = next(
+            row for row in catalog['work_editions'] if row['edition_id'] == expected_link['edition_id']
+        )
+        archived = copy.deepcopy(expected_work)
+        archived['status'] = 'archived'
+        manifest = {
+            'schema_version': 3,
+            'catalog_schema_version': 2,
+            'corrections': [
+                {
+                    'correction_id': 'wcc_existing_edition_quarantine',
+                    'type': 'quarantine_recommendation',
+                    'expected_work': expected_work,
+                    'target_work': archived,
+                    'edition_updates': [],
+                    'edition_additions': [],
+                    'edition_removals': [],
+                    'alias_additions': [],
+                    'alias_removals': [],
+                    'link_updates': [],
+                    'link_removals': [
+                        {'table': 'fetish_work_links', 'expected': expected_link, 'source_url': url}
+                    ],
+                    'review_updates': [],
+                }
+            ],
+        }
+
+        forward = work_catalog.project_approved_inline_corrections(inline, corrections=manifest)
+        self.assertEqual(forward['fetishes'][0]['works'], [])
+        reverse = work_catalog.project_approved_inline_corrections(
+            forward['fetishes'], corrections=manifest, direction='reverse'
+        )
+        self.assertEqual(reverse['fetishes'], inline)
+        corrected = work_catalog.apply_catalog_corrections(catalog, manifest)
+        self.assertEqual(work_catalog.apply_catalog_corrections(corrected, manifest), corrected)
+
+        drifted_inline = copy.deepcopy(inline)
+        drifted_inline[0]['works'][0]['url'] = 'https://www.amazon.co.jp/dp/B000000000?tag=hekinator-22'
+        with self.assertRaisesRegex(ValueError, 'source_absent'):
+            work_catalog.project_approved_inline_corrections(drifted_inline, corrections=manifest)
+        drifted_catalog = copy.deepcopy(catalog)
+        next(
+            row for row in drifted_catalog['work_editions'] if row['edition_id'] == expected_edition['edition_id']
+        ).update(
+            asin='B000000000',
+            canonical_url='https://www.amazon.co.jp/dp/B000000000?tag=hekinator-22',
+        )
+        with self.assertRaisesRegex(ValueError, 'edition source drift'):
+            work_catalog.apply_catalog_corrections(drifted_catalog, manifest)
+
+        missing_lock = copy.deepcopy(manifest)
+        missing_lock['corrections'][0]['link_removals'][0].pop('source_url')
+        with self.assertRaisesRegex(ValueError, 'invalid_link_removal'):
+            work_catalog.project_approved_inline_corrections(inline, corrections=missing_lock)
+
+    def test_v3_manifest_wide_quarantine_removals_are_atomic_and_position_safe(self):
+        inline = [
+            {'id': 1, 'name': 'one', 'works': ['A', 'B', 'C', 'D']},
+            {'id': 2, 'name': 'two', 'works': ['X', 'Y', 'Z']},
+        ]
+        catalog = work_catalog.build_catalog_from_inline(inline)
+        works_by_title = {row['canonical_title']: row for row in catalog['works_master']}
+        links_by_owner_title = {}
+        for link in catalog['fetish_work_links']:
+            title = next(
+                row['canonical_title']
+                for row in catalog['works_master']
+                if row['work_id'] == link['work_id']
+            )
+            links_by_owner_title[(link['fetish_id'], title)] = link
+
+        corrections = []
+        for title, owner in (('A', 1), ('B', 1), ('D', 1), ('Y', 2)):
+            expected_work = copy.deepcopy(works_by_title[title])
+            target_work = copy.deepcopy(expected_work)
+            target_work['status'] = 'archived'
+            corrections.append(
+                {
+                    'correction_id': f'wcc_quarantine_{owner}_{title}',
+                    'type': 'quarantine_recommendation',
+                    'expected_work': expected_work,
+                    'target_work': target_work,
+                    'edition_updates': [],
+                    'edition_additions': [],
+                    'edition_removals': [],
+                    'alias_additions': [],
+                    'alias_removals': [],
+                    'link_updates': [],
+                    'link_removals': [
+                        {
+                            'table': 'fetish_work_links',
+                            'expected': copy.deepcopy(links_by_owner_title[(owner, title)]),
+                            'allow_missing': True,
+                        }
+                    ],
+                    'review_updates': [],
+                }
+            )
+        manifest = {'schema_version': 3, 'catalog_schema_version': 2, 'corrections': corrections}
+
+        corrected = work_catalog.apply_catalog_corrections(catalog, manifest)
+        materialized = work_catalog.materialize_fetish_works(corrected)
+        self.assertEqual([row['title'] for row in materialized[1]], ['C'])
+        self.assertEqual([row['title'] for row in materialized[2]], ['X', 'Z'])
+        self.assertEqual(work_catalog.apply_catalog_corrections(corrected, manifest), corrected)
+
+        partial = copy.deepcopy(catalog)
+        partial_works = {row['work_id']: row for row in partial['works_master']}
+        partial_works[works_by_title['A']['work_id']]['status'] = 'archived'
+        absent_ids = {
+            links_by_owner_title[(1, 'A')]['link_id'],
+            links_by_owner_title[(2, 'Y')]['link_id'],
+        }
+        partial['fetish_work_links'] = [
+            row for row in partial['fetish_work_links'] if row['link_id'] not in absent_ids
+        ]
+        for owner in (1, 2):
+            owner_links = sorted(
+                (row for row in partial['fetish_work_links'] if row['fetish_id'] == owner),
+                key=lambda row: row['position'],
+            )
+            for position, link in enumerate(owner_links):
+                link['position'] = position
+        self.assertEqual(work_catalog.apply_catalog_corrections(partial, manifest), corrected)
+
+        drift_cases = []
+        signature_drift = copy.deepcopy(catalog)
+        next(
+            row
+            for row in signature_drift['fetish_work_links']
+            if row['link_id'] == links_by_owner_title[(1, 'B')]['link_id']
+        )['context_label'] = 'drift'
+        drift_cases.append(signature_drift)
+        position_drift = copy.deepcopy(catalog)
+        owner_links = {
+            row['work_id']: row for row in position_drift['fetish_work_links'] if row['fetish_id'] == 1
+        }
+        b_link = owner_links[works_by_title['B']['work_id']]
+        c_link = owner_links[works_by_title['C']['work_id']]
+        b_link['position'], c_link['position'] = c_link['position'], b_link['position']
+        drift_cases.append(position_drift)
+        for drifted in drift_cases:
+            with self.subTest(drift=drifted):
+                before = copy.deepcopy(drifted)
+                with self.assertRaisesRegex(ValueError, 'link removal source drift'):
+                    work_catalog.apply_catalog_corrections(drifted, manifest)
+                self.assertEqual(drifted, before)
+
+    def test_v3_quarantine_manifest_schema_is_strict(self):
+        _, catalog, manifest, _, _ = self.quarantine_fixture()
+        invalid_manifests = []
+
+        v2 = copy.deepcopy(manifest)
+        v2['schema_version'] = 2
+        invalid_manifests.append((v2, 'version 3 fields'))
+        active_target = copy.deepcopy(manifest)
+        active_target['corrections'][0]['target_work']['status'] = 'active'
+        invalid_manifests.append((active_target, 'invalid quarantine target'))
+        moved_target = copy.deepcopy(manifest)
+        moved_target['corrections'][0]['target_work']['work_id'] = 'wrk_other'
+        invalid_manifests.append((moved_target, 'invalid quarantine target'))
+        extra_wrapper = copy.deepcopy(manifest)
+        extra_wrapper['corrections'][0]['link_removals'][0]['unexpected'] = True
+        invalid_manifests.append((extra_wrapper, 'invalid link_removals'))
+        incomplete_expected = copy.deepcopy(manifest)
+        incomplete_expected['corrections'][0]['link_removals'][0]['expected'].pop('context_label')
+        invalid_manifests.append((incomplete_expected, 'invalid link removal'))
+        non_bool = copy.deepcopy(manifest)
+        non_bool['corrections'][0]['link_removals'][0]['allow_missing'] = 1
+        invalid_manifests.append((non_bool, 'invalid link removal'))
+        source_url_without_edition = copy.deepcopy(manifest)
+        source_url_without_edition['corrections'][0]['link_removals'][0]['source_url'] = (
+            'https://example.com/not-allowed'
+        )
+        invalid_manifests.append((source_url_without_edition, 'invalid link removal'))
+        mixed_mutation = copy.deepcopy(manifest)
+        mixed_mutation['corrections'][0]['alias_removals'] = [
+            {'expected': {'alias_id': 'wal_unknown', 'work_id': 'wrk_unknown'}}
+        ]
+        invalid_manifests.append((mixed_mutation, 'quarantine must only remove links'))
+
+        for invalid, message in invalid_manifests:
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(ValueError, message):
+                    work_catalog.apply_catalog_corrections(catalog, invalid)
+                with self.assertRaises(ValueError):
+                    work_catalog.project_approved_inline_corrections([], corrections=invalid)
+
     def test_v1_manifest_compatibility_and_v2_field_guard(self):
         legacy = copy.deepcopy(self.manifest)
         legacy['schema_version'] = 1
         legacy['catalog_schema_version'] = 1
-        legacy['corrections'] = legacy['corrections'][:-1]
+        legacy['corrections'] = legacy['corrections'][:4]
         corrected = self.apply(manifest=legacy)
         self.assertTrue(work_catalog.validate_catalog(corrected))
 

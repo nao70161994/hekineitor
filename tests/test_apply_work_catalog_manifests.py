@@ -107,6 +107,7 @@ class FakeClient:
                 'correction_count': len(rows),
                 'split_count': sum(row.get('type') == 'split_misassigned_edition' for row in rows),
                 'retitle_count': sum(row.get('type') == 'retitle_identity' for row in rows),
+                'quarantine_count': sum(row.get('type') == 'quarantine_recommendation' for row in rows),
                 'inline_applied_link_count': 0,
                 'inline_fetish_owner_count': 0,
                 'inline_compound_owner_count': 0,

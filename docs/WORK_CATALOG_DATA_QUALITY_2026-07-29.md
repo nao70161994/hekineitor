@@ -58,9 +58,11 @@ ASINはAmazon直商品ページと照合できた場合だけ登録します。�
 - `カノジョも彼女（直子）`の`直子`は公式人物一覧に存在せず、意図候補を自動選定しない。[作品公式](https://kanokano-anime.com/1st/character/)
 - `ミライニッキ`は誤記。canonicalは[KADOKAWA公式](https://www.kadokawa.co.jp/product/200605000102/)の`未来日記`。`Future Diary`は有効な英語alias、人物・場面はlink contextへ分離する。
 
-## Applied P0 correction manifest
+## Applied correction manifest
 
-`data/work_catalog_corrections.json`でP0 5件を実装済みです。canonical SHA-256は`bf68f459045abcd911574472cd60977c4baa7a43cf7008b6c58d3698a94d4d66`、内訳はsplit 1件・retitle 4件です。checked seedはmaster 325、edition 239、alias 151、fetish link 376、compound link 185、review 74、pending 0です。source row完全一致を基本とし、review timestampはchecked seedの2026-07-28と旧79件manifest由来の2026-07-29だけを明示許可し、同一UTC instantのdate/ISO表現を受け入れます。本番のplayer-added owner 104置換で既に不存在のseed alias/linkだけは`allow_missing`で再作成せず、存在時のdrift、未許可日付、他field差異、collision/dangling参照は拒否します。owner/position維持、冪等再適用、fresh v3 backup由来の本番preflightを自動テストで固定しています。
+`data/work_catalog_corrections.json`はschema v3、15件（split 1、retitle 7、quarantine 7）です。canonical SHA-256は`ff1740f02ab7961866e0c193ce250e421e6fd623345835755154b188c5145167`です。checked seedはmaster 325、edition 252、edition identifier 14、alias 158、fetish link 373、compound link 179、review 74、pending 0で、根拠不足7作品を`archived`として保持しつつ公開linkだけを除去しています。
+
+quarantineはsource work/linkの全field、owner、position、edition URLを固定し、削除後のowner positionを連番化します。inline projectionはforwardでupdate後にremove、reverseでremove復元後にupdateし、同一manifest内の削除から算出した最終positionだけを許容します。`allow_missing`は既適用の不在だけを許容し、同signatureの別owner・別position移動は拒否します。catalog更新・inline同期・逆projectionはいずれもatomic、冪等、fail-closedです。既存のreview timestamp互換とplayer-added owner 104の保護も維持します。
 
 ## Applied bibliography manifest
 
@@ -70,22 +72,22 @@ schema v2と`data/work_catalog_bibliography.json`で上記12版のISBN-13、版�
 
 旧記録の「残り37件」は、初期の要調査57件から具体化済み20件を引いた算術だけが保存され、元57件のwork ID一覧と選定規則が残っていません。このため37件を事後に断定すると恣意的な除外が生じます。
 
-`data/work_catalog_research_queue.json`は、現在のraw compound推薦のうち「object形式・URL空・対応する正規workにeditionなし」を機械抽出した43件を、owner pair・position・work ID・canonical title付きで固定します。42件は書誌未確認、1件はadult metadata未確認です。raw sourceと正規catalogの完全一致をCIで検証し、今後はこの再現可能な43件を調査母集団にします。
+`data/work_catalog_research_queue.json`は監査母集団46件を保持します。39件は現在もpendingで、raw compound推薦の「object形式・URL空・対応する正規workにeditionなし」と完全一致します。7件は一次情報を確認できず公開linkを除去した`quarantined`履歴で、元owner pair・position・work IDを失わず、catalog側が`archived`かつ無参照であることをCIで検証します。
 
 ## Adult and intent-conflict audit (2026-07-30)
 
-指定6件は一次情報で3件の正式identityを確定し、3件は同一性を確定できませんでした。さらに、関連1件で別商品のASIN混入を確認しました。
+指定6件は再監査し、根拠不足のまま公開維持しない方針で処理しました。
 
-- `wrk_d870201346843e8d88db`: [作者販売ページ](https://fantia.jp/products/685549)の正式作品は`露出少女日記総集編１冊目`。登録されていたASIN `B097ZSFLYR`は別作品でした。P0 correctionで誤editionを厳密削除し、旧表示とowner/positionを維持したまま推薦linkを作者販売版へ付け替え済み。
-- `wrk_9b70748b8f29776d9e3d`: ASIN `B07PVX5CFT`は`妻は人妻、人妻は妻`という小説。正式identityへ訂正し、熟女推薦への適合は別reviewにする。
-- `wrk_33c8de99aa77f9c17600`: ASIN `B07DFY8ZX1`は`人妻とNTR温泉旅行`。[Books](https://www.books.or.jp/book-details/9784799211441)で紙版ISBN `9784799211441`も確認したが、幼なじみ推薦への適合は確認できない。
-- `wrk_7d5a75f6654855f5dad5`: [公式](https://www.ignote.net/operetta/tumikui/)はゲーム`罪喰い～千の呪い、千の祈り～`であり漫画ではない。BL×ヤンデレcompound linkは推薦意図と衝突する。
-- `wrk_70c7ec0820afa8d25895`、`wrk_7f4986ef9061ea40f1a0`、`wrk_c0e3655fd3bad028ca35`: 作者・出版社・公式販売の同一商品根拠を確認できないため、別作品へ推測統合せず推薦quarantine候補とする。
+- `wrk_9b70748b8f29776d9e3d`: ASIN `B07PVX5CFT`を小説`妻は人妻、人妻は妻`へ訂正。作品は保持し、26歳の妻を扱う内容のため熟女推薦linkを除去。
+- `wrk_33c8de99aa77f9c17600`: `人妻とNTR（ネトラレ）温泉旅行`へ訂正し、[JPO Books](https://www.books.or.jp/book-details/9784799211441)の紙版ISBN `9784799211441`を追加。幼なじみ要素がないため該当linkを除去。
+- `wrk_7d5a75f6654855f5dad5`: 登録rowだけでは同名BL小説と正式題の異なる[Operetta公式ゲーム](https://www.ignote.net/operetta/tumikui/)を識別できないため、ゲームへ推測retitleせずquarantine。
+- `wrk_70c7ec0820afa8d25895`: 失効ASINから成人動画seriesの版を特定できないためquarantine。
+- `wrk_7f4986ef9061ea40f1a0`、`wrk_c0e3655fd3bad028ca35`: 作者・出版社・公式販売の同一商品根拠がなくquarantine。
 
-Amazon URLだけで正式metadataを取得できない場合や、NDLに同名別作品しかない場合は肯定根拠にしません。訂正はsource row、owner、position、URLを固定したatomic manifestで行います。
+追加で、書誌なしの`後宮の謀略令嬢（小説）`、`魔法科のループ転生（小説）`、`同居から始まった仕事人間の恋（漫画）`も、安全な兄弟推薦が残るownerから除去しました。`逃げるは恥だが役に立つ`は[講談社公式](https://www.kodansha.co.jp/comic/products/0000036370)の1巻、ISBN `9784063409116`へ検索URLを置換しています。
 
 ## Remaining gates
 
-1. 機械可読queue 43件を一次ソースで順に調査し、確認済み版への置換または推薦quarantineを明示判断する。
-2. 追加P0 1件は処理済み。残る確定3件と未確定3件をdigest-locked correction/reviewで処理し、公開推薦の誤誘導を解消する。
-3. staging v3 restore rehearsalと本番manifest適用後backupを完了してから、旧inline source of truthの廃止可否を判断する。
+1. pending 39件を一次ソースで順に調査し、確認済み版への置換または推薦quarantineを明示判断する。
+2. schema v3 correctionを本番へ適用し、適用後backup、parity、全worker revisionを保存する。
+3. staging v3 restore rehearsalと手動サインオフを完了してから、旧inline source of truthの廃止可否を判断する。

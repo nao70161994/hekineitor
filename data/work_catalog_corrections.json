@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "reviewed_at": "2026-07-30",
   "reviewed_by": "catalog data-quality review 2026-07-30",
   "catalog_schema_version": 2,
@@ -417,6 +417,457 @@
         }
       ],
       "review_updates": []
+    },
+    {
+      "correction_id": "retitle-wife-is-wife-b07pvx5cft-and-remove-mature-link",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_9b70748b8f29776d9e3d",
+        "canonical_title": "人妻ゆうわく日記（成人向け漫画）",
+        "normalized_title": "人妻ゆうわく日記(成人向け漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_9b70748b8f29776d9e3d",
+        "canonical_title": "妻は人妻、人妻は妻",
+        "normalized_title": "妻は人妻、人妻は妻",
+        "media_type": "novel",
+        "status": "active"
+      },
+      "edition_updates": [
+        {
+          "expected": {
+            "edition_id": "wed_9b70748b8f29776d9e3d",
+            "work_id": "wrk_9b70748b8f29776d9e3d",
+            "asin": "B07PVX5CFT",
+            "canonical_url": "https://www.amazon.co.jp/dp/B07PVX5CFT?tag=hekinator-22",
+            "format": "",
+            "status": "active",
+            "edition_title": "",
+            "publisher": ""
+          }
+        }
+      ],
+      "link_removals": [
+        {
+          "table": "fetish_work_links",
+          "expected": {
+            "link_id": "fwl_dea6901d39b0696ba094",
+            "fetish_id": 64,
+            "work_id": "wrk_9b70748b8f29776d9e3d",
+            "edition_id": "wed_9b70748b8f29776d9e3d",
+            "alias_id": null,
+            "position": 2,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "source_url": "https://www.amazon.co.jp/dp/B07PVX5CFT?tag=hekinator-22",
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "retitle-ntr-onsen-b07dfy8zx1-and-remove-childhood-link",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_33c8de99aa77f9c17600",
+        "canonical_title": "NTR同人誌（燃堂力作品）",
+        "normalized_title": "ntr同人誌(燃堂力作品)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_33c8de99aa77f9c17600",
+        "canonical_title": "人妻とNTR（ネトラレ）温泉旅行",
+        "normalized_title": "人妻とntr(ネトラレ)温泉旅行",
+        "media_type": "novel",
+        "status": "active"
+      },
+      "edition_updates": [
+        {
+          "expected": {
+            "edition_id": "wed_33c8de99aa77f9c17600",
+            "work_id": "wrk_33c8de99aa77f9c17600",
+            "asin": "B07DFY8ZX1",
+            "canonical_url": "https://www.amazon.co.jp/dp/B07DFY8ZX1?tag=hekinator-22",
+            "format": "",
+            "status": "active",
+            "edition_title": "",
+            "publisher": ""
+          }
+        }
+      ],
+      "edition_additions": [
+        {
+          "target": {
+            "edition_id": "wed_88e80355dac9d251ed98",
+            "work_id": "wrk_33c8de99aa77f9c17600",
+            "asin": "",
+            "canonical_url": "https://www.books.or.jp/book-details/9784799211441",
+            "format": "paperback",
+            "status": "active",
+            "edition_title": "人妻とNTR（ネトラレ）温泉旅行",
+            "publisher": "キルタイムコミュニケーション"
+          },
+          "identifiers": [
+            {
+              "identifier_id": "wei_b18c9a0af8ca15c62327",
+              "edition_id": "wed_88e80355dac9d251ed98",
+              "scheme": "isbn",
+              "authority": "isbn",
+              "value": "9784799211441"
+            }
+          ]
+        }
+      ],
+      "link_removals": [
+        {
+          "table": "fetish_work_links",
+          "expected": {
+            "link_id": "fwl_b95791026b00c415c74e",
+            "fetish_id": 51,
+            "work_id": "wrk_33c8de99aa77f9c17600",
+            "edition_id": "wed_33c8de99aa77f9c17600",
+            "alias_id": null,
+            "position": 2,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "source_url": "https://www.amazon.co.jp/dp/B07DFY8ZX1?tag=hekinator-22",
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "retitle-escape-is-useful-and-replace-search-edition",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_0d91216489ad97581ebd",
+        "canonical_title": "逃げるは恥だが役に立つ（漫画）",
+        "normalized_title": "逃げるは恥だが役に立つ(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_0d91216489ad97581ebd",
+        "canonical_title": "逃げるは恥だが役に立つ",
+        "normalized_title": "逃げるは恥だが役に立つ",
+        "media_type": "manga",
+        "status": "active"
+      },
+      "edition_additions": [
+        {
+          "target": {
+            "edition_id": "wed_f8031ad9502109a0b969",
+            "work_id": "wrk_0d91216489ad97581ebd",
+            "asin": "",
+            "canonical_url": "https://www.kodansha.co.jp/comic/products/0000036370",
+            "format": "paperback",
+            "status": "active",
+            "edition_title": "逃げるは恥だが役に立つ（1）",
+            "publisher": "講談社"
+          },
+          "identifiers": [
+            {
+              "identifier_id": "wei_5957d69ef4ec3e47f211",
+              "edition_id": "wed_f8031ad9502109a0b969",
+              "scheme": "isbn",
+              "authority": "isbn",
+              "value": "9784063409116"
+            }
+          ]
+        }
+      ],
+      "edition_removals": [
+        {
+          "expected": {
+            "edition_id": "wed_ca299be14f596cafb7aa",
+            "work_id": "wrk_0d91216489ad97581ebd",
+            "asin": "",
+            "canonical_url": "https://www.amazon.co.jp/s?k=%E9%80%83%E3%81%92%E3%82%8B%E3%81%AF%E6%81%A5%E3%81%A0%E3%81%8C%E5%BD%B9%E3%81%AB%E7%AB%8B%E3%81%A4&tag=hekinator-22",
+            "format": "",
+            "status": "active",
+            "edition_title": "",
+            "publisher": ""
+          },
+          "expected_identifiers": []
+        }
+      ],
+      "alias_additions": [
+        {
+          "target": {
+            "alias_id": "wal_e3fdfa57179ebc08db2e",
+            "work_id": "wrk_0d91216489ad97581ebd",
+            "alias": "逃げるは恥だが役に立つ（漫画）",
+            "normalized_alias": "逃げるは恥だが役に立つ(漫画)"
+          }
+        }
+      ],
+      "link_updates": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_d345fd3aaa4e689ab1fb",
+            "id_a": 65,
+            "id_b": 107,
+            "work_id": "wrk_0d91216489ad97581ebd",
+            "edition_id": "wed_ca299be14f596cafb7aa",
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_f8031ad9502109a0b969",
+          "alias_id": "wal_e3fdfa57179ebc08db2e",
+          "context_label": ""
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-netorareze-b07wrk3mf8",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_70c7ec0820afa8d25895",
+        "canonical_title": "ネトラレーゼ（成人向け漫画）",
+        "normalized_title": "ネトラレーゼ(成人向け漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_70c7ec0820afa8d25895",
+        "canonical_title": "ネトラレーゼ（成人向け漫画）",
+        "normalized_title": "ネトラレーゼ(成人向け漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "fetish_work_links",
+          "expected": {
+            "link_id": "fwl_cb6495d512e4951f6d11",
+            "fetish_id": 0,
+            "work_id": "wrk_70c7ec0820afa8d25895",
+            "edition_id": "wed_70c7ec0820afa8d25895",
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "source_url": "https://www.amazon.co.jp/dp/B07WRK3MF8?tag=hekinator-22",
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-ambiguous-tsumigui",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_7d5a75f6654855f5dad5",
+        "canonical_title": "罪喰い（漫画）",
+        "normalized_title": "罪喰い(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_7d5a75f6654855f5dad5",
+        "canonical_title": "罪喰い（漫画）",
+        "normalized_title": "罪喰い(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_4e23e3df7f696ae5d7c1",
+            "id_a": 2,
+            "id_b": 10,
+            "work_id": "wrk_7d5a75f6654855f5dad5",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-dark-contract",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_7f4986ef9061ea40f1a0",
+        "canonical_title": "闇の契約（成人向け漫画）",
+        "normalized_title": "闇の契約(成人向け漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_7f4986ef9061ea40f1a0",
+        "canonical_title": "闇の契約（成人向け漫画）",
+        "normalized_title": "闇の契約(成人向け漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_5bef5e26101bdb1dcd5a",
+            "id_a": 3,
+            "id_b": 99,
+            "work_id": "wrk_7f4986ef9061ea40f1a0",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-lemonade",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_c0e3655fd3bad028ca35",
+        "canonical_title": "美少年レモネード（成人向け）",
+        "normalized_title": "美少年レモネード(成人向け)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_c0e3655fd3bad028ca35",
+        "canonical_title": "美少年レモネード（成人向け）",
+        "normalized_title": "美少年レモネード(成人向け)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_7d768cecd4dd4c28a6b4",
+            "id_a": 3,
+            "id_b": 6,
+            "work_id": "wrk_c0e3655fd3bad028ca35",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-palace-conspiracy",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_5c3fb71c172a86c95453",
+        "canonical_title": "後宮の謀略令嬢（小説）",
+        "normalized_title": "後宮の謀略令嬢(小説)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_5c3fb71c172a86c95453",
+        "canonical_title": "後宮の謀略令嬢（小説）",
+        "normalized_title": "後宮の謀略令嬢(小説)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_f3ce871209746b30d01b",
+            "id_a": 36,
+            "id_b": 100,
+            "work_id": "wrk_5c3fb71c172a86c95453",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-loop-reincarnation",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_17645d17443dcf77119d",
+        "canonical_title": "魔法科のループ転生（小説）",
+        "normalized_title": "魔法科のループ転生(小説)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_17645d17443dcf77119d",
+        "canonical_title": "魔法科のループ転生（小説）",
+        "normalized_title": "魔法科のループ転生(小説)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_d003c680c87f346d3234",
+            "id_a": 21,
+            "id_b": 101,
+            "work_id": "wrk_17645d17443dcf77119d",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-unverified-coworker-cohabitation",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_94d75ffa9598ca15e5b5",
+        "canonical_title": "同居から始まった仕事人間の恋（漫画）",
+        "normalized_title": "同居から始まった仕事人間の恋(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_94d75ffa9598ca15e5b5",
+        "canonical_title": "同居から始まった仕事人間の恋（漫画）",
+        "normalized_title": "同居から始まった仕事人間の恋(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_fe80db629d37194e7ef9",
+            "id_a": 65,
+            "id_b": 107,
+            "work_id": "wrk_94d75ffa9598ca15e5b5",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "allow_missing": true
+        }
+      ]
     }
   ]
 }

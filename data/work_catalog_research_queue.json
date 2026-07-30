@@ -2,20 +2,23 @@
   "schema_version": 1,
   "generated_at": "2026-07-30",
   "selection_rule": {
-    "source": "data/compound_works.json",
+    "source": [
+      "data/compound_works.json",
+      "data/fetishes.json",
+      "data/work_catalog_corrections.json"
+    ],
     "catalog": "data/work_catalog.json",
     "join_key": [
-      "id_a",
-      "id_b",
+      "source_table",
+      "owner",
       "position"
     ],
     "criteria": [
-      "raw work is an object",
-      "raw work URL is empty",
-      "the mapped current work has no work_editions row"
+      "pending: raw work is an object with an empty URL and mapped current work has no edition",
+      "quarantined: source recommendation was removed after a failed bibliography review"
     ],
     "exclusions": [
-      "string-form raw works",
+      "string-form raw works unless explicitly quarantined elsewhere",
       "raw object works with a non-empty URL",
       "mapped works with one or more editions"
     ]
@@ -63,8 +66,10 @@
       "id_b": 99,
       "position": 0,
       "canonical_title": "闇の契約（成人向け漫画）",
-      "status": "pending",
-      "issue": "adult_metadata_unverified"
+      "status": "quarantined",
+      "issue": "adult_metadata_unverified",
+      "source_table": "compound_work_links",
+      "reason": "一次情報で作品identityを確認できない"
     },
     {
       "work_id": "wrk_8c9cc5d74f2461ae3781",
@@ -90,8 +95,10 @@
       "id_b": 100,
       "position": 1,
       "canonical_title": "後宮の謀略令嬢（小説）",
-      "status": "pending",
-      "issue": "unverified_bibliography"
+      "status": "quarantined",
+      "issue": "unverified_bibliography",
+      "source_table": "compound_work_links",
+      "reason": "一次書誌のない汎用題で、同一作品を確認できない"
     },
     {
       "work_id": "wrk_532b20f73f9ddfcb27c5",
@@ -135,8 +142,10 @@
       "id_b": 101,
       "position": 1,
       "canonical_title": "魔法科のループ転生（小説）",
-      "status": "pending",
-      "issue": "unverified_bibliography"
+      "status": "quarantined",
+      "issue": "unverified_bibliography",
+      "source_table": "compound_work_links",
+      "reason": "一次書誌のない派生的な題で、同一作品を確認できない"
     },
     {
       "work_id": "wrk_94cdd3dff7ca8af00ab6",
@@ -387,8 +396,10 @@
       "id_b": 107,
       "position": 0,
       "canonical_title": "同居から始まった仕事人間の恋（漫画）",
-      "status": "pending",
-      "issue": "unverified_bibliography"
+      "status": "quarantined",
+      "issue": "unverified_bibliography",
+      "source_table": "compound_work_links",
+      "reason": "一次書誌のない汎用題で、同一作品を確認できない"
     },
     {
       "work_id": "wrk_c42a26c4c27d0c3c51b0",
@@ -407,6 +418,38 @@
       "canonical_title": "完璧CEOの不器用な愛（漫画）",
       "status": "pending",
       "issue": "unverified_bibliography"
+    },
+    {
+      "work_id": "wrk_70c7ec0820afa8d25895",
+      "source_table": "fetish_work_links",
+      "fetish_id": 0,
+      "position": 1,
+      "canonical_title": "ネトラレーゼ（成人向け漫画）",
+      "status": "quarantined",
+      "issue": "edition_identity_unverified",
+      "reason": "失効ASINから成人動画seriesの出演者・品番を特定できない"
+    },
+    {
+      "work_id": "wrk_7d5a75f6654855f5dad5",
+      "source_table": "compound_work_links",
+      "id_a": 2,
+      "id_b": 10,
+      "position": 1,
+      "canonical_title": "罪喰い（漫画）",
+      "status": "quarantined",
+      "issue": "ambiguous_identity",
+      "reason": "同名BL小説と正式題の異なるゲーム候補を登録rowから識別できない"
+    },
+    {
+      "work_id": "wrk_c0e3655fd3bad028ca35",
+      "source_table": "compound_work_links",
+      "id_a": 3,
+      "id_b": 6,
+      "position": 0,
+      "canonical_title": "美少年レモネード（成人向け）",
+      "status": "quarantined",
+      "issue": "unverified_bibliography",
+      "reason": "作者・出版社・公式販売の同一商品根拠を確認できない"
     }
   ]
 }

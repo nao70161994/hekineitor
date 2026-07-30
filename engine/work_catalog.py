@@ -584,6 +584,7 @@ _CORRECTION_ALLOWED_FIELDS = frozenset(
         'alias_additions',
         'alias_removals',
         'link_updates',
+        'link_removals',
         'review_updates',
     }
 )
@@ -603,8 +604,13 @@ _CORRECTION_OPTIONAL_WRAPPER_FIELDS = {
         frozenset({'table', 'expected', 'edition_id', 'alias_id', 'context_label', 'allow_missing'}),
         frozenset({'table', 'expected'}),
     ),
+    'link_removals': (
+        frozenset({'table', 'expected', 'source_url', 'allow_missing'}),
+        frozenset({'table', 'expected'}),
+    ),
 }
 _CORRECTION_V2_FIELDS = frozenset({'edition_additions', 'edition_removals', 'alias_additions'})
+_CORRECTION_V3_FIELDS = frozenset({'link_removals'})
 
 
 def _validate_correction_manifest_fields(corrections, schema_version):
@@ -615,6 +621,10 @@ def _validate_correction_manifest_fields(corrections, schema_version):
             raise ValueError(f'work catalog correction contains unknown fields: {correction_id}')
         if schema_version == 1 and set(correction) & _CORRECTION_V2_FIELDS:
             raise ValueError(f'work catalog correction schema_version 1 contains version 2 fields: {correction_id}')
+        if schema_version < 3 and set(correction) & _CORRECTION_V3_FIELDS:
+            raise ValueError(
+                f'work catalog correction schema_version {schema_version} contains version 3 fields: {correction_id}'
+            )
         wrapper_fields = set(_CORRECTION_EXACT_WRAPPER_FIELDS) | set(_CORRECTION_OPTIONAL_WRAPPER_FIELDS)
         for field in wrapper_fields:
             wrappers = correction.get(field, [])
@@ -628,6 +638,24 @@ def _validate_correction_manifest_fields(corrections, schema_version):
             for wrapper in correction.get(field, []):
                 if not required <= set(wrapper) <= allowed:
                     raise ValueError(f'work catalog correction has invalid {field}: {correction_id}')
+
+
+def _correction_final_link_position(corrections, table, expected):
+    """Return the only final position implied by manifest link removals."""
+    owner_fields = ('fetish_id',) if table == 'fetish_work_links' else ('id_a', 'id_b')
+    owner = tuple(expected.get(field) for field in owner_fields)
+    position = int(expected.get('position', -1))
+    removed_before = 0
+    for correction in corrections:
+        for removal in correction.get('link_removals') or []:
+            removal_expected = removal.get('expected') or {}
+            if (
+                removal.get('table') == table
+                and tuple(removal_expected.get(field) for field in owner_fields) == owner
+                and int(removal_expected.get('position', -1)) < position
+            ):
+                removed_before += 1
+    return position - removed_before
 
 
 def project_approved_inline_corrections(
@@ -653,7 +681,7 @@ def project_approved_inline_corrections(
         catalog_schema_version = int(corrections.get('catalog_schema_version', 0))
     except (TypeError, ValueError):
         raise ValueError('unsupported work catalog corrections schema_version')
-    if schema_version not in {1, 2} or catalog_schema_version not in SUPPORTED_CATALOG_SCHEMA_VERSIONS:
+    if schema_version not in {1, 2, 3} or catalog_schema_version not in SUPPORTED_CATALOG_SCHEMA_VERSIONS:
         raise ValueError('unsupported work catalog corrections schema_version')
     correction_rows = corrections.get('corrections')
     if not isinstance(correction_rows, list) or not all(isinstance(row, dict) for row in correction_rows):
@@ -662,6 +690,34 @@ def project_approved_inline_corrections(
     if not all(correction_ids) or len(correction_ids) != len(set(correction_ids)):
         raise ValueError('work catalog corrections contain missing or duplicate correction ids')
     _validate_correction_manifest_fields(correction_rows, schema_version)
+    for correction in correction_rows:
+        if correction.get('type') != 'quarantine_recommendation':
+            continue
+        expected_work = correction.get('expected_work')
+        target_work = correction.get('target_work')
+        forbidden_rows = (
+            'edition_updates',
+            'edition_additions',
+            'edition_removals',
+            'alias_additions',
+            'alias_removals',
+            'link_updates',
+            'review_updates',
+        )
+        if (
+            schema_version != 3
+            or not isinstance(expected_work, dict)
+            or not isinstance(target_work, dict)
+            or not expected_work.get('work_id')
+            or target_work.get('work_id') != expected_work.get('work_id')
+            or target_work.get('status') != 'archived'
+            or not correction.get('link_removals')
+            or any(correction.get(field) for field in forbidden_rows)
+        ):
+            raise ValueError(
+                f'work catalog correction has invalid quarantine projection: '
+                f'{correction.get("correction_id", "")}'
+            )
 
     projected_fetishes = copy.deepcopy(fetishes)
     fetish_by_id = {int(row['id']): row for row in projected_fetishes}
@@ -780,7 +836,7 @@ def project_approved_inline_corrections(
         )
         return editions
 
-    def signature(correction, link, *, target):
+    def signature(correction, link, *, target, source_url=None):
         work = correction.get('target_work') if target else correction.get('expected_work')
         if not isinstance(work, dict) or not str(work.get('canonical_title') or '').strip():
             raise ValueError('missing work title')
@@ -795,15 +851,19 @@ def project_approved_inline_corrections(
             title = str(work['canonical_title']).strip()
         edition_id = link.get('edition_id') if target else link.get('expected', {}).get('edition_id')
         if edition_id:
-            editions = target_editions(correction) if target else source_editions(correction)
-            edition = editions.get(edition_id)
-            if not edition:
-                raise ValueError(f'unknown edition_id {edition_id}')
-            url = safe_work_url(edition.get('canonical_url'))
+            if source_url is not None:
+                url = source_url
+            else:
+                editions = target_editions(correction) if target else source_editions(correction)
+                edition = editions.get(edition_id)
+                if not edition:
+                    raise ValueError(f'unknown edition_id {edition_id}')
+                url = safe_work_url(edition.get('canonical_url'))
         else:
             url = ''
         return [title, url]
 
+    update_projections = []
     for correction in correction_rows:
         correction_id = str(correction['correction_id'])
         link_updates = correction.get('link_updates') or []
@@ -849,13 +909,69 @@ def project_approved_inline_corrections(
                     if direction == 'forward'
                     else (target_signature, source_signature)
                 )
+                final_position = _correction_final_link_position(correction_rows, table, expected)
             except (KeyError, TypeError, ValueError) as exc:
                 projection_errors.append(
                     {'correction_id': correction_id, 'reason': 'invalid_link_projection', 'detail': str(exc)}
                 )
                 continue
 
+            update_projections.append(
+                (
+                    correction_id,
+                    table,
+                    owner_id,
+                    owner_key,
+                    owner,
+                    position,
+                    final_position,
+                    expected_signature,
+                    replacement_signature,
+                    allow_missing,
+                )
+            )
+
+    def apply_update_projections():
+        nonlocal applied_count, missing_count
+        for update_projection in update_projections:
+            (
+                correction_id,
+                table,
+                owner_id,
+                owner_key,
+                owner,
+                position,
+                final_position,
+                expected_signature,
+                replacement_signature,
+                allow_missing,
+            ) = update_projection
             works = owner.get('works') if isinstance(owner, dict) else None
+            replacement_positions = (
+                [
+                    index
+                    for index, work in enumerate(works)
+                    if _effective_signature(work) == replacement_signature
+                ]
+                if isinstance(works, list)
+                else []
+            )
+            if direction == 'forward' and final_position != position and replacement_positions == [final_position]:
+                continue
+            if replacement_positions and any(
+                index not in {position, final_position} for index in replacement_positions
+            ):
+                projection_errors.append(
+                    {
+                        'correction_id': correction_id,
+                        'source': owner_key[0],
+                        'owner_id': owner_id,
+                        'position': position,
+                        'actual_positions': replacement_positions,
+                        'reason': 'target_position_drift',
+                    }
+                )
+                continue
             if not isinstance(works, list) or position >= len(works):
                 if allow_missing:
                     if missing_is_approved(correction_id, owner_key, owner_id, position, expected_signature):
@@ -912,6 +1028,178 @@ def project_approved_inline_corrections(
                         'actual': actual_signature,
                     }
                 )
+
+    removal_projections = []
+    for correction in correction_rows:
+        correction_id = str(correction['correction_id'])
+        for removal in correction.get('link_removals') or []:
+            table = str(removal.get('table') or '')
+            expected = removal.get('expected')
+            allow_missing = removal.get('allow_missing', False)
+            if table not in {'fetish_work_links', 'compound_work_links'} or table not in selected_tables:
+                if table not in {'fetish_work_links', 'compound_work_links'}:
+                    projection_errors.append({'correction_id': correction_id, 'reason': 'invalid_link_removal'})
+                continue
+            source_url_present = 'source_url' in removal
+            source_url = safe_work_url(removal.get('source_url')) if source_url_present else None
+            if (
+                not isinstance(expected, dict)
+                or type(allow_missing) is not bool
+                or bool(expected.get('edition_id')) != source_url_present
+                or (source_url_present and source_url != removal.get('source_url'))
+            ):
+                projection_errors.append({'correction_id': correction_id, 'reason': 'invalid_link_removal'})
+                continue
+            try:
+                position = int(expected['position'])
+                if position < 0:
+                    raise ValueError
+                if table == 'fetish_work_links':
+                    owner_id = int(expected['fetish_id'])
+                    owner_key = ('fetish', owner_id, position)
+                    owner = fetish_by_id.get(owner_id)
+                else:
+                    id_a, id_b = sorted((int(expected['id_a']), int(expected['id_b'])))
+                    owner_id = f'{id_a},{id_b}'
+                    owner_key = ('compound', owner_id, position)
+                    owner = compound_by_key.get(owner_id)
+                if owner_key in seen_targets:
+                    raise ValueError('duplicate owner position')
+                seen_targets.add(owner_key)
+                expected_signature = signature(
+                    correction, removal, target=False, source_url=source_url
+                )
+                removal_projections.append(
+                    (correction_id, table, owner_id, owner_key, owner, position, expected_signature, allow_missing)
+                )
+            except (KeyError, TypeError, ValueError) as exc:
+                projection_errors.append(
+                    {'correction_id': correction_id, 'reason': 'invalid_link_projection', 'detail': str(exc)}
+                )
+
+    # Removing from the end and restoring from the beginning preserves the
+    # manifest's original owner positions when one correction removes several
+    # recommendations from the same owner.
+    removal_projections.sort(
+        key=lambda row: (row[3][0], str(row[2]), (-row[5] if direction == 'forward' else row[5]))
+    )
+    if direction == 'forward':
+        apply_update_projections()
+
+    for removal_projection in removal_projections:
+        (
+            correction_id,
+            table,
+            owner_id,
+            owner_key,
+            owner,
+            position,
+            expected_signature,
+            allow_missing,
+        ) = removal_projection
+        works = owner.get('works') if isinstance(owner, dict) else None
+        locations = source_locations(expected_signature)
+        expected_location = (owner_key[0], owner_id, position)
+        if len(locations) > 1:
+            projection_errors.append(
+                {
+                    'correction_id': correction_id,
+                    'source': owner_key[0],
+                    'owner_id': owner_id,
+                    'position': position,
+                    'actual_locations': locations,
+                    'reason': 'duplicate_source_signature',
+                }
+            )
+            continue
+        if direction == 'forward':
+            if not locations:
+                if allow_missing and missing_is_approved(
+                    correction_id, owner_key, owner_id, position, expected_signature
+                ):
+                    missing_count += 1
+                else:
+                    projection_errors.append(
+                        {
+                            'correction_id': correction_id,
+                            'source': owner_key[0],
+                            'owner_id': owner_id,
+                            'position': position,
+                            'reason': 'source_absent',
+                        }
+                    )
+                continue
+            if locations[0] != expected_location:
+                projection_errors.append(
+                    {
+                        'correction_id': correction_id,
+                        'source': owner_key[0],
+                        'owner_id': owner_id,
+                        'position': position,
+                        'actual_locations': locations,
+                        'reason': (
+                            'source_owner_drift'
+                            if locations[0][:2] != expected_location[:2]
+                            else 'source_position_drift'
+                        ),
+                    }
+                )
+                continue
+            if not isinstance(works, list) or position >= len(works):
+                projection_errors.append(
+                    {
+                        'correction_id': correction_id,
+                        'source': owner_key[0],
+                        'owner_id': owner_id,
+                        'position': position,
+                        'reason': 'source_absent',
+                    }
+                )
+                continue
+            works.pop(position)
+            applied_count += 1
+        else:
+            if locations:
+                if locations[0] != expected_location:
+                    projection_errors.append(
+                        {
+                            'correction_id': correction_id,
+                            'source': owner_key[0],
+                            'owner_id': owner_id,
+                            'position': position,
+                            'actual_locations': locations,
+                            'reason': (
+                                'source_owner_drift'
+                                if locations[0][:2] != expected_location[:2]
+                                else 'source_position_drift'
+                            ),
+                        }
+                    )
+                continue
+            if not isinstance(works, list) or position > len(works):
+                projection_errors.append(
+                    {
+                        'correction_id': correction_id,
+                        'source': owner_key[0],
+                        'owner_id': owner_id,
+                        'position': position,
+                        'reason': 'restore_position_absent',
+                    }
+                )
+                continue
+            works.insert(
+                position,
+                (
+                    {'title': expected_signature[0], 'url': expected_signature[1]}
+                    if expected_signature[1]
+                    else expected_signature[0]
+                ),
+            )
+            applied_count += 1
+        (changed_fetish_owners if table == 'fetish_work_links' else changed_compound_owners).add(owner_id)
+
+    if direction == 'reverse':
+        apply_update_projections()
 
     if strict and projection_errors:
         first = projection_errors[0]
@@ -1773,7 +2061,7 @@ def apply_catalog_corrections(catalog, manifest):
         catalog_schema_version = int(manifest.get('catalog_schema_version', 0))
     except (TypeError, ValueError):
         raise ValueError('unsupported work catalog corrections schema_version')
-    if schema_version not in {1, 2} or catalog_schema_version not in SUPPORTED_CATALOG_SCHEMA_VERSIONS:
+    if schema_version not in {1, 2, 3} or catalog_schema_version not in SUPPORTED_CATALOG_SCHEMA_VERSIONS:
         raise ValueError('unsupported work catalog corrections schema_version')
     corrections = manifest.get('corrections')
     if not isinstance(corrections, list) or not all(isinstance(row, dict) for row in corrections):
@@ -1783,8 +2071,10 @@ def apply_catalog_corrections(catalog, manifest):
         raise ValueError('work catalog corrections contain missing or duplicate correction ids')
 
     _validate_correction_manifest_fields(corrections, schema_version)
-    if schema_version == 2 and (catalog_schema_version != 2 or int(catalog.get('schema_version', 0)) != 2):
-        raise ValueError('work catalog corrections schema_version 2 requires catalog schema_version 2')
+    if schema_version >= 2 and (catalog_schema_version != 2 or int(catalog.get('schema_version', 0)) != 2):
+        raise ValueError(
+            f'work catalog corrections schema_version {schema_version} requires catalog schema_version 2'
+        )
     updated = copy.deepcopy(catalog)
 
     def find_row(collection, id_field, row_id):
@@ -1864,10 +2154,42 @@ def apply_catalog_corrections(catalog, manifest):
         )
         return target
 
+    initial_links = {
+        table: {row['link_id']: copy.deepcopy(row) for row in updated[table]}
+        for table in ('fetish_work_links', 'compound_work_links')
+    }
+    initial_works = {row['work_id']: copy.deepcopy(row) for row in updated['works_master']}
+    initial_editions = {row['edition_id']: copy.deepcopy(row) for row in updated['work_editions']}
+    deferred_link_removals = []
+    deferred_removed_link_ids = set()
+    deferred_removed_owner_positions = set()
+    quarantined_work_ids = set()
+
+    def partial_removal_position(table, expected):
+        owner_fields = ('fetish_id',) if table == 'fetish_work_links' else ('id_a', 'id_b')
+        owner = tuple(expected.get(field) for field in owner_fields)
+        position = int(expected['position'])
+        absent_before = 0
+        for correction in corrections:
+            for removal in correction.get('link_removals') or []:
+                other = removal.get('expected') or {}
+                if (
+                    removal.get('table') == table
+                    and tuple(other.get(field) for field in owner_fields) == owner
+                    and int(other.get('position', -1)) < position
+                    and other.get('link_id') not in initial_links[table]
+                ):
+                    absent_before += 1
+        return position - absent_before
+
     for correction in corrections:
         correction_id = str(correction['correction_id'])
         correction_type = str(correction.get('type') or '')
-        if correction_type not in {'split_misassigned_edition', 'retitle_identity'}:
+        if correction_type not in {
+            'split_misassigned_edition',
+            'retitle_identity',
+            'quarantine_recommendation',
+        }:
             raise ValueError(f'work catalog correction has unsupported type: {correction_id}')
         expected_work = correction.get('expected_work')
         target_work = correction.get('target_work')
@@ -1892,6 +2214,14 @@ def apply_catalog_corrections(catalog, manifest):
             raise ValueError(f'work catalog correction has invalid target work: {correction_id}')
         if correction_type == 'retitle_identity' and target_work_id != source_work_id:
             raise ValueError(f'work catalog correction retitle must preserve work_id: {correction_id}')
+        if correction_type == 'quarantine_recommendation' and (
+            schema_version != 3
+            or target_work_id != source_work_id
+            or canonical_target_work['status'] != 'archived'
+        ):
+            raise ValueError(f'work catalog correction has invalid quarantine target: {correction_id}')
+        if correction_type == 'quarantine_recommendation':
+            quarantined_work_ids.add(target_work_id)
 
         edition_updates = correction.get('edition_updates', [])
         edition_additions = correction.get('edition_additions', [])
@@ -1899,13 +2229,37 @@ def apply_catalog_corrections(catalog, manifest):
         alias_additions = correction.get('alias_additions', [])
         alias_removals = correction.get('alias_removals', [])
         link_updates = correction.get('link_updates', [])
+        link_removals = correction.get('link_removals', [])
         review_updates = correction.get('review_updates', [])
         extended_rows = (edition_additions, edition_removals, alias_additions)
         if not all(
             isinstance(rows, list) and all(isinstance(row, dict) for row in rows)
-            for rows in (edition_updates, *extended_rows, alias_removals, link_updates, review_updates)
+            for rows in (
+                edition_updates,
+                *extended_rows,
+                alias_removals,
+                link_updates,
+                link_removals,
+                review_updates,
+            )
         ):
             raise ValueError(f'work catalog correction row collections must be lists: {correction_id}')
+
+        if correction_type == 'quarantine_recommendation' and (
+            not link_removals
+            or any(
+                (
+                    edition_updates,
+                    edition_additions,
+                    edition_removals,
+                    alias_additions,
+                    alias_removals,
+                    link_updates,
+                    review_updates,
+                )
+            )
+        ):
+            raise ValueError(f'work catalog correction quarantine must only remove links: {correction_id}')
 
         if correction_type == 'split_misassigned_edition':
             if len(edition_updates) != 1:
@@ -2045,6 +2399,73 @@ def apply_catalog_corrections(catalog, manifest):
             )
             target_links.append((table, expected, target, allow_missing))
 
+        removed_links = []
+        for link_removal in link_removals:
+            table = str(link_removal.get('table') or '')
+            expected = link_removal.get('expected')
+            allow_missing = link_removal.get('allow_missing', False)
+            source_url_present = 'source_url' in link_removal
+            source_url = safe_work_url(link_removal.get('source_url')) if source_url_present else None
+            owner_fields = ('fetish_id',) if table == 'fetish_work_links' else ('id_a', 'id_b')
+            expected_fields = {
+                'link_id',
+                *owner_fields,
+                'work_id',
+                'edition_id',
+                'alias_id',
+                'position',
+                'context_label',
+                'recommendation_reason',
+            }
+            if (
+                table not in {'fetish_work_links', 'compound_work_links'}
+                or not isinstance(expected, dict)
+                or set(expected) != expected_fields
+                or expected.get('work_id') != source_work_id
+                or type(allow_missing) is not bool
+                or bool(expected.get('edition_id')) != source_url_present
+                or (source_url_present and source_url != link_removal.get('source_url'))
+                or not isinstance(expected.get('position'), int)
+                or isinstance(expected.get('position'), bool)
+                or expected['position'] < 0
+            ):
+                raise ValueError(f'work catalog correction has invalid link removal: {correction_id}')
+            owner = tuple(int(expected[field]) for field in owner_fields)
+            owner_position = (table, owner, expected['position'])
+            if (
+                expected['link_id'] in deferred_removed_link_ids
+                or owner_position in deferred_removed_owner_positions
+            ):
+                raise ValueError(f'work catalog correction contains duplicate link removals: {correction_id}')
+            deferred_removed_link_ids.add(expected['link_id'])
+            deferred_removed_owner_positions.add(owner_position)
+            actual = initial_links[table].get(expected['link_id'])
+            if actual is None:
+                if not allow_missing and initial_works.get(source_work_id) != target_work:
+                    raise ValueError(
+                        f'work catalog correction link removal source absent: {correction_id}'
+                    )
+            else:
+                partial_expected = copy.deepcopy(expected)
+                partial_expected['position'] = partial_removal_position(table, expected)
+                if actual not in (expected, partial_expected):
+                    raise ValueError(
+                        f'work catalog correction link removal source drift: {correction_id}'
+                    )
+            if expected.get('edition_id'):
+                edition = initial_editions.get(expected['edition_id'])
+                if (
+                    edition is None
+                    or edition.get('work_id') != source_work_id
+                    or edition.get('canonical_url') != source_url
+                ):
+                    raise ValueError(
+                        f'work catalog correction link removal edition source drift: {correction_id}'
+                    )
+            removal_values = (table, expected, allow_missing, owner, source_url, correction_id)
+            removed_links.append(removal_values[:-1])
+            deferred_link_removals.append(removal_values)
+
         target_reviews = []
         for review_update in review_updates:
             expected = review_update.get('expected')
@@ -2085,7 +2506,9 @@ def apply_catalog_corrections(catalog, manifest):
 
         def link_update_applied(table, expected, target, allow_missing):
             target_row = find_row(table, 'link_id', target['link_id'])
-            if target_row == target:
+            final_target = copy.deepcopy(target)
+            final_target['position'] = _correction_final_link_position(corrections, table, expected)
+            if target_row in (target, final_target):
                 return True
             return allow_missing and find_row(table, 'link_id', expected['link_id']) is None and target_row is None
 
@@ -2113,6 +2536,18 @@ def apply_catalog_corrections(catalog, manifest):
                 for identifier in identifiers
             )
             and all(link_update_applied(*values) for values in target_links)
+            and all(
+                find_row(table, 'link_id', expected['link_id']) is None
+                for table, expected, _, _, _ in removed_links
+            )
+            and (
+                correction_type != 'quarantine_recommendation'
+                or not any(
+                    link.get('work_id') == target_work_id
+                    for table in ('fetish_work_links', 'compound_work_links')
+                    for link in updated[table]
+                )
+            )
             and all(find_row('work_aliases', 'alias_id', alias_id) is None for alias_id in removed_alias_ids)
             and all(
                 rows_equal('review_queue', find_row('review_queue', 'review_id', target['review_id']), target)
@@ -2233,6 +2668,35 @@ def apply_catalog_corrections(catalog, manifest):
         _sort_catalog_rows(updated)
         validate_catalog(updated)
 
+    affected_link_owners = set()
+    deferred_link_removals.sort(key=lambda row: (row[0], row[3], -int(row[1]['position'])))
+    for table, expected, _allow_missing, owner, _source_url, _correction_id in deferred_link_removals:
+        link = find_row(table, 'link_id', expected['link_id'])
+        if link is None:
+            continue
+        updated[table] = [row for row in updated[table] if row['link_id'] != expected['link_id']]
+        affected_link_owners.add((table, owner))
+    for table, owner in affected_link_owners:
+        owner_fields = ('fetish_id',) if table == 'fetish_work_links' else ('id_a', 'id_b')
+        owner_links = sorted(
+            (
+                row
+                for row in updated[table]
+                if tuple(int(row[field]) for field in owner_fields) == owner
+            ),
+            key=lambda row: (int(row['position']), row['link_id']),
+        )
+        for position, link in enumerate(owner_links):
+            link['position'] = position
+    for work_id in quarantined_work_ids:
+        if any(
+            link.get('work_id') == work_id
+            for table in ('fetish_work_links', 'compound_work_links')
+            for link in updated[table]
+        ):
+            raise ValueError(f'work catalog correction quarantined work still referenced: {work_id}')
+
+    _sort_catalog_rows(updated)
     validate_catalog(updated)
     return updated
 
