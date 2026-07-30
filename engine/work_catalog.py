@@ -572,7 +572,6 @@ def catalog_parity_report(catalog, fetishes, *, compound_rows=(), sample_limit=2
     }
 
 
-
 _CORRECTION_ALLOWED_FIELDS = frozenset(
     {
         'correction_id',
