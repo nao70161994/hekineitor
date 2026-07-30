@@ -38,6 +38,14 @@
 4. 通常結果、compound結果、作品順、推薦理由、affiliate URL、SEO/OGP、共有、履歴をsmoke testする。
 5. PostgreSQLの`fetishes.works`が空で、正規tableの件数と公開projectionが維持されていることを確認する。
 
+## Production verification (2026-07-31)
+
+- Final application commit: `3a1d169`
+- CI: run `30562056642`（Ruff、mypy、全Python/JS、coverage、Chromium E2E、PostgreSQL lifecycle成功）
+- Read-only Ops Check: run `30562790881` success
+- Catalog rollout gate: run `30562793029` success。12 samples / 62.895秒、revision snapshot/database/cacheすべて38、legacy fallback 0、catalog load failure 0、blocker 0、manual signoff不要を確認
+- 公開smoke: `/health` status ok / PostgreSQL / matrix 137x153、実診断30問を完走し、結果理由と推薦作品3件を確認
+
 ## Rollback
 
 旧inline fallbackは復活させません。問題発生時は次の順でcatalogを復旧します。
