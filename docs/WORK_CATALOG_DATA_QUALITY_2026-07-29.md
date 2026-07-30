@@ -77,6 +77,25 @@ schema v2と`data/work_catalog_bibliography.json`で上記12版のISBN-13、版�
 
 残る38件は完全一致書誌を確認できず、似た語を含む別作品からidentityを推定しません。既存7件と合わせた45件は元owner pair・position・work ID・理由を失わず、catalog側が`archived`かつ無参照であることをCIで検証します。research queueのpendingは0です。
 
+## Current research candidates
+
+`data/work_catalog_research_candidates.json`は、現行`works_master`が`active`、fetishまたはcompound linkから参照中、かつ`work_editions`を持たない、という固定規則から生成する別artifactです。各作品の全owner参照、媒体種別、`bibliography_state`、catalog digestを保存します。`media_confirmed`は通常またはbatch2書誌manifestに版なしの一次情報根拠がある作品、`identity_unverified`はそれ以外を表します。
+
+これは公開中の推薦に安全な直接版を補うための調査入力です。上記45件のquarantine queueは、根拠不足のため公開から除去済みの履歴と復元根拠です。33件へ45件を混ぜず、候補の減少は版追加またはlink/master状態の明示変更によってのみ発生させます。生成とdrift確認は次を使用します。
+
+```sh
+PYTHONPATH=. python scripts/build_work_catalog_research_candidates.py --write
+PYTHONPATH=. python scripts/build_work_catalog_research_candidates.py
+```
+
+### Active-linked editionless audit batch 2
+
+抽出時点の33件を一次情報で再調査し、13件はexact identityを確認、19件はexact identity未確認、`囚われのパルマ`1件はidentity確認済みでも推薦文脈に不適合と判定しました。`data/work_catalog_corrections_batch2.json`は後二群の計20 masterを`archived`へ移し、元ownerを固定した21 compound linkを除去します。
+
+`data/work_catalog_bibliography_batch2.json`は確認済み13件をinput-lockし、12 editionと11 identifierを追加します。残る`花は咲くか`は漫画としてidentityを確認できるものの、根拠の東映ビデオページは実写映画であり適切な原作漫画版ではありません。このため媒体確認だけを保存し、別媒体を原作editionとして扱いません。batch2適用後のactive・参照中・editionなし候補は、この`花は咲くか`1件だけです。
+
+correction2は公開linkの安全な隔離、bibliography2は一次情報で確認できた書誌だけを担当します。旧45件quarantine queueへ履歴を混ぜず、candidate artifactは最終catalog digestに対して再生成します。
+
 ## Adult and intent-conflict audit (2026-07-30)
 
 指定6件は再監査し、根拠不足のまま公開維持しない方針で処理しました。

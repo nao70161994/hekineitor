@@ -47,9 +47,40 @@ class FakeClient:
                 },
             }
         if path.startswith('/api/admin/audit_log'):
+            dynamic_audits = []
+            for call_path, _call_method, call_payload, _call_csrf in self.calls:
+                if not call_path.endswith('/mutate') or not isinstance(call_payload, dict):
+                    continue
+                operation = call_payload.get('operation')
+                mutation_payload = call_payload.get('payload') or {}
+                manifest = next(
+                    (
+                        mutation_payload[key]
+                        for key in (
+                            'decision_manifest',
+                            'seed_overrides',
+                            'corrections_manifest',
+                            'bibliography_manifest',
+                        )
+                        if key in mutation_payload
+                    ),
+                    None,
+                )
+                if manifest is not None:
+                    dynamic_audits.append(
+                        {
+                            'action': 'work_catalog_mutation',
+                            'status': 'ok',
+                            'detail': {
+                                'operation': operation,
+                                'manifest_sha256': apply_work_catalog_manifests._canonical_sha(manifest),
+                            },
+                        }
+                    )
             return {
                 'status': 'ok',
-                'audit_log': [
+                'audit_log': dynamic_audits
+                + [
                     {
                         'action': 'work_catalog_mutation',
                         'status': 'ok',
@@ -125,29 +156,39 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
         compounds = json.loads((data / 'compound_works.json').read_text(encoding='utf-8'))
         self.bibliography = json.loads((data / 'work_catalog_bibliography.json').read_text(encoding='utf-8'))
         compound_rows = []
-        for key, works in compounds.items():
+        for key, works in sorted(compounds.items()):
             id_a, id_b = key.split(',', 1)
             compound_rows.append({'key': key, 'id_a': int(id_a), 'id_b': int(id_b), 'works': works})
         corrections = json.loads((data / 'work_catalog_corrections.json').read_text(encoding='utf-8'))
-        source = work_catalog.project_approved_inline_corrections(
-            fetishes,
-            compound_rows=compound_rows,
-            corrections=corrections,
-            direction='reverse',
+        self.corrections_batch2 = json.loads(
+            (data / 'work_catalog_corrections_batch2.json').read_text(encoding='utf-8')
         )
+        self.bibliography_batch2 = json.loads(
+            (data / 'work_catalog_bibliography_batch2.json').read_text(encoding='utf-8')
+        )
+        self.link_bindings_batch2 = json.loads(
+            (data / 'work_catalog_link_bindings_batch2.json').read_text(encoding='utf-8')
+        )
+        source = {'fetishes': fetishes, 'compound_rows': compound_rows}
+        for manifest in (self.link_bindings_batch2, self.corrections_batch2, corrections):
+            source = work_catalog.project_approved_inline_corrections(
+                source['fetishes'],
+                compound_rows=source['compound_rows'],
+                corrections=manifest,
+                direction='reverse',
+            )
         fetishes = source['fetishes']
         compound_rows = source['compound_rows']
         self.raw_catalog = work_catalog.build_catalog_from_inline(fetishes, compound_rows=compound_rows)
         seed = json.loads((data / 'work_catalog_seed_overrides.json').read_text(encoding='utf-8'))
         review = json.loads((data / 'work_catalog_review_decisions.json').read_text(encoding='utf-8'))
-        catalog = work_catalog.build_catalog_from_inline(
-            fetishes,
-            compound_rows=compound_rows,
-            seed_overrides=seed,
-        )
-        self.catalog = work_catalog.apply_review_decisions(catalog, review)
+        reviewed = work_catalog.apply_review_decisions(self.raw_catalog, review)
+        self.catalog = work_catalog.apply_seed_overrides(reviewed, seed)
         self.final_catalog = work_catalog.apply_catalog_corrections(self.catalog, corrections)
         self.bibliography_catalog = work_catalog.apply_bibliography_manifest(self.final_catalog, self.bibliography)[0]
+        phase2 = work_catalog.apply_catalog_corrections(self.bibliography_catalog, self.corrections_batch2)
+        phase2 = work_catalog.apply_bibliography_manifest(phase2, self.bibliography_batch2)[0]
+        self.phase2_catalog = work_catalog.apply_catalog_corrections(phase2, self.link_bindings_batch2)
 
     def test_rejects_non_https_or_wrong_host(self):
         for url in ('http://example.com', 'https://other.example', 'https://example.com/path'):
@@ -245,6 +286,74 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
         self.assertTrue(all(call[2]['confirm_text'] == 'WORK_CATALOG' for call in mutations))
         self.assertEqual(evidence['final_digest'], work_catalog.catalog_digest(self.bibliography_catalog))
         self.assertNotIn('secret', json.dumps(evidence))
+
+    def _apply_with_phase2(self, source_catalog):
+        fake = FakeClient(source_catalog)
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        backup = Path(temporary.name) / 'backup.json'
+        backup.write_text(json.dumps({'work_catalog': source_catalog}), encoding='utf-8')
+        with patch.object(apply_work_catalog_manifests, 'AdminClient', return_value=fake):
+            evidence = apply_work_catalog_manifests.apply_manifests(
+                base_url='https://hekineitor.onrender.com',
+                expected_host='hekineitor.onrender.com',
+                username='admin',
+                password='secret',
+                review_path=self.root / 'data/work_catalog_review_decisions.json',
+                legacy_review_path=self.root / 'data/work_catalog_review_decisions_legacy_v0.json',
+                seed_path=self.root / 'data/work_catalog_seed_overrides.json',
+                corrections_path=self.root / 'data/work_catalog_corrections.json',
+                bibliography_path=self.root / 'data/work_catalog_bibliography.json',
+                corrections_batch2_path=self.root / 'data/work_catalog_corrections_batch2.json',
+                bibliography_batch2_path=self.root / 'data/work_catalog_bibliography_batch2.json',
+                link_bindings_batch2_path=self.root / 'data/work_catalog_link_bindings_batch2.json',
+                backup_path=backup,
+            )
+        return fake, evidence
+
+    def test_phase2_fresh_source_applies_every_manifest_in_order(self):
+        fake, evidence = self._apply_with_phase2(self.raw_catalog)
+
+        mutations = [call[2]['operation'] for call in fake.calls if call[0].endswith('/mutate')]
+        self.assertEqual(
+            mutations,
+            [
+                'review_apply_manifest',
+                'seed_overrides_apply_manifest',
+                'corrections_apply_manifest',
+                'bibliography_apply_manifest',
+                'corrections_apply_manifest',
+                'bibliography_apply_manifest',
+                'corrections_apply_manifest',
+            ],
+        )
+        self.assertEqual(fake.catalog, self.phase2_catalog)
+        self.assertEqual(evidence['final_digest'], work_catalog.catalog_digest(self.phase2_catalog))
+
+    def test_phase2_batch1_final_source_only_applies_phase2(self):
+        fake, evidence = self._apply_with_phase2(self.bibliography_catalog)
+
+        mutations = [call[2]['operation'] for call in fake.calls if call[0].endswith('/mutate')]
+        self.assertEqual(
+            mutations,
+            ['corrections_apply_manifest', 'bibliography_apply_manifest', 'corrections_apply_manifest'],
+        )
+        self.assertEqual(evidence['review_result']['reason'], 'batch1_final_source')
+        self.assertEqual(fake.catalog, self.phase2_catalog)
+
+    def test_phase2_reapplication_is_idempotent(self):
+        fake, evidence = self._apply_with_phase2(self.phase2_catalog)
+
+        mutations = [call[2]['operation'] for call in fake.calls if call[0].endswith('/mutate')]
+        self.assertEqual(
+            mutations,
+            ['corrections_apply_manifest', 'bibliography_apply_manifest', 'corrections_apply_manifest'],
+        )
+        self.assertEqual(fake.catalog, self.phase2_catalog)
+        self.assertEqual(evidence['before_digest'], evidence['final_digest'])
+        self.assertEqual(evidence['bibliography_batch2_result']['work_update_count'], 0)
+        self.assertEqual(evidence['bibliography_batch2_result']['edition_count'], 0)
+        self.assertEqual(evidence['bibliography_batch2_result']['identifier_count'], 0)
 
     def test_pre_review_source_reaches_the_same_approved_final_catalog(self):
         fake = FakeClient(self.raw_catalog)

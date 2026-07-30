@@ -281,9 +281,6 @@ def make_guess(ctx, answers):
             result_id=result.get('fetish_id'),
             answered_count=len(answers),
         )
-        work_count = len(result.get('cross_works') or []) + len(result.get('works') or [])
-        for _index in range(work_count):
-            gameplay_recorder('work_impression', source='works', outcome='success')
     ctx.mark_guess_quality(ctx.engine, ctx.session, answers, ctx.soft_max_questions)
     if not analytics_disabled:
         _record_result_contributions(ctx, result)

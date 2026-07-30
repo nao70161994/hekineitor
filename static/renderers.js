@@ -1,4 +1,6 @@
 window.HekiRenderers = (() => {
+  const impressionSets = new WeakMap();
+  const impressionObservers = new WeakMap();
   function setText(id, value) {
     const el = document.getElementById(id);
     if (el) el.textContent = value == null ? '' : String(value);
@@ -339,11 +341,69 @@ window.HekiRenderers = (() => {
       : `${resultName || '今回の結果'}との関連から選びました。`;
   }
 
+  function workIdentity(work) {
+    const item = (typeof work === 'object' && work !== null) ? work : {};
+    return {
+      workId: item.work_id || '',
+      editionId: item.edition_id || '',
+      title: item.title || String(work || ''),
+    };
+  }
+
+  function recordWorkImpression(card, seen) {
+    const workId = card.dataset.impressionWorkId || '';
+    const editionId = card.dataset.impressionEditionId || '';
+    const title = card.dataset.impressionTitle || '';
+    const key = workId ? `work:${workId}:${editionId}` : `title:${title}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    try {
+      window.trackGameplayEvent('work_impression', {
+        source: 'works',
+        outcome: 'success',
+        work_id: workId,
+        edition_id: editionId,
+      });
+    } catch {
+      // Metrics must never interfere with viewing recommendations.
+    }
+  }
+
+  function trackVisibleWorkImpressions(container, seen) {
+    if (!container || !seen || !window.trackGameplayEvent) return;
+    const cards = [...container.querySelectorAll('.work-recommendation')];
+    impressionObservers.get(container)?.disconnect();
+    if (!('IntersectionObserver' in window)) {
+      impressionObservers.delete(container);
+      cards.forEach(card => recordWorkImpression(card, seen));
+      return;
+    }
+    const observer = new window.IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting || entry.intersectionRatio < 0.5) return;
+        recordWorkImpression(entry.target, seen);
+        observer.unobserve(entry.target);
+        delete entry.target.dataset.impressionObserved;
+      });
+    }, {threshold: 0.5});
+    impressionObservers.set(container, observer);
+    cards.forEach(card => {
+      const workId = card.dataset.impressionWorkId || '';
+      const editionId = card.dataset.impressionEditionId || '';
+      const title = card.dataset.impressionTitle || '';
+      const key = workId ? `work:${workId}:${editionId}` : `title:${title}`;
+      if (seen.has(key) || card.dataset.impressionObserved === 'true') return;
+      card.dataset.impressionObserved = 'true';
+      observer.observe(card);
+    });
+  }
+
   function renderWorkRecommendation(item, helpers, featured = false) {
     const escapeHtml = helpers.escapeHtml || (value => String(value ?? ''));
     const tag = renderWorkTag(item.work, item.isCross ? 'cross' : '', helpers);
     const reason = workReason(item.work, item.isCross, helpers.resultName, item.reason);
-    return `<article class="work-recommendation${featured ? ' featured' : ''}">${tag}<p>${escapeHtml(reason)}</p></article>`;
+    const identity = workIdentity(item.work);
+    return `<article class="work-recommendation${featured ? ' featured' : ''}" data-impression-work-id="${escapeHtml(identity.workId)}" data-impression-edition-id="${escapeHtml(identity.editionId)}" data-impression-title="${escapeHtml(identity.title)}">${tag}<p>${escapeHtml(reason)}</p></article>`;
   }
 
   function renderWorks(data, helpers) {
@@ -364,6 +424,12 @@ window.HekiRenderers = (() => {
       allWorks.forEach((item, index) => {
         item.reason = data.work_recommendations?.[index]?.reason || '';
       });
+      let seenImpressions = impressionSets.get(data);
+      if (!seenImpressions) {
+        seenImpressions = new Set();
+        impressionSets.set(data, seenImpressions);
+      }
+      worksSec._workImpressionSeen = seenImpressions;
       const featured = allWorks.slice(0, 3);
       const remaining = allWorks.slice(3);
       crossTagsEl.innerHTML = `<div class="works-cross-label">今回の結果から選んだ${featured.length}作品</div>`
@@ -378,12 +444,23 @@ window.HekiRenderers = (() => {
   }
 
 
+  function trackFeaturedWorks(data) {
+    const seen = (data && typeof data === 'object') ? impressionSets.get(data) : null;
+    const section = document.getElementById('works-section');
+    if (!seen || !section || section.classList.contains('hidden')) return;
+    trackVisibleWorkImpressions(document.getElementById('cross-works-tags'), seen);
+  }
+
   function toggleMoreWorks(button) {
     const more = button?.nextElementSibling;
     if (!more) return;
     const expanded = button.getAttribute('aria-expanded') === 'true';
     button.setAttribute('aria-expanded', String(!expanded));
     more.classList.toggle('hidden', expanded);
+    if (!expanded) {
+      const worksSection = button.closest('#works-section');
+      trackVisibleWorkImpressions(more, worksSection?._workImpressionSeen);
+    }
     button.textContent = expanded ? `ほか${more.children.length}作品を見る` : 'おすすめ作品を閉じる';
   }
 
@@ -394,6 +471,7 @@ window.HekiRenderers = (() => {
     showScreen,
     showToast,
     renderGuess,
+    trackFeaturedWorks,
     toggleMoreWorks,
     renderContrastiveReasons,
     renderCompoundReasons,

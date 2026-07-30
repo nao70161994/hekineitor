@@ -9,7 +9,16 @@ _SHOWN_QUESTIONS_KEY = 'shown_question_payloads'
 
 
 def question_payload(
-    engine, question_id, question_text, count, total, *, hint=None, progress_message=None, contradictions=None
+    engine,
+    question_id,
+    question_text,
+    count,
+    total,
+    *,
+    hint=None,
+    progress_message=None,
+    contradictions=None,
+    recovery_fallback=False,
 ):
     q_data = engine.questions[question_id]
     payload = {
@@ -27,6 +36,8 @@ def question_payload(
         payload['progress_message'] = progress_message
     if contradictions:
         payload['contradictions'] = contradictions
+    if recovery_fallback:
+        payload['recovery_fallback'] = True
     return payload
 
 
@@ -45,6 +56,7 @@ def _remember_question_payload(ctx, payload):
         'hint',
         'progress_message',
         'contradictions',
+        'recovery_fallback',
     )
     compact = {key: payload[key] for key in allowed if key in payload}
     history = dict(ctx.session.get(_SHOWN_QUESTIONS_KEY, {}))
@@ -420,6 +432,50 @@ def back(ctx):
     return ctx.jsonify(payload)
 
 
+_ANSWER_REPLAY_KEY = 'last_answer_request'
+_ANSWER_REQUEST_ID_MAX_LENGTH = 64
+
+
+def _answer_request_id(value):
+    if not isinstance(value, str):
+        return ''
+    value = value.strip()
+    if not value.isascii() or not (8 <= len(value) <= _ANSWER_REQUEST_ID_MAX_LENGTH):
+        return ''
+    if not all(char.isalnum() or char in '_-' for char in value):
+        return ''
+    return value
+
+
+def _answer_replay_response(ctx, request_id, question_id, answer_value):
+    replay = ctx.session.get(_ANSWER_REPLAY_KEY)
+    if not request_id or not isinstance(replay, dict) or replay.get('request_id') != request_id:
+        return None
+    if replay.get('question_id') != question_id or replay.get('answer') != answer_value:
+        return ctx.jsonify({'status': 'error', 'message': '同じ answer_request_id に異なる回答は指定できません'}), 409
+    payload = replay.get('response')
+    if not isinstance(payload, dict):
+        return ctx.jsonify({'status': 'error', 'message': '回答の再生データが不正です'}), 409
+    return ctx.jsonify(payload), int(replay.get('status_code') or 200)
+
+
+def _store_answer_replay(ctx, request_id, question_id, answer_value, response):
+    if not request_id:
+        return response
+    payload = response.get_json(silent=True)
+    if response.status_code == 200 and isinstance(payload, dict) and payload.get('action') in ('question', 'guess'):
+        # One server-side entry is sufficient: the client cannot advance until
+        # this response arrives, while replay storage remains strictly bounded.
+        ctx.session[_ANSWER_REPLAY_KEY] = {
+            'request_id': request_id,
+            'question_id': question_id,
+            'answer': answer_value,
+            'status_code': response.status_code,
+            'response': payload,
+        }
+    return response
+
+
 def answer(ctx):
     limited = ctx.rate_limit('api_answer', 240)
     if limited:
@@ -439,6 +495,18 @@ def answer(ctx):
         return ctx.jsonify({'status': 'error', 'message': '不正な回答値です'}), 400
     if question_id < 0 or question_id >= len(ctx.engine.questions):
         return ctx.jsonify({'status': 'error', 'message': '不正な質問IDです'}), 400
+
+    request_id_value = data.get('answer_request_id')
+    request_id = _answer_request_id(request_id_value)
+    if request_id_value is not None and not request_id:
+        return ctx.jsonify({'status': 'error', 'message': '不正な answer_request_id です'}), 400
+
+    replay = _answer_replay_response(ctx, request_id, question_id, answer_value)
+    if replay is not None:
+        return replay
+
+    def replayable(response):
+        return _store_answer_replay(ctx, request_id, question_id, answer_value, response)
 
     answers = ctx.session.get('answers', {})
     asked = ctx.session.get('asked', [])
@@ -477,16 +545,16 @@ def answer(ctx):
         extend_low_confidence = ctx.should_extend_low_confidence(count, top_p, second_p, guess_threshold)
         recovery_count = int(ctx.session.get('idk_recovery_count', 0) or 0)
         if idk_streak >= 4 and recovery_count < 2 and count < ctx.hard_max_questions:
-            recovery_q = ctx.select_idk_recovery_question(
-                answers, asked, exclude_ids=ctx.session.get('exclude_ids', [])
-            )
+            recovery = ctx.select_idk_recovery_question(answers, asked, exclude_ids=ctx.session.get('exclude_ids', []))
+            recovery_q = recovery.get('question_id') if isinstance(recovery, dict) else recovery
             if recovery_q is not None:
+                recovery_fallback = bool(isinstance(recovery, dict) and recovery.get('fallback'))
                 asked.append(recovery_q)
                 ctx.session['asked'] = asked
                 ctx.session['idk_recovery_count'] = recovery_count + 1
                 _, recovery_text = _question_text(ctx, recovery_q)
                 _record_question_shown(ctx, recovery_q, recovery_text)
-                return _question_response(
+                response = _question_response(
                     ctx,
                     question_payload(
                         ctx.engine,
@@ -494,11 +562,21 @@ def answer(ctx):
                         recovery_text,
                         count,
                         ctx.question_total_for_count(count),
-                        hint='答えやすい別の軸から、もう少しだけ確認します',
-                        progress_message='まだ読み切れないため、具体的な質問に切り替えました',
+                        hint=(
+                            '別軸の未回答質問がないため、残る質問から確認します'
+                            if recovery_fallback
+                            else '答えやすい別の軸から、もう少しだけ確認します'
+                        ),
+                        progress_message=(
+                            '別軸候補を使い切ったため、通常選択へ戻りました'
+                            if recovery_fallback
+                            else 'まだ読み切れないため、具体的な質問に切り替えました'
+                        ),
                         contradictions=ctx.engine.detect_contradictions(answers),
+                        recovery_fallback=recovery_fallback,
                     ),
                 )
+                return replayable(response)
 
         should_guess = (
             idk_streak >= 6
@@ -522,14 +600,14 @@ def answer(ctx):
                     exclude_ids=ctx.session.get('exclude_ids', []),
                 )
             if next_q is None:
-                return ctx.make_guess(answers)
+                return replayable(ctx.make_guess(answers))
             asked.append(next_q)
             ctx.session['asked'] = asked
             ctx.session['low_exposure_axis_probe_count'] = diversify_count + 1
             _, question_text = _question_text(ctx, next_q)
             _record_question_shown(ctx, next_q, question_text)
             contradictions = ctx.engine.detect_contradictions(answers)
-            return _question_response(
+            response = _question_response(
                 ctx,
                 question_payload(
                     ctx.engine,
@@ -542,6 +620,7 @@ def answer(ctx):
                     contradictions=contradictions,
                 ),
             )
+            return replayable(response)
 
         next_q = ctx.select_next_question(
             answers,
@@ -551,7 +630,7 @@ def answer(ctx):
             exclude_ids=ctx.session.get('exclude_ids', []),
         )
         if next_q is None:
-            return ctx.make_guess(answers)
+            return replayable(ctx.make_guess(answers))
 
         asked.append(next_q)
         ctx.session['asked'] = asked
@@ -567,7 +646,7 @@ def answer(ctx):
         _, question_text = _question_text(ctx, next_q)
         _record_question_shown(ctx, next_q, question_text)
         contradictions = ctx.engine.detect_contradictions(answers)
-        return _question_response(
+        response = _question_response(
             ctx,
             question_payload(
                 ctx.engine,
@@ -580,6 +659,7 @@ def answer(ctx):
                 contradictions=contradictions,
             ),
         )
+        return replayable(response)
     except Exception:
         ctx.logger.exception('answer() 推論エラー')
         return ctx.jsonify({'status': 'session_expired', 'restart': True}), 440

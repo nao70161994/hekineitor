@@ -618,7 +618,7 @@ _CORRECTION_OPTIONAL_WRAPPER_FIELDS = {
         frozenset({'table', 'expected'}),
     ),
     'link_removals': (
-        frozenset({'table', 'expected', 'source_url', 'allow_missing'}),
+        frozenset({'table', 'expected', 'source_url', 'source_title', 'allow_missing'}),
         frozenset({'table', 'expected'}),
     ),
 }
@@ -655,6 +655,10 @@ def _validate_correction_manifest_fields(corrections, schema_version):
             schema_version != 3 or correction.get('type') != 'link_rebind'
         ):
             raise ValueError(f'work catalog correction has invalid link_updates: {correction_id}')
+        if any('source_title' in wrapper for wrapper in correction.get('link_removals', [])) and (
+            schema_version != 3 or correction.get('type') != 'quarantine_recommendation'
+        ):
+            raise ValueError(f'work catalog correction has invalid link_removals: {correction_id}')
 
 
 def _correction_final_link_position(corrections, table, expected):
@@ -850,11 +854,19 @@ def project_approved_inline_corrections(
         return True
 
     def source_aliases(correction):
-        return {
+        aliases = {
             row.get('expected', {}).get('alias_id'): row.get('expected', {})
             for row in correction.get('alias_removals') or []
             if isinstance(row, dict) and isinstance(row.get('expected'), dict)
         }
+        aliases.update(
+            {
+                row.get('expected', {}).get('alias_id'): row.get('expected', {})
+                for row in correction.get('alias_references') or []
+                if isinstance(row, dict) and isinstance(row.get('expected'), dict)
+            }
+        )
+        return aliases
 
     def target_aliases(correction):
         aliases = source_aliases(correction)
@@ -909,7 +921,9 @@ def project_approved_inline_corrections(
         if not isinstance(work, dict) or not str(work.get('canonical_title') or '').strip():
             raise ValueError('missing work title')
         alias_id = link.get('alias_id') if target else link.get('expected', {}).get('alias_id')
-        if alias_id:
+        if not target and source_title is not None:
+            title = source_title
+        elif alias_id:
             aliases = target_aliases(correction) if target else source_aliases(correction)
             alias = aliases.get(alias_id)
             if not alias or not str(alias.get('alias') or '').strip():
@@ -917,8 +931,6 @@ def project_approved_inline_corrections(
             title = str(alias['alias']).strip()
         else:
             title = str(work['canonical_title']).strip()
-        if not target and source_title is not None:
-            title = source_title
         edition_id = link.get('edition_id') if target else link.get('expected', {}).get('edition_id')
         if edition_id:
             if source_url is not None:
@@ -1146,11 +1158,14 @@ def project_approved_inline_corrections(
                 continue
             source_url_present = 'source_url' in removal
             source_url = safe_work_url(removal.get('source_url')) if source_url_present else None
+            source_title_present = 'source_title' in removal
+            source_title = str(removal.get('source_title') or '').strip() if source_title_present else None
             if (
                 not isinstance(expected, dict)
                 or type(allow_missing) is not bool
                 or bool(expected.get('edition_id')) != source_url_present
                 or (source_url_present and source_url != removal.get('source_url'))
+                or (source_title_present and (not source_title or len(source_title) > 200))
             ):
                 projection_errors.append({'correction_id': correction_id, 'reason': 'invalid_link_removal'})
                 continue
@@ -1170,7 +1185,13 @@ def project_approved_inline_corrections(
                 if owner_key in seen_targets:
                     raise ValueError('duplicate owner position')
                 seen_targets.add(owner_key)
-                expected_signature = signature(correction, removal, target=False, source_url=source_url)
+                expected_signature = signature(
+                    correction,
+                    removal,
+                    target=False,
+                    source_url=source_url,
+                    source_title=source_title,
+                )
                 removal_projections.append(
                     (correction_id, table, owner_id, owner_key, owner, position, expected_signature, allow_missing)
                 )
@@ -1331,12 +1352,83 @@ def project_approved_inline_corrections(
     }
 
 
-def approved_projection_parity_report(catalog, fetishes, *, compound_rows=(), corrections, sample_limit=20):
-    """Compare catalog output with legacy output after exact approved corrections."""
-    projection = project_approved_inline_corrections(
+def project_approved_inline_correction_manifests(
+    fetishes,
+    *,
+    compound_rows=(),
+    correction_manifests,
+    direction='forward',
+    tables=None,
+    strict=True,
+    sample_limit=20,
+):
+    """Project an ordered correction pipeline, reversing manifest order on rollback."""
+    if direction not in {'forward', 'reverse'}:
+        raise ValueError('unsupported approved inline projection direction')
+    manifests = tuple(correction_manifests)
+    ordered = manifests if direction == 'forward' else tuple(reversed(manifests))
+    original_fetishes = copy.deepcopy(fetishes)
+    original_compounds = copy.deepcopy(compound_rows)
+    projection = {'fetishes': fetishes, 'compound_rows': compound_rows}
+    totals = {'applied_link_count': 0, 'missing_count': 0, 'error_count': 0}
+    errors = []
+    for manifest in ordered:
+        projection = project_approved_inline_corrections(
+            projection['fetishes'],
+            compound_rows=projection['compound_rows'],
+            corrections=manifest,
+            direction=direction,
+            tables=tables,
+            strict=strict,
+            sample_limit=sample_limit,
+        )
+        for field in totals:
+            totals[field] += projection[field]
+        errors.extend(projection['errors'])
+
+    def fetish_works(rows):
+        return {int(row['id']): row.get('works') or [] for row in rows}
+
+    def compound_works(rows):
+        if isinstance(rows, dict):
+            return {str(key): works for key, works in rows.items()}
+        return {
+            str(
+                row.get('key') or f'{min(int(row["id_a"]), int(row["id_b"]))},{max(int(row["id_a"]), int(row["id_b"]))}'
+            ): row.get('works') or []
+            for row in rows
+        }
+
+    before_fetishes = fetish_works(original_fetishes)
+    after_fetishes = fetish_works(projection['fetishes'])
+    before_compounds = compound_works(original_compounds)
+    after_compounds = compound_works(projection['compound_rows'])
+    projection.update(totals)
+    projection['errors'] = errors[: max(0, min(int(sample_limit), 100))]
+    projection['fetish_owner_count'] = sum(
+        before_fetishes.get(owner_id) != after_fetishes.get(owner_id)
+        for owner_id in set(before_fetishes) | set(after_fetishes)
+    )
+    projection['compound_owner_count'] = sum(
+        before_compounds.get(owner_id) != after_compounds.get(owner_id)
+        for owner_id in set(before_compounds) | set(after_compounds)
+    )
+    return projection
+
+
+def approved_projection_parity_report_many(
+    catalog,
+    fetishes,
+    *,
+    compound_rows=(),
+    correction_manifests,
+    sample_limit=20,
+):
+    """Compare catalog output after an ordered sequence of approved corrections."""
+    projection = project_approved_inline_correction_manifests(
         fetishes,
         compound_rows=compound_rows,
-        corrections=corrections,
+        correction_manifests=correction_manifests,
         strict=False,
         sample_limit=sample_limit,
     )
@@ -1358,6 +1450,17 @@ def approved_projection_parity_report(catalog, fetishes, *, compound_rows=(), co
         'approved_projection_applied_count': projection['applied_link_count'],
         'approved_projection_missing_count': projection['missing_count'],
     }
+
+
+def approved_projection_parity_report(catalog, fetishes, *, compound_rows=(), corrections, sample_limit=20):
+    """Compare catalog output with legacy output after exact approved corrections."""
+    return approved_projection_parity_report_many(
+        catalog,
+        fetishes,
+        compound_rows=compound_rows,
+        correction_manifests=(corrections,),
+        sample_limit=sample_limit,
+    )
 
 
 def _catalog_editor(catalog):
@@ -1564,6 +1667,11 @@ def admin_create_master(catalog, values):
     normalized = normalized_work_title(title)
     if not normalized:
         raise ValueError('canonical_title cannot normalize to empty')
+    if any(
+        row.get('normalized_title') == normalized and row.get('media_type', '') == media_type
+        for row in updated['works_master']
+    ):
+        raise ValueError('work master identity already exists')
     work_id = _stable_id('wrk', 'admin', normalized, media_type)
     if any(row['work_id'] == work_id for row in updated['works_master']):
         raise ValueError('work master already exists')
@@ -1595,6 +1703,13 @@ def admin_update_master(catalog, work_id, values):
         if status not in {'active', 'inactive', 'archived'}:
             raise ValueError('invalid work status')
         row['status'] = status
+    if any(
+        other['work_id'] != row['work_id']
+        and other.get('normalized_title') == row.get('normalized_title')
+        and other.get('media_type', '') == row.get('media_type', '')
+        for other in updated['works_master']
+    ):
+        raise ValueError('work master identity already exists')
     validate_catalog(updated)
     return updated
 
@@ -1971,70 +2086,101 @@ def apply_bibliography_manifest(catalog, manifest):
             }
             if target_edition['status'] not in {'active', 'inactive', 'archived'}:
                 raise ValueError(f'work bibliography edition status is invalid: {entry_id}')
-            isbn = edition_spec.get('isbn')
-            if not isbn:
-                raise ValueError(f'work bibliography edition ISBN is required: {entry_id}')
-            target_identifier = build_edition_identifier(edition_id, scheme='isbn', authority='isbn', value=isbn)
+            has_isbn = 'isbn' in edition_spec
+            has_identifier = 'identifier' in edition_spec
+            if has_isbn and has_identifier:
+                raise ValueError(f'work bibliography edition identifier is ambiguous: {entry_id}')
+            if has_isbn:
+                isbn = edition_spec.get('isbn')
+                if not isbn:
+                    raise ValueError(f'work bibliography edition ISBN is required: {entry_id}')
+                target_identifier = build_edition_identifier(edition_id, scheme='isbn', authority='isbn', value=isbn)
+            elif has_identifier:
+                identifier_spec = edition_spec.get('identifier')
+                if not isinstance(identifier_spec, dict) or set(identifier_spec) != {
+                    'scheme',
+                    'authority',
+                    'value',
+                }:
+                    raise ValueError(f'work bibliography edition identifier is invalid: {entry_id}')
+                try:
+                    target_identifier = build_edition_identifier(edition_id, **identifier_spec)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(f'work bibliography edition identifier is invalid: {entry_id}') from exc
 
         title_changed = expected.get('canonical_title') != target_work['canonical_title']
         old_alias_id = _stable_id('wal', work_id, normalized_work_title(expected.get('canonical_title')))
-        target_present = current_work == target_work
-        if target_present and target_edition is not None:
-            target_present = (
-                target_edition in updated['work_editions'] and target_identifier in updated['work_edition_identifiers']
+        old_alias = {
+            'alias_id': old_alias_id,
+            'work_id': work_id,
+            'alias': expected['canonical_title'],
+            'normalized_alias': normalized_work_title(expected['canonical_title']),
+        }
+        existing_alias = next((row for row in updated['work_aliases'] if row['alias_id'] == old_alias_id), None)
+        if title_changed and existing_alias not in (None, old_alias):
+            raise ValueError(f'work bibliography alias source drift: {entry_id}')
+
+        existing_edition = None
+        existing_identifier = None
+        if target_edition is not None:
+            existing_edition = next(
+                (row for row in updated['work_editions'] if row['edition_id'] == target_edition['edition_id']),
+                None,
             )
-        if target_present and title_changed:
-            target_present = any(
-                row
-                == {
-                    'alias_id': old_alias_id,
-                    'work_id': work_id,
-                    'alias': expected['canonical_title'],
-                    'normalized_alias': normalized_work_title(expected['canonical_title']),
-                }
-                for row in updated['work_aliases']
-            )
-        if target_present:
+            if existing_edition not in (None, target_edition):
+                raise ValueError(f'work bibliography edition source drift: {entry_id}')
+            if target_identifier is not None:
+                edition_identifiers = [
+                    row
+                    for row in updated['work_edition_identifiers']
+                    if row['edition_id'] == target_edition['edition_id']
+                ]
+                existing_identifier = next(
+                    (
+                        row
+                        for row in updated['work_edition_identifiers']
+                        if row['identifier_id'] == target_identifier['identifier_id']
+                    ),
+                    None,
+                )
+                if existing_identifier not in (None, target_identifier) or (
+                    existing_identifier is None and edition_identifiers
+                ):
+                    raise ValueError(f'work bibliography identifier source drift: {entry_id}')
+
+        current_is_expected = current_work == expected
+        current_is_target = current_work == target_work
+        alias_present = not title_changed or existing_alias == old_alias
+        edition_present = target_edition is None or existing_edition == target_edition
+        identifier_present = target_identifier is None or existing_identifier == target_identifier
+        if current_is_target and alias_present and edition_present and identifier_present:
             continue
-        if current_work != expected:
+        if not current_is_expected and not current_is_target:
             raise ValueError(f'work bibliography source drift: {entry_id} {work_id}')
+        if current_is_target and not alias_present:
+            raise ValueError(f'work bibliography alias source drift: {entry_id}')
         if any(
             row['work_id'] != work_id and row['normalized_title'] == target_work['normalized_title']
             for row in updated['works_master']
         ):
             raise ValueError(f'work bibliography canonical title collision: {entry_id}')
-        if target_edition is not None:
-            if any(row['edition_id'] == target_edition['edition_id'] for row in updated['work_editions']):
-                raise ValueError(f'work bibliography edition source drift: {entry_id}')
-            if any(
-                row['identifier_id'] == target_identifier['identifier_id']
-                for row in updated['work_edition_identifiers']
-            ):
-                raise ValueError(f'work bibliography identifier source drift: {entry_id}')
 
         if title_changed:
-            old_alias = {
-                'alias_id': old_alias_id,
-                'work_id': work_id,
-                'alias': expected['canonical_title'],
-                'normalized_alias': normalized_work_title(expected['canonical_title']),
-            }
-            existing_alias = next((row for row in updated['work_aliases'] if row['alias_id'] == old_alias_id), None)
-            if existing_alias not in (None, old_alias):
-                raise ValueError(f'work bibliography alias source drift: {entry_id}')
             if existing_alias is None:
                 updated['work_aliases'].append(old_alias)
             for table in ('fetish_work_links', 'compound_work_links'):
                 for link in updated[table]:
                     if link['work_id'] == work_id and not link.get('alias_id'):
                         link['alias_id'] = old_alias_id
-        current_work.clear()
-        current_work.update(target_work)
-        counts['work_update_count'] += 1
-        if target_edition is not None:
+        if not current_is_target:
+            current_work.clear()
+            current_work.update(target_work)
+            counts['work_update_count'] += 1
+        if target_edition is not None and existing_edition is None:
             updated['work_editions'].append(target_edition)
-            updated['work_edition_identifiers'].append(target_identifier)
             counts['edition_count'] += 1
+        if target_identifier is not None and existing_identifier is None:
+            updated['work_edition_identifiers'].append(target_identifier)
             counts['identifier_count'] += 1
 
     _canonicalize_alias_and_link_ids(updated)
@@ -2620,6 +2766,8 @@ def apply_catalog_corrections(catalog, manifest):
             allow_missing = link_removal.get('allow_missing', False)
             source_url_present = 'source_url' in link_removal
             source_url = safe_work_url(link_removal.get('source_url')) if source_url_present else None
+            source_title_present = 'source_title' in link_removal
+            source_title = str(link_removal.get('source_title') or '').strip() if source_title_present else None
             owner_fields = ('fetish_id',) if table == 'fetish_work_links' else ('id_a', 'id_b')
             expected_fields = {
                 'link_id',
@@ -2639,6 +2787,7 @@ def apply_catalog_corrections(catalog, manifest):
                 or type(allow_missing) is not bool
                 or bool(expected.get('edition_id')) != source_url_present
                 or (source_url_present and source_url != link_removal.get('source_url'))
+                or (source_title_present and (not source_title or len(source_title) > 200))
                 or not isinstance(expected.get('position'), int)
                 or isinstance(expected.get('position'), bool)
                 or expected['position'] < 0

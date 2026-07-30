@@ -1,3 +1,4 @@
+import math
 import os
 import sys
 import unittest
@@ -38,6 +39,74 @@ class _DisambiguationEngine:
 
     def best_question(self, _answers, _asked, *, idk_streak=0):
         raise AssertionError(f'unexpected fallback (idk_streak={idk_streak})')
+
+
+class _IdkRecoveryEngine:
+    def __init__(self, axes):
+        self._axes = axes
+        self.fetishes = [{'id': 1}, {'id': 2}]
+        categories = ['relation', 'attachment', 'value', 'aesthetic', 'world']
+        self.questions = [{'category': categories[index]} for index in range(len(axes))]
+        self.disabled_questions = set()
+        self.matrix = {'total': [[1.0] * len(axes), [1.0] * len(axes)]}
+
+    def posteriors(self, _answers):
+        return [0.5, 0.5]
+
+    def _prob(self, fetish_index, question_id):
+        return (0.8, 0.2)[fetish_index] if question_id % 2 else (0.7, 0.3)[fetish_index]
+
+    def _entropy(self, probabilities):
+        return -sum(value * math.log(value) for value in probabilities if value > 0)
+
+    def _question_axis(self, question_id):
+        return self._axes[question_id]
+
+    def _question_category(self, question_id):
+        return self.questions[question_id]['category']
+
+    def best_question(self, _answers, asked, *, idk_streak=0):
+        return next(
+            (question_id for question_id in range(len(self.questions)) if question_id not in asked),
+            None,
+        )
+
+
+class TestIdkRecoverySelection(unittest.TestCase):
+    def test_hard_excludes_every_axis_in_the_recent_idk_streak(self):
+        from services import question_selection
+
+        engine = _IdkRecoveryEngine(['abstract', 'content', 'abstract', 'personality', 'content'])
+        answers = {'0': 0, '1': 0, '2': 0}
+
+        selection = question_selection.idk_recovery_selection(engine, answers, [0, 1, 2])
+
+        self.assertFalse(selection['fallback'])
+        self.assertEqual(selection['avoided_axes'], ['abstract', 'content'])
+        self.assertEqual(engine._question_axis(selection['question_id']), 'personality')
+
+    def test_marks_fallback_only_when_no_alternate_axis_question_exists(self):
+        from services import question_selection
+
+        engine = _IdkRecoveryEngine(['abstract', 'abstract', 'abstract'])
+        answers = {'0': 0, '1': 0}
+
+        selection = question_selection.idk_recovery_selection(engine, answers, [0, 1])
+
+        self.assertTrue(selection['fallback'])
+        self.assertEqual(selection['question_id'], 2)
+        self.assertEqual(selection['avoided_axes'], ['abstract'])
+
+    def test_information_gain_rejection_cannot_break_the_axis_guarantee(self):
+        from services import question_selection
+
+        engine = _IdkRecoveryEngine(['abstract', 'abstract', 'personality'])
+        engine._prob = lambda _fetish_index, _question_id: 1.0
+
+        selection = question_selection.idk_recovery_selection(engine, {'0': 0, '1': 0}, [0, 1])
+
+        self.assertFalse(selection['fallback'])
+        self.assertEqual(selection['question_id'], 2)
 
 
 class TestEngineQuestionSelectionRegression(unittest.TestCase):

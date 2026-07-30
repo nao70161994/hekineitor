@@ -359,5 +359,17 @@ class RestoreMatrixWorkflowTests(unittest.TestCase):
         self.assertIn('matrix_rows is not the complete fetish/question product', validator)
 
 
+class RecommendedWorksInventoryTests(unittest.TestCase):
+    def test_generated_inventory_uses_current_catalog_projection(self):
+        generator = load_module(
+            'recommended_works_inventory_under_test',
+            ROOT / 'scripts' / 'build_recommended_works_list.py',
+        )
+        rendered = generator.render_inventory()
+        self.assertIn('# 現行おすすめ作品一覧', rendered)
+        self.assertIn('work_id=', rendered)
+        self.assertNotIn('ネトラレーゼ（成人向け漫画）', rendered)
+
+
 if __name__ == '__main__':
     unittest.main()

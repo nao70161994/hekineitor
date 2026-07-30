@@ -6,9 +6,10 @@ from .work_catalog import (
     apply_bibliography_manifest,
     apply_catalog_corrections,
     apply_review_decisions,
+    apply_seed_overrides,
     build_catalog_from_inline,
     merge_restored_fetish_works,  # noqa: F401 - compatibility re-export for db_matrix
-    project_approved_inline_corrections,
+    project_approved_inline_correction_manifests,
     replace_compound_works,
     replace_fetish_works,
     upgrade_catalog_schema,
@@ -316,6 +317,9 @@ def migrate_legacy_catalog(
     review_decisions=None,
     corrections=None,
     bibliography=None,
+    corrections_batch2=None,
+    bibliography_batch2=None,
+    link_bindings_batch2=None,
 ):
     """Create a shadow catalog exactly once; later writes belong to the catalog repository."""
     ensure_schema(cur)
@@ -324,26 +328,33 @@ def migrate_legacy_catalog(
         return {'migrated': False}
     legacy_fetishes = _legacy_fetishes(cur)
     compound_rows = _compound_rows(compound_data)
-    if corrections is not None:
-        source_projection = project_approved_inline_corrections(
+    correction_manifests = tuple(
+        manifest for manifest in (corrections, corrections_batch2, link_bindings_batch2) if manifest is not None
+    )
+    if correction_manifests:
+        source_projection = project_approved_inline_correction_manifests(
             legacy_fetishes,
             compound_rows=compound_rows,
-            corrections=corrections,
+            correction_manifests=correction_manifests,
             direction='reverse',
         )
         legacy_fetishes = source_projection['fetishes']
         compound_rows = source_projection['compound_rows']
-    catalog = build_catalog_from_inline(
-        legacy_fetishes,
-        compound_rows=compound_rows,
-        seed_overrides=seed_overrides,
-    )
+    catalog = build_catalog_from_inline(legacy_fetishes, compound_rows=compound_rows)
     if review_decisions is not None:
         catalog = apply_review_decisions(catalog, review_decisions)
+    if seed_overrides is not None:
+        catalog = apply_seed_overrides(catalog, seed_overrides)
     if corrections is not None:
         catalog = apply_catalog_corrections(catalog, corrections)
     if bibliography is not None:
         catalog = apply_bibliography_manifest(catalog, bibliography)[0]
+    if corrections_batch2 is not None:
+        catalog = apply_catalog_corrections(catalog, corrections_batch2)
+    if bibliography_batch2 is not None:
+        catalog = apply_bibliography_manifest(catalog, bibliography_batch2)[0]
+    if link_bindings_batch2 is not None:
+        catalog = apply_catalog_corrections(catalog, link_bindings_batch2)
     counts = replace_catalog(cur, catalog, execute_values=execute_values)
     return {'migrated': True, **counts}
 

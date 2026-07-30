@@ -51,7 +51,9 @@
 - `index_of(db_id)` でDB idから配列インデックスを取得
 - `get_question_stats()` で質問ごとの識別力（disc）+ 無効化フラグ + UCB使用量（ask_count）を返す
 - `get_axis_stats()` で QUESTION_AXES 別の質問数・平均disc・無効化数を返す
-- `get_fetish_log()` / `log_guessed/correct/wrong()` で診断ログを管理
+- `get_fetish_log()` / `log_guessed/correct/wrong()` で診断ログを管理。legacy互換counterに加え、dynamic prior専用の`exposure_guessed` / `exposure_correct`を保持
+- `log_guessed()` / `log_correct()` はlegacy counterと対応する露出専用counterをatomicに増加。旧行の露出専用counterは0から開始し、dynamic priorは新counterだけを使用
+- 訂正候補の選択は`correction_selected`へ分離し、dynamic priorの母集団には含めない
 - `log_correct/wrong()` は全体カウントに加えて `f_correct_{id}` / `f_wrong_{id}` も stats_history に記録（性癖別日別履歴）
 - `get_fetish_history(fetish_db_id, days)` で指定性癖の日別正解/外れ件数を返す
 - `get_correlation_stats()` で質問ペアのコサイン類似度上位30件を返す（管理画面用）

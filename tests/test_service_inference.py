@@ -48,7 +48,7 @@ class TestServiceInference(unittest.TestCase):
         calls = []
 
         class Engine:
-            fetishes = [{'id': 7, 'name': 'A', 'desc': '', 'works': []}]
+            fetishes = [{'id': 7, 'name': 'A', 'desc': '', 'works': [{'title': 'Work', 'work_id': 'wrk_1'}]}]
             questions = []
             config = {}
 
@@ -72,6 +72,7 @@ class TestServiceInference(unittest.TestCase):
         ctx.session = {}
         ctx.soft_max_questions = 20
         ctx.mark_guess_quality = lambda engine, session, answers, soft: calls.append('quality')
+        ctx.record_gameplay_event = lambda event_name, **kwargs: calls.append((event_name, kwargs))
         ctx.inference_context = lambda: type(
             'InferenceCtx',
             (),
@@ -90,7 +91,10 @@ class TestServiceInference(unittest.TestCase):
 
         result = inference.make_guess(ctx, {})
         self.assertEqual(result['fetish_id'], 7)
-        self.assertEqual(calls, ['increment', 'quality', ('guessed', 7)])
+        self.assertEqual(calls[0], 'increment')
+        self.assertEqual(calls[1][0], 'result_shown')
+        self.assertNotIn('work_impression', [call[0] for call in calls if isinstance(call, tuple)])
+        self.assertEqual(calls[-2:], ['quality', ('guessed', 7)])
 
     def test_inference_result_contribution_events_use_ans_answer(self):
         events = []

@@ -280,12 +280,21 @@ def _dynamic_prior_shadow_metric(snapshot: Mapping[str, Any]) -> tuple[str, list
     excess_correct_count = shadow.get('excess_correct_count')
     strategy = policy.get('strategy')
     irreversible = policy.get('irreversible_reclassification_performed')
-    if not isinstance(schema_version, int) or isinstance(schema_version, bool) or schema_version != 1:
-        raise ValueError('schema_version must be 1')
-    for name, value in (
+    if not isinstance(schema_version, int) or isinstance(schema_version, bool) or schema_version not in (1, 2):
+        raise ValueError('schema_version must be 1 or 2')
+    counts = [
         ('mismatched_count', mismatched_count),
         ('excess_correct_count', excess_correct_count),
-    ):
+    ]
+    if schema_version == 2:
+        counts.extend(
+            [
+                ('legacy_row_count', shadow.get('legacy_row_count')),
+                ('exposure_guessed_count', shadow.get('exposure_guessed_count')),
+                ('exposure_correct_count', shadow.get('exposure_correct_count')),
+            ]
+        )
+    for name, value in counts:
         if not isinstance(value, int) or isinstance(value, bool) or value < 0:
             raise ValueError(f'{name} must be a non-negative integer')
     if not isinstance(strategy, str) or not strategy.strip():
@@ -293,16 +302,26 @@ def _dynamic_prior_shadow_metric(snapshot: Mapping[str, Any]) -> tuple[str, list
     if not isinstance(irreversible, bool):
         raise ValueError('irreversible_reclassification_performed must be boolean')
 
+    safe_strategy = {
+        1: 'non_destructive_runtime_clamp',
+        2: 'non_destructive_exposure_counter_isolation',
+    }[schema_version]
     warnings = []
-    if strategy != 'non_destructive_runtime_clamp':
+    if strategy != safe_strategy:
         warnings.append(f'dynamic prior shadow unexpected migration strategy={strategy}')
     if irreversible:
         warnings.append('dynamic prior shadow reports irreversible reclassification')
     metric = (
         f'dynamic_prior_shadow=schema:{schema_version},'
-        f'mismatched:{mismatched_count},excess_correct:{excess_correct_count},'
-        f'strategy:{strategy},irreversible:{str(irreversible).lower()}'
+        f'mismatched:{mismatched_count},excess_correct:{excess_correct_count}'
     )
+    if schema_version == 2:
+        metric += (
+            f',legacy_rows:{shadow["legacy_row_count"]}'
+            f',exposure_guessed:{shadow["exposure_guessed_count"]}'
+            f',exposure_correct:{shadow["exposure_correct_count"]}'
+        )
+    metric += f',strategy:{strategy},irreversible:{str(irreversible).lower()}'
     return metric, warnings
 
 

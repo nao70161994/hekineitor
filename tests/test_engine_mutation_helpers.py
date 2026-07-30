@@ -32,5 +32,14 @@ class TestEngineMutationHelpers(unittest.TestCase):
         self.assertEqual(matrix, {'yes': [[4.0, 6.0]], 'total': [[12.0, 14.0]]})
         self.assertEqual(
             engine_mutations.merge_log_entries({'1': {'guessed': 1, 'correct': 2}, '2': {'wrong': 3}}, 1, 2),
-            {'1': {'guessed': 1, 'correct': 2, 'wrong': 3, 'correction_selected': 0}},
+            {
+                '1': {
+                    'guessed': 1,
+                    'correct': 2,
+                    'wrong': 3,
+                    'correction_selected': 0,
+                    'exposure_guessed': 0,
+                    'exposure_correct': 0,
+                }
+            },
         )

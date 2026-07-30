@@ -100,7 +100,43 @@ class TestEngineStatsHelpers(unittest.TestCase):
             )
             self.assertEqual(
                 engine_stats.load_fetish_log_file(path),
-                {10: {'guessed': 1, 'correct': 0, 'wrong': 0}},
+                {
+                    10: {
+                        'guessed': 1,
+                        'correct': 0,
+                        'wrong': 0,
+                        'correction_selected': 0,
+                        'exposure_guessed': 0,
+                        'exposure_correct': 0,
+                    }
+                },
             )
 
-        self.assertEqual(writes[0][1], {'10': {'guessed': 1, 'correct': 1, 'wrong': 0}})
+        self.assertEqual(
+            writes[0][1],
+            {
+                '10': {
+                    'guessed': 1,
+                    'correct': 1,
+                    'wrong': 0,
+                    'correction_selected': 0,
+                    'exposure_guessed': 0,
+                    'exposure_correct': 0,
+                }
+            },
+        )
+
+    def test_fetish_log_dual_counters_are_written_atomically(self):
+        lock = threading.RLock()
+        writes = []
+        with tempfile.TemporaryDirectory() as tmp:
+            engine_stats.increment_fetish_log_counters_file(
+                os.path.join(tmp, 'fetish-log.json'),
+                10,
+                {'guessed': 1, 'exposure_guessed': 1},
+                lock=lock,
+                atomic_write=lambda path, data: writes.append((path, data)),
+            )
+        self.assertEqual(len(writes), 1)
+        self.assertEqual(writes[0][1]['10']['guessed'], 1)
+        self.assertEqual(writes[0][1]['10']['exposure_guessed'], 1)

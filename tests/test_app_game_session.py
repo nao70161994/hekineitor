@@ -31,6 +31,73 @@ class TestGameSessionFlow(APITestCase):
         data = res.get_json()
         self.assertIn(data.get('action'), ('question', 'guess'))
 
+    def test_answer_request_id_replays_the_same_question_response_without_advancing_twice(self):
+        from app import engine as app_engine
+
+        original_threshold = app_engine.config.get('guess_threshold')
+        try:
+            app_engine.config['guess_threshold'] = 1.0
+            start = self._start()
+            payload = {
+                'question_id': start['question_id'],
+                'answer': 1.0,
+                'answer_request_id': 'answer_question_replay_001',
+            }
+            first = self.client.post('/api/answer', json=payload)
+            self.assertEqual(first.status_code, 200)
+            self.assertEqual(first.get_json()['action'], 'question')
+            with self.client.session_transaction() as sess:
+                asked_after_first = list(sess['asked'])
+                answers_after_first = dict(sess['answers'])
+
+            replay = self.client.post('/api/answer', json=payload)
+
+            self.assertEqual(replay.status_code, 200)
+            self.assertEqual(replay.get_json(), first.get_json())
+            with self.client.session_transaction() as sess:
+                self.assertEqual(sess['asked'], asked_after_first)
+                self.assertEqual(sess['answers'], answers_after_first)
+                self.assertEqual(sess['last_answer_request']['request_id'], payload['answer_request_id'])
+        finally:
+            app_engine.config['guess_threshold'] = original_threshold
+
+    def test_answer_request_id_replays_guess_and_rejects_payload_changes(self):
+        with self.client.session_transaction() as sess:
+            sess['started'] = True
+            sess['answers'] = {str(question_id): 1.0 for question_id in range(29)}
+            sess['asked'] = list(range(30))
+            sess['idk_streak'] = 0
+        payload = {
+            'question_id': 29,
+            'answer': 1.0,
+            'answer_request_id': 'answer_guess_replay_001',
+        }
+        first = self.client.post('/api/answer', json=payload)
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(first.get_json()['action'], 'guess')
+
+        replay = self.client.post('/api/answer', json=payload)
+        changed = self.client.post('/api/answer', json={**payload, 'answer': -1.0})
+        new_request = self.client.post(
+            '/api/answer',
+            json={**payload, 'answer_request_id': 'answer_guess_replay_002'},
+        )
+
+        self.assertEqual(replay.get_json(), first.get_json())
+        self.assertEqual(changed.status_code, 409)
+        self.assertIn('異なる回答', changed.get_json()['message'])
+        self.assertEqual(new_request.status_code, 409)
+        self.assertIn('現在の質問ID', new_request.get_json()['message'])
+
+    def test_answer_request_id_is_bounded_and_validated(self):
+        start = self._start()
+        invalid = self.client.post(
+            '/api/answer',
+            json={'question_id': start['question_id'], 'answer': 1.0, 'answer_request_id': 'bad id'},
+        )
+        self.assertEqual(invalid.status_code, 400)
+        self.assertIn('answer_request_id', invalid.get_json()['message'])
+
     def test_back_no_history(self):
         self._start()
         res = self.client.post('/api/back')
@@ -443,6 +510,31 @@ class TestGameSessionFlow(APITestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.get_json()['action'], 'guess')
 
+    def test_idk_recovery_api_marks_explicit_same_axis_fallback(self):
+        with self.client.session_transaction() as sess:
+            sess['started'] = True
+            sess['answers'] = {'0': 0, '1': 0, '2': 0}
+            sess['asked'] = [0, 1, 2, 3]
+            sess['idk_streak'] = 3
+            sess['idk_recovery_count'] = 0
+        recovery = {'question_id': 4, 'fallback': True, 'avoided_axes': ['abstract']}
+        with (
+            patch('services.question_selection.idk_recovery_selection', return_value=recovery),
+            patch(
+                'services.game_context.result_exposure.adjusted_scores',
+                side_effect=self._adjusted_scores_for(0.35, 0.30),
+            ),
+        ):
+            response = self.client.post(
+                '/api/answer',
+                json={'question_id': 3, 'answer': 0, 'answer_request_id': 'answer_idk_fallback_001'},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(data['question_id'], 4)
+        self.assertTrue(data['recovery_fallback'])
+
     def test_idk_changes_posteriors(self):
         """わからない回答が事後確率に影響を与えること（完全スキップではない）。"""
         from app import engine as app_engine
@@ -477,10 +569,12 @@ class TestGameSessionFlow(APITestCase):
         q = start['question_id']
         self.client.post('/api/answer', json={'question_id': q, 'answer': 1.0})
         pairs = [{'q_id': q, 'answer': 1.0}]
-        res = self.client.post('/api/resume', json={'pairs': pairs})
+        res = self.client.post('/api/resume', json={'pairs': pairs, 'exclude_ids': [0, 1]})
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertIn(data.get('action'), ('question', 'guess'))
+        with self.client.session_transaction() as session:
+            self.assertEqual(session['exclude_ids'], [0, 1])
 
     def test_resume_empty_pairs_returns_first_question(self):
         from app import engine as app_engine

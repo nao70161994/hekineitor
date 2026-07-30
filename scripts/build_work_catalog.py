@@ -11,6 +11,9 @@ DECISIONS_PATH = DATA_DIR / 'work_catalog_review_decisions.json'
 SEED_OVERRIDES_PATH = DATA_DIR / 'work_catalog_seed_overrides.json'
 CORRECTIONS_PATH = DATA_DIR / 'work_catalog_corrections.json'
 BIBLIOGRAPHY_PATH = DATA_DIR / 'work_catalog_bibliography.json'
+CORRECTIONS_BATCH2_PATH = DATA_DIR / 'work_catalog_corrections_batch2.json'
+BIBLIOGRAPHY_BATCH2_PATH = DATA_DIR / 'work_catalog_bibliography_batch2.json'
+LINK_BINDINGS_BATCH2_PATH = DATA_DIR / 'work_catalog_link_bindings_batch2.json'
 
 
 def build_catalog():
@@ -18,8 +21,9 @@ def build_catalog():
         apply_bibliography_manifest,
         apply_catalog_corrections,
         apply_review_decisions,
+        apply_seed_overrides,
         build_catalog_from_inline,
-        project_approved_inline_corrections,
+        project_approved_inline_correction_manifests,
     )
 
     fetishes = json.loads((DATA_DIR / 'fetishes.json').read_text(encoding='utf-8'))
@@ -29,23 +33,29 @@ def build_catalog():
         id_a, id_b = key.split(',', 1)
         compound_rows.append({'key': key, 'id_a': int(id_a), 'id_b': int(id_b), 'works': works})
     corrections = json.loads(CORRECTIONS_PATH.read_text(encoding='utf-8'))
-    source_projection = project_approved_inline_corrections(
+    corrections_batch2 = json.loads(CORRECTIONS_BATCH2_PATH.read_text(encoding='utf-8'))
+    link_bindings_batch2 = json.loads(LINK_BINDINGS_BATCH2_PATH.read_text(encoding='utf-8'))
+    source_projection = project_approved_inline_correction_manifests(
         fetishes,
         compound_rows=compound_rows,
-        corrections=corrections,
+        correction_manifests=(corrections, corrections_batch2, link_bindings_batch2),
         direction='reverse',
     )
-    seed_overrides = json.loads(SEED_OVERRIDES_PATH.read_text(encoding='utf-8'))
     catalog = build_catalog_from_inline(
         source_projection['fetishes'],
         compound_rows=source_projection['compound_rows'],
-        seed_overrides=seed_overrides,
     )
     decisions = json.loads(DECISIONS_PATH.read_text(encoding='utf-8'))
     reviewed = apply_review_decisions(catalog, decisions)
-    corrected = apply_catalog_corrections(reviewed, corrections)
+    seed_overrides = json.loads(SEED_OVERRIDES_PATH.read_text(encoding='utf-8'))
+    seeded = apply_seed_overrides(reviewed, seed_overrides)
+    corrected = apply_catalog_corrections(seeded, corrections)
     bibliography = json.loads(BIBLIOGRAPHY_PATH.read_text(encoding='utf-8'))
-    return apply_bibliography_manifest(corrected, bibliography)[0]
+    catalog = apply_bibliography_manifest(corrected, bibliography)[0]
+    catalog = apply_catalog_corrections(catalog, corrections_batch2)
+    bibliography_batch2 = json.loads(BIBLIOGRAPHY_BATCH2_PATH.read_text(encoding='utf-8'))
+    catalog = apply_bibliography_manifest(catalog, bibliography_batch2)[0]
+    return apply_catalog_corrections(catalog, link_bindings_batch2)
 
 
 def main(argv=None):

@@ -258,6 +258,24 @@ class TestEngineRuntimeCacheContract(unittest.TestCase):
         self.assertEqual(self.engine._disc_cache_time, 100.0)
         self.assertEqual(len(calls), len(self.engine.fetishes) * len(self.engine.questions))
 
+    def test_log_methods_atomically_increment_legacy_and_exposure_counters(self):
+        target_id = self.engine.fetishes[0]['id']
+        with (
+            patch('engine.facade._use_db', return_value=True),
+            patch('engine.facade.engine_db.increment_fetish_log_counters') as increment,
+            patch.object(self.engine, '_record_daily_stat'),
+        ):
+            self.engine.log_guessed(target_id)
+            self.engine.log_correct(target_id)
+
+        self.assertEqual(
+            [call.args[:2] for call in increment.call_args_list],
+            [
+                (target_id, {'guessed': 1, 'exposure_guessed': 1}),
+                (target_id, {'correct': 1, 'exposure_correct': 1}),
+            ],
+        )
+
     def test_dynamic_prior_facade_owns_cache_and_empty_log_timestamp(self):
         with (
             patch.object(self.engine, 'get_fetish_log', return_value={}) as get_log,
@@ -274,7 +292,11 @@ class TestEngineRuntimeCacheContract(unittest.TestCase):
     def test_dynamic_prior_facade_updates_cache_from_log(self):
         target_id = self.engine.fetishes[0]['id']
         with (
-            patch.object(self.engine, 'get_fetish_log', return_value={target_id: {'guessed': 10, 'correct': 8}}),
+            patch.object(
+                self.engine,
+                'get_fetish_log',
+                return_value={target_id: {'exposure_guessed': 10, 'exposure_correct': 8}},
+            ),
             patch('engine.time.monotonic', return_value=300.0),
         ):
             weights = self.engine._get_dynamic_prior_weights()

@@ -88,7 +88,13 @@ test('covers continue, feedback, history, and mobile transitions', async ({page}
     profile: [],
     related: [],
     reasons: [],
-    works: [1, 2, 3, 4, 5].map(id => ({title: `作品${id}`, url: `https://example.test/${id}`, reason: `理由${id}`})),
+    works: [1, 2, 3, 4, 5].map(id => ({
+      title: `作品${id}`,
+      url: `https://example.test/${id}`,
+      reason: `理由${id}`,
+      work_id: `wrk_${id}`,
+      edition_id: `wed_${id}`,
+    })),
     cross_works: [],
   };
   let answerCount = 0;
@@ -105,6 +111,11 @@ test('covers continue, feedback, history, and mobile transitions', async ({page}
   await page.route('**/api/confirm', route => route.fulfill({json: {status: 'learned'}}));
   await page.route('**/api/share_link', route => route.fulfill({status: 503, json: {}}));
   await page.route('**/api/share_event', route => route.fulfill({json: {status: 'ok'}}));
+  const gameplayEvents = [];
+  await page.route('**/api/gameplay_event', route => {
+    gameplayEvents.push(route.request().postDataJSON());
+    return route.fulfill({json: {status: 'ok'}});
+  });
 
   await page.goto('/');
   await page.getByRole('button', {name: 'スタート'}).click();
@@ -114,9 +125,16 @@ test('covers continue, feedback, history, and mobile transitions', async ({page}
   await expect(page.locator('#result-name')).toHaveText('NTR（寝取られ）');
   await expect(page.locator('#result-name')).toBeInViewport();
   await expect(page.locator('.work-recommendation.featured')).toHaveCount(3);
+  await expect.poll(() => gameplayEvents.filter(event => event.event_name === 'work_impression').length).toBe(3);
+  expect(gameplayEvents.filter(event => event.event_name === 'work_impression').map(event => [event.work_id, event.edition_id]))
+    .toEqual([['wrk_1', 'wed_1'], ['wrk_2', 'wed_2'], ['wrk_3', 'wed_3']]);
+  expect(gameplayEvents.some(event => event.work_id === 'wrk_4')).toBe(false);
   await expect(page.locator('.works-more')).toBeHidden();
   await page.getByRole('button', {name: 'ほか2作品を見る'}).click();
   await expect(page.locator('.works-more')).toBeVisible();
+  await expect.poll(() => gameplayEvents.filter(event => event.event_name === 'work_impression').length).toBe(5);
+  expect(gameplayEvents.filter(event => event.event_name === 'work_impression').map(event => event.work_id))
+    .toEqual(['wrk_1', 'wrk_2', 'wrk_3', 'wrk_4', 'wrk_5']);
 
   await page.getByRole('button', {name: '追加質問で精度を上げる'}).click();
   await expect(page.locator('#question-text')).toHaveText('追加の質問');
@@ -126,6 +144,7 @@ test('covers continue, feedback, history, and mobile transitions', async ({page}
 
   await page.getByRole('button', {name: 'はい', exact: true}).click();
   expect(answerCount).toBe(2);
+  await expect.poll(() => gameplayEvents.filter(event => event.event_name === 'work_impression').length).toBe(8);
   await page.getByRole('button', {name: '当たってる'}).click();
   await expect(page.locator('#quick-feedback-status')).toContainText('正解として学習しました');
 
@@ -134,6 +153,8 @@ test('covers continue, feedback, history, and mobile transitions', async ({page}
   await expect(page.locator('#history-panel')).toContainText('NTR（寝取られ）');
   await page.locator('.history-item').filter({hasText: 'NTR（寝取られ）'}).first().getByRole('button', {name: '結果を見る'}).click();
   await expect(page.locator('#result-name')).toHaveText('NTR（寝取られ）');
+  await expect.poll(() => gameplayEvents.filter(event => event.event_name === 'work_impression').length).toBe(11);
+  expect(gameplayEvents.filter(event => event.event_name === 'history_reopened')).toHaveLength(1);
 });
 
 const compoundGuess = {
@@ -164,7 +185,32 @@ async function routeSingleQuestion(page, guess = compoundGuess) {
   await page.route('**/api/answer', route => route.fulfill({json: guess}));
 }
 
-test('shows answer progress, a delay message, and safely recovers after failure', async ({page}) => {
+
+test('retries an ambiguous answer with the same client request id', async ({page}) => {
+  const payloads = [];
+  await page.route('**/api/start', route => route.fulfill({json: {
+    action: 'question', question_id: 0, question: '最初の質問', count: 0, total: 20,
+  }}));
+  await page.route('**/api/answer', async route => {
+    payloads.push(route.request().postDataJSON());
+    if (payloads.length === 1) {
+      await route.abort('failed');
+      return;
+    }
+    await route.fulfill({json: {
+      action: 'question', question_id: 1, question: '次の質問', count: 1, total: 20,
+    }});
+  });
+
+  await page.goto('/');
+  await page.getByRole('button', {name: 'スタート'}).click();
+  await page.getByRole('button', {name: 'はい', exact: true}).click();
+  await expect(page.locator('#question-text')).toHaveText('次の質問');
+  await expect.poll(() => payloads.length).toBe(2);
+  expect(payloads[0].answer_request_id).toBeTruthy();
+  expect(payloads[1].answer_request_id).toBe(payloads[0].answer_request_id);
+});
+test('shows answer progress and locks an ambiguously failed answer for reconciliation', async ({page}) => {
   let answerCount = 0;
   await page.route('**/api/start', route => route.fulfill({json: {
     action: 'question', question_id: 0, question: '遅延確認', count: 0, total: 20,
@@ -192,21 +238,57 @@ test('shows answer progress, a delay message, and safely recovers after failure'
 
   const no = page.getByRole('button', {name: 'いいえ', exact: true});
   await no.click();
-  await expect(page.locator('#answer-status')).toContainText('送信できませんでした');
-  await expect(no).toBeEnabled();
+  await expect(page.locator('#answer-status')).toContainText('回答済みか確認できません');
+  await expect(no).toBeDisabled();
+  await expect(page.locator('#answer-reconcile')).toBeVisible();
   await expect(page.locator('#genie')).not.toHaveClass(/thinking/);
 });
 
+
+test('saves exclusions with title return and clears them only on discard', async ({page}) => {
+  await page.route('**/api/start', route => route.fulfill({json: {
+    action: 'question', question_id: 0, question: '保存前の質問', count: 0, total: 20,
+  }}));
+  await page.route('**/api/answer', route => route.fulfill({json: {
+    action: 'question', question_id: 1, question: '保存後の質問', count: 1, total: 20,
+  }}));
+
+  await page.goto('/');
+  await page.getByRole('button', {name: 'スタート'}).click();
+  await page.evaluate(() => window.HekiState.setExcludedIds([4, 7]));
+  await page.getByRole('button', {name: 'はい', exact: true}).click();
+  await page.getByRole('button', {name: 'タイトルへ'}).click();
+  await expect(page.locator('#modal-restart-desc')).toContainText('除外リスト（2件）も失われます');
+  await page.getByRole('button', {name: '保存してタイトルへ'}).click();
+  await expect(page.locator('#resume-banner')).toBeVisible();
+  const saved = await page.evaluate(() => ({
+    draft: JSON.parse(localStorage.getItem('heki_draft')),
+    excludedIds: window.HekiState.getExcludedIds(),
+  }));
+  expect(saved.draft.exclude_ids).toEqual([4, 7]);
+  expect(saved.excludedIds).toEqual([4, 7]);
+
+  await page.getByRole('button', {name: '破棄する'}).click();
+  const discarded = await page.evaluate(() => ({
+    draft: localStorage.getItem('heki_draft'),
+    excludedIds: window.HekiState.getExcludedIds(),
+  }));
+  expect(discarded).toEqual({draft: null, excludedIds: []});
+});
 test('resumes a saved diagnosis and excludes every shown result on retry', async ({page}) => {
   const now = Date.now();
   await page.addInitScript(({savedAt}) => {
     localStorage.setItem('heki_draft', JSON.stringify({
-      pairs: [{q_id: 4, answer: 0.5}], ts: savedAt, expires_at: savedAt + 7 * 24 * 3600 * 1000,
+      pairs: [{q_id: 4, answer: 0.5}], exclude_ids: [8, 9], ts: savedAt, expires_at: savedAt + 7 * 24 * 3600 * 1000,
     }));
   }, {savedAt: now});
-  await page.route('**/api/resume', route => route.fulfill({json: {
+  let resumeBody = null;
+  await page.route('**/api/resume', route => {
+    resumeBody = route.request().postDataJSON();
+    return route.fulfill({json: {
     action: 'question', question_id: 5, question: '復帰後の質問', count: 1, total: 20,
-  }}));
+    }});
+  });
   await page.route('**/api/answer', route => route.fulfill({json: compoundGuess}));
   let retryBody = null;
   await page.route('**/api/start', route => {
@@ -223,11 +305,12 @@ test('resumes a saved diagnosis and excludes every shown result on retry', async
   await expect(page.locator('#resume-expires-at')).not.toBeEmpty();
   await page.getByRole('button', {name: '続行する'}).click();
   await expect(page.locator('#question-text')).toHaveText('復帰後の質問');
+  expect(resumeBody.exclude_ids).toEqual([8, 9]);
   await page.getByRole('button', {name: 'はい', exact: true}).click();
   await expect(page.locator('#result-name')).toHaveText('本命 × 要素A × 要素B');
   await page.getByRole('button', {name: '当て直す'}).click();
   await expect(page.locator('#question-text')).toHaveText('除外後の質問');
-  expect(retryBody.exclude_ids.sort()).toEqual([1, 2, 3]);
+  expect(retryBody.exclude_ids.sort((a, b) => a - b)).toEqual([1, 2, 3, 8, 9]);
 });
 
 test('submits compound detail feedback atomically and tracks a work click', async ({page}) => {

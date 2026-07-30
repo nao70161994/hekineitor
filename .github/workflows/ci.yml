@@ -46,3 +46,40 @@ jobs:
 
       - name: Run browser E2E
         run: npm run test:e2e
+
+  postgres-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: hekineitor
+          POSTGRES_PASSWORD: hekineitor_test
+          POSTGRES_DB: hekineitor_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hekineitor -d hekineitor_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SECRET_KEY: test_secret_key_for_ci
+      TEST_POSTGRES_URL: postgresql://hekineitor:hekineitor_test@localhost:5432/hekineitor_test
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Run real PostgreSQL catalog lifecycle tests
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          PYTHONPATH: .
+        run: python -m unittest -v tests.test_postgres_work_catalog_integration

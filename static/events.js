@@ -29,13 +29,14 @@ window.HekiEvents = (() => {
 
   function handleAction(el) {
     const action = el.dataset.action;
-    if (action === 'start-game') startGame();
+    if (action === 'start-game') startGame(window._excludedIds || []);
     else if (action === 'toggle-history') toggleHistory();
     else if (action === 'resume-game') resumeGame();
     else if (action === 'discard-draft') discardDraft();
     else if (action === 'go-back') goBack();
     else if (action === 'confirm-restart') confirmRestart();
     else if (action === 'send-answer') sendAnswer(parseFloat(el.dataset.answer));
+    else if (action === 'retry-pending-answer') retryPendingAnswer();
     else if (action === 'submit-confirm') submitConfirm();
     else if (action === 'quick-feedback') quickFeedback(el.dataset.feedback);
     else if (action === 'toggle-detail-feedback') toggleDetailFeedback();

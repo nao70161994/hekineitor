@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import engine_db
+
 from engine import work_catalog
 
 
@@ -170,7 +171,7 @@ class TestEngineDbHelpers(unittest.TestCase):
             {0: [(1, 0.5, 1.0)]},
             {0: 10},
             [{'id': 10}],
-            {(10, 'correct'): 1},
+            {(10, 'correct'): 1, (10, 'exposure_correct'): 1},
             {'learn_count': 1},
             {'learn': 1},
             '2026-07-28',
@@ -182,8 +183,9 @@ class TestEngineDbHelpers(unittest.TestCase):
         self.assertEqual(returned, [conn])
         self.assertEqual(cursor.executed[0], (engine_db.SAVE_MATRIX_SQL, [(10, 1, 0.5, 1.0)]))
         self.assertIn('INSERT INTO fetish_log', cursor.executed[1][0])
-        self.assertIn('INSERT INTO stats ', cursor.executed[2][0])
-        self.assertIn('INSERT INTO stats_history', cursor.executed[3][0])
+        self.assertIn('INSERT INTO fetish_log', cursor.executed[2][0])
+        self.assertIn('INSERT INTO stats ', cursor.executed[3][0])
+        self.assertIn('INSERT INTO stats_history', cursor.executed[4][0])
 
 
 class FakeCursor:
@@ -234,9 +236,13 @@ class FakeEngine:
             return {}
         if name == 'work_catalog_seed_overrides.json':
             return {'schema_version': 1, 'title_normalizations': []}
-        if name == 'work_catalog_corrections.json':
+        if name in {
+            'work_catalog_corrections.json',
+            'work_catalog_corrections_batch2.json',
+            'work_catalog_link_bindings_batch2.json',
+        }:
             return {'schema_version': 1, 'catalog_schema_version': 1, 'corrections': []}
-        if name == 'work_catalog_bibliography.json':
+        if name in {'work_catalog_bibliography.json', 'work_catalog_bibliography_batch2.json'}:
             return {'schema_version': 1, 'catalog_schema_version': 2, 'entries': []}
         if name == 'work_catalog_review_decisions.json':
             return {'schema_version': 1, 'reviewed_at': '2026-07-28', 'decisions': []}
@@ -456,7 +462,11 @@ class TestEngineDbCatalogRestore(unittest.TestCase):
             }
 
         with (
-            patch.object(engine_db.db_work_catalog, 'project_approved_inline_corrections', side_effect=project),
+            patch.object(
+                engine_db.db_work_catalog,
+                'project_approved_inline_correction_manifests',
+                side_effect=project,
+            ),
             patch.object(engine_db.db_work_catalog, 'replace_catalog'),
         ):
             engine_db.restore_matrix_snapshot(
@@ -873,7 +883,7 @@ class TestEngineDbStatsAdapters(unittest.TestCase):
         )
 
     def test_disabled_questions_and_fetish_log_adapters_keep_contracts(self):
-        cursor = FakeCursor(fetchall_values=[[('disabled_q_2',), ('disabled_q_5',)], [(10, 1, 2, 3, 0)]])
+        cursor = FakeCursor(fetchall_values=[[('disabled_q_2',), ('disabled_q_5',)], [(10, 1, 2, 3, 0, 4, 2)]])
         conn = FakeConn(cursor)
 
         self.assertEqual(engine_db.load_disabled_questions(get_conn=lambda: conn, put_conn=lambda _conn: None), {2, 5})
@@ -881,16 +891,42 @@ class TestEngineDbStatsAdapters(unittest.TestCase):
         engine_db.increment_fetish_log(10, 'correct', get_conn=lambda: conn, put_conn=lambda _conn: None)
         self.assertEqual(
             engine_db.load_fetish_log(get_conn=lambda: conn, put_conn=lambda _conn: None),
-            {10: {'guessed': 1, 'correct': 2, 'wrong': 3, 'correction_selected': 0}},
+            {
+                10: {
+                    'guessed': 1,
+                    'correct': 2,
+                    'wrong': 3,
+                    'correction_selected': 0,
+                    'exposure_guessed': 4,
+                    'exposure_correct': 2,
+                }
+            },
         )
 
         sqls = [sql for sql, _params in cursor.executed]
         self.assertIn("SELECT key FROM stats WHERE key LIKE 'disabled_q_%'", sqls)
         self.assertIn("DELETE FROM stats WHERE key LIKE 'disabled_q_%'", sqls)
         self.assertTrue(any('INSERT INTO fetish_log' in sql for sql in sqls))
-        self.assertIn('SELECT fetish_id, guessed, correct, wrong, correction_selected FROM fetish_log', sqls)
+        self.assertTrue(
+            any(
+                'SELECT fetish_id, guessed, correct, wrong, correction_selected' in sql
+                and 'exposure_guessed, exposure_correct' in sql
+                for sql in sqls
+            )
+        )
         with self.assertRaises(ValueError):
             engine_db.increment_fetish_log(10, 'bad', get_conn=lambda: conn, put_conn=lambda _conn: None)
+
+        before = len(cursor.executed)
+        engine_db.increment_fetish_log_counters(
+            10,
+            {'guessed': 1, 'exposure_guessed': 1},
+            get_conn=lambda: conn,
+            put_conn=lambda _conn: None,
+        )
+        dual_sql, dual_params = cursor.executed[before]
+        self.assertIn('guessed, exposure_guessed', dual_sql)
+        self.assertEqual(dual_params, (10, 1, 1))
 
 
 class TestWorkCatalogInlineTransaction(unittest.TestCase):
@@ -899,9 +935,14 @@ class TestWorkCatalogInlineTransaction(unittest.TestCase):
         catalog = json.loads((data / 'work_catalog.json').read_text(encoding='utf-8'))
         fetishes = json.loads((data / 'fetishes.json').read_text(encoding='utf-8'))
         corrections = json.loads((data / 'work_catalog_corrections.json').read_text(encoding='utf-8'))
-        source = work_catalog.project_approved_inline_corrections(
+        correction_manifests = (
+            corrections,
+            json.loads((data / 'work_catalog_corrections_batch2.json').read_text(encoding='utf-8')),
+            json.loads((data / 'work_catalog_link_bindings_batch2.json').read_text(encoding='utf-8')),
+        )
+        source = work_catalog.project_approved_inline_correction_manifests(
             fetishes,
-            corrections=corrections,
+            correction_manifests=correction_manifests,
             direction='reverse',
             tables={'fetish_work_links'},
         )

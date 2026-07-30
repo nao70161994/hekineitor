@@ -3,6 +3,7 @@ window.HekiGameFlow = (() => {
   let answeredCount = 0;
   let resultShown = false;
   let dropoffSent = false;
+  let pendingAnswerRequest = null;
   let pendingAnswerTimer = null;
   const axisLabels = {content: 'コンテンツ軸', abstract: '抽象軸', personality: 'パーソナリティ軸'};
 
@@ -16,6 +17,7 @@ function resetAnswerPending(failed = false) {
     button.setAttribute('aria-pressed', 'false');
   });
   const status = document.getElementById('answer-status');
+  document.getElementById('answer-reconcile')?.classList.add('hidden');
   if (status) status.textContent = failed ? '送信できませんでした。回答を選び直してください。' : '';
   if (failed) {
     setAnswerButtons(false);
@@ -165,27 +167,86 @@ async function goBack() {
   }
 }
 
+function createAnswerRequestId() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return `answer_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`;
+}
+
+function ambiguousAnswerFailure(error) {
+  if (error?.message === 'session_expired') return false;
+  return !Number.isFinite(error?.status) || error.status >= 500;
+}
+
+function lockAnswerForReconcile() {
+  clearTimeout(pendingAnswerTimer);
+  pendingAnswerTimer = null;
+  const status = document.getElementById('answer-status');
+  if (status) status.textContent = '回答済みか確認できません。再送せず、同じ回答IDで状態を確認してください。';
+  document.getElementById('answer-reconcile')?.classList.remove('hidden');
+  setGenieState('idle');
+  setAnswerButtons(true);
+}
+async function submitPendingAnswer(maxAttempts) {
+  if (!pendingAnswerRequest) return;
+  let lastError = null;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      const request = pendingAnswerRequest;
+      const data = await apiFetch('/api/answer', {
+        question_id: request.questionId,
+        answer: request.answer,
+        answer_request_id: request.requestId,
+      });
+      pendingAnswerRequest = null;
+      resetAnswerPending();
+      _pushDraft(request.questionId, request.answer);
+      _saveDraft();
+      if (data.action === 'question') {
+        showQuestion(data);
+      } else {
+        _pauseDraft();
+        showGuess(data);
+      }
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!ambiguousAnswerFailure(error)) {
+        pendingAnswerRequest = null;
+        resetAnswerPending(true);
+        return;
+      }
+      const status = document.getElementById('answer-status');
+      if (attempt + 1 < maxAttempts && status) {
+        status.textContent = '応答を確認できません。同じ回答IDで状態を照会しています…';
+      }
+    }
+  }
+  if (lastError) lockAnswerForReconcile();
+}
+
 async function sendAnswer(ans) {
-  if (_fetching) return;
+  if (_fetching || pendingAnswerRequest) return;
   setFetching(true);
   setAnswerButtons(true);
   setAnswerPending(ans);
+  pendingAnswerRequest = {requestId: createAnswerRequestId(), questionId: currentQuestionId, answer: ans};
   try {
-    const data = await apiFetch('/api/answer', {question_id: currentQuestionId, answer: ans});
-    resetAnswerPending();
-    _pushDraft(currentQuestionId, ans);
-    _saveDraft();
-    if (data.action === 'question') {
-      showQuestion(data);
-    } else {
-      _pauseDraft();
-      showGuess(data);
-    }
-  } catch {
-    resetAnswerPending(true);
+    await submitPendingAnswer(2);
   } finally {
     setFetching(false);
-    setAnswerButtons(false);
+    if (!pendingAnswerRequest) setAnswerButtons(false);
+  }
+}
+
+async function retryPendingAnswer() {
+  if (_fetching || !pendingAnswerRequest) return;
+  setFetching(true);
+  document.getElementById('answer-reconcile')?.classList.add('hidden');
+  try {
+    await submitPendingAnswer(1);
+  } finally {
+    setFetching(false);
+    if (!pendingAnswerRequest) setAnswerButtons(false);
   }
 }
 
@@ -226,6 +287,7 @@ function showGuess(data) {
   if (window.HekiShare?.prepareSharePayload) window.HekiShare.prepareSharePayload();
   if (!data._historyReplay) saveHistory(renderedName, data.probability, data.fetish_id, window._compoundIds, data);
   show('result-screen');
+  window.HekiRenderers?.trackFeaturedWorks?.(data);
 }
 
 
@@ -286,6 +348,7 @@ async function continueGame() {
 
   return {
     startExcluding,
+    retryPendingAnswer,
     startGame,
     showQuestion,
     goBack,
@@ -299,6 +362,7 @@ async function continueGame() {
 
 window.startExcluding = () => window.HekiGameFlow.startExcluding();
 window.startGame = excludeIds => window.HekiGameFlow.startGame(excludeIds);
+window.retryPendingAnswer = () => window.HekiGameFlow.retryPendingAnswer();
 window.showQuestion = data => window.HekiGameFlow.showQuestion(data);
 window.goBack = () => window.HekiGameFlow.goBack();
 window.sendAnswer = ans => window.HekiGameFlow.sendAnswer(ans);

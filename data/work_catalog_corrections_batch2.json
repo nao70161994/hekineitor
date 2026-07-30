@@ -1,0 +1,703 @@
+{
+  "schema_version": 3,
+  "reviewed_at": "2026-07-30",
+  "reviewed_by": "deterministic active-linked editionless audit 2026-07-30",
+  "catalog_schema_version": 2,
+  "corrections": [
+    {
+      "correction_id": "quarantine-research-batch2-155d0d4b09c2e1d259a3",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_155d0d4b09c2e1d259a3",
+        "canonical_title": "魔法少女百合NTR（同人誌）",
+        "normalized_title": "魔法少女百合ntr(同人誌)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_155d0d4b09c2e1d259a3",
+        "canonical_title": "魔法少女百合NTR（同人誌）",
+        "normalized_title": "魔法少女百合ntr(同人誌)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_63b3990d6810b6da3e4b",
+            "id_a": 20,
+            "id_b": 43,
+            "work_id": "wrk_155d0d4b09c2e1d259a3",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-research-batch2-1b56de6af1d38d43e224",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_1b56de6af1d38d43e224",
+        "canonical_title": "私の夫は冷酷帝（王族×政略）",
+        "normalized_title": "私の夫は冷酷帝(王族×政略)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_1b56de6af1d38d43e224",
+        "canonical_title": "私の夫は冷酷帝（王族×政略）",
+        "normalized_title": "私の夫は冷酷帝(王族×政略)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_15cec8da1bd99ce2c617",
+            "id_a": 68,
+            "id_b": 97,
+            "work_id": "wrk_1b56de6af1d38d43e224",
+            "edition_id": null,
+            "alias_id": "wal_0c8ed63fc39691ddb83b",
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "source_title": "私の夫は冷酷帝（格差×政略）"
+        },
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_b6e99f42f96f4f1af858",
+            "id_a": 70,
+            "id_b": 97,
+            "work_id": "wrk_1b56de6af1d38d43e224",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-research-batch2-1cec191856c214c192f1",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_1cec191856c214c192f1",
+        "canonical_title": "乙女ゲームの悪役男爵に転生した件",
+        "normalized_title": "乙女ゲームの悪役男爵に転生した件",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_1cec191856c214c192f1",
+        "canonical_title": "乙女ゲームの悪役男爵に転生した件",
+        "normalized_title": "乙女ゲームの悪役男爵に転生した件",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_58f0e0411faefc7d0c4a",
+            "id_a": 2,
+            "id_b": 63,
+            "work_id": "wrk_1cec191856c214c192f1",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-research-batch2-21bb20f169273683f2b6",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_21bb20f169273683f2b6",
+        "canonical_title": "片恋ダンス（漫画）",
+        "normalized_title": "片恋ダンス(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_21bb20f169273683f2b6",
+        "canonical_title": "片恋ダンス（漫画）",
+        "normalized_title": "片恋ダンス(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_4777692225986181274e",
+            "id_a": 10,
+            "id_b": 16,
+            "work_id": "wrk_21bb20f169273683f2b6",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-research-batch2-25b03aa9a6b5e9888cac",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_25b03aa9a6b5e9888cac",
+        "canonical_title": "スワップ×ラブ（BL漫画）",
+        "normalized_title": "スワップ×ラブ(bl漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_25b03aa9a6b5e9888cac",
+        "canonical_title": "スワップ×ラブ（BL漫画）",
+        "normalized_title": "スワップ×ラブ(bl漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_368aa6d7480aaaa269fc",
+            "id_a": 2,
+            "id_b": 67,
+            "work_id": "wrk_25b03aa9a6b5e9888cac",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-research-batch2-28c451be4b4678bce9ff",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_28c451be4b4678bce9ff",
+        "canonical_title": "悪役令嬢は隣国の王太子に狙われている！",
+        "normalized_title": "悪役令嬢は隣国の王太子に狙われている!",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_28c451be4b4678bce9ff",
+        "canonical_title": "悪役令嬢は隣国の王太子に狙われている！",
+        "normalized_title": "悪役令嬢は隣国の王太子に狙われている!",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_80f6653bfc4ed4f6bf8f",
+            "id_a": 22,
+            "id_b": 36,
+            "work_id": "wrk_28c451be4b4678bce9ff",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 2,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-research-batch2-333b65d2d9ee0c7205f9",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_333b65d2d9ee0c7205f9",
+        "canonical_title": "独り占め×Boyfriend",
+        "normalized_title": "独り占め×boyfriend",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_333b65d2d9ee0c7205f9",
+        "canonical_title": "独り占め×Boyfriend",
+        "normalized_title": "独り占め×boyfriend",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_c0461abb1d2a1c110788",
+            "id_a": 10,
+            "id_b": 35,
+            "work_id": "wrk_333b65d2d9ee0c7205f9",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-research-batch2-3ff5a233cd3e832ef463",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_3ff5a233cd3e832ef463",
+        "canonical_title": "兄ログ（同人誌）",
+        "normalized_title": "兄ログ(同人誌)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_3ff5a233cd3e832ef463",
+        "canonical_title": "兄ログ（同人誌）",
+        "normalized_title": "兄ログ(同人誌)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_217cd4c08670af69417d",
+            "id_a": 10,
+            "id_b": 30,
+            "work_id": "wrk_3ff5a233cd3e832ef463",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-research-batch2-44a1ff54bed717db5a45",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_44a1ff54bed717db5a45",
+        "canonical_title": "偽物の恋（漫画）",
+        "normalized_title": "偽物の恋(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_44a1ff54bed717db5a45",
+        "canonical_title": "偽物の恋（漫画）",
+        "normalized_title": "偽物の恋(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_ab4d32870417c6ce6920",
+            "id_a": 6,
+            "id_b": 17,
+            "work_id": "wrk_44a1ff54bed717db5a45",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 2,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-research-batch2-65bff4a8c47786418f40",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_65bff4a8c47786418f40",
+        "canonical_title": "囚われのパルマ",
+        "normalized_title": "囚われのパルマ",
+        "media_type": "video_game",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_65bff4a8c47786418f40",
+        "canonical_title": "囚われのパルマ",
+        "normalized_title": "囚われのパルマ",
+        "media_type": "video_game",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_dd49bc1b079fd95284fd",
+            "id_a": 2,
+            "id_b": 10,
+            "work_id": "wrk_65bff4a8c47786418f40",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-research-batch2-68a72af17d9e02b69aa5",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_68a72af17d9e02b69aa5",
+        "canonical_title": "乙女ゲーム転生悪役令嬢（王族設定）",
+        "normalized_title": "乙女ゲーム転生悪役令嬢(王族設定)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_68a72af17d9e02b69aa5",
+        "canonical_title": "乙女ゲーム転生悪役令嬢（王族設定）",
+        "normalized_title": "乙女ゲーム転生悪役令嬢(王族設定)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_e5054070dca07d7b92a2",
+            "id_a": 36,
+            "id_b": 70,
+            "work_id": "wrk_68a72af17d9e02b69aa5",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 2,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-research-batch2-68f7f8d8e539f4618c84",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_68f7f8d8e539f4618c84",
+        "canonical_title": "入れ替わりBL（同人誌）",
+        "normalized_title": "入れ替わりbl(同人誌)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_68f7f8d8e539f4618c84",
+        "canonical_title": "入れ替わりBL（同人誌）",
+        "normalized_title": "入れ替わりbl(同人誌)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_c0886d047842410f215b",
+            "id_a": 2,
+            "id_b": 67,
+            "work_id": "wrk_68f7f8d8e539f4618c84",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-research-batch2-72f9affc12a5e50611a9",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_72f9affc12a5e50611a9",
+        "canonical_title": "年上彼氏の溺愛包囲網",
+        "normalized_title": "年上彼氏の溺愛包囲網",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_72f9affc12a5e50611a9",
+        "canonical_title": "年上彼氏の溺愛包囲網",
+        "normalized_title": "年上彼氏の溺愛包囲網",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_5910e1356fcb906a7e8a",
+            "id_a": 6,
+            "id_b": 17,
+            "work_id": "wrk_72f9affc12a5e50611a9",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-research-batch2-84af05a91c95bb24f510",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_84af05a91c95bb24f510",
+        "canonical_title": "俺の幼なじみが溺愛してくる",
+        "normalized_title": "俺の幼なじみが溺愛してくる",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_84af05a91c95bb24f510",
+        "canonical_title": "俺の幼なじみが溺愛してくる",
+        "normalized_title": "俺の幼なじみが溺愛してくる",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_4685f839c09b8610557f",
+            "id_a": 16,
+            "id_b": 17,
+            "work_id": "wrk_84af05a91c95bb24f510",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 2,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-research-batch2-959daf1b9e7a84a22085",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_959daf1b9e7a84a22085",
+        "canonical_title": "ヤンデレちゃんは彼女にしたい",
+        "normalized_title": "ヤンデレちゃんは彼女にしたい",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_959daf1b9e7a84a22085",
+        "canonical_title": "ヤンデレちゃんは彼女にしたい",
+        "normalized_title": "ヤンデレちゃんは彼女にしたい",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_2dd43460f015f71729ef",
+            "id_a": 10,
+            "id_b": 16,
+            "work_id": "wrk_959daf1b9e7a84a22085",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-research-batch2-9877e226c9aa2fa4f23c",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_9877e226c9aa2fa4f23c",
+        "canonical_title": "ヤンデレオメガ（同人誌）",
+        "normalized_title": "ヤンデレオメガ(同人誌)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_9877e226c9aa2fa4f23c",
+        "canonical_title": "ヤンデレオメガ（同人誌）",
+        "normalized_title": "ヤンデレオメガ(同人誌)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_4483263eef558d87eea0",
+            "id_a": 10,
+            "id_b": 35,
+            "work_id": "wrk_9877e226c9aa2fa4f23c",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-research-batch2-9da94312fcf2f57cc7d9",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_9da94312fcf2f57cc7d9",
+        "canonical_title": "悪役令嬢、ざまあを謳歌する！",
+        "normalized_title": "悪役令嬢、ざまあを謳歌する!",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_9da94312fcf2f57cc7d9",
+        "canonical_title": "悪役令嬢、ざまあを謳歌する！",
+        "normalized_title": "悪役令嬢、ざまあを謳歌する!",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_2ad892c83d81396f0af7",
+            "id_a": 22,
+            "id_b": 36,
+            "work_id": "wrk_9da94312fcf2f57cc7d9",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-research-batch2-9f13b09b0e6167ec1d8e",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_9f13b09b0e6167ec1d8e",
+        "canonical_title": "転生悪役令嬢の華麗なる逆転",
+        "normalized_title": "転生悪役令嬢の華麗なる逆転",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_9f13b09b0e6167ec1d8e",
+        "canonical_title": "転生悪役令嬢の華麗なる逆転",
+        "normalized_title": "転生悪役令嬢の華麗なる逆転",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_6f43e28448f284cd4502",
+            "id_a": 13,
+            "id_b": 36,
+            "work_id": "wrk_9f13b09b0e6167ec1d8e",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 2,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-research-batch2-d6874d787632ca5225d7",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_d6874d787632ca5225d7",
+        "canonical_title": "ヤンデレBL傑作選（同人誌）",
+        "normalized_title": "ヤンデレbl傑作選(同人誌)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_d6874d787632ca5225d7",
+        "canonical_title": "ヤンデレBL傑作選（同人誌）",
+        "normalized_title": "ヤンデレbl傑作選(同人誌)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_d717340b22bd0b39b3bb",
+            "id_a": 2,
+            "id_b": 10,
+            "work_id": "wrk_d6874d787632ca5225d7",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "quarantine-research-batch2-f33e10a3bc2a5acea1c5",
+      "type": "quarantine_recommendation",
+      "expected_work": {
+        "work_id": "wrk_f33e10a3bc2a5acea1c5",
+        "canonical_title": "大人の恋に落ちたら（漫画）",
+        "normalized_title": "大人の恋に落ちたら(漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_f33e10a3bc2a5acea1c5",
+        "canonical_title": "大人の恋に落ちたら（漫画）",
+        "normalized_title": "大人の恋に落ちたら(漫画)",
+        "media_type": "",
+        "status": "archived"
+      },
+      "link_removals": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_b0ccc26fbe3da7fe4e43",
+            "id_a": 6,
+            "id_b": 17,
+            "work_id": "wrk_f33e10a3bc2a5acea1c5",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          }
+        }
+      ]
+    }
+  ]
+}

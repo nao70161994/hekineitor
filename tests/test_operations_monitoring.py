@@ -216,12 +216,15 @@ class OperationsMonitoringTests(unittest.TestCase):
             if path == '/api/admin/operations_snapshot':
                 return {
                     'dynamic_prior_shadow': {
-                        'schema_version': 1,
+                        'schema_version': 2,
                         'mismatched_count': 2,
                         'excess_correct_count': 7,
+                        'legacy_row_count': 8,
+                        'exposure_guessed_count': 12,
+                        'exposure_correct_count': 5,
                         'rows': [{'fetish_name': '秘密にするべき行詳細'}],
                         'migration_policy': {
-                            'strategy': 'non_destructive_runtime_clamp',
+                            'strategy': 'non_destructive_exposure_counter_isolation',
                             'irreversible_reclassification_performed': False,
                         },
                     }
@@ -261,8 +264,9 @@ class OperationsMonitoringTests(unittest.TestCase):
         self.assertEqual(report['severity'], 'WARN')
         self.assertEqual(report['warn'], ['dominant result 7d=制服 100.0% (10/10)'])
         self.assertIn(
-            'dynamic_prior_shadow=schema:1,mismatched:2,excess_correct:7,'
-            'strategy:non_destructive_runtime_clamp,irreversible:false',
+            'dynamic_prior_shadow=schema:2,mismatched:2,excess_correct:7,legacy_rows:8,'
+            'exposure_guessed:12,exposure_correct:5,'
+            'strategy:non_destructive_exposure_counter_isolation,irreversible:false',
             report['message'],
         )
         self.assertNotIn('秘密にするべき行詳細', report['message'])
@@ -273,6 +277,24 @@ class OperationsMonitoringTests(unittest.TestCase):
         )
         self.assertIn('未学習質問 needs_review=1', report['message'])
         self.assertIn('insights:', report['message'])
+
+    def test_dynamic_prior_shadow_metric_rejects_missing_isolated_counter_totals(self):
+        with self.assertRaisesRegex(ValueError, 'exposure_guessed_count'):
+            operations_check._dynamic_prior_shadow_metric(
+                {
+                    'dynamic_prior_shadow': {
+                        'schema_version': 2,
+                        'mismatched_count': 0,
+                        'excess_correct_count': 0,
+                        'legacy_row_count': 1,
+                        'exposure_correct_count': 0,
+                        'migration_policy': {
+                            'strategy': 'non_destructive_exposure_counter_isolation',
+                            'irreversible_reclassification_performed': False,
+                        },
+                    }
+                }
+            )
 
     def test_dynamic_prior_shadow_metric_warns_on_unsafe_policy(self):
         metric, warnings = operations_check._dynamic_prior_shadow_metric(

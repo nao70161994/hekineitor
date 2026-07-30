@@ -98,9 +98,9 @@ adjusted_score = clamp(raw_posterior * exposure_factor, 0, 1)
 
 ## Dynamic prior counter populations
 
-動的priorの経験値は「結果として表示された回数 (`guessed`)」を分母、「その表示結果が正解だった回数 (`correct`)」を分子にします。訂正画面で別候補を選んだ回数は `correction_selected` として分離します。旧データで `correct > guessed` の行は、runtimeでは`correct`を`guessed`までclampし、`get_dynamic_prior_shadow_report()`で旧計算との差を監査できます。これにより訂正候補の人気を結果露出の正解率として誤用しません。
+動的priorの経験値は、由来が明確な「結果として表示された回数 (`exposure_guessed`)」を分母、「その表示結果が正解だった回数 (`exposure_correct`)」を分子にします。`log_guessed()` / `log_correct()`は互換用の`guessed` / `correct`と対応する露出専用counterをatomicに増加します。訂正画面で別候補を選んだ回数は`correction_selected`のままで、priorには入りません。
 
-旧`correct`イベントには「表示結果への正解」か「訂正画面で選ばれた候補」かを復元できる由来情報がないため、推測による不可逆な再分類は行いません。移行方針は`non_destructive_runtime_clamp`とし、確実に母集団外と判定できる`correct - guessed`だけを実行時に除外します。`/api/admin/operations_snapshot`の`dynamic_prior_shadow`で対象行、除外件数、旧weightとの差、非破壊方針を継続観測します。
+旧`correct`イベントには「表示結果への正解」か「訂正画面で選ばれた候補」かを復元できる由来情報がありません。推測で再分類せず、旧counterを保存したまま露出専用counterを0から収集する`non_destructive_exposure_counter_isolation`へ移行します。これにより`correct <= guessed`で表面化しない混在もdynamic priorから完全に分離され、旧行は新しい観測が貯まるまでstatic priorを使います。`/api/admin/operations_snapshot`のshadowでは旧無制限weight、旧runtime clamp weight、新weightを比較し、不可逆な書換えをしていない証拠を保持します。
 
 ## Expected Effect
 

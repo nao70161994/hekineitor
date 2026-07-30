@@ -36,7 +36,15 @@ def should_probe_low_exposure_axis(engine, answers, asked, *, count, top_p, seco
     return True
 
 
-def best_low_exposure_axis_question(engine, answers, asked, *, preferred_categories=None, exclude_ids=None):
+def best_low_exposure_axis_question(
+    engine,
+    answers,
+    asked,
+    *,
+    preferred_categories=None,
+    exclude_ids=None,
+    allowed_question_ids=None,
+):
     preferred_categories = preferred_categories or LOW_EXPOSURE_DIVERSIFYING_CATEGORIES
     probs = engine.posteriors(answers)
     excluded = {int(value) for value in (exclude_ids or ())}
@@ -50,7 +58,10 @@ def best_low_exposure_axis_question(engine, answers, asked, *, preferred_categor
     h0 = engine._entropy(probs)
     best_q, best_score = None, -1.0
     recent_categories = [engine._question_category(q) for q in list(asked)[-3:]]
+    allowed = set(allowed_question_ids) if allowed_question_ids is not None else None
     for question_id in range(len(engine.questions)):
+        if allowed is not None and question_id not in allowed:
+            continue
         if question_id in asked or question_id in engine.disabled_questions:
             continue
         category = engine._question_category(question_id)
@@ -81,23 +92,79 @@ def best_low_exposure_axis_question(engine, answers, asked, *, preferred_categor
     return best_q
 
 
-def best_idk_recovery_question(engine, answers, asked, *, exclude_ids=None):
-    """Choose a concrete, different-feeling axis after repeated unknown answers."""
+def _recent_idk_dimensions(engine, answers, asked, limit=4):
+    axes = set()
+    categories = set()
+    inspected = 0
+    for question_id in reversed(list(asked)):
+        if answers.get(str(question_id)) != 0 or inspected >= limit:
+            break
+        axis = engine._question_axis(question_id)
+        category = engine._question_category(question_id)
+        if axis:
+            axes.add(axis)
+        if category:
+            categories.add(category)
+        inspected += 1
+    return axes, categories
+
+
+def idk_recovery_selection(engine, answers, asked, *, exclude_ids=None):
+    """Return a different-axis recovery, with an explicit last-resort fallback."""
     concrete = {'attribute', 'world', 'aesthetic', 'value', 'role'}
+    asked_in_order = list(dict.fromkeys(asked))
+    recent_axes, recent_categories = _recent_idk_dimensions(engine, answers, asked_in_order)
+    alternate = [
+        question_id
+        for question_id in range(len(engine.questions))
+        if question_id not in asked_in_order
+        and question_id not in engine.disabled_questions
+        and engine._question_axis(question_id) not in recent_axes
+    ]
+    different_category = [
+        question_id for question_id in alternate if engine._question_category(question_id) not in recent_categories
+    ]
+    candidates = different_category or alternate
     question_id = best_low_exposure_axis_question(
         engine,
         answers,
-        list(dict.fromkeys(asked)),
+        asked_in_order,
         preferred_categories=concrete,
         exclude_ids=exclude_ids,
+        allowed_question_ids=candidates,
     )
+    if question_id is None and candidates:
+        available_categories = {
+            engine._question_category(candidate) for candidate in candidates if engine._question_category(candidate)
+        }
+        question_id = best_low_exposure_axis_question(
+            engine,
+            answers,
+            asked_in_order,
+            preferred_categories=available_categories,
+            exclude_ids=exclude_ids,
+            allowed_question_ids=candidates,
+        )
+    if question_id is None and candidates:
+        question_id = min(
+            candidates,
+            key=lambda q: sum(engine.matrix['total'][f][q] for f in range(len(engine.fetishes))),
+        )
     if question_id is not None:
-        return question_id
-    return best_question(engine, answers, list(dict.fromkeys(asked)), idk_streak=4, exclude_ids=exclude_ids)
+        return {'question_id': question_id, 'fallback': False, 'avoided_axes': sorted(recent_axes)}
+    fallback = best_question(engine, answers, asked_in_order, idk_streak=4, exclude_ids=exclude_ids)
+    if fallback is None:
+        return None
+    return {'question_id': fallback, 'fallback': True, 'avoided_axes': sorted(recent_axes)}
+
+
+def best_idk_recovery_question(engine, answers, asked, *, exclude_ids=None):
+    selection = idk_recovery_selection(engine, answers, asked, exclude_ids=exclude_ids)
+    return selection['question_id'] if selection else None
 
 
 def make_idk_recovery_selector(engine):
-    return lambda answers, asked, exclude_ids=None: best_idk_recovery_question(
+    return lambda answers, asked, exclude_ids=None: idk_recovery_selection(
         engine, answers, asked, exclude_ids=exclude_ids
     )
 

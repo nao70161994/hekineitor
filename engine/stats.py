@@ -54,16 +54,44 @@ def save_disabled_questions_file(path, disabled_questions, *, atomic_write):
     atomic_write(path, {'disabled': sorted(disabled_questions)})
 
 
-def increment_fetish_log_file(path, fetish_db_id, column, *, lock, atomic_write):
+FETISH_LOG_FIELDS = (
+    'guessed',
+    'correct',
+    'wrong',
+    'correction_selected',
+    'exposure_guessed',
+    'exposure_correct',
+)
+
+
+def empty_fetish_log_entry():
+    return {field: 0 for field in FETISH_LOG_FIELDS}
+
+
+def increment_fetish_log_counters_file(path, fetish_db_id, increments, *, lock, atomic_write):
+    invalid = set(increments) - set(FETISH_LOG_FIELDS)
+    if invalid:
+        raise ValueError(f'不正な列名: {sorted(invalid)[0]}')
     with lock:
         data = read_json_path(path, {})
         key = str(fetish_db_id)
-        entry = data.get(key, {'guessed': 0, 'correct': 0, 'wrong': 0, 'correction_selected': 0})
-        entry[column] = entry.get(column, 0) + 1
+        entry = {**empty_fetish_log_entry(), **data.get(key, {})}
+        for column, amount in increments.items():
+            entry[column] = entry.get(column, 0) + int(amount)
         data[key] = entry
         atomic_write(path, data)
 
 
+def increment_fetish_log_file(path, fetish_db_id, column, *, lock, atomic_write):
+    increment_fetish_log_counters_file(
+        path,
+        fetish_db_id,
+        {column: 1},
+        lock=lock,
+        atomic_write=atomic_write,
+    )
+
+
 def load_fetish_log_file(path):
     raw = read_json_path(path, {})
-    return {int(key): value for key, value in raw.items()}
+    return {int(key): {**empty_fetish_log_entry(), **value} for key, value in raw.items()}

@@ -57,6 +57,14 @@ def _load_manifest(path: Path, expected_sha256: str) -> dict[str, Any]:
     return payload
 
 
+def _load_manifest_with_digest(path: Path) -> tuple[dict[str, Any], str]:
+    """Load a commit-pinned phase manifest and return its audit fingerprint."""
+    payload = json.loads(path.read_text(encoding='utf-8'))
+    if not isinstance(payload, dict):
+        raise RuntimeError(f'{path} must contain a JSON object')
+    return payload, _canonical_sha(payload)
+
+
 class AdminClient:
     def __init__(self, base_url: str, username: str, password: str):
         self.base_url = base_url.rstrip('/')
@@ -217,6 +225,9 @@ def apply_manifests(
     corrections_path,
     bibliography_path,
     backup_path,
+    corrections_batch2_path=None,
+    bibliography_batch2_path=None,
+    link_bindings_batch2_path=None,
 ):
     _validate_target(base_url, expected_host)
     primary_review = _load_manifest(review_path, REVIEW_SHA256)
@@ -224,6 +235,16 @@ def apply_manifests(
     bibliography = _load_manifest(bibliography_path, BIBLIOGRAPHY_SHA256)
     legacy_review = _load_manifest(legacy_review_path, LEGACY_REVIEW_SHA256)
     seed = _load_manifest(seed_path, SEED_SHA256)
+    phase2_paths = (corrections_batch2_path, bibliography_batch2_path, link_bindings_batch2_path)
+    if any(path is None for path in phase2_paths) and any(path is not None for path in phase2_paths):
+        raise RuntimeError('all phase2 manifests must be supplied together')
+    phase2_enabled = corrections_batch2_path is not None
+    corrections_batch2 = bibliography_batch2 = link_bindings_batch2 = None
+    corrections_batch2_sha256 = bibliography_batch2_sha256 = link_bindings_batch2_sha256 = None
+    if phase2_enabled:
+        corrections_batch2, corrections_batch2_sha256 = _load_manifest_with_digest(corrections_batch2_path)
+        bibliography_batch2, bibliography_batch2_sha256 = _load_manifest_with_digest(bibliography_batch2_path)
+        link_bindings_batch2, link_bindings_batch2_sha256 = _load_manifest_with_digest(link_bindings_batch2_path)
     if len(primary_review.get('decisions', [])) != 74 or len(legacy_review.get('decisions', [])) != 79:
         raise RuntimeError('review manifest counts do not match the approved change sets')
     if len(seed.get('title_normalizations', [])) != 46 or len(seed.get('remove_display_titles', [])) != 4:
@@ -247,125 +268,248 @@ def apply_manifests(
         review_sha256 = REVIEW_SHA256
     if work_catalog.catalog_digest(backup_catalog) != before_digest:
         raise RuntimeError('fresh backup catalog digest does not match production before mutation')
-    try:
-        corrections_already_applied = work_catalog.apply_catalog_corrections(before, corrections) == before
-        corrections_source_compatible = True
-    except ValueError:
-        # Pre-review and pre-seed catalogs intentionally do not satisfy the
-        # correction manifest's exact source locks. The ordered preflight
-        # below must decide whether they are approved migration sources.
-        corrections_already_applied = False
-        corrections_source_compatible = False
-    reviews_already_resolved = _resolved_reviews_match_manifest(before, review, corrections)
-    review_skipped = reviews_already_resolved and corrections_source_compatible
-    if review_skipped:
-        expected_after_review = before
-        reason = 'corrections_already_applied' if corrections_already_applied else 'resolved_reviews_compatible_source'
-        review_counts = {'skipped': True, 'reason': reason}
-        between, between_digest = before, before_digest
-    else:
-        expected_after_review = work_catalog.apply_review_decisions(before, review)
-        expected_review_digest = work_catalog.catalog_digest(expected_after_review)
-        review_response = _mutate(
-            client,
-            client.csrf_token(),
-            operation='review_apply_manifest',
-            digest=before_digest,
-            payload={'decision_manifest': review},
-        )
-        review_counts = review_response.get('result') or {}
-        if (
-            review_response['digest'] != expected_review_digest
-            or review_counts.get('resolved_count') != len(review['decisions'])
-            or review_counts.get('pending_count') != 0
-        ):
-            raise RuntimeError(f'unexpected review manifest result: {review_counts!r}')
-
-        between, between_digest = _snapshot(client)
-        expected_durable_review_digest = (
-            LEGACY_DURABLE_AFTER_REVIEW_DIGEST if before_digest == LEGACY_SOURCE_DIGEST else expected_review_digest
-        )
-        if between_digest != expected_durable_review_digest:
-            raise RuntimeError('catalog drift detected between manifest operations')
-
-    expected_after_seed = work_catalog.apply_seed_overrides(expected_after_review, seed)
-    expected_seed_digest = work_catalog.catalog_digest(expected_after_seed)
-    seed_response = _mutate(
-        client,
-        client.csrf_token(),
-        operation='seed_overrides_apply_manifest',
-        digest=between_digest,
-        payload={'seed_overrides': seed},
-    )
-    seed_counts = seed_response.get('result') or {}
-    expected_removed = len(expected_after_review['works_master']) - len(expected_after_seed['works_master'])
-    if (
-        seed_response['digest'] != expected_seed_digest
-        or seed_counts.get('normalized_title_count') != 46
-        or seed_counts.get('removed_work_count') != expected_removed
-    ):
-        raise RuntimeError(f'unexpected seed override result: {seed_counts!r}')
-
-    seeded, seeded_digest = _snapshot(client)
-    if seeded_digest != expected_seed_digest:
-        raise RuntimeError('catalog drift detected before correction manifest')
-    expected_final = work_catalog.apply_catalog_corrections(seeded, corrections)
-    expected_final_digest = work_catalog.catalog_digest(expected_final)
-    correction_response = _mutate(
-        client,
-        client.csrf_token(),
-        operation='corrections_apply_manifest',
-        digest=seeded_digest,
-        payload={'corrections_manifest': corrections},
-    )
-    correction_counts = correction_response.get('result') or {}
-    correction_rows = corrections['corrections']
-    expected_splits = sum(row.get('type') == 'split_misassigned_edition' for row in correction_rows)
-    expected_retitles = sum(row.get('type') == 'retitle_identity' for row in correction_rows)
-    expected_quarantines = sum(row.get('type') == 'quarantine_recommendation' for row in correction_rows)
-    expected_link_rebinds = sum(row.get('type') == 'link_rebind' for row in correction_rows)
     inline_count_fields = (
         'inline_applied_link_count',
         'inline_fetish_owner_count',
         'inline_compound_owner_count',
         'inline_missing_count',
     )
-    if (
-        correction_response['digest'] != expected_final_digest
-        or correction_counts.get('correction_count') != len(correction_rows)
-        or correction_counts.get('split_count') != expected_splits
-        or correction_counts.get('retitle_count') != expected_retitles
-        or correction_counts.get('quarantine_count') != expected_quarantines
-        or correction_counts.get('link_rebind_count') != expected_link_rebinds
-        or any(type(correction_counts.get(field)) is not int for field in inline_count_fields)
-        or any(correction_counts[field] < 0 for field in inline_count_fields)
-    ):
-        raise RuntimeError(f'unexpected correction manifest result: {correction_counts!r}')
+    batch1_already_final = False
+    if phase2_enabled:
+        try:
+            phase2_source_check = work_catalog.apply_catalog_corrections(before, corrections_batch2)
+            phase2_source_check = work_catalog.apply_bibliography_manifest(phase2_source_check, bibliography_batch2)[0]
+            work_catalog.apply_catalog_corrections(phase2_source_check, link_bindings_batch2)
+            batch1_already_final = (
+                _resolved_reviews_match_manifest(before, review, corrections)
+                and work_catalog.apply_seed_overrides(before, seed) == before
+            )
+        except ValueError:
+            batch1_already_final = False
 
-    corrected, corrected_digest = _snapshot(client)
-    if corrected_digest != expected_final_digest:
-        raise RuntimeError('post-mutation catalog does not match the preflight result')
-    expected_catalog, expected_bibliography_counts = work_catalog.apply_bibliography_manifest(corrected, bibliography)
-    expected_catalog_digest = work_catalog.catalog_digest(expected_catalog)
-    bibliography_response = _mutate(
-        client,
-        client.csrf_token(),
-        operation='bibliography_apply_manifest',
-        digest=corrected_digest,
-        payload={'bibliography_manifest': bibliography},
-    )
-    bibliography_counts = bibliography_response.get('result') or {}
-    if (
-        bibliography_response['digest'] != expected_catalog_digest
-        or bibliography_counts != expected_bibliography_counts
-        or bibliography_counts.get('entry_count') != 18
-        or bibliography_counts.get('edition_count') not in {0, 12}
-        or bibliography_counts.get('identifier_count') not in {0, 12}
-    ):
-        raise RuntimeError(f'unexpected bibliography manifest result: {bibliography_counts!r}')
-    after, after_digest = _snapshot(client)
-    if after_digest != expected_catalog_digest:
-        raise RuntimeError('post-bibliography catalog does not match the preflight result')
+    if batch1_already_final:
+        review_skipped = True
+        review_counts = {'skipped': True, 'reason': 'batch1_final_source'}
+        between_digest = seeded_digest = before_digest
+        seed_counts = {'skipped': True, 'reason': 'batch1_final_source'}
+        correction_counts = {'skipped': True, 'reason': 'batch1_final_source'}
+        bibliography_counts = {'skipped': True, 'reason': 'batch1_final_source'}
+        expected_catalog = before
+        expected_catalog_digest = before_digest
+    else:
+        try:
+            corrections_already_applied = work_catalog.apply_catalog_corrections(before, corrections) == before
+            corrections_source_compatible = True
+        except ValueError:
+            # Pre-review and pre-seed catalogs intentionally do not satisfy the
+            # correction manifest's exact source locks. The ordered preflight
+            # below must decide whether they are approved migration sources.
+            corrections_already_applied = False
+            corrections_source_compatible = False
+        reviews_already_resolved = _resolved_reviews_match_manifest(before, review, corrections)
+        review_skipped = reviews_already_resolved and corrections_source_compatible
+        if review_skipped:
+            expected_after_review = before
+            reason = (
+                'corrections_already_applied' if corrections_already_applied else 'resolved_reviews_compatible_source'
+            )
+            review_counts = {'skipped': True, 'reason': reason}
+            between, between_digest = before, before_digest
+        else:
+            expected_after_review = work_catalog.apply_review_decisions(before, review)
+            expected_review_digest = work_catalog.catalog_digest(expected_after_review)
+            review_response = _mutate(
+                client,
+                client.csrf_token(),
+                operation='review_apply_manifest',
+                digest=before_digest,
+                payload={'decision_manifest': review},
+            )
+            review_counts = review_response.get('result') or {}
+            if (
+                review_response['digest'] != expected_review_digest
+                or review_counts.get('resolved_count') != len(review['decisions'])
+                or review_counts.get('pending_count') != 0
+            ):
+                raise RuntimeError(f'unexpected review manifest result: {review_counts!r}')
+
+            between, between_digest = _snapshot(client)
+            expected_durable_review_digest = (
+                LEGACY_DURABLE_AFTER_REVIEW_DIGEST if before_digest == LEGACY_SOURCE_DIGEST else expected_review_digest
+            )
+            if between_digest != expected_durable_review_digest:
+                raise RuntimeError('catalog drift detected between manifest operations')
+
+        expected_after_seed = work_catalog.apply_seed_overrides(expected_after_review, seed)
+        expected_seed_digest = work_catalog.catalog_digest(expected_after_seed)
+        seed_response = _mutate(
+            client,
+            client.csrf_token(),
+            operation='seed_overrides_apply_manifest',
+            digest=between_digest,
+            payload={'seed_overrides': seed},
+        )
+        seed_counts = seed_response.get('result') or {}
+        expected_removed = len(expected_after_review['works_master']) - len(expected_after_seed['works_master'])
+        if (
+            seed_response['digest'] != expected_seed_digest
+            or seed_counts.get('normalized_title_count') != 46
+            or seed_counts.get('removed_work_count') != expected_removed
+        ):
+            raise RuntimeError(f'unexpected seed override result: {seed_counts!r}')
+
+        seeded, seeded_digest = _snapshot(client)
+        if seeded_digest != expected_seed_digest:
+            raise RuntimeError('catalog drift detected before correction manifest')
+        expected_final = work_catalog.apply_catalog_corrections(seeded, corrections)
+        expected_final_digest = work_catalog.catalog_digest(expected_final)
+        correction_response = _mutate(
+            client,
+            client.csrf_token(),
+            operation='corrections_apply_manifest',
+            digest=seeded_digest,
+            payload={'corrections_manifest': corrections},
+        )
+        correction_counts = correction_response.get('result') or {}
+        correction_rows = corrections['corrections']
+        expected_splits = sum(row.get('type') == 'split_misassigned_edition' for row in correction_rows)
+        expected_retitles = sum(row.get('type') == 'retitle_identity' for row in correction_rows)
+        expected_quarantines = sum(row.get('type') == 'quarantine_recommendation' for row in correction_rows)
+        expected_link_rebinds = sum(row.get('type') == 'link_rebind' for row in correction_rows)
+        if (
+            correction_response['digest'] != expected_final_digest
+            or correction_counts.get('correction_count') != len(correction_rows)
+            or correction_counts.get('split_count') != expected_splits
+            or correction_counts.get('retitle_count') != expected_retitles
+            or correction_counts.get('quarantine_count') != expected_quarantines
+            or correction_counts.get('link_rebind_count') != expected_link_rebinds
+            or any(type(correction_counts.get(field)) is not int for field in inline_count_fields)
+            or any(correction_counts[field] < 0 for field in inline_count_fields)
+        ):
+            raise RuntimeError(f'unexpected correction manifest result: {correction_counts!r}')
+
+        corrected, corrected_digest = _snapshot(client)
+        if corrected_digest != expected_final_digest:
+            raise RuntimeError('post-mutation catalog does not match the preflight result')
+        expected_catalog, expected_bibliography_counts = work_catalog.apply_bibliography_manifest(
+            corrected, bibliography
+        )
+        expected_catalog_digest = work_catalog.catalog_digest(expected_catalog)
+        bibliography_response = _mutate(
+            client,
+            client.csrf_token(),
+            operation='bibliography_apply_manifest',
+            digest=corrected_digest,
+            payload={'bibliography_manifest': bibliography},
+        )
+        bibliography_counts = bibliography_response.get('result') or {}
+        if (
+            bibliography_response['digest'] != expected_catalog_digest
+            or bibliography_counts != expected_bibliography_counts
+            or bibliography_counts.get('entry_count') != 18
+            or bibliography_counts.get('edition_count') not in {0, 12}
+            or bibliography_counts.get('identifier_count') not in {0, 12}
+        ):
+            raise RuntimeError(f'unexpected bibliography manifest result: {bibliography_counts!r}')
+        after, after_digest = _snapshot(client)
+        if after_digest != expected_catalog_digest:
+            raise RuntimeError('post-bibliography catalog does not match the preflight result')
+
+    corrections_batch2_counts = bibliography_batch2_counts = link_binding_counts = None
+    if phase2_enabled:
+        expected_after_batch2_corrections = work_catalog.apply_catalog_corrections(expected_catalog, corrections_batch2)
+        expected_after_batch2_corrections_digest = work_catalog.catalog_digest(expected_after_batch2_corrections)
+        expected_catalog, expected_bibliography_batch2_counts = work_catalog.apply_bibliography_manifest(
+            expected_after_batch2_corrections, bibliography_batch2
+        )
+        expected_catalog_digest_after_batch2_bibliography = work_catalog.catalog_digest(expected_catalog)
+        expected_after_link_bindings = work_catalog.apply_catalog_corrections(expected_catalog, link_bindings_batch2)
+        expected_catalog_digest_after_batch2 = work_catalog.catalog_digest(expected_after_link_bindings)
+        correction_batch2_rows = corrections_batch2.get('corrections')
+        bibliography_batch2_rows = bibliography_batch2.get('entries')
+        link_binding_rows = link_bindings_batch2.get('corrections')
+        if not isinstance(correction_batch2_rows, list):
+            raise RuntimeError('phase2 correction manifest corrections must be a list')
+        if not isinstance(bibliography_batch2_rows, list):
+            raise RuntimeError('phase2 bibliography manifest entries must be a list')
+        if not isinstance(link_binding_rows, list):
+            raise RuntimeError('phase2 link binding manifest corrections must be a list')
+
+        correction_batch2_response = _mutate(
+            client,
+            client.csrf_token(),
+            operation='corrections_apply_manifest',
+            digest=expected_catalog_digest,
+            payload={'corrections_manifest': corrections_batch2},
+        )
+        corrections_batch2_counts = correction_batch2_response.get('result') or {}
+        expected_batch2_correction_counts = {
+            'correction_count': len(correction_batch2_rows),
+            'split_count': sum(row.get('type') == 'split_misassigned_edition' for row in correction_batch2_rows),
+            'retitle_count': sum(row.get('type') == 'retitle_identity' for row in correction_batch2_rows),
+            'quarantine_count': sum(row.get('type') == 'quarantine_recommendation' for row in correction_batch2_rows),
+            'link_rebind_count': sum(row.get('type') == 'link_rebind' for row in correction_batch2_rows),
+        }
+        if (
+            correction_batch2_response['digest'] != expected_after_batch2_corrections_digest
+            or any(
+                corrections_batch2_counts.get(field) != value
+                for field, value in expected_batch2_correction_counts.items()
+            )
+            or any(type(corrections_batch2_counts.get(field)) is not int for field in inline_count_fields)
+            or any(corrections_batch2_counts[field] < 0 for field in inline_count_fields)
+        ):
+            raise RuntimeError(f'unexpected phase2 correction manifest result: {corrections_batch2_counts!r}')
+        after_batch2_corrections, after_batch2_corrections_digest = _snapshot(client)
+        if after_batch2_corrections_digest != expected_after_batch2_corrections_digest:
+            raise RuntimeError('catalog drift detected before phase2 bibliography manifest')
+
+        expected_catalog_digest = expected_catalog_digest_after_batch2_bibliography
+        bibliography_batch2_response = _mutate(
+            client,
+            client.csrf_token(),
+            operation='bibliography_apply_manifest',
+            digest=after_batch2_corrections_digest,
+            payload={'bibliography_manifest': bibliography_batch2},
+        )
+        bibliography_batch2_counts = bibliography_batch2_response.get('result') or {}
+        if (
+            bibliography_batch2_response['digest'] != expected_catalog_digest
+            or bibliography_batch2_counts != expected_bibliography_batch2_counts
+            or bibliography_batch2_counts.get('entry_count') != len(bibliography_batch2_rows)
+        ):
+            raise RuntimeError(f'unexpected phase2 bibliography manifest result: {bibliography_batch2_counts!r}')
+        after_batch2_bibliography, after_batch2_bibliography_digest = _snapshot(client)
+        if after_batch2_bibliography_digest != expected_catalog_digest:
+            raise RuntimeError('post-phase2 bibliography catalog does not match the preflight result')
+
+        link_binding_response = _mutate(
+            client,
+            client.csrf_token(),
+            operation='corrections_apply_manifest',
+            digest=after_batch2_bibliography_digest,
+            payload={'corrections_manifest': link_bindings_batch2},
+        )
+        link_binding_counts = link_binding_response.get('result') or {}
+        expected_link_binding_counts = {
+            'correction_count': len(link_binding_rows),
+            'split_count': sum(row.get('type') == 'split_misassigned_edition' for row in link_binding_rows),
+            'retitle_count': sum(row.get('type') == 'retitle_identity' for row in link_binding_rows),
+            'quarantine_count': sum(row.get('type') == 'quarantine_recommendation' for row in link_binding_rows),
+            'link_rebind_count': sum(row.get('type') == 'link_rebind' for row in link_binding_rows),
+        }
+        if (
+            link_binding_response['digest'] != expected_catalog_digest_after_batch2
+            or any(link_binding_counts.get(field) != value for field, value in expected_link_binding_counts.items())
+            or any(type(link_binding_counts.get(field)) is not int for field in inline_count_fields)
+            or any(link_binding_counts[field] < 0 for field in inline_count_fields)
+        ):
+            raise RuntimeError(f'unexpected phase2 link binding result: {link_binding_counts!r}')
+        expected_catalog = expected_after_link_bindings
+        expected_catalog_digest = expected_catalog_digest_after_batch2
+        after, after_digest = _snapshot(client)
+        if after_digest != expected_catalog_digest:
+            raise RuntimeError('post-phase2 link binding catalog does not match the preflight result')
     health = client.json('/api/admin/works_health')
     migration = health.get('migration') or {}
     observation = migration.get('runtime_observation') or {}
@@ -396,6 +540,20 @@ def apply_manifests(
     }
     if not review_skipped:
         expected_audits.add(('review_apply_manifest', review_sha256))
+    if phase2_enabled:
+        expected_audits.update(
+            {
+                ('corrections_apply_manifest', corrections_batch2_sha256),
+                ('bibliography_apply_manifest', bibliography_batch2_sha256),
+                ('corrections_apply_manifest', link_bindings_batch2_sha256),
+            }
+        )
+    if batch1_already_final:
+        expected_audits -= {
+            ('seed_overrides_apply_manifest', SEED_SHA256),
+            ('corrections_apply_manifest', CORRECTIONS_SHA256),
+            ('bibliography_apply_manifest', BIBLIOGRAPHY_SHA256),
+        }
     observed_audits = {
         (row.get('detail', {}).get('operation'), row.get('detail', {}).get('manifest_sha256'))
         for row in (rows or [])
@@ -411,12 +569,18 @@ def apply_manifests(
         'review_manifest_sha256': review_sha256,
         'corrections_sha256': CORRECTIONS_SHA256,
         'bibliography_sha256': BIBLIOGRAPHY_SHA256,
+        'corrections_batch2_sha256': corrections_batch2_sha256,
+        'bibliography_batch2_sha256': bibliography_batch2_sha256,
+        'link_bindings_batch2_sha256': link_bindings_batch2_sha256,
         'seed_overrides_sha256': SEED_SHA256,
         'seed_digest': seeded_digest,
         'before_digest': before_digest,
         'review_digest': between_digest,
         'correction_result': correction_counts,
         'bibliography_result': bibliography_counts,
+        'correction_batch2_result': corrections_batch2_counts,
+        'bibliography_batch2_result': bibliography_batch2_counts,
+        'link_bindings_batch2_result': link_binding_counts,
         'final_digest': expected_catalog_digest,
         'review_result': review_counts,
         'seed_result': seed_counts,
@@ -445,6 +609,9 @@ def main() -> int:
     parser.add_argument('--username', required=True)
     parser.add_argument('--corrections', type=Path, required=True)
     parser.add_argument('--bibliography', type=Path, required=True)
+    parser.add_argument('--corrections-batch2', type=Path, required=True)
+    parser.add_argument('--bibliography-batch2', type=Path, required=True)
+    parser.add_argument('--link-bindings-batch2', type=Path, required=True)
     parser.add_argument('--password', required=True)
     parser.add_argument('--legacy-review-manifest', type=Path, required=True)
     parser.add_argument('--review-manifest', type=Path, required=True)
@@ -456,6 +623,9 @@ def main() -> int:
         expected_host=args.expected_host,
         corrections_path=args.corrections,
         bibliography_path=args.bibliography,
+        corrections_batch2_path=args.corrections_batch2,
+        bibliography_batch2_path=args.bibliography_batch2,
+        link_bindings_batch2_path=args.link_bindings_batch2,
         username=args.username,
         legacy_review_path=args.legacy_review_manifest,
         password=args.password,

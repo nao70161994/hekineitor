@@ -89,6 +89,9 @@ jobs:
             --seed-overrides data/work_catalog_seed_overrides.json \
             --corrections data/work_catalog_corrections.json \
             --bibliography data/work_catalog_bibliography.json \
+            --corrections-batch2 data/work_catalog_corrections_batch2.json \
+            --bibliography-batch2 data/work_catalog_bibliography_batch2.json \
+            --link-bindings-batch2 data/work_catalog_link_bindings_batch2.json \
             --backup backup/matrix_backup.json \
             --evidence artifacts/work_catalog_manifest_application.json
 

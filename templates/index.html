@@ -187,6 +187,7 @@
       <button class="btn btn-no"       data-action="send-answer" data-answer="-1" aria-pressed="false">いいえ</button>
     </div>
     <div id="answer-status" class="answer-status" role="status" aria-live="polite"></div>
+    <button id="answer-reconcile" class="btn btn-idk answer-reconcile hidden" data-action="retry-pending-answer">同じ回答IDで状態を確認する</button>
   </div>
 
   <!-- 結果画面 -->
@@ -298,7 +299,7 @@
 <div class="modal-overlay hidden" id="modal-restart" role="dialog" aria-modal="true" aria-labelledby="modal-restart-title" aria-describedby="modal-restart-desc">
   <div class="modal-box" tabindex="-1">
     <h2 id="modal-restart-title">タイトルへ戻りますか？</h2>
-    <p id="modal-restart-desc">回答はこの端末に7日間保存できます。</p>
+    <p id="modal-restart-desc">回答と除外リストはこの端末に7日間保存できます。</p>
     <div class="modal-btns">
       <button class="modal-cancel" data-action="close-modal" data-modal-id="modal-restart">キャンセル</button>
       <button class="modal-save" data-action="do-restart">保存してタイトルへ</button>

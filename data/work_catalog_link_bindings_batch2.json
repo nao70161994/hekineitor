@@ -1,0 +1,740 @@
+{
+  "schema_version": 3,
+  "reviewed_at": "2026-07-30",
+  "reviewed_by": "primary-source direct-edition binding audit 2026-07-30",
+  "catalog_schema_version": 2,
+  "corrections": [
+    {
+      "correction_id": "bind-reviewed-edition-3352766648cd59db0389",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_3352766648cd59db0389",
+        "canonical_title": "ef - a fairy tale of the two.",
+        "normalized_title": "ef - a fairy tale of the two.",
+        "media_type": "visual_novel",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_3352766648cd59db0389",
+        "canonical_title": "ef - a fairy tale of the two.",
+        "normalized_title": "ef - a fairy tale of the two.",
+        "media_type": "visual_novel",
+        "status": "active"
+      },
+      "edition_updates": [
+        {
+          "expected": {
+            "edition_id": "wed_2b3404e182037f468525",
+            "work_id": "wrk_3352766648cd59db0389",
+            "asin": "",
+            "canonical_url": "https://store.steampowered.com/bundle/12092/ef_series/",
+            "edition_title": "ef series",
+            "publisher": "MangaGamer / minori",
+            "format": "pc_digital",
+            "status": "active"
+          }
+        }
+      ],
+      "link_updates": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_9e2ec6d3cb6d78aecdea",
+            "id_a": 0,
+            "id_b": 66,
+            "work_id": "wrk_3352766648cd59db0389",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_2b3404e182037f468525",
+          "alias_id": null,
+          "context_label": ""
+        }
+      ]
+    },
+    {
+      "correction_id": "bind-reviewed-edition-34ab06fb8ea1b50cc304",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_34ab06fb8ea1b50cc304",
+        "canonical_title": "Dance with Devils",
+        "normalized_title": "dance with devils",
+        "media_type": "visual_novel",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_34ab06fb8ea1b50cc304",
+        "canonical_title": "Dance with Devils",
+        "normalized_title": "dance with devils",
+        "media_type": "visual_novel",
+        "status": "active"
+      },
+      "edition_updates": [
+        {
+          "expected": {
+            "edition_id": "wed_6f58003f03059d473a53",
+            "work_id": "wrk_34ab06fb8ea1b50cc304",
+            "asin": "",
+            "canonical_url": "https://store-jp.nintendo.com/list/software/70010000051278.html",
+            "edition_title": "Dance with Devils",
+            "publisher": "Rejet",
+            "format": "switch_digital",
+            "status": "active"
+          }
+        }
+      ],
+      "link_updates": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_fe1a45300bb2383109e6",
+            "id_a": 10,
+            "id_b": 15,
+            "work_id": "wrk_34ab06fb8ea1b50cc304",
+            "edition_id": null,
+            "alias_id": "wal_7dd09c10f83a01aebdb0",
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_6f58003f03059d473a53",
+          "alias_id": "wal_7dd09c10f83a01aebdb0",
+          "context_label": ""
+        }
+      ],
+      "alias_references": [
+        {
+          "expected": {
+            "alias_id": "wal_7dd09c10f83a01aebdb0",
+            "work_id": "wrk_34ab06fb8ea1b50cc304",
+            "alias": "Dance with Devils（悪魔×ヤンデレ）",
+            "normalized_alias": "dance with devils(悪魔×ヤンデレ)"
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "bind-reviewed-edition-40c8348355b83c2f8f25",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_40c8348355b83c2f8f25",
+        "canonical_title": "スター☆トゥインクルプリキュア",
+        "normalized_title": "スター☆トゥインクルプリキュア",
+        "media_type": "tv_anime",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_40c8348355b83c2f8f25",
+        "canonical_title": "スター☆トゥインクルプリキュア",
+        "normalized_title": "スター☆トゥインクルプリキュア",
+        "media_type": "tv_anime",
+        "status": "active"
+      },
+      "edition_updates": [
+        {
+          "expected": {
+            "edition_id": "wed_5d7bf2cbd1523bb4dd92",
+            "work_id": "wrk_40c8348355b83c2f8f25",
+            "asin": "",
+            "canonical_url": "https://www.marv.jp/titles/av/9595/",
+            "edition_title": "スター☆トゥインクルプリキュア Blu-ray vol.1",
+            "publisher": "マーベラス",
+            "format": "bluray",
+            "status": "active"
+          }
+        }
+      ],
+      "link_updates": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_bc48d76d1bb282b0aabb",
+            "id_a": 1,
+            "id_b": 43,
+            "work_id": "wrk_40c8348355b83c2f8f25",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 2,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_5d7bf2cbd1523bb4dd92",
+          "alias_id": null,
+          "context_label": ""
+        }
+      ]
+    },
+    {
+      "correction_id": "bind-reviewed-edition-736ace57b80d2c4a91c8",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_736ace57b80d2c4a91c8",
+        "canonical_title": "幼なじみは大統領",
+        "normalized_title": "幼なじみは大統領",
+        "media_type": "visual_novel",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_736ace57b80d2c4a91c8",
+        "canonical_title": "幼なじみは大統領",
+        "normalized_title": "幼なじみは大統領",
+        "media_type": "visual_novel",
+        "status": "active"
+      },
+      "edition_updates": [
+        {
+          "expected": {
+            "edition_id": "wed_2b6ae0954f8685bf23c0",
+            "work_id": "wrk_736ace57b80d2c4a91c8",
+            "asin": "",
+            "canonical_url": "https://www.alcot.biz/product/osana/index.html",
+            "edition_title": "幼なじみは大統領 初回版",
+            "publisher": "ALcot",
+            "format": "dvd_rom",
+            "status": "active"
+          }
+        }
+      ],
+      "link_updates": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_05a9f013b17c019dd096",
+            "id_a": 16,
+            "id_b": 17,
+            "work_id": "wrk_736ace57b80d2c4a91c8",
+            "edition_id": null,
+            "alias_id": "wal_34536cd0b839c6f54297",
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_2b6ae0954f8685bf23c0",
+          "alias_id": "wal_34536cd0b839c6f54297",
+          "context_label": ""
+        }
+      ],
+      "alias_references": [
+        {
+          "expected": {
+            "alias_id": "wal_34536cd0b839c6f54297",
+            "work_id": "wrk_736ace57b80d2c4a91c8",
+            "alias": "幼なじみは大統領！",
+            "normalized_alias": "幼なじみは大統領!"
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "bind-reviewed-edition-7f76b79c81ada9c3f566",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_7f76b79c81ada9c3f566",
+        "canonical_title": "ロザリオとバンパイア",
+        "normalized_title": "ロザリオとバンパイア",
+        "media_type": "manga",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_7f76b79c81ada9c3f566",
+        "canonical_title": "ロザリオとバンパイア",
+        "normalized_title": "ロザリオとバンパイア",
+        "media_type": "manga",
+        "status": "active"
+      },
+      "edition_updates": [
+        {
+          "expected": {
+            "edition_id": "wed_602bea2966919c2da7dd",
+            "work_id": "wrk_7f76b79c81ada9c3f566",
+            "asin": "",
+            "canonical_url": "https://books.shueisha.co.jp/items/contents.html?jdcn=08873665873665315501&rf=ak",
+            "edition_title": "ロザリオとバンパイア 1",
+            "publisher": "集英社",
+            "format": "paper",
+            "status": "active"
+          }
+        }
+      ],
+      "link_updates": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_7654ab632ef2e681a92a",
+            "id_a": 6,
+            "id_b": 15,
+            "work_id": "wrk_7f76b79c81ada9c3f566",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_602bea2966919c2da7dd",
+          "alias_id": null,
+          "context_label": ""
+        }
+      ]
+    },
+    {
+      "correction_id": "bind-reviewed-edition-8f900f012e984539f415",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_8f900f012e984539f415",
+        "canonical_title": "ダンス イン ザ ヴァンパイアバンド",
+        "normalized_title": "ダンス イン ザ ヴァンパイアバンド",
+        "media_type": "manga",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_8f900f012e984539f415",
+        "canonical_title": "ダンス イン ザ ヴァンパイアバンド",
+        "normalized_title": "ダンス イン ザ ヴァンパイアバンド",
+        "media_type": "manga",
+        "status": "active"
+      },
+      "edition_updates": [
+        {
+          "expected": {
+            "edition_id": "wed_e5639fc5b3bd485e2c93",
+            "work_id": "wrk_8f900f012e984539f415",
+            "asin": "",
+            "canonical_url": "https://tobooks.jp/contents/10875",
+            "edition_title": "愛蔵版 ダンス イン ザ ヴァンパイアバンド 1",
+            "publisher": "TOブックス",
+            "format": "paper",
+            "status": "active"
+          }
+        }
+      ],
+      "link_updates": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_627494ef487452b0df75",
+            "id_a": 6,
+            "id_b": 15,
+            "work_id": "wrk_8f900f012e984539f415",
+            "edition_id": null,
+            "alias_id": "wal_8ae3d9b71de2b4b1dda6",
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_e5639fc5b3bd485e2c93",
+          "alias_id": "wal_8ae3d9b71de2b4b1dda6",
+          "context_label": ""
+        }
+      ],
+      "alias_references": [
+        {
+          "expected": {
+            "alias_id": "wal_8ae3d9b71de2b4b1dda6",
+            "work_id": "wrk_8f900f012e984539f415",
+            "alias": "Dance in the Vampire Bund",
+            "normalized_alias": "dance in the vampire bund"
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "bind-reviewed-edition-b042e58a4d203ab076c9",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_b042e58a4d203ab076c9",
+        "canonical_title": "初恋モンスター",
+        "normalized_title": "初恋モンスター",
+        "media_type": "manga",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_b042e58a4d203ab076c9",
+        "canonical_title": "初恋モンスター",
+        "normalized_title": "初恋モンスター",
+        "media_type": "manga",
+        "status": "active"
+      },
+      "edition_updates": [
+        {
+          "expected": {
+            "edition_id": "wed_b2ec710a72426bd5cb0b",
+            "work_id": "wrk_b042e58a4d203ab076c9",
+            "asin": "",
+            "canonical_url": "https://www.kodansha.co.jp/comic/products/0000040017",
+            "edition_title": "CD付き 初恋モンスター（1）特装版",
+            "publisher": "講談社",
+            "format": "paper",
+            "status": "active"
+          }
+        }
+      ],
+      "link_updates": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_cd2c41e46681d49a0029",
+            "id_a": 16,
+            "id_b": 17,
+            "work_id": "wrk_b042e58a4d203ab076c9",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_b2ec710a72426bd5cb0b",
+          "alias_id": null,
+          "context_label": ""
+        }
+      ]
+    },
+    {
+      "correction_id": "bind-reviewed-edition-b219ce1967b7e713efb2",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_b219ce1967b7e713efb2",
+        "canonical_title": "あの夏で待ってる",
+        "normalized_title": "あの夏で待ってる",
+        "media_type": "tv_anime",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_b219ce1967b7e713efb2",
+        "canonical_title": "あの夏で待ってる",
+        "normalized_title": "あの夏で待ってる",
+        "media_type": "tv_anime",
+        "status": "active"
+      },
+      "edition_updates": [
+        {
+          "expected": {
+            "edition_id": "wed_8e2cb55e123244472bd4",
+            "work_id": "wrk_b219ce1967b7e713efb2",
+            "asin": "",
+            "canonical_url": "https://www.nbcuni.co.jp/anime/ichika-ichika/bddvd.html",
+            "edition_title": "あの夏で待ってる Blu-ray BOX",
+            "publisher": "NBCユニバーサル",
+            "format": "bluray",
+            "status": "active"
+          }
+        }
+      ],
+      "link_updates": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_df26a538e0d406f64dc0",
+            "id_a": 16,
+            "id_b": 23,
+            "work_id": "wrk_b219ce1967b7e713efb2",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_8e2cb55e123244472bd4",
+          "alias_id": null,
+          "context_label": ""
+        }
+      ]
+    },
+    {
+      "correction_id": "bind-reviewed-edition-b6c6d4b8b491f75a583c",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_b6c6d4b8b491f75a583c",
+        "canonical_title": "Killing Stalking",
+        "normalized_title": "killing stalking",
+        "media_type": "manhwa",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_b6c6d4b8b491f75a583c",
+        "canonical_title": "Killing Stalking",
+        "normalized_title": "killing stalking",
+        "media_type": "manhwa",
+        "status": "active"
+      },
+      "edition_updates": [
+        {
+          "expected": {
+            "edition_id": "wed_cf2bfd20b66cc596281f",
+            "work_id": "wrk_b6c6d4b8b491f75a583c",
+            "asin": "",
+            "canonical_url": "https://sevenseasentertainment.com/series/killing-stalking/",
+            "edition_title": "Killing Stalking: Deluxe Edition Vol. 1",
+            "publisher": "Seven Seas Entertainment",
+            "format": "paper",
+            "status": "active"
+          }
+        }
+      ],
+      "link_updates": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_d04159496bb37bf7121e",
+            "id_a": 3,
+            "id_b": 10,
+            "work_id": "wrk_b6c6d4b8b491f75a583c",
+            "edition_id": null,
+            "alias_id": "wal_22de19a3ba070a6f9972",
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_cf2bfd20b66cc596281f",
+          "alias_id": "wal_22de19a3ba070a6f9972",
+          "context_label": ""
+        },
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_c16265f4b6b0f1c6ab4e",
+            "id_a": 10,
+            "id_b": 17,
+            "work_id": "wrk_b6c6d4b8b491f75a583c",
+            "edition_id": null,
+            "alias_id": "wal_3227217e03b119404777",
+            "position": 2,
+            "context_label": "参考",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_cf2bfd20b66cc596281f",
+          "alias_id": "wal_3227217e03b119404777",
+          "context_label": "参考"
+        },
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_4529e8327a7a59d4b4eb",
+            "id_a": 10,
+            "id_b": 59,
+            "work_id": "wrk_b6c6d4b8b491f75a583c",
+            "edition_id": null,
+            "alias_id": "wal_05480d5f97d15c944ecd",
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_cf2bfd20b66cc596281f",
+          "alias_id": "wal_05480d5f97d15c944ecd",
+          "context_label": ""
+        }
+      ],
+      "alias_references": [
+        {
+          "expected": {
+            "alias_id": "wal_05480d5f97d15c944ecd",
+            "work_id": "wrk_b6c6d4b8b491f75a583c",
+            "alias": "Killing Stalking（監禁×ヤンデレ）",
+            "normalized_alias": "killing stalking(監禁×ヤンデレ)"
+          }
+        },
+        {
+          "expected": {
+            "alias_id": "wal_22de19a3ba070a6f9972",
+            "work_id": "wrk_b6c6d4b8b491f75a583c",
+            "alias": "Killing Stalking（ヤンデレ×SM的支配）",
+            "normalized_alias": "killing stalking(ヤンデレ×sm的支配)"
+          }
+        },
+        {
+          "expected": {
+            "alias_id": "wal_3227217e03b119404777",
+            "work_id": "wrk_b6c6d4b8b491f75a583c",
+            "alias": "Killing Stalking（参考）",
+            "normalized_alias": "killing stalking(参考)"
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "bind-reviewed-edition-da9662958963bd3aad58",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_da9662958963bd3aad58",
+        "canonical_title": "Free!",
+        "normalized_title": "free!",
+        "media_type": "tv_anime",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_da9662958963bd3aad58",
+        "canonical_title": "Free!",
+        "normalized_title": "free!",
+        "media_type": "tv_anime",
+        "status": "active"
+      },
+      "edition_updates": [
+        {
+          "expected": {
+            "edition_id": "wed_d60fa7c014f7eca75366",
+            "work_id": "wrk_da9662958963bd3aad58",
+            "asin": "",
+            "canonical_url": "https://1st.iwatobi-sc.com/sp/product/package/01/",
+            "edition_title": "Free! Blu-ray Vol.1",
+            "publisher": "京都アニメーション・岩鳶高校水泳部",
+            "format": "bluray",
+            "status": "active"
+          }
+        }
+      ],
+      "link_updates": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_db7a5d4b3e3df28174f9",
+            "id_a": 2,
+            "id_b": 89,
+            "work_id": "wrk_da9662958963bd3aad58",
+            "edition_id": null,
+            "alias_id": "wal_62bdaadd2c706b73c30e",
+            "position": 2,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_d60fa7c014f7eca75366",
+          "alias_id": "wal_62bdaadd2c706b73c30e",
+          "context_label": ""
+        }
+      ],
+      "alias_references": [
+        {
+          "expected": {
+            "alias_id": "wal_62bdaadd2c706b73c30e",
+            "work_id": "wrk_da9662958963bd3aad58",
+            "alias": "Free!（水泳部BL）",
+            "normalized_alias": "free!(水泳部bl)"
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "bind-reviewed-edition-ded191dea9e58aaa10aa",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_ded191dea9e58aaa10aa",
+        "canonical_title": "陰の実力者になりたくて！",
+        "normalized_title": "陰の実力者になりたくて!",
+        "media_type": "light_novel",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_ded191dea9e58aaa10aa",
+        "canonical_title": "陰の実力者になりたくて！",
+        "normalized_title": "陰の実力者になりたくて!",
+        "media_type": "light_novel",
+        "status": "active"
+      },
+      "edition_updates": [
+        {
+          "expected": {
+            "edition_id": "wed_eaf681db57cdb5c21ece",
+            "work_id": "wrk_ded191dea9e58aaa10aa",
+            "asin": "",
+            "canonical_url": "https://www.kadokawa.co.jp/product/321806000138/",
+            "edition_title": "陰の実力者になりたくて！ 01",
+            "publisher": "KADOKAWA",
+            "format": "paper",
+            "status": "active"
+          }
+        }
+      ],
+      "link_updates": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_1db6bf9e0d666c64bf15",
+            "id_a": 17,
+            "id_b": 75,
+            "work_id": "wrk_ded191dea9e58aaa10aa",
+            "edition_id": null,
+            "alias_id": "wal_78870552e5afa083fc4b",
+            "position": 2,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_eaf681db57cdb5c21ece",
+          "alias_id": "wal_78870552e5afa083fc4b",
+          "context_label": ""
+        }
+      ],
+      "alias_references": [
+        {
+          "expected": {
+            "alias_id": "wal_78870552e5afa083fc4b",
+            "work_id": "wrk_ded191dea9e58aaa10aa",
+            "alias": "陰の実力者になりたくて",
+            "normalized_alias": "陰の実力者になりたくて"
+          }
+        }
+      ]
+    },
+    {
+      "correction_id": "bind-reviewed-edition-df8114418ad062290a56",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_df8114418ad062290a56",
+        "canonical_title": "魔王学院の不適合者 ～史上最強の魔王の始祖、転生して子孫たちの学校へ通う～",
+        "normalized_title": "魔王学院の不適合者 ~史上最強の魔王の始祖、転生して子孫たちの学校へ通う~",
+        "media_type": "light_novel",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_df8114418ad062290a56",
+        "canonical_title": "魔王学院の不適合者 ～史上最強の魔王の始祖、転生して子孫たちの学校へ通う～",
+        "normalized_title": "魔王学院の不適合者 ~史上最強の魔王の始祖、転生して子孫たちの学校へ通う~",
+        "media_type": "light_novel",
+        "status": "active"
+      },
+      "edition_updates": [
+        {
+          "expected": {
+            "edition_id": "wed_b8e87a53b3b4cc9eb272",
+            "work_id": "wrk_df8114418ad062290a56",
+            "asin": "",
+            "canonical_url": "https://dengekibunko.jp/product/maougakuin/321712000038.html",
+            "edition_title": "魔王学院の不適合者 1 ～史上最強の魔王の始祖、転生して子孫たちの学校へ通う～",
+            "publisher": "KADOKAWA",
+            "format": "paper",
+            "status": "active"
+          }
+        }
+      ],
+      "link_updates": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_0f9a42268691cba0a6e8",
+            "id_a": 12,
+            "id_b": 21,
+            "work_id": "wrk_df8114418ad062290a56",
+            "edition_id": null,
+            "alias_id": "wal_05d0283adb5164db7b4d",
+            "position": 3,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_b8e87a53b3b4cc9eb272",
+          "alias_id": "wal_05d0283adb5164db7b4d",
+          "context_label": ""
+        }
+      ],
+      "alias_references": [
+        {
+          "expected": {
+            "alias_id": "wal_05d0283adb5164db7b4d",
+            "work_id": "wrk_df8114418ad062290a56",
+            "alias": "魔王学院の不適合者",
+            "normalized_alias": "魔王学院の不適合者"
+          }
+        }
+      ]
+    }
+  ]
+}

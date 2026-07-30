@@ -19,10 +19,15 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
             id_a, id_b = key.split(',', 1)
             compound_rows.append({'key': key, 'id_a': int(id_a), 'id_b': int(id_b), 'works': works})
         corrections = json.loads((data / 'work_catalog_corrections.json').read_text(encoding='utf-8'))
-        source = work_catalog.project_approved_inline_corrections(
+        correction_manifests = (
+            corrections,
+            json.loads((data / 'work_catalog_corrections_batch2.json').read_text(encoding='utf-8')),
+            json.loads((data / 'work_catalog_link_bindings_batch2.json').read_text(encoding='utf-8')),
+        )
+        source = work_catalog.project_approved_inline_correction_manifests(
             fetishes,
             compound_rows=compound_rows,
-            corrections=corrections,
+            correction_manifests=correction_manifests,
             direction='reverse',
         )
         seed = json.loads((data / 'work_catalog_seed_overrides.json').read_text(encoding='utf-8'))
@@ -30,9 +35,8 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
         catalog = work_catalog.build_catalog_from_inline(
             source['fetishes'],
             compound_rows=source['compound_rows'],
-            seed_overrides=seed,
         )
-        cls.catalog = work_catalog.apply_review_decisions(catalog, review)
+        cls.catalog = work_catalog.apply_seed_overrides(work_catalog.apply_review_decisions(catalog, review), seed)
         cls.manifest = corrections
 
     def apply(self, catalog=None, manifest=None):
@@ -506,6 +510,39 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'source drift'):
             work_catalog.apply_catalog_corrections(drifted, manifest)
         self.assertEqual(drifted, before)
+
+    def test_v3_quarantine_source_title_only_changes_the_inline_signature(self):
+        inline, catalog, manifest, _, _ = self.quarantine_fixture()
+        inline[0]['works'][1] = 'Alias Remove me'
+        removal = manifest['corrections'][0]['link_removals'][0]
+        removal['source_title'] = 'Alias Remove me'
+
+        corrected = work_catalog.apply_catalog_corrections(catalog, manifest)
+        self.assertEqual(
+            [row['title'] for row in work_catalog.materialize_fetish_works(corrected)[1]],
+            ['Before', 'After'],
+        )
+        forward = work_catalog.project_approved_inline_corrections(inline, corrections=manifest)
+        self.assertEqual(forward['fetishes'][0]['works'], ['Before', 'After'])
+        reverse = work_catalog.project_approved_inline_corrections(
+            forward['fetishes'], corrections=manifest, direction='reverse'
+        )
+        self.assertEqual(reverse['fetishes'], inline)
+
+        for value in ('', 'x' * 201):
+            invalid = copy.deepcopy(manifest)
+            invalid['corrections'][0]['link_removals'][0]['source_title'] = value
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                work_catalog.apply_catalog_corrections(catalog, invalid)
+
+        wrong_type = copy.deepcopy(manifest)
+        wrong_type['corrections'][0]['type'] = 'retitle_identity'
+        with self.assertRaisesRegex(ValueError, 'invalid link_removals'):
+            work_catalog.apply_catalog_corrections(catalog, wrong_type)
+        wrong_schema = copy.deepcopy(manifest)
+        wrong_schema['schema_version'] = 2
+        with self.assertRaisesRegex(ValueError, 'version 3 fields|invalid link_removals'):
+            work_catalog.apply_catalog_corrections(catalog, wrong_schema)
 
     def test_v3_quarantine_allow_missing_is_explicit_and_fail_closed(self):
         _, catalog, manifest, expected_work, expected_link = self.quarantine_fixture(allow_missing=True)

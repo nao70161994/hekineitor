@@ -82,7 +82,7 @@ The following public `Engine` methods are route/script contract. Their names, ca
 - `get_quality_event_summary(days=30)` -> quality report summary.
 - `toggle_question_disabled(q_id)` -> bool-like mutation result.
 - `log_guessed(fetish_db_id)`, `log_correct(fetish_db_id)`, `log_wrong(fetish_db_id)` -> side effects only.
-- `get_fetish_log()` -> `{fetish_id: {guessed, correct, wrong}}`.
+- `get_fetish_log()` -> `{fetish_id: {guessed, correct, wrong, correction_selected, exposure_guessed, exposure_correct}}`。旧local JSON行で露出専用counterが欠ける場合は0として読み込みます。
 - `set_config(key, value)` -> validates key, stores float value, raises `ValueError` for unknown keys.
 - `get_top_questions_per_fetish(top_n=5)` -> report list.
 - `posteriors(answers)` -> posterior probability list; order and values are behavior critical.
@@ -139,4 +139,4 @@ The following public `Engine` methods are route/script contract. Their names, ca
 - `get_contrastive_answer_contributions(answers, winner_idx, runner_idx, top_n=3)`は1位と2位を分けた回答理由を返す。
 - `get_dynamic_prior_shadow_report()`は母集団不整合と補正量を監視するread-only report。
 
-`get_fetish_log()`の永続行は`guessed`、`correct`、`wrong`に加えて`correction_selected`を持てます。旧local JSON行に新キーがなくても0として扱います。`log_correct()`は表示結果への正解だけ、`log_correction_selected()`は訂正画面で選ばれた候補だけを記録します。dynamic priorは前者を`guessed`の母集団内で使用し、legacyの`correct > guessed`はruntimeでclampしてshadow reportへ出します。
+`get_fetish_log()`の永続行はlegacy互換の`guessed`、`correct`、`wrong`、`correction_selected`と、由来が明確な`exposure_guessed`、`exposure_correct`を持ちます。`log_guessed()`と`log_correct()`は対応するlegacy counterと露出専用counterを同一atomic操作で増加し、`log_correction_selected()`は訂正画面の選択だけを別記録します。dynamic priorが使用するのは露出専用counterだけです。旧DB/JSON行は新counterを0としてstatic priorから開始し、旧counterは書き換えません。shadow reportは旧無制限計算、旧runtime clamp、新しい分離計算を比較します。

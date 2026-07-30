@@ -59,11 +59,6 @@ function setGenieState(state) {
 }
 
 function showStart() {
-  if (window._excludedIds && window._excludedIds.length > 0) {
-    showToast(`除外リスト (${window._excludedIds.length}件) をリセットしました`, '#555', 2500);
-  }
-  if (window.HekiState) window.HekiState.resetExcludedIds();
-  else window._excludedIds = [];
   show('start-screen');
   setGenieState('idle');
   _checkDraft();
@@ -106,7 +101,12 @@ function doRestart() {
 }
 
 function discardRestart() {
-  if (window._clearDraft) window._clearDraft();
+  if (window.HekiDraft?.discardDraft) window.HekiDraft.discardDraft();
+  else {
+    if (window._clearDraft) window._clearDraft();
+    if (window.HekiState) window.HekiState.resetExcludedIds();
+    else window._excludedIds = [];
+  }
   closeModal('modal-restart');
   showStart();
 }

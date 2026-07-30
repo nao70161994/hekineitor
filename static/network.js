@@ -29,7 +29,9 @@ window.HekiNetwork = (() => {
   }
 
   function setAnswerButtons(disabled) {
-    document.querySelectorAll('#question-screen .btn').forEach(button => { button.disabled = disabled; });
+    document.querySelectorAll('#question-screen [data-action="send-answer"]').forEach(button => {
+      button.disabled = disabled;
+    });
   }
 
   return {setFetching, apiFetch, setAnswerButtons};

@@ -21,7 +21,7 @@ inline `fetishes.works` / `compound_works`をsource of truthから外すため�
 
 manifestは全件を一つのtransaction/journalで適用します。同一manifestを適用済みcatalogへ再送した場合はno-opです。成功応答の`result.resolved_count=74`、`result.pending_count=0`と新digestを保存し、監査ログの`manifest_sha256`をchecked-in fileと照合します。409なら再取得して差分を調べ、別manifestとして再reviewするまでは強制適用しません。
 
-既存DBへの自動運用は`.github/workflows/work-catalog-apply-manifests.yml`を使い、fresh v3 backupのdigest一致後にreview、seed override、correction、bibliographyを順に適用します。各段階を別digestでpreflightし、書誌段階は18 entries、初回12 editions/12 identifiers（再適用時0）を検証します。最後にraw/approved parity、全worker revision、fallback/load failure、4種の監査fingerprintを確認します。
+既存DBへの自動運用は`.github/workflows/work-catalog-apply-manifests.yml`を使い、fresh v3 backupのdigest一致後にreview、seed override、corrections 1、bibliography 1、corrections 2、bibliography 2、link bindings 2を順に適用します。batch 1の55 corrections / 18 bibliography entriesは従来の固定承認件数を維持し、batch 2の20 corrections / 13 bibliography entries / 12 bindingsはchecked-in manifestから件数とcanonical SHA-256を算出して応答・監査ログと照合します。既存batch 1最終catalogはphase 2全体のinput lockをmutation前に通過した場合だけbatch 1操作をskipし、phase 2だけを適用します。fresh、batch 1最終、phase 2再適用のいずれも段階別digest lockと最終parityを検証します。
 
 既存catalogへsafe seed cleanupを適用する場合は、同じ最新digestを取得し直して次を送ります。
 

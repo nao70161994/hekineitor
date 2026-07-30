@@ -184,6 +184,10 @@ def test_checked_in_seed_has_only_verified_safe_normalizations():
     overrides = json.loads((ROOT / 'data/work_catalog_seed_overrides.json').read_text(encoding='utf-8'))
     compound_source = json.loads((ROOT / 'data/compound_works.json').read_text(encoding='utf-8'))
     corrections = json.loads((ROOT / 'data/work_catalog_corrections.json').read_text(encoding='utf-8'))
+    corrections_batch2 = json.loads((ROOT / 'data/work_catalog_corrections_batch2.json').read_text(encoding='utf-8'))
+    link_bindings_batch2 = json.loads(
+        (ROOT / 'data/work_catalog_link_bindings_batch2.json').read_text(encoding='utf-8')
+    )
     masters = {row['work_id']: row for row in catalog['works_master']}
     aliases = {row['alias_id']: row for row in catalog['work_aliases']}
     links = catalog['fetish_work_links'] + catalog['compound_work_links']
@@ -206,11 +210,18 @@ def test_checked_in_seed_has_only_verified_safe_normalizations():
         assert matching_links, expected['display_title']
         assert all(row['context_label'] == expected['context_label'] for row in matching_links)
     fetish_source = json.loads((ROOT / 'data/fetishes.json').read_text(encoding='utf-8'))
-    approved = work_catalog.approved_projection_parity_report(
-        catalog,
+    correction_manifests = (corrections, corrections_batch2, link_bindings_batch2)
+    unprojected = work_catalog.project_approved_inline_correction_manifests(
         fetish_source,
         compound_rows=compound_source,
-        corrections=corrections,
+        correction_manifests=correction_manifests,
+        direction='reverse',
+    )
+    approved = work_catalog.approved_projection_parity_report_many(
+        catalog,
+        unprojected['fetishes'],
+        compound_rows=unprojected['compound_rows'],
+        correction_manifests=correction_manifests,
     )
     assert approved['approved_projection_ok'] is True
     assert approved['approved_mismatch_count'] == 0
@@ -221,11 +232,17 @@ def test_checked_in_seed_has_only_verified_safe_normalizations():
     assert '賭ケグルイ（参考）' in {row['alias'] for row in aliases.values()}
     assert len([title for title in canonical_titles if title.startswith('ベルセルク')]) == 2
     assert len([title for title in canonical_titles if title.startswith('小林さんちのメイドラゴン')]) == 2
-    assert sum(bool(row['media_type']) for row in masters.values()) == 23
-    assert sum(row['format'] == 'paper' for row in catalog['work_editions']) == 12
-    assert len(catalog['work_edition_identifiers']) == 14
+    assert sum(bool(row['media_type']) for row in masters.values()) == 31
+    assert sum(row['format'] == 'paper' for row in catalog['work_editions']) == 18
+    assert len(catalog['work_edition_identifiers']) == 25
     assert Counter((row['scheme'], row['authority']) for row in catalog['work_edition_identifiers']) == {
-        ('isbn', 'isbn'): 14
+        ('isbn', 'isbn'): 20,
+        ('catalog_number', 'marvelous'): 1,
+        ('catalog_number', 'nbc-universal-jp'): 1,
+        ('nintendo_software', 'nintendo-jp'): 1,
+        ('product_number', 'alcot'): 1,
+        ('steam_bundle', 'steam'): 1,
     }
-    assert all(len(row['value']) == 13 and row['value'].isdigit() for row in catalog['work_edition_identifiers'])
+    isbn_values = [row['value'] for row in catalog['work_edition_identifiers'] if row['scheme'] == 'isbn']
+    assert all(len(value) == 13 and value.isdigit() for value in isbn_values)
     assert '4199007804' not in {row['value'] for row in catalog['work_edition_identifiers']}

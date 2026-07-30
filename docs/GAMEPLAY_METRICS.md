@@ -13,6 +13,8 @@
 - おすすめ作品クリック率
 - 質問重複率
 
+`work_impression`はサーバーが結果payloadを作った時点では記録しません。clientで初期表示した先頭3件、残りの展開時、履歴からの結果再表示時のうち、カードの50%以上がviewportへ入ったおすすめだけを送ります。同じ結果描画内では`work_id`と`edition_id`の組で重複排除し、安定IDがない旧データだけtitleをclient内の重複排除keyに使います。未展開・未到達の作品は母数に含めず、送信失敗は表示や操作を妨げません。
+
 `/api/admin/operations_snapshot` の `gameplay_events_summary` にも同じ集約を含みます。作品クリック数は安定した`work_id`/`edition_id`を持つshare event、質問表示数はquestion eventと結合して率を算出します。
 
 ## 運用

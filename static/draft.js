@@ -4,6 +4,7 @@ window.HekiDraft = (() => {
 
   const VALID_ANSWERS = new Set([1, 0.5, 0, -0.5, -1]);
   const MAX_DRAFT_PAIRS = 30;
+  const MAX_EXCLUDE_IDS = 256;
   const DRAFT_TTL_MS = 7 * 24 * 3600 * 1000;
 
   function formatDateTime(timestamp) {
@@ -21,6 +22,28 @@ window.HekiDraft = (() => {
     if (!Array.isArray(pairs) || pairs.length > MAX_DRAFT_PAIRS) return [];
     const normalized = pairs.map(pair => ({q_id: Number(pair.q_id), answer: Number(pair.answer)}));
     return normalized.every(validPair) ? normalized : [];
+  }
+
+  function normalizeExcludeIds(ids) {
+    if (!Array.isArray(ids) || ids.length > MAX_EXCLUDE_IDS) return [];
+    const normalized = ids.map(Number);
+    if (!normalized.every(id => Number.isInteger(id) && id >= 0)) return [];
+    return [...new Set(normalized)];
+  }
+
+  function currentExcludeIds() {
+    if (window.HekiState?.getExcludedIds) return normalizeExcludeIds(window.HekiState.getExcludedIds());
+    return normalizeExcludeIds(window._excludedIds || []);
+  }
+
+  function restoreExcludeIds(ids) {
+    const normalized = normalizeExcludeIds(ids);
+    if (window.HekiState?.setExcludedIds) window.HekiState.setExcludedIds(normalized);
+    else {
+      window._excludedIds = normalized;
+      if (window.gameState) window.gameState.excludedIds = normalized;
+    }
+    return normalized;
   }
 
   function push(questionId, answer) {
@@ -54,7 +77,12 @@ window.HekiDraft = (() => {
       const updatedAt = Date.now();
       localStorage.setItem(
         DRAFT_KEY,
-        JSON.stringify({pairs: draftPairs, ts: updatedAt, expires_at: updatedAt + DRAFT_TTL_MS}),
+        JSON.stringify({
+          pairs: draftPairs,
+          exclude_ids: currentExcludeIds(),
+          ts: updatedAt,
+          expires_at: updatedAt + DRAFT_TTL_MS,
+        }),
       );
     } catch {
       // Draft persistence is optional; gameplay must continue when storage is unavailable.
@@ -73,6 +101,7 @@ window.HekiDraft = (() => {
 
   function discardDraft() {
     clearDraft();
+    restoreExcludeIds([]);
     document.getElementById('resume-banner')?.classList.add('hidden');
     if (window.showToast) showToast('途中経過を破棄しました', '#555');
     if (window.trackGameplayEvent) {
@@ -87,16 +116,22 @@ window.HekiDraft = (() => {
       const draft = JSON.parse(raw);
       const pairs = normalizePairs(draft.pairs);
       if (!pairs.length) {
+        draftPairs = [];
+        restoreExcludeIds([]);
         try { localStorage.removeItem(DRAFT_KEY); } catch {}
         return;
       }
       const updatedAt = Number(draft.ts);
-      const expiresAt = Number(draft.expires_at || (updatedAt + DRAFT_TTL_MS));
-      if (!Number.isFinite(updatedAt) || Date.now() > expiresAt) {
+      const declaredExpiresAt = Number(draft.expires_at || (updatedAt + DRAFT_TTL_MS));
+      const expiresAt = Math.min(declaredExpiresAt, updatedAt + DRAFT_TTL_MS);
+      if (!Number.isFinite(updatedAt) || !Number.isFinite(expiresAt) || Date.now() > expiresAt) {
         try { localStorage.removeItem(DRAFT_KEY); } catch {}
+        draftPairs = [];
+        restoreExcludeIds([]);
         return;
       }
       draftPairs = pairs;
+      restoreExcludeIds(draft.exclude_ids || []);
       document.getElementById('resume-count').textContent = pairs.length;
       const updatedEl = document.getElementById('resume-updated-at');
       const expiresEl = document.getElementById('resume-expires-at');
@@ -118,7 +153,9 @@ window.HekiDraft = (() => {
     if (!pairs.length) return;
     setFetching(true);
     try {
-      const data = await apiFetch('/api/resume', {pairs});
+      const excludeIds = currentExcludeIds();
+      const data = await apiFetch('/api/resume', {pairs, exclude_ids: excludeIds});
+      restoreExcludeIds(excludeIds);
       document.getElementById('resume-banner').classList.add('hidden');
       if (data.action === 'question') {
         draftPairs = pairs;

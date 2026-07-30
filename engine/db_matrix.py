@@ -86,6 +86,7 @@ def restore_matrix_snapshot(
     work_catalog=None,
     restored_inline_fetishes=None,
     inline_corrections=None,
+    inline_correction_manifests=None,
     legacy_projection_fetishes=None,
     inline_projection_direction='forward',
 ):
@@ -114,7 +115,7 @@ def restore_matrix_snapshot(
                     ],
                 )
             inline_fetishes = None
-            if work_catalog is not None and inline_corrections is not None:
+            if work_catalog is not None and (inline_corrections is not None or inline_correction_manifests is not None):
                 cur.execute('SELECT id, name, "desc", works FROM fetishes ORDER BY id FOR UPDATE')
                 inline_fetishes = parse_fetish_rows(cur.fetchall())
                 persisted_works = {row['id']: row.get('works') or [] for row in inline_fetishes}
@@ -123,12 +124,37 @@ def restore_matrix_snapshot(
                     for fetish in inline_fetishes:
                         if fetish['id'] in restored_works:
                             fetish['works'] = restored_works[fetish['id']]
-                projection = db_work_catalog.project_approved_inline_corrections(
-                    inline_fetishes,
-                    corrections=inline_corrections,
-                    direction=inline_projection_direction,
-                    tables={'fetish_work_links'},
+                manifests = (
+                    tuple(inline_correction_manifests)
+                    if inline_correction_manifests is not None
+                    else (inline_corrections,)
                 )
+                if inline_projection_direction == 'canonical':
+                    try:
+                        projection = db_work_catalog.project_approved_inline_correction_manifests(
+                            inline_fetishes,
+                            correction_manifests=manifests,
+                            tables={'fetish_work_links'},
+                        )
+                    except ValueError:
+                        source = db_work_catalog.project_approved_inline_correction_manifests(
+                            inline_fetishes,
+                            correction_manifests=manifests,
+                            direction='reverse',
+                            tables={'fetish_work_links'},
+                        )
+                        projection = db_work_catalog.project_approved_inline_correction_manifests(
+                            source['fetishes'],
+                            correction_manifests=manifests,
+                            tables={'fetish_work_links'},
+                        )
+                else:
+                    projection = db_work_catalog.project_approved_inline_correction_manifests(
+                        inline_fetishes,
+                        correction_manifests=manifests,
+                        direction=inline_projection_direction,
+                        tables={'fetish_work_links'},
+                    )
                 projected_by_id = {row['id']: row for row in projection['fetishes']}
                 for fetish in inline_fetishes:
                     projected = projected_by_id[fetish['id']]

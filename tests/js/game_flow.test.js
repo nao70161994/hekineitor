@@ -16,8 +16,10 @@ function questionDom() {
     <div id="question-axis-tag"></div><div id="question-stage-label"></div>
     <div class="progress-bar"><div id="progress-fill"></div></div>
     <button id="btn-back"></button><div id="contradiction-hint"></div>
-    <div id="question-screen"><div class="btn-group"><button class="btn" data-action="send-answer" data-answer="1" aria-pressed="false">はい</button></div></div>
+    <div id="question-screen"><div class="btn-group"><button class="btn" data-action="send-answer" data-answer="1" aria-pressed="false">はい</button></div>
     <div id="answer-status"></div>
+    <button id="answer-reconcile" class="btn btn-idk answer-reconcile hidden"></button>
+    </div>
     <div id="result-screen"></div>`;
 }
 
@@ -27,7 +29,9 @@ describe('HekiGameFlow', () => {
     window.__fetching = false;
     window.setFetching = vi.fn(value => { window.__fetching = value; });
     window.setAnswerButtons = vi.fn(disabled => {
-      document.querySelectorAll('#question-screen .btn').forEach(button => { button.disabled = disabled; });
+      document.querySelectorAll('#question-screen [data-action="send-answer"]').forEach(button => {
+        button.disabled = disabled;
+      });
     });
     window.apiFetch = vi.fn();
     window.showToast = vi.fn();
@@ -44,24 +48,49 @@ describe('HekiGameFlow', () => {
     window.eval(source);
   });
   it('shows answer waiting state and restores controls after request failure', async () => {
-    vi.useFakeTimers();
     window.HekiGameFlow.showQuestion({question_id: 1, question: 'Q', count: 0, total: 20});
-    let rejectRequest;
-    window.apiFetch.mockImplementation(() => new Promise((resolve, reject) => { rejectRequest = reject; }));
-    const request = window.HekiGameFlow.sendAnswer(1);
+    window.apiFetch.mockRejectedValue(new Error('network'));
+
+    await window.HekiGameFlow.sendAnswer(1);
+
     const yes = document.querySelector('[data-answer="1"]');
     expect(yes.classList.contains('answer-selected')).toBe(true);
     expect(yes.getAttribute('aria-pressed')).toBe('true');
-    await vi.advanceTimersByTimeAsync(1000);
-    expect(document.getElementById('answer-status').textContent).toContain('まだ考えています');
-    rejectRequest(new Error('network'));
-    await request;
+    expect(yes.disabled).toBe(true);
+    expect(window.apiFetch).toHaveBeenCalledTimes(2);
+    const firstPayload = window.apiFetch.mock.calls[0][1];
+    const secondPayload = window.apiFetch.mock.calls[1][1];
+    expect(firstPayload.answer_request_id).toBeTruthy();
+    expect(secondPayload.answer_request_id).toBe(firstPayload.answer_request_id);
+    const reconcile = document.getElementById('answer-reconcile');
+    expect(reconcile.classList.contains('hidden')).toBe(false);
+    expect(reconcile.disabled).toBe(false);
+
+    window.apiFetch.mockResolvedValueOnce({action: 'question', question_id: 2, question: 'Q2', count: 1, total: 20});
+    await window.HekiGameFlow.retryPendingAnswer();
+
+    expect(window.apiFetch.mock.calls[2][1].answer_request_id).toBe(firstPayload.answer_request_id);
+    expect(document.getElementById('question-text').textContent).toBe('Q2');
+    expect(yes.disabled).toBe(false);
+  });
+
+  it.each([
+    ['a definitive HTTP failure', Object.assign(new Error('bad request'), {status: 400})],
+    ['a wrapped session expiry', new Error('session_expired')],
+  ])('unlocks the old question after %s', async (_label, error) => {
+    window.HekiGameFlow.showQuestion({question_id: 1, question: 'Q', count: 0, total: 20});
+    window.apiFetch.mockRejectedValue(error);
+
+    await window.HekiGameFlow.sendAnswer(1);
+
+    const yes = document.querySelector('[data-answer="1"]');
+    expect(window.apiFetch).toHaveBeenCalledTimes(1);
     expect(yes.classList.contains('answer-selected')).toBe(false);
     expect(yes.disabled).toBe(false);
+    expect(document.getElementById('answer-reconcile').classList.contains('hidden')).toBe(true);
     expect(document.getElementById('answer-status').textContent).toContain('選び直してください');
-    expect(document.activeElement).toBe(yes);
-    vi.useRealTimers();
   });
+
 
   it('allows only one start request and keeps the prior draft when it fails', async () => {
     let rejectRequest;

@@ -118,7 +118,14 @@ class TestEngineMutations(unittest.TestCase):
             after['fetish_log'][str(id_keep)],
             {
                 key: keep_log.get(key, 0) + remove_log.get(key, 0)
-                for key in ('guessed', 'correct', 'wrong', 'correction_selected')
+                for key in (
+                    'guessed',
+                    'correct',
+                    'wrong',
+                    'correction_selected',
+                    'exposure_guessed',
+                    'exposure_correct',
+                )
             },
         )
         self.assertNotIn(str(id_remove), after['fetish_log'])
@@ -339,15 +346,28 @@ class TestEngineMutations(unittest.TestCase):
         data = Path(__file__).resolve().parents[1] / 'data'
         fetishes = json.loads((data / 'fetishes.json').read_text(encoding='utf-8'))
         compounds = json.loads((data / 'compound_works.json').read_text(encoding='utf-8'))
-        catalog = json.loads((data / 'work_catalog.json').read_text(encoding='utf-8'))
         corrections = json.loads((data / 'work_catalog_corrections.json').read_text(encoding='utf-8'))
-        source = engine_module.work_catalog.project_approved_inline_corrections(
+        correction_manifests = (
+            corrections,
+            json.loads((data / 'work_catalog_corrections_batch2.json').read_text(encoding='utf-8')),
+            json.loads((data / 'work_catalog_link_bindings_batch2.json').read_text(encoding='utf-8')),
+        )
+        source = engine_module.work_catalog.project_approved_inline_correction_manifests(
             fetishes,
             compound_rows=compounds,
-            corrections=corrections,
+            correction_manifests=correction_manifests,
             direction='reverse',
         )
         fetishes, compounds = source['fetishes'], source['compound_rows']
+        catalog = engine_module.work_catalog.build_catalog_from_inline(
+            fetishes,
+            compound_rows=engine_module.db_work_catalog._compound_rows(compounds),
+        )
+        review = json.loads((data / 'work_catalog_review_decisions.json').read_text(encoding='utf-8'))
+        seed = json.loads((data / 'work_catalog_seed_overrides.json').read_text(encoding='utf-8'))
+        catalog = engine_module.work_catalog.apply_seed_overrides(
+            engine_module.work_catalog.apply_review_decisions(catalog, review), seed
+        )
         player_works = [
             {
                 'title': '誰かこの状況を説明してください！',
@@ -369,10 +389,15 @@ class TestEngineMutations(unittest.TestCase):
         corrections = json.loads((data / 'work_catalog_corrections.json').read_text(encoding='utf-8'))
         seed = json.loads((data / 'work_catalog_seed_overrides.json').read_text(encoding='utf-8'))
         review = json.loads((data / 'work_catalog_review_decisions.json').read_text(encoding='utf-8'))
-        source = engine_module.work_catalog.project_approved_inline_corrections(
+        correction_manifests = (
+            corrections,
+            json.loads((data / 'work_catalog_corrections_batch2.json').read_text(encoding='utf-8')),
+            json.loads((data / 'work_catalog_link_bindings_batch2.json').read_text(encoding='utf-8')),
+        )
+        source = engine_module.work_catalog.project_approved_inline_correction_manifests(
             fetishes,
             compound_rows=compounds,
-            corrections=corrections,
+            correction_manifests=correction_manifests,
             direction='reverse',
         )
         fetishes, compounds = source['fetishes'], source['compound_rows']
@@ -387,9 +412,10 @@ class TestEngineMutations(unittest.TestCase):
                 }
                 for key, works in compounds.items()
             ],
-            seed_overrides=seed,
         )
-        source_catalog = engine_module.work_catalog.apply_review_decisions(source_catalog, review)
+        source_catalog = engine_module.work_catalog.apply_seed_overrides(
+            engine_module.work_catalog.apply_review_decisions(source_catalog, review), seed
+        )
         catalog = (
             engine_module.work_catalog.apply_catalog_corrections(source_catalog, corrections)
             if corrected

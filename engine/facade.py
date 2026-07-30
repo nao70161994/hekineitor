@@ -306,11 +306,15 @@ class Engine:
             else:
                 catalog = self._work_catalog_snapshot()
             parity = engine_work_catalog.catalog_parity_report(catalog, self.fetishes, compound_rows=compound_rows)
-            approved_parity = engine_work_catalog.approved_projection_parity_report(
+            approved_parity = engine_work_catalog.approved_projection_parity_report_many(
                 catalog,
                 self.fetishes,
                 compound_rows=compound_rows,
-                corrections=self._load_json('work_catalog_corrections.json'),
+                correction_manifests=(
+                    self._load_json('work_catalog_corrections.json'),
+                    self._load_json('work_catalog_corrections_batch2.json'),
+                    self._load_json('work_catalog_link_bindings_batch2.json'),
+                ),
             )
             cached_revision = getattr(self, '_work_catalog_cache_revision', None)
             catalog_reads = getattr(self, '_work_catalog_catalog_reads', 0)
@@ -642,7 +646,7 @@ class Engine:
                     for (fetish_id, column), amount in state['log'].items():
                         row = after['fetish_log'].setdefault(
                             str(fetish_id),
-                            {'guessed': 0, 'correct': 0, 'wrong': 0, 'correction_selected': 0},
+                            engine_stats.empty_fetish_log_entry(),
                         )
                         row[column] = row.get(column, 0) + amount
                     for key, amount in state['stats'].items():
@@ -950,28 +954,42 @@ class Engine:
         return result
 
     # ── 診断ログ ──────────────────────────────────────────
-    def _increment_fetish_log(self, fetish_db_id, col):
-        if col not in ('guessed', 'correct', 'wrong', 'correction_selected'):
-            raise ValueError(f'不正な列名: {col}')
+    def _increment_fetish_log_counters(self, fetish_db_id, increments):
+        invalid = set(increments) - set(engine_stats.FETISH_LOG_FIELDS)
+        if invalid:
+            raise ValueError(f'不正な列名: {sorted(invalid)[0]}')
         if self._feedback_batch_state is not None:
             pending = self._feedback_batch_state['log']
-            log_key = (int(fetish_db_id), col)
-            pending[log_key] = pending.get(log_key, 0) + 1
+            for column, amount in increments.items():
+                log_key = (int(fetish_db_id), column)
+                pending[log_key] = pending.get(log_key, 0) + int(amount)
             return
         if _use_db():
-            engine_db.increment_fetish_log(fetish_db_id, col, get_conn=_get_conn, put_conn=_put_conn)
-        else:
-            path = get_fetish_log_path()
-            engine_stats.increment_fetish_log_file(
-                path, fetish_db_id, col, lock=self._lock, atomic_write=self._atomic_write
+            engine_db.increment_fetish_log_counters(
+                fetish_db_id,
+                increments,
+                get_conn=_get_conn,
+                put_conn=_put_conn,
             )
+        else:
+            engine_stats.increment_fetish_log_counters_file(
+                get_fetish_log_path(),
+                fetish_db_id,
+                increments,
+                lock=self._lock,
+                atomic_write=self._atomic_write,
+            )
+        self._dynamic_prior_time = 0.0
+
+    def _increment_fetish_log(self, fetish_db_id, col):
+        self._increment_fetish_log_counters(fetish_db_id, {col: 1})
 
     def log_guessed(self, fetish_db_id):
-        self._increment_fetish_log(fetish_db_id, 'guessed')
+        self._increment_fetish_log_counters(fetish_db_id, {'guessed': 1, 'exposure_guessed': 1})
         self._record_daily_stat(f'f_guessed_{fetish_db_id}')
 
     def log_correct(self, fetish_db_id):
-        self._increment_fetish_log(fetish_db_id, 'correct')
+        self._increment_fetish_log_counters(fetish_db_id, {'correct': 1, 'exposure_correct': 1})
         self._record_daily_stat('correct')
         self._record_daily_stat(f'f_correct_{fetish_db_id}')
 
@@ -985,7 +1003,7 @@ class Engine:
         self._record_daily_stat(f'f_wrong_{fetish_db_id}')
 
     def get_fetish_log(self):
-        """全性癖のログを {fetish_db_id: {guessed, correct, wrong}} で返す。"""
+        """全性癖のlegacyログと露出専用counterをfetish_db_idごとに返す。"""
         if _use_db():
             return engine_db.load_fetish_log(get_conn=_get_conn, put_conn=_put_conn)
         else:
@@ -1365,6 +1383,7 @@ class Engine:
                     new_matrix['total'][fetish_index][question_index] = total
 
             inline_corrections = None
+            inline_correction_manifests = None
             projected_compounds = None
             legacy_projection_fetishes = None
             inline_projection_direction = 'forward'
@@ -1379,20 +1398,64 @@ class Engine:
                         fetish['works'] = restored_works[fetish['id']]
                 legacy_projection_fetishes = copy.deepcopy(new_fetishes)
                 inline_corrections = self._load_json('work_catalog_corrections.json')
+                current_compounds = self._load_json('compound_works.json')
                 try:
                     corrected_catalog = engine_work_catalog.apply_catalog_corrections(work_catalog, inline_corrections)
-                except ValueError as exc:
-                    raise ValueError('restored work catalog correction state drift') from exc
-                inline_projection_direction = 'forward' if corrected_catalog == work_catalog else 'reverse'
-                current_compounds = self._load_json('compound_works.json')
-                projection = engine_work_catalog.project_approved_inline_corrections(
-                    new_fetishes,
-                    compound_rows=current_compounds,
-                    corrections=inline_corrections,
-                    direction=inline_projection_direction,
-                )
+                except ValueError:
+                    corrections_batch2 = self._load_json('work_catalog_corrections_batch2.json')
+                    bibliography_batch2 = self._load_json('work_catalog_bibliography_batch2.json')
+                    link_bindings_batch2 = self._load_json('work_catalog_link_bindings_batch2.json')
+                    correction_manifests = (
+                        inline_corrections,
+                        corrections_batch2,
+                        link_bindings_batch2,
+                    )
+                    try:
+                        final_catalog = engine_work_catalog.apply_catalog_corrections(work_catalog, corrections_batch2)
+                        final_catalog = engine_work_catalog.apply_bibliography_manifest(
+                            final_catalog, bibliography_batch2
+                        )[0]
+                        final_catalog = engine_work_catalog.apply_catalog_corrections(
+                            final_catalog, link_bindings_batch2
+                        )
+                    except ValueError as exc:
+                        raise ValueError('restored work catalog correction state drift') from exc
+                    if final_catalog != work_catalog:
+                        raise ValueError('restored work catalog correction state drift')
+                    inline_correction_manifests = correction_manifests
+                    inline_projection_direction = 'canonical'
+                    try:
+                        projection = engine_work_catalog.project_approved_inline_correction_manifests(
+                            new_fetishes,
+                            compound_rows=current_compounds,
+                            correction_manifests=correction_manifests,
+                        )
+                    except ValueError:
+                        source_projection = engine_work_catalog.project_approved_inline_correction_manifests(
+                            new_fetishes,
+                            compound_rows=current_compounds,
+                            correction_manifests=correction_manifests,
+                            direction='reverse',
+                        )
+                        projection = engine_work_catalog.project_approved_inline_correction_manifests(
+                            source_projection['fetishes'],
+                            compound_rows=source_projection['compound_rows'],
+                            correction_manifests=correction_manifests,
+                        )
+                else:
+                    inline_projection_direction = 'forward' if corrected_catalog == work_catalog else 'reverse'
+                    projection = engine_work_catalog.project_approved_inline_corrections(
+                        new_fetishes,
+                        compound_rows=current_compounds,
+                        corrections=inline_corrections,
+                        direction=inline_projection_direction,
+                    )
                 if _use_db() and projection['compound_rows'] != current_compounds:
-                    required_state = 'target' if inline_projection_direction == 'forward' else 'source'
+                    required_state = (
+                        'final'
+                        if inline_projection_direction == 'canonical'
+                        else ('target' if inline_projection_direction == 'forward' else 'source')
+                    )
                     raise ValueError(f'work catalog restore requires a matching {required_state} compound deploy')
                 new_fetishes = projection['fetishes']
                 projected_compounds = projection['compound_rows']
@@ -1414,6 +1477,7 @@ class Engine:
                     work_catalog=work_catalog,
                     restored_inline_fetishes=restored_inline_fetishes,
                     inline_corrections=inline_corrections,
+                    inline_correction_manifests=inline_correction_manifests,
                     legacy_projection_fetishes=legacy_projection_fetishes,
                     inline_projection_direction=inline_projection_direction,
                 )

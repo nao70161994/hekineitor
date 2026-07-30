@@ -501,7 +501,10 @@ class TestLearningFeedbackFlow(APITestCase):
             log_after = app_engine.get_fetish_log()
             before = log_before.get(fid, {}).get('guessed', 0)
             after = log_after.get(fid, {}).get('guessed', 0)
+            exposure_before = log_before.get(fid, {}).get('exposure_guessed', 0)
+            exposure_after = log_after.get(fid, {}).get('exposure_guessed', 0)
             self.assertGreater(after, before)
+            self.assertEqual(after - before, exposure_after - exposure_before)
 
     def test_log_correct_increments(self):
         from app import engine as app_engine
@@ -520,7 +523,10 @@ class TestLearningFeedbackFlow(APITestCase):
         log_after = app_engine.get_fetish_log()
         before = log_before.get(fid, {}).get('correct', 0)
         after = log_after.get(fid, {}).get('correct', 0)
+        exposure_before = log_before.get(fid, {}).get('exposure_correct', 0)
+        exposure_after = log_after.get(fid, {}).get('exposure_correct', 0)
         self.assertGreater(after, before)
+        self.assertEqual(after - before, exposure_after - exposure_before)
 
     def test_fetish_log_uses_configured_temp_path(self):
         from app import engine as app_engine

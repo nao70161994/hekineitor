@@ -21,6 +21,7 @@ from .db_matrix import (
 from .db_stats import (
     _move_promoted_stats_history,
     increment_fetish_log,
+    increment_fetish_log_counters,
     increment_stat,
     load_disabled_questions,
     load_dropoff_totals,
@@ -109,12 +110,16 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                     guessed   INTEGER NOT NULL DEFAULT 0,
                     correct   INTEGER NOT NULL DEFAULT 0,
                     wrong     INTEGER NOT NULL DEFAULT 0,
-                    correction_selected INTEGER NOT NULL DEFAULT 0
+                    correction_selected INTEGER NOT NULL DEFAULT 0,
+                    exposure_guessed INTEGER NOT NULL DEFAULT 0,
+                    exposure_correct INTEGER NOT NULL DEFAULT 0
                 )
             """)
             cur.execute(
                 'ALTER TABLE fetish_log ADD COLUMN IF NOT EXISTS correction_selected INTEGER NOT NULL DEFAULT 0'
             )
+            cur.execute('ALTER TABLE fetish_log ADD COLUMN IF NOT EXISTS exposure_guessed INTEGER NOT NULL DEFAULT 0')
+            cur.execute('ALTER TABLE fetish_log ADD COLUMN IF NOT EXISTS exposure_correct INTEGER NOT NULL DEFAULT 0')
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS sessions (
                     session_id TEXT PRIMARY KEY,
@@ -199,6 +204,9 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                 review_decisions=engine._load_json('work_catalog_review_decisions.json'),
                 corrections=engine._load_json('work_catalog_corrections.json'),
                 bibliography=engine._load_json('work_catalog_bibliography.json'),
+                corrections_batch2=engine._load_json('work_catalog_corrections_batch2.json'),
+                bibliography_batch2=engine._load_json('work_catalog_bibliography_batch2.json'),
+                link_bindings_batch2=engine._load_json('work_catalog_link_bindings_batch2.json'),
             )
             nq = len(engine.questions)
             cur.execute('SELECT MAX(question_id) FROM matrix')
@@ -455,13 +463,20 @@ def merge_fetish_rows_db(
             cur.execute('DELETE FROM matrix WHERE fetish_id = %s', (id_remove,))
             cur.execute(
                 """
-                INSERT INTO fetish_log (fetish_id, guessed, correct, wrong, correction_selected)
-                SELECT %s, guessed, correct, wrong, correction_selected FROM fetish_log WHERE fetish_id = %s
+                INSERT INTO fetish_log (
+                    fetish_id, guessed, correct, wrong, correction_selected,
+                    exposure_guessed, exposure_correct
+                )
+                SELECT %s, guessed, correct, wrong, correction_selected,
+                       exposure_guessed, exposure_correct
+                FROM fetish_log WHERE fetish_id = %s
                 ON CONFLICT (fetish_id) DO UPDATE
                 SET guessed = fetish_log.guessed + EXCLUDED.guessed,
                     correct = fetish_log.correct + EXCLUDED.correct,
                     wrong   = fetish_log.wrong   + EXCLUDED.wrong,
-                    correction_selected = fetish_log.correction_selected + EXCLUDED.correction_selected
+                    correction_selected = fetish_log.correction_selected + EXCLUDED.correction_selected,
+                    exposure_guessed = fetish_log.exposure_guessed + EXCLUDED.exposure_guessed,
+                    exposure_correct = fetish_log.exposure_correct + EXCLUDED.exposure_correct
             """,
                 (id_keep, id_remove),
             )
@@ -561,7 +576,14 @@ def save_feedback_batch(
     put_conn,
 ):
     """Persist every matrix/counter change from one feedback submission transactionally."""
-    allowed_log_columns = {'guessed', 'correct', 'wrong', 'correction_selected'}
+    allowed_log_columns = {
+        'guessed',
+        'correct',
+        'wrong',
+        'correction_selected',
+        'exposure_guessed',
+        'exposure_correct',
+    }
     rows = build_save_matrix_rows(all_updates, idx_to_db_id=idx_to_db_id, fetishes=fetishes)
     conn = get_conn()
     try:

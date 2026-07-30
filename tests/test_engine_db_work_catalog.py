@@ -168,6 +168,65 @@ class TestDbWorkCatalog(unittest.TestCase):
         self.assertIs(observed[0][1], corrections)
         self.assertEqual(observed[0][0]['works_master'][0]['canonical_title'], '作品')
 
+    def test_migrate_legacy_catalog_applies_all_manifest_stages_in_order(self):
+        legacy_rows = [(7, 'Example', 'Desc', json.dumps(['作品']))]
+        review = {'schema_version': 1, 'reviewed_at': '2026-07-29', 'decisions': []}
+        seed = {'schema_version': 1, 'title_normalizations': []}
+        correction1 = {'schema_version': 1, 'catalog_schema_version': 1, 'corrections': []}
+        bibliography1 = {'schema_version': 1, 'catalog_schema_version': 2, 'entries': []}
+        correction2 = {'schema_version': 1, 'catalog_schema_version': 1, 'corrections': []}
+        bibliography2 = {'schema_version': 1, 'catalog_schema_version': 2, 'entries': []}
+        bindings = {'schema_version': 1, 'catalog_schema_version': 1, 'corrections': []}
+        observed = []
+
+        def apply_review(catalog, manifest):
+            observed.append(('review', manifest))
+            return catalog
+
+        def apply_seed(catalog, manifest):
+            observed.append(('seed', manifest))
+            return catalog
+
+        def apply_correction(catalog, manifest):
+            observed.append(('correction', manifest))
+            return catalog
+
+        def apply_bibliography(catalog, manifest):
+            observed.append(('bibliography', manifest))
+            return catalog, {}
+
+        with (
+            patch.object(db_work_catalog, 'apply_review_decisions', side_effect=apply_review),
+            patch.object(db_work_catalog, 'apply_seed_overrides', side_effect=apply_seed),
+            patch.object(db_work_catalog, 'apply_catalog_corrections', side_effect=apply_correction),
+            patch.object(db_work_catalog, 'apply_bibliography_manifest', side_effect=apply_bibliography),
+        ):
+            db_work_catalog.migrate_legacy_catalog(
+                RoutingCursor(legacy_rows=legacy_rows),
+                compound_data={},
+                execute_values=lambda _cur, _sql, _rows: None,
+                review_decisions=review,
+                seed_overrides=seed,
+                corrections=correction1,
+                bibliography=bibliography1,
+                corrections_batch2=correction2,
+                bibliography_batch2=bibliography2,
+                link_bindings_batch2=bindings,
+            )
+
+        self.assertEqual(
+            observed,
+            [
+                ('review', review),
+                ('seed', seed),
+                ('correction', correction1),
+                ('bibliography', bibliography1),
+                ('correction', correction2),
+                ('bibliography', bibliography2),
+                ('correction', bindings),
+            ],
+        )
+
     def test_fresh_migration_reverses_corrected_inline_to_the_stable_checked_catalog(self):
         data = Path(__file__).resolve().parents[1] / 'data'
         fetishes = json.loads((data / 'fetishes.json').read_text(encoding='utf-8'))
@@ -176,12 +235,11 @@ class TestDbWorkCatalog(unittest.TestCase):
         review = json.loads((data / 'work_catalog_review_decisions.json').read_text(encoding='utf-8'))
         corrections = json.loads((data / 'work_catalog_corrections.json').read_text(encoding='utf-8'))
         bibliography = json.loads((data / 'work_catalog_bibliography.json').read_text(encoding='utf-8'))
+        corrections_batch2 = json.loads((data / 'work_catalog_corrections_batch2.json').read_text(encoding='utf-8'))
+        bibliography_batch2 = json.loads((data / 'work_catalog_bibliography_batch2.json').read_text(encoding='utf-8'))
+        link_bindings_batch2 = json.loads((data / 'work_catalog_link_bindings_batch2.json').read_text(encoding='utf-8'))
         checked_catalog = json.loads((data / 'work_catalog.json').read_text(encoding='utf-8'))
-        projection = work_catalog.project_approved_inline_corrections(
-            fetishes,
-            compound_rows=compounds,
-            corrections=corrections,
-        )
+        projection = {'fetishes': fetishes, 'compound_rows': compounds}
         legacy_rows = [
             (
                 row['id'],
@@ -206,6 +264,9 @@ class TestDbWorkCatalog(unittest.TestCase):
                 review_decisions=review,
                 corrections=corrections,
                 bibliography=bibliography,
+                corrections_batch2=corrections_batch2,
+                bibliography_batch2=bibliography_batch2,
+                link_bindings_batch2=link_bindings_batch2,
             )
 
         self.assertEqual(len(captured), 1)

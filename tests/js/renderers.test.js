@@ -14,6 +14,8 @@ describe('HekiRenderers screen transitions', () => {
       <div id="teach-screen"></div><div id="done-screen"></div>`;
     vi.stubGlobal('requestAnimationFrame', callback => callback());
     Element.prototype.scrollIntoView = vi.fn();
+    window.trackGameplayEvent = vi.fn();
+    delete window.IntersectionObserver;
     window.eval(source);
   });
   it('renders low-information results as provisional', () => {
@@ -148,5 +150,86 @@ describe('HekiRenderers screen transitions', () => {
     expect(featured.textContent).toContain('組み合わせに基づく理由');
     expect(featured.textContent).toContain('作品固有の理由');
     expect(featured.textContent).not.toContain('サーバーの通常理由');
+  });
+  it('tracks only visible works with stable IDs and deduplicates repeated rendering', () => {
+    document.body.innerHTML += `
+      <section id="works-section" class="hidden">
+        <div id="works-label"></div>
+        <div id="cross-works-tags"></div>
+        <div id="works-tags"></div>
+      </section>`;
+    const works = [1, 2, 3, 4, 5].map(id => ({
+      title: `作品${id}`,
+      url: `https://example.test/${id}`,
+      work_id: `wrk_${id}`,
+      edition_id: `wed_${id}`,
+    }));
+    const data = {compound: [], cross_works: [], works: [...works, works[0]]};
+    const helpers = {escapeHtml: String, safeExternalUrl: String, resultName: '本命'};
+
+    window.HekiRenderers.renderWorks(data, helpers);
+    window.HekiRenderers.trackFeaturedWorks(data);
+    expect(window.trackGameplayEvent).toHaveBeenCalledTimes(3);
+    expect(window.trackGameplayEvent).toHaveBeenNthCalledWith(1, 'work_impression', expect.objectContaining({
+      work_id: 'wrk_1', edition_id: 'wed_1',
+    }));
+    expect(window.trackGameplayEvent.mock.calls.flatMap(call => [call[1].work_id]))
+      .not.toContain('wrk_4');
+
+    window.HekiRenderers.renderWorks(data, helpers);
+    window.HekiRenderers.trackFeaturedWorks(data);
+    expect(window.trackGameplayEvent).toHaveBeenCalledTimes(3);
+    window.HekiRenderers.toggleMoreWorks(document.querySelector('.works-more-toggle'));
+    expect(window.trackGameplayEvent).toHaveBeenCalledTimes(5);
+    expect(window.trackGameplayEvent.mock.calls.map(call => call[1].work_id))
+      .toEqual(['wrk_1', 'wrk_2', 'wrk_3', 'wrk_4', 'wrk_5']);
+  });
+
+  it('records a work impression only after at least half the card enters the viewport', () => {
+    document.body.innerHTML += `
+      <section id="works-section" class="hidden">
+        <div id="works-label"></div><div id="cross-works-tags"></div><div id="works-tags"></div>
+      </section>`;
+    let callback;
+    const observe = vi.fn();
+    const unobserve = vi.fn();
+    window.IntersectionObserver = class {
+      constructor(handler, options) {
+        callback = handler;
+        expect(options).toEqual({threshold: 0.5});
+      }
+      observe(card) { observe(card); }
+      unobserve(card) { unobserve(card); }
+      disconnect() {}
+    };
+    const data = {compound: [], cross_works: [], works: [{title: '作品', work_id: 'wrk_1', edition_id: 'wed_1'}]};
+    window.HekiRenderers.renderWorks(
+      data,
+      {escapeHtml: String, safeExternalUrl: String, resultName: '本命'},
+    );
+    window.HekiRenderers.trackFeaturedWorks(data);
+    const card = document.querySelector('.work-recommendation');
+    expect(observe).toHaveBeenCalledWith(card);
+    expect(window.trackGameplayEvent).not.toHaveBeenCalled();
+
+    callback([{target: card, isIntersecting: true, intersectionRatio: 0.49}]);
+    expect(window.trackGameplayEvent).not.toHaveBeenCalled();
+    callback([{target: card, isIntersecting: true, intersectionRatio: 0.5}]);
+    expect(window.trackGameplayEvent).toHaveBeenCalledTimes(1);
+    expect(unobserve).toHaveBeenCalledWith(card);
+  });
+
+  it('does not let impression recording failures block recommendation rendering', () => {
+    document.body.innerHTML += `
+      <section id="works-section" class="hidden">
+        <div id="works-label"></div><div id="cross-works-tags"></div><div id="works-tags"></div>
+      </section>`;
+    window.trackGameplayEvent.mockImplementation(() => { throw new Error('metrics unavailable'); });
+    const data = {compound: [], cross_works: [], works: [{title: '作品', work_id: 'wrk_1', edition_id: 'wed_1'}]};
+    expect(() => {
+      window.HekiRenderers.renderWorks(data, {escapeHtml: String, safeExternalUrl: String, resultName: '本命'});
+      window.HekiRenderers.trackFeaturedWorks(data);
+    }).not.toThrow();
+    expect(document.querySelector('.work-recommendation').textContent).toContain('作品');
   });
 });

@@ -17,6 +17,11 @@ describe('HekiDraft', () => {
     });
     document.body.innerHTML = '<div id="resume-banner" class="hidden"></div><span id="resume-count"></span><time id="resume-updated-at"></time><time id="resume-expires-at"></time>';
     window.gameState = {fetching: false};
+    window._excludedIds = [];
+    window.HekiState = {
+      getExcludedIds: () => window._excludedIds,
+      setExcludedIds: vi.fn(ids => { window._excludedIds = ids; }),
+    };
     window.setFetching = vi.fn(value => { window.gameState.fetching = value; });
     window.apiFetch = vi.fn();
     window.showQuestion = vi.fn();
@@ -68,5 +73,52 @@ describe('HekiDraft', () => {
     expect(window.showGuess).toHaveBeenCalledOnce();
     expect(window.HekiDraft.getPairs()).toHaveLength(2);
     expect(localStorage.getItem('heki_draft')).toBeNull();
+
+  });
+  it('persists exclusions for seven days and restores them with the saved answers', async () => {
+    window._excludedIds = [2, 7, 2];
+    window.HekiDraft.push(4, 1);
+    window.HekiDraft.saveDraft();
+    const saved = JSON.parse(localStorage.getItem('heki_draft'));
+    expect(saved.exclude_ids).toEqual([2, 7]);
+    expect(saved.expires_at - saved.ts).toBe(7 * 24 * 3600 * 1000);
+
+    window._excludedIds = [];
+    window.HekiDraft.checkDraft();
+    expect(window._excludedIds).toEqual([2, 7]);
+    window.apiFetch.mockResolvedValue({action: 'question', question_id: 8});
+    await window.HekiDraft.resumeGame();
+    expect(window.apiFetch).toHaveBeenCalledWith('/api/resume', {
+      pairs: [{q_id: 4, answer: 1}], exclude_ids: [2, 7],
+    });
+  });
+
+  it('keeps old drafts compatible and clears exclusions only on explicit discard', () => {
+    const updatedAt = Date.now();
+    localStorage.setItem('heki_draft', JSON.stringify({pairs: [{q_id: 4, answer: 1}], ts: updatedAt}));
+    window._excludedIds = [9];
+    window.HekiDraft.checkDraft();
+    expect(window._excludedIds).toEqual([]);
+
+    window._excludedIds = [3, 5];
+    window.HekiDraft.saveDraft();
+    window.HekiDraft.clearDraft();
+    expect(window._excludedIds).toEqual([3, 5]);
+    window.HekiDraft.discardDraft();
+    expect(window._excludedIds).toEqual([]);
+  });
+  it('expires answers and exclusions after seven days even with a later declared expiry', () => {
+    const updatedAt = Date.now() - 8 * 24 * 3600 * 1000;
+    localStorage.setItem('heki_draft', JSON.stringify({
+      pairs: [{q_id: 4, answer: 1}],
+      exclude_ids: [3],
+      ts: updatedAt,
+      expires_at: Date.now() + 30 * 24 * 3600 * 1000,
+    }));
+    window._excludedIds = [9];
+    window.HekiDraft.checkDraft();
+    expect(localStorage.getItem('heki_draft')).toBeNull();
+    expect(window.HekiDraft.getPairs()).toEqual([]);
+    expect(window._excludedIds).toEqual([]);
   });
 });

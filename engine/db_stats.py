@@ -300,35 +300,65 @@ def toggle_question_disabled(question_id, *, get_conn, put_conn):
         put_conn(conn)
 
 
-def increment_fetish_log(fetish_db_id, column, *, get_conn, put_conn):
-    if column not in ('guessed', 'correct', 'wrong', 'correction_selected'):
-        raise ValueError(f'不正な列名: {column}')
+FETISH_LOG_COLUMNS = (
+    'guessed',
+    'correct',
+    'wrong',
+    'correction_selected',
+    'exposure_guessed',
+    'exposure_correct',
+)
+
+
+def increment_fetish_log_counters(fetish_db_id, increments, *, get_conn, put_conn):
+    invalid = set(increments) - set(FETISH_LOG_COLUMNS)
+    if invalid:
+        raise ValueError(f'不正な列名: {sorted(invalid)[0]}')
+    values = {column: int(amount) for column, amount in increments.items() if int(amount)}
+    if not values:
+        return
+    columns = list(values)
+    insert_columns = ', '.join(columns)
+    placeholders = ', '.join(['%s'] * (len(columns) + 1))
+    updates = ', '.join(f'{column} = fetish_log.{column} + EXCLUDED.{column}' for column in columns)
     conn = get_conn()
     try:
         with conn:
             cur = conn.cursor()
             cur.execute(
-                f"""
-                INSERT INTO fetish_log (fetish_id, {column}) VALUES (%s, 1)
-                ON CONFLICT (fetish_id) DO UPDATE SET {column} = fetish_log.{column} + 1
-            """,
-                (fetish_db_id,),
+                f"""INSERT INTO fetish_log (fetish_id, {insert_columns}) VALUES ({placeholders})
+                ON CONFLICT (fetish_id) DO UPDATE SET {updates}""",
+                (fetish_db_id, *(values[column] for column in columns)),
             )
     finally:
         put_conn(conn)
+
+
+def increment_fetish_log(fetish_db_id, column, *, get_conn, put_conn):
+    increment_fetish_log_counters(
+        fetish_db_id,
+        {column: 1},
+        get_conn=get_conn,
+        put_conn=put_conn,
+    )
 
 
 def load_fetish_log(*, get_conn, put_conn):
     conn = get_conn()
     try:
         cur = conn.cursor()
-        cur.execute('SELECT fetish_id, guessed, correct, wrong, correction_selected FROM fetish_log')
+        cur.execute(
+            'SELECT fetish_id, guessed, correct, wrong, correction_selected, '
+            'exposure_guessed, exposure_correct FROM fetish_log'
+        )
         return {
             row[0]: {
                 'guessed': row[1],
                 'correct': row[2],
                 'wrong': row[3],
                 'correction_selected': row[4],
+                'exposure_guessed': row[5],
+                'exposure_correct': row[6],
             }
             for row in cur.fetchall()
         }

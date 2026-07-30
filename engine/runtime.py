@@ -15,25 +15,33 @@ def disc_scales(fetish_count, question_count, *, probability, mean_question_inde
     return [max(0.5, min(2.0, disc / mean_disc)) for disc in discs]
 
 
+def _blended_prior_weight(static, guessed, correct, *, alpha=2.0, clamp_correct=True):
+    guessed = max(0, int(guessed or 0))
+    correct = max(0, int(correct or 0))
+    if clamp_correct:
+        correct = min(guessed, correct)
+    empirical = (correct + alpha) / (guessed + alpha * 2)
+    trust = min(guessed / 20.0, 1.0)
+    return max(static * (1 - trust) + empirical * trust, 0.1)
+
+
 def dynamic_prior_weights(fetishes, log, static_weights, *, alpha=2.0):
+    """Use only provenance-safe exposure counters for feedback-derived priors."""
     weights = {}
     for fetish in fetishes:
         fetish_id = fetish['id']
         entry = log.get(fetish_id, {})
-        guessed = max(0, int(entry.get('guessed', 0) or 0))
-        # Older logs may mix correction-screen selections into correct. Those
-        # selections were not exposures, so clamp to the exposure population.
-        correct = min(guessed, max(0, int(entry.get('correct', 0) or 0)))
-        empirical = (correct + alpha) / (guessed + alpha * 2)
-        static = static_weights.get(fetish_id, 1.0)
-        trust = min(guessed / 20.0, 1.0)
-        blended = static * (1 - trust) + empirical * trust
-        weights[fetish_id] = max(blended, 0.1)
+        weights[fetish_id] = _blended_prior_weight(
+            static_weights.get(fetish_id, 1.0),
+            entry.get('exposure_guessed', 0),
+            entry.get('exposure_correct', 0),
+            alpha=alpha,
+        )
     return weights
 
 
 def dynamic_prior_shadow_report(fetishes, log, static_weights, *, alpha=2.0):
-    """Report legacy rows whose mixed populations inflated the prior."""
+    """Compare isolated priors with both historical legacy calculations."""
     current = dynamic_prior_weights(fetishes, log, static_weights, alpha=alpha)
     rows = []
     for fetish in fetishes:
@@ -41,35 +49,49 @@ def dynamic_prior_shadow_report(fetishes, log, static_weights, *, alpha=2.0):
         entry = log.get(fetish_id, {})
         guessed = max(0, int(entry.get('guessed', 0) or 0))
         correct = max(0, int(entry.get('correct', 0) or 0))
-        if correct <= guessed:
+        exposure_guessed = max(0, int(entry.get('exposure_guessed', 0) or 0))
+        exposure_correct = max(0, int(entry.get('exposure_correct', 0) or 0))
+        correction_selected = max(0, int(entry.get('correction_selected', 0) or 0))
+        if not any((guessed, correct, exposure_guessed, exposure_correct, correction_selected)):
             continue
         static = static_weights.get(fetish_id, 1.0)
-        trust = min(guessed / 20.0, 1.0)
-        legacy_empirical = (correct + alpha) / (guessed + alpha * 2)
-        legacy = max(static * (1 - trust) + legacy_empirical * trust, 0.1)
+        legacy_unclamped = _blended_prior_weight(static, guessed, correct, alpha=alpha, clamp_correct=False)
+        legacy_clamped = _blended_prior_weight(static, guessed, correct, alpha=alpha)
+        current_weight = current[fetish_id]
         rows.append(
             {
                 'fetish_id': fetish_id,
                 'fetish_name': fetish.get('name', ''),
                 'guessed': guessed,
                 'correct': correct,
-                'excess_correct': correct - guessed,
-                'correction_selected': max(0, int(entry.get('correction_selected', 0) or 0)),
-                'legacy_weight': legacy,
-                'current_weight': current[fetish_id],
-                'delta': current[fetish_id] - legacy,
+                'excess_correct': max(0, correct - guessed),
+                'correction_selected': correction_selected,
+                'exposure_guessed': exposure_guessed,
+                'exposure_correct': exposure_correct,
+                'legacy_weight': legacy_unclamped,
+                'legacy_unclamped_weight': legacy_unclamped,
+                'legacy_clamped_weight': legacy_clamped,
+                'current_weight': current_weight,
+                'delta': current_weight - legacy_unclamped,
+                'delta_from_legacy_clamp': current_weight - legacy_clamped,
             }
         )
     rows.sort(key=lambda row: (-row['excess_correct'], row['fetish_id']))
     return {
-        'schema_version': 1,
-        'mismatched_count': len(rows),
+        'schema_version': 2,
+        'mismatched_count': sum(row['correct'] > row['guessed'] for row in rows),
         'excess_correct_count': sum(row['excess_correct'] for row in rows),
+        'legacy_row_count': sum(bool(row['guessed'] or row['correct']) for row in rows),
+        'exposure_guessed_count': sum(row['exposure_guessed'] for row in rows),
+        'exposure_correct_count': sum(row['exposure_correct'] for row in rows),
         'rows': rows,
         'migration_policy': {
-            'strategy': 'non_destructive_runtime_clamp',
+            'strategy': 'non_destructive_exposure_counter_isolation',
             'irreversible_reclassification_performed': False,
-            'reason': 'legacy correct events do not retain whether they came from exposure or correction selection',
+            'reason': (
+                'legacy event provenance is unknown; old counters remain unchanged and isolated exposure counters '
+                'start at zero'
+            ),
         },
     }
 

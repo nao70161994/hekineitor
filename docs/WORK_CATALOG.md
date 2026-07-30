@@ -20,12 +20,30 @@ schema v2は版名と出版社を`work_editions.edition_title` / `publisher`へ�
 
 `data/work_catalog_bibliography.json`は一次情報で確認した18作品のinput-locked manifestです。12作品には版名、出版社、紙版URL、ISBN-13を、残る6作品には媒体種別と根拠URLだけを登録します。版を推薦linkへ自動接続しないため公開URLは変わらず、正式名変更時は旧表示をaliasにしてraw parityを維持します。
 
+書誌manifestはschema version 1のまま、版ごとに従来の`edition.isbn`、単一の汎用`edition.identifier`（`scheme`、`authority`、`value`）、または識別子なしのいずれかを受け付けます。`isbn`と`identifier`の併記は曖昧なため拒否します。汎用識別子はschemeとauthorityを小文字へ正規化し、scheme・authority・valueの組をcatalog全体で一意に保ちます。ISBNは従来どおりchecksumを検証してISBN-13へ正規化します。版のcanonical URL自体が根拠になる場合は識別子なしでも登録でき、ASINは汎用識別子にせずURLから`work_editions.asin`へ保持します。先に媒体種別と根拠URLだけを適用したentryへ版を追加する場合や、識別子なしの版へ後から識別子を補う場合は、既存work・旧名alias・版metadataが完全一致するときだけ不足行を追加します。
+
 ```sh
 PYTHONPATH=. python scripts/sync_work_catalog_inline.py --write
 PYTHONPATH=. python scripts/build_work_catalog.py --write
+PYTHONPATH=. python scripts/build_work_catalog_research_candidates.py --write
+PYTHONPATH=. python scripts/build_recommended_works_list.py --write
 PYTHONPATH=. python scripts/sync_work_catalog_inline.py
 PYTHONPATH=. python scripts/build_work_catalog.py
+PYTHONPATH=. python scripts/build_work_catalog_research_candidates.py
+PYTHONPATH=. python scripts/build_recommended_works_list.py
 ```
+
+`docs/RECOMMENDED_WORKS_LIST.md`は正規catalogの公開fetish projectionから生成します。作品一覧を手編集せず、catalog/manifest更新後にgeneratorを実行してください。通常実行はchecked-in文書との完全一致を検証し、CIでもdriftを拒否します。
+
+`data/work_catalog_research_candidates.json`は、現行catalogで公開参照されているactive masterのうち、販売版が未登録の作品を機械的に抽出した調査候補です。作品ごとに全fetish/compound owner参照と書誌確認状態を保持し、catalog digestに結び付けます。通常実行はchecked-in artifactとのbyte一致を検証し、`--write`だけが更新します。`generated_at`と選定規則は再現性のため固定値であり、実行日時を表しません。
+
+この候補artifactは「現行公開linkに版を補うための作業リスト」です。`data/work_catalog_research_queue.json`の45件は、根拠不足により既に公開linkから隔離した作品の監査履歴であり、再公開候補や現行の不足一覧ではありません。両者を結合したり、一方の件数から他方の進捗を推定したりしません。
+
+active・参照中・版なし33件の再調査は、一次情報で13件を確認し、19件をidentity未確認、`囚われのパルマ`1件を推薦文脈不適合と判定しました。`data/work_catalog_bibliography_batch2.json`は確認済み13件のうち12件へ直接版を追加し、`花は咲くか`は作品identityと媒体だけを根拠URLで固定します。実写映画ページは原作漫画の直接版ではないためeditionとして登録しません。`data/work_catalog_corrections_batch2.json`は未確認19件と不適合1件の計20 masterを監査可能な`archived`状態へ移し、21 compound linkを除去します。`data/work_catalog_link_bindings_batch2.json`は確認済み12版を既存推薦linkへ接続し、表示aliasを維持したまま空URLを一次情報のdirect URLへ置き換えます。
+
+適用順はreview→seed override→corrections batch 1→bibliography batch 1→corrections batch 2→bibliography batch 2→link bindings batch 2です。inline forwardは3つのcorrectionをbatch 1→batch 2→link bindingsの順、buildと初回DB移行のreverseは厳密な逆順で投影します。quarantineの`link_removals.source_title`はschema v3のquarantineだけで利用でき、catalog linkの完全一致検証を弱めず、旧alias表示をinline signatureとして固定します。
+
+候補generatorは通常書誌manifestとbatch2を合わせて`bibliography_state`を判定します。correction manifestは公開可否と参照除去、bibliography manifestは確認できたidentity・媒体・版metadataだけを担当し、類似題や別媒体から版を推定しません。最終候補は媒体確認済み・版なしの`花は咲くか`1件です。
 
 `sync_work_catalog_inline.py`はcorrection manifestで承認されたtitle/URL差分だけを、ownerとpositionを変えずに`fetishes.json`と`compound_works.json`へ投影します。位置・source signature・URL・ownerのdriftはfail-closedです。catalog buildは訂正済みinlineを厳密にsource状態へ逆投影してからreviewとcorrectionを再適用するため、既存の安定IDとcatalog digestは変わりません。検証コマンドは`scripts/check.sh`とCIでも実行されます。手動でIDや承認済み表示を変更せず、manifestと同期scriptを通して更新します。
 
@@ -82,7 +100,7 @@ reviewの`keep_separate`または`merge`には現在の`expected_version`が必�
 - `normalization_conflict`: 緩いタイトル正規化で近く、複数ASINを持つ候補。
 - `identity_override`: 英題・和題・略称など、機械的な候補抽出では結び付かないが人手で同一と確認した候補。
 
-未判断の候補は別`work_id`のまま保持します。2026-07-28のseed reviewでは74件すべてを解決し、72件をmerge、2件を`keep_separate`としました。その後、確実なseed cleanup、P0訂正、一次書誌batchを適用しました。現行seedは325 master、253 edition、14 edition identifier、159 alias、373 fetish link、141 compound link、pending 0です。媒体種別は23件、紙版metadataは12件で、legacy公開projectionとのmismatchは0です。判断根拠と保留事項は[`WORK_CATALOG_REVIEW_2026-07-28.md`](WORK_CATALOG_REVIEW_2026-07-28.md)と[`WORK_CATALOG_DATA_QUALITY_2026-07-29.md`](WORK_CATALOG_DATA_QUALITY_2026-07-29.md)に記録します。
+未判断の候補は別`work_id`のまま保持します。2026-07-28のseed reviewでは74件すべてを解決し、72件をmerge、2件を`keep_separate`としました。その後、seed cleanupと2段階のcorrection/bibliography、版link bindingを適用しました。現行seedは325 master、265 edition、25 edition identifier、164 alias、373 fetish link、120 compound link、pending 0です。媒体種別は31件で、legacy公開projectionとのmismatchは0です。判断根拠と保留事項は[`WORK_CATALOG_REVIEW_2026-07-28.md`](WORK_CATALOG_REVIEW_2026-07-28.md)と[`WORK_CATALOG_DATA_QUALITY_2026-07-29.md`](WORK_CATALOG_DATA_QUALITY_2026-07-29.md)に記録します。
 
 ## Backup and restore
 
@@ -97,6 +115,6 @@ reviewの`keep_separate`または`merge`には現在の`expected_version`が必�
 
 ## Migration safety
 
-初回DB移行は訂正済みchecked inlineをsource状態へ厳密に逆投影してから、同一transaction内でcatalog tableへ展開し、review、correction、bibliographyを順に適用します。これにより公開projectionを保ったまま、版識別子と根拠metadataを正規化できます。ASINまたは厳密な正規化titleだけを自動identityに使い、緩い候補はreview queueへ残します。存在しないfetish IDや同一ID pairを参照するcompound linkは生成時に拒否します。
+初回DB移行は訂正済みchecked inlineをsource状態へ厳密に逆投影してから、同一transaction内でcatalog tableへ展開し、review、seed override、corrections 1、bibliography 1、corrections 2、bibliography 2、link bindings 2を順に適用します。これにより公開projectionを保ったまま、版識別子と根拠metadataを正規化できます。ASINまたは厳密な正規化titleだけを自動identityに使い、緩い候補はreview queueへ残します。存在しないfetish IDや同一ID pairを参照するcompound linkは生成時に拒否します。
 
 forward/reverse投影は任意の履歴変換ではありません。checked correction manifestが認識するsourceまたはtarget signatureだけを受け入れます。古いbackupへ戻す場合は、catalog snapshotと同じ世代のcode/data artifactを組にして扱います。
