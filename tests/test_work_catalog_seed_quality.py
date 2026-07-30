@@ -245,8 +245,8 @@ def test_checked_in_seed_has_only_verified_safe_normalizations():
     assert sum(bool(row['media_type']) for row in masters.values()) == 22
     assert sum(row['format'] == 'paper' for row in catalog['work_editions']) == 12
     assert len(catalog['work_edition_identifiers']) == 14
-    assert Counter(
-        (row['scheme'], row['authority']) for row in catalog['work_edition_identifiers']
-    ) == {('isbn', 'isbn'): 14}
+    assert Counter((row['scheme'], row['authority']) for row in catalog['work_edition_identifiers']) == {
+        ('isbn', 'isbn'): 14
+    }
     assert all(len(row['value']) == 13 and row['value'].isdigit() for row in catalog['work_edition_identifiers'])
     assert '4199007804' not in {row['value'] for row in catalog['work_edition_identifiers']}

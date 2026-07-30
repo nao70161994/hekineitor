@@ -715,8 +715,7 @@ def project_approved_inline_corrections(
             or any(correction.get(field) for field in forbidden_rows)
         ):
             raise ValueError(
-                f'work catalog correction has invalid quarantine projection: '
-                f'{correction.get("correction_id", "")}'
+                f'work catalog correction has invalid quarantine projection: {correction.get("correction_id", "")}'
             )
 
     projected_fetishes = copy.deepcopy(fetishes)
@@ -948,11 +947,7 @@ def project_approved_inline_corrections(
             ) = update_projection
             works = owner.get('works') if isinstance(owner, dict) else None
             replacement_positions = (
-                [
-                    index
-                    for index, work in enumerate(works)
-                    if _effective_signature(work) == replacement_signature
-                ]
+                [index for index, work in enumerate(works) if _effective_signature(work) == replacement_signature]
                 if isinstance(works, list)
                 else []
             )
@@ -1066,9 +1061,7 @@ def project_approved_inline_corrections(
                 if owner_key in seen_targets:
                     raise ValueError('duplicate owner position')
                 seen_targets.add(owner_key)
-                expected_signature = signature(
-                    correction, removal, target=False, source_url=source_url
-                )
+                expected_signature = signature(correction, removal, target=False, source_url=source_url)
                 removal_projections.append(
                     (correction_id, table, owner_id, owner_key, owner, position, expected_signature, allow_missing)
                 )
@@ -1080,9 +1073,7 @@ def project_approved_inline_corrections(
     # Removing from the end and restoring from the beginning preserves the
     # manifest's original owner positions when one correction removes several
     # recommendations from the same owner.
-    removal_projections.sort(
-        key=lambda row: (row[3][0], str(row[2]), (-row[5] if direction == 'forward' else row[5]))
-    )
+    removal_projections.sort(key=lambda row: (row[3][0], str(row[2]), (-row[5] if direction == 'forward' else row[5])))
     if direction == 'forward':
         apply_update_projections()
 
@@ -2072,9 +2063,7 @@ def apply_catalog_corrections(catalog, manifest):
 
     _validate_correction_manifest_fields(corrections, schema_version)
     if schema_version >= 2 and (catalog_schema_version != 2 or int(catalog.get('schema_version', 0)) != 2):
-        raise ValueError(
-            f'work catalog corrections schema_version {schema_version} requires catalog schema_version 2'
-        )
+        raise ValueError(f'work catalog corrections schema_version {schema_version} requires catalog schema_version 2')
     updated = copy.deepcopy(catalog)
 
     def find_row(collection, id_field, row_id):
@@ -2215,9 +2204,7 @@ def apply_catalog_corrections(catalog, manifest):
         if correction_type == 'retitle_identity' and target_work_id != source_work_id:
             raise ValueError(f'work catalog correction retitle must preserve work_id: {correction_id}')
         if correction_type == 'quarantine_recommendation' and (
-            schema_version != 3
-            or target_work_id != source_work_id
-            or canonical_target_work['status'] != 'archived'
+            schema_version != 3 or target_work_id != source_work_id or canonical_target_work['status'] != 'archived'
         ):
             raise ValueError(f'work catalog correction has invalid quarantine target: {correction_id}')
         if correction_type == 'quarantine_recommendation':
@@ -2432,26 +2419,19 @@ def apply_catalog_corrections(catalog, manifest):
                 raise ValueError(f'work catalog correction has invalid link removal: {correction_id}')
             owner = tuple(int(expected[field]) for field in owner_fields)
             owner_position = (table, owner, expected['position'])
-            if (
-                expected['link_id'] in deferred_removed_link_ids
-                or owner_position in deferred_removed_owner_positions
-            ):
+            if expected['link_id'] in deferred_removed_link_ids or owner_position in deferred_removed_owner_positions:
                 raise ValueError(f'work catalog correction contains duplicate link removals: {correction_id}')
             deferred_removed_link_ids.add(expected['link_id'])
             deferred_removed_owner_positions.add(owner_position)
             actual = initial_links[table].get(expected['link_id'])
             if actual is None:
                 if not allow_missing and initial_works.get(source_work_id) != target_work:
-                    raise ValueError(
-                        f'work catalog correction link removal source absent: {correction_id}'
-                    )
+                    raise ValueError(f'work catalog correction link removal source absent: {correction_id}')
             else:
                 partial_expected = copy.deepcopy(expected)
                 partial_expected['position'] = partial_removal_position(table, expected)
                 if actual not in (expected, partial_expected):
-                    raise ValueError(
-                        f'work catalog correction link removal source drift: {correction_id}'
-                    )
+                    raise ValueError(f'work catalog correction link removal source drift: {correction_id}')
             if expected.get('edition_id'):
                 edition = initial_editions.get(expected['edition_id'])
                 if (
@@ -2459,9 +2439,7 @@ def apply_catalog_corrections(catalog, manifest):
                     or edition.get('work_id') != source_work_id
                     or edition.get('canonical_url') != source_url
                 ):
-                    raise ValueError(
-                        f'work catalog correction link removal edition source drift: {correction_id}'
-                    )
+                    raise ValueError(f'work catalog correction link removal edition source drift: {correction_id}')
             removal_values = (table, expected, allow_missing, owner, source_url, correction_id)
             removed_links.append(removal_values[:-1])
             deferred_link_removals.append(removal_values)
@@ -2537,8 +2515,7 @@ def apply_catalog_corrections(catalog, manifest):
             )
             and all(link_update_applied(*values) for values in target_links)
             and all(
-                find_row(table, 'link_id', expected['link_id']) is None
-                for table, expected, _, _, _ in removed_links
+                find_row(table, 'link_id', expected['link_id']) is None for table, expected, _, _, _ in removed_links
             )
             and (
                 correction_type != 'quarantine_recommendation'
@@ -2679,11 +2656,7 @@ def apply_catalog_corrections(catalog, manifest):
     for table, owner in affected_link_owners:
         owner_fields = ('fetish_id',) if table == 'fetish_work_links' else ('id_a', 'id_b')
         owner_links = sorted(
-            (
-                row
-                for row in updated[table]
-                if tuple(int(row[field]) for field in owner_fields) == owner
-            ),
+            (row for row in updated[table] if tuple(int(row[field]) for field in owner_fields) == owner),
             key=lambda row: (int(row['position']), row['link_id']),
         )
         for position, link in enumerate(owner_links):

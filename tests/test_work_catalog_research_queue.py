@@ -33,11 +33,7 @@ def test_research_queue_has_46_unique_entries():
 def test_research_queue_matches_current_links_and_titles():
     queue = _load(QUEUE_PATH)
     catalog = _load(CATALOG_PATH)
-    links = {
-        _entry_key(row): row
-        for table in ('fetish_work_links', 'compound_work_links')
-        for row in catalog[table]
-    }
+    links = {_entry_key(row): row for table in ('fetish_work_links', 'compound_work_links') for row in catalog[table]}
     masters = {row['work_id']: row for row in catalog['works_master']}
 
     for entry in queue['entries']:

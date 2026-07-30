@@ -447,9 +447,7 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
         inline = [{'id': 1, 'name': 'owner', 'works': ['Before', 'Remove me', 'After']}]
         catalog = work_catalog.build_catalog_from_inline(inline)
         expected_work = next(row for row in catalog['works_master'] if row['canonical_title'] == 'Remove me')
-        expected_link = next(
-            row for row in catalog['fetish_work_links'] if row['work_id'] == expected_work['work_id']
-        )
+        expected_link = next(row for row in catalog['fetish_work_links'] if row['work_id'] == expected_work['work_id'])
         target_work = copy.deepcopy(expected_work)
         target_work['status'] = 'archived'
         removal = {'table': 'fetish_work_links', 'expected': copy.deepcopy(expected_link)}
@@ -493,11 +491,7 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
         self.assertEqual([row['position'] for row in owner_links], [0, 1])
         self.assertEqual(
             [
-                next(
-                    work['canonical_title']
-                    for work in corrected['works_master']
-                    if work['work_id'] == row['work_id']
-                )
+                next(work['canonical_title'] for work in corrected['works_master'] if work['work_id'] == row['work_id'])
                 for row in owner_links
             ],
             ['Before', 'After'],
@@ -619,16 +613,12 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
                     'target_work': archived,
                     **copy.deepcopy(empty_rows),
                     'link_updates': [],
-                    'link_removals': [
-                        {'table': 'compound_work_links', 'expected': remove_link, 'allow_missing': True}
-                    ],
+                    'link_removals': [{'table': 'compound_work_links', 'expected': remove_link, 'allow_missing': True}],
                 },
             ],
         }
 
-        forward = work_catalog.project_approved_inline_corrections(
-            [], compound_rows=compounds, corrections=manifest
-        )
+        forward = work_catalog.project_approved_inline_corrections([], compound_rows=compounds, corrections=manifest)
         self.assertEqual(forward['compound_rows'], {'1,2': ['Middle', 'New title']})
         forward_again = work_catalog.project_approved_inline_corrections(
             [], compound_rows=forward['compound_rows'], corrections=manifest
@@ -675,9 +665,7 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
                     'alias_additions': [],
                     'alias_removals': [],
                     'link_updates': [],
-                    'link_removals': [
-                        {'table': 'fetish_work_links', 'expected': expected_link, 'source_url': url}
-                    ],
+                    'link_removals': [{'table': 'fetish_work_links', 'expected': expected_link, 'source_url': url}],
                     'review_updates': [],
                 }
             ],
@@ -720,11 +708,7 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
         works_by_title = {row['canonical_title']: row for row in catalog['works_master']}
         links_by_owner_title = {}
         for link in catalog['fetish_work_links']:
-            title = next(
-                row['canonical_title']
-                for row in catalog['works_master']
-                if row['work_id'] == link['work_id']
-            )
+            title = next(row['canonical_title'] for row in catalog['works_master'] if row['work_id'] == link['work_id'])
             links_by_owner_title[(link['fetish_id'], title)] = link
 
         corrections = []
@@ -769,9 +753,7 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
             links_by_owner_title[(1, 'A')]['link_id'],
             links_by_owner_title[(2, 'Y')]['link_id'],
         }
-        partial['fetish_work_links'] = [
-            row for row in partial['fetish_work_links'] if row['link_id'] not in absent_ids
-        ]
+        partial['fetish_work_links'] = [row for row in partial['fetish_work_links'] if row['link_id'] not in absent_ids]
         for owner in (1, 2):
             owner_links = sorted(
                 (row for row in partial['fetish_work_links'] if row['fetish_id'] == owner),
@@ -790,9 +772,7 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
         )['context_label'] = 'drift'
         drift_cases.append(signature_drift)
         position_drift = copy.deepcopy(catalog)
-        owner_links = {
-            row['work_id']: row for row in position_drift['fetish_work_links'] if row['fetish_id'] == 1
-        }
+        owner_links = {row['work_id']: row for row in position_drift['fetish_work_links'] if row['fetish_id'] == 1}
         b_link = owner_links[works_by_title['B']['work_id']]
         c_link = owner_links[works_by_title['C']['work_id']]
         b_link['position'], c_link['position'] = c_link['position'], b_link['position']
