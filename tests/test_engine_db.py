@@ -947,7 +947,7 @@ class TestWorkCatalogInlineTransaction(unittest.TestCase):
         self.assertEqual(len(update_rows), 9)
         self.assertEqual(result['inline_applied_link_count'], 9)
         self.assertEqual(result['inline_fetish_owner_count'], 9)
-        self.assertEqual(result['inline_missing_count'], 1)
+        self.assertEqual(result['inline_missing_count'], 2)
         self.assertEqual(next(row for row in inline_fetishes if row['id'] == 104)['works'], player_works)
         self.assertIs(updated, catalog)
         replace_catalog.assert_called_once()

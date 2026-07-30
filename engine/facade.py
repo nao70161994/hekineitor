@@ -516,6 +516,7 @@ class Engine:
                     'split_count': sum(row.get('type') == 'split_misassigned_edition' for row in rows),
                     'retitle_count': sum(row.get('type') == 'retitle_identity' for row in rows),
                     'quarantine_count': sum(row.get('type') == 'quarantine_recommendation' for row in rows),
+                    'link_rebind_count': sum(row.get('type') == 'link_rebind' for row in rows),
                 }
             if operation == 'bibliography_apply_manifest':
                 updated, counts = engine_work_catalog.apply_bibliography_manifest(

@@ -784,6 +784,193 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
                     work_catalog.apply_catalog_corrections(drifted, manifest)
                 self.assertEqual(drifted, before)
 
+    def link_rebind_fixture(self):
+        old_title = '逃げるは恥だが役に立つ（漫画）'
+        canonical_title = '逃げるは恥だが役に立つ'
+        url = 'https://www.amazon.co.jp/dp/B00GWVP77W?tag=hekinator-22'
+        inline = [{'id': 107, 'name': 'owner', 'works': [{'title': old_title, 'url': url}]}]
+        catalog = work_catalog.build_catalog_from_inline(inline)
+        work = catalog['works_master'][0]
+        work.update(
+            canonical_title=canonical_title,
+            normalized_title=work_catalog.normalized_work_title(canonical_title),
+            media_type='manga',
+        )
+        alias = {
+            'alias_id': work_catalog._stable_id('wal', work['work_id'], work_catalog.normalized_work_title(old_title)),
+            'work_id': work['work_id'],
+            'alias': old_title,
+            'normalized_alias': work_catalog.normalized_work_title(old_title),
+        }
+        catalog['work_aliases'].append(alias)
+        expected_link = copy.deepcopy(catalog['fetish_work_links'][0])
+        target_link_id = work_catalog._stable_id(
+            'fwl',
+            expected_link['fetish_id'],
+            expected_link['work_id'],
+            expected_link['edition_id'],
+            alias['alias_id'],
+        )
+        manifest = {
+            'schema_version': 3,
+            'catalog_schema_version': 2,
+            'corrections': [
+                {
+                    'correction_id': 'wcc_optional_production_alias_rebind',
+                    'type': 'link_rebind',
+                    'expected_work': copy.deepcopy(work),
+                    'target_work': copy.deepcopy(work),
+                    'alias_references': [{'expected': copy.deepcopy(alias)}],
+                    'edition_updates': [],
+                    'edition_additions': [],
+                    'edition_removals': [],
+                    'alias_additions': [],
+                    'alias_removals': [],
+                    'link_updates': [
+                        {
+                            'table': 'fetish_work_links',
+                            'expected': copy.deepcopy(expected_link),
+                            'edition_id': expected_link['edition_id'],
+                            'alias_id': alias['alias_id'],
+                            'context_label': expected_link['context_label'],
+                            'source_url': url,
+                            'source_title': old_title,
+                            'allow_missing': True,
+                        }
+                    ],
+                    'link_removals': [],
+                    'review_updates': [],
+                }
+            ],
+        }
+        return inline, catalog, manifest, work, alias, expected_link, target_link_id
+
+    def test_v3_optional_production_link_rebind_is_locked_idempotent_and_parity_neutral(self):
+        inline, catalog, manifest, work, alias, expected_link, target_link_id = self.link_rebind_fixture()
+        original = copy.deepcopy(catalog)
+
+        corrected = work_catalog.apply_catalog_corrections(catalog, manifest)
+
+        self.assertEqual(catalog, original)
+        self.assertEqual(
+            next(row for row in corrected['works_master'] if row['work_id'] == work['work_id']),
+            work,
+        )
+        rebound = next(row for row in corrected['fetish_work_links'] if row['link_id'] == target_link_id)
+        self.assertEqual(rebound['alias_id'], alias['alias_id'])
+        self.assertEqual(rebound['edition_id'], expected_link['edition_id'])
+        self.assertNotIn(expected_link['link_id'], {row['link_id'] for row in corrected['fetish_work_links']})
+        self.assertEqual(work_catalog.apply_catalog_corrections(corrected, manifest), corrected)
+        materialized = work_catalog.materialize_fetish_works(corrected)
+        self.assertEqual(materialized[107][0]['title'], alias['alias'])
+        self.assertEqual(materialized[107][0]['url'], manifest['corrections'][0]['link_updates'][0]['source_url'])
+
+        seed = copy.deepcopy(catalog)
+        seed['fetish_work_links'] = []
+        seed['work_editions'] = []
+        self.assertEqual(work_catalog.apply_catalog_corrections(seed, manifest), seed)
+
+        forward = work_catalog.project_approved_inline_corrections(inline, corrections=manifest)
+        self.assertEqual(forward['fetishes'], inline)
+        reverse = work_catalog.project_approved_inline_corrections(
+            forward['fetishes'], corrections=manifest, direction='reverse'
+        )
+        self.assertEqual(reverse['fetishes'], inline)
+
+    def test_v3_optional_production_link_rebind_rejects_all_source_drift(self):
+        inline, catalog, manifest, work, alias, expected_link, target_link_id = self.link_rebind_fixture()
+        cases = []
+
+        work_drift = copy.deepcopy(catalog)
+        next(row for row in work_drift['works_master'] if row['work_id'] == work['work_id'])['media_type'] = 'novel'
+        cases.append((work_drift, 'source drift'))
+        alias_drift = copy.deepcopy(catalog)
+        alias_row = next(row for row in alias_drift['work_aliases'] if row['alias_id'] == alias['alias_id'])
+        alias_row.update(alias='different', normalized_alias='different')
+        cases.append((alias_drift, 'source drift'))
+        link_drift = copy.deepcopy(catalog)
+        next(row for row in link_drift['fetish_work_links'] if row['link_id'] == expected_link['link_id'])[
+            'context_label'
+        ] = 'drift'
+        cases.append((link_drift, 'source drift'))
+        url_drift = copy.deepcopy(catalog)
+        edition = next(row for row in url_drift['work_editions'] if row['edition_id'] == expected_link['edition_id'])
+        edition.update(
+            asin='B000000000',
+            canonical_url='https://www.amazon.co.jp/dp/B000000000?tag=hekinator-22',
+        )
+        cases.append((url_drift, 'edition source drift'))
+        moved = copy.deepcopy(catalog)
+        moved_link = next(row for row in moved['fetish_work_links'] if row['link_id'] == expected_link['link_id'])
+        moved_link.update(
+            fetish_id=108,
+            link_id=work_catalog._stable_id(
+                'fwl',
+                108,
+                expected_link['work_id'],
+                expected_link['edition_id'],
+                None,
+            ),
+        )
+        cases.append((moved, 'source moved'))
+
+        for drifted, message in cases:
+            with self.subTest(message=message):
+                before = copy.deepcopy(drifted)
+                with self.assertRaisesRegex(ValueError, message):
+                    work_catalog.apply_catalog_corrections(drifted, manifest)
+                self.assertEqual(drifted, before)
+
+        applied = work_catalog.apply_catalog_corrections(catalog, manifest)
+        applied_alias_drift = copy.deepcopy(applied)
+        next(row for row in applied_alias_drift['work_aliases'] if row['alias_id'] == alias['alias_id']).update(
+            alias='different', normalized_alias='different'
+        )
+        with self.assertRaisesRegex(ValueError, 'source drift'):
+            work_catalog.apply_catalog_corrections(applied_alias_drift, manifest)
+
+        inline_drift = copy.deepcopy(inline)
+        inline_drift[0]['works'][0]['title'] = 'different'
+        with self.assertRaisesRegex(ValueError, 'source_signature_drift'):
+            work_catalog.project_approved_inline_corrections(inline_drift, corrections=manifest)
+
+        invalid_url = copy.deepcopy(manifest)
+        invalid_url['corrections'][0]['link_updates'][0]['source_url'] = (
+            'https://www.amazon.co.jp/dp/B000000000?tag=hekinator-22'
+        )
+        with self.assertRaisesRegex(ValueError, 'edition source drift'):
+            work_catalog.apply_catalog_corrections(catalog, invalid_url)
+        invalid_alias = copy.deepcopy(manifest)
+        invalid_alias['corrections'][0]['alias_references'][0]['expected']['unexpected'] = True
+        with self.assertRaisesRegex(ValueError, 'invalid alias reference'):
+            work_catalog.apply_catalog_corrections(catalog, invalid_alias)
+        with self.assertRaisesRegex(ValueError, 'invalid link rebind projection'):
+            work_catalog.project_approved_inline_corrections(inline, corrections=invalid_alias)
+
+        partial_duplicate = copy.deepcopy(applied)
+        duplicate_source = copy.deepcopy(expected_link)
+        duplicate_source['position'] = 1
+        partial_duplicate['fetish_work_links'].append(duplicate_source)
+        with self.assertRaisesRegex(ValueError, 'link rebind source remains'):
+            work_catalog.apply_catalog_corrections(partial_duplicate, manifest)
+
+        for schema_version, correction_type in ((3, 'retitle_identity'), (2, 'retitle_identity')):
+            invalid_source_fields = copy.deepcopy(manifest)
+            invalid_source_fields['schema_version'] = schema_version
+            invalid_source_fields['corrections'][0]['type'] = correction_type
+            invalid_source_fields['corrections'][0].pop('alias_references')
+            invalid_source_fields['corrections'][0].pop('link_removals')
+            with self.subTest(schema_version=schema_version, correction_type=correction_type):
+                with self.assertRaisesRegex(ValueError, 'invalid link_updates'):
+                    work_catalog.apply_catalog_corrections(catalog, invalid_source_fields)
+                with self.assertRaisesRegex(ValueError, 'invalid link_updates'):
+                    work_catalog.project_approved_inline_corrections(inline, corrections=invalid_source_fields)
+
+        invalid_link = copy.deepcopy(manifest)
+        invalid_link['corrections'][0]['link_updates'][0]['expected']['position'] = 999
+        with self.assertRaisesRegex(ValueError, 'source drift'):
+            work_catalog.apply_catalog_corrections(catalog, invalid_link)
+
     def test_v3_quarantine_manifest_schema_is_strict(self):
         _, catalog, manifest, _, _ = self.quarantine_fixture()
         invalid_manifests = []

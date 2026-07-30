@@ -60,9 +60,10 @@ ASINはAmazon直商品ページと照合できた場合だけ登録します。�
 
 ## Applied correction manifest
 
-`data/work_catalog_corrections.json`はschema v3、15件（split 1、retitle 7、quarantine 7）です。canonical SHA-256は`ff1740f02ab7961866e0c193ce250e421e6fd623345835755154b188c5145167`です。checked seedはmaster 325、edition 252、edition identifier 14、alias 158、fetish link 373、compound link 179、review 74、pending 0で、根拠不足7作品を`archived`として保持しつつ公開linkだけを除去しています。
+`data/work_catalog_corrections.json`はschema v3、16件（split 1、retitle 7、quarantine 7、link rebind 1）です。canonical SHA-256は`6e5880216de2cb67bd434dd9e2a440e0acdfc62b7ed674de6f399bdd4f86b665`です。checked seedはmaster 325、edition 252、edition identifier 14、alias 158、fetish link 373、compound link 179、review 74、pending 0で、根拠不足7作品を`archived`として保持しつつ公開linkだけを除去しています。
 
 quarantineはsource work/linkの全field、owner、position、edition URLを固定し、削除後のowner positionを連番化します。inline projectionはforwardでupdate後にremove、reverseでremove復元後にupdateし、同一manifest内の削除から算出した最終positionだけを許容します。`allow_missing`は既適用の不在だけを許容し、同signatureの別owner・別position移動は拒否します。catalog更新・inline同期・逆projectionはいずれもatomic、冪等、fail-closedです。既存のreview timestamp互換とplayer-added owner 104の保護も維持します。
+16件目は本番で追加された性癖owner 107の推薦だけを対象にするoptionalな`link_rebind`です。作品・版・owner・position・旧link ID・旧aliasなし・表示title・URLをすべて固定し、既存alias `逃げるは恥だが役に立つ（漫画）`へ接続します。canonical titleは短い正式名のまま、inlineの表示titleとURLは変えません。checked seedでは対象linkが存在しないため`allow_missing=true`のno-opです。
 
 ## Applied bibliography manifest
 

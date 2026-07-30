@@ -6,7 +6,6 @@ import pytest
 
 from engine import work_catalog
 from scripts.build_work_catalog import build_catalog
-from work_utils import work_title
 
 ROOT = Path(__file__).resolve().parents[1]
 PLACEHOLDERS = {'作品X', '作品Y', '作品Z', 'おれたち○○のいいやつ'}
@@ -206,35 +205,15 @@ def test_checked_in_seed_has_only_verified_safe_normalizations():
         ]
         assert matching_links, expected['display_title']
         assert all(row['context_label'] == expected['context_label'] for row in matching_links)
-    corrected_fetish_titles = {}
-    corrected_compound_titles = {}
-    for correction in corrections['corrections']:
-        added_aliases = {
-            row['target']['alias_id']: row['target']['alias'] for row in correction.get('alias_additions', [])
-        }
-        for update in correction.get('link_updates', []):
-            title = added_aliases.get(update.get('alias_id'), correction['target_work']['canonical_title'])
-            expected_link = update['expected']
-            if update['table'] == 'fetish_work_links':
-                corrected_fetish_titles[(expected_link['fetish_id'], expected_link['position'])] = title
-            else:
-                key = f'{expected_link["id_a"]},{expected_link["id_b"]}'
-                corrected_compound_titles[(key, expected_link['position'])] = title
-
     fetish_source = json.loads((ROOT / 'data/fetishes.json').read_text(encoding='utf-8'))
-    materialized_fetishes = work_catalog.materialize_fetish_works(catalog)
-    materialized_compounds = work_catalog.materialize_compound_works(catalog)
-    for fetish in fetish_source:
-        expected_titles = [
-            corrected_fetish_titles.get((fetish['id'], position), work_title(row))
-            for position, row in enumerate(fetish.get('works', []))
-        ]
-        assert [row['title'] for row in materialized_fetishes.get(fetish['id'], [])] == expected_titles
-    for key, works in compound_source.items():
-        expected_titles = [
-            corrected_compound_titles.get((key, position), work_title(row)) for position, row in enumerate(works)
-        ]
-        assert [row['title'] for row in materialized_compounds.get(key, [])] == expected_titles
+    approved = work_catalog.approved_projection_parity_report(
+        catalog,
+        fetish_source,
+        compound_rows=compound_source,
+        corrections=corrections,
+    )
+    assert approved['approved_projection_ok'] is True
+    assert approved['approved_mismatch_count'] == 0
 
     canonical_titles = {row['canonical_title'] for row in masters.values()}
     assert '現実で30歳独身・無職、仮想現実でリア充（参考）' in canonical_titles

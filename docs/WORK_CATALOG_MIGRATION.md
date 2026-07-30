@@ -38,9 +38,10 @@ manifestは全件を一つのtransaction/journalで適用します。同一manif
 
 この操作もDBではcatalog lock内の一transaction、localでは一つのmutation journalで適用されます。displayの欠落・複数work一致、canonical衝突、削除後の参照残りはfail-closedです。成功時は`normalized_title_count=46`、初回のみ`removed_work_count=4`を確認し、監査ログの`manifest_sha256=e960ed79e1f77c0af61275d536f311b3d8c3b93b563bf522e55b0ed4dbde32c3`を照合します。再適用は`removed_work_count=0`のno-opとなり、digestも変化しません。
 
-`data/work_catalog_corrections.json`はschema v3、15件（split 1、retitle 7、quarantine 7）です。canonical SHA-256は`ff1740f02ab7961866e0c193ce250e421e6fd623345835755154b188c5145167`です。既存P0訂正に加え、正式identityを確認した2作品、講談社版へ置換した`逃げるは恥だが役に立つ`、根拠不足7作品の公開link除去を一つのinput-locked manifestで扱います。quarantine workは同一IDのまま`archived`にし、master/editionを監査用に保持します。
+`data/work_catalog_corrections.json`はschema v3、16件（split 1、retitle 7、quarantine 7、link rebind 1）です。canonical SHA-256は`6e5880216de2cb67bd434dd9e2a440e0acdfc62b7ed674de6f399bdd4f86b665`です。既存P0訂正に加え、正式identityを確認した2作品、講談社版へ置換した`逃げるは恥だが役に立つ`、根拠不足7作品の公開link除去を一つのinput-locked manifestで扱います。quarantine workは同一IDのまま`archived`にし、master/editionを監査用に保持します。
 
 link removalはsource row全fieldと、edition付きの場合は`source_url`も固定します。forwardはlink update後にremove、reverseはremove復元後にupdateし、同manifestの削除から計算した最終positionだけを冪等状態として許容します。既適用inlineの不在は明示`allow_missing`かつ同signatureが他ownerへ移動していない場合だけskipします。`review_queue.updated_at`の既知UTC instant互換、player-added owner 104の保護、部分rollout時のresolved review fingerprint検証は従来どおりです。
+`link_rebind`は本番で追加された性癖owner 107の推薦に限定し、旧link ID、作品、版、owner、position、aliasなし、表示title、URLをinput lockします。既存の表示aliasへ付け替えるだけなのでcanonical titleは正式名のまま、inline titleとURLも不変です。checked seedには対象linkがなく、`allow_missing=true`によりno-opになります。
 
 ```json
 {
@@ -53,7 +54,7 @@ link removalはsource row全fieldと、edition付きの場合は`source_url`も�
 }
 ```
 
-成功時は`correction_count=15`、`split_count=1`、`retitle_count=7`、`quarantine_count=7`、4つの`inline_*_count`、監査fingerprint `ff1740f02ab7961866e0c193ce250e421e6fd623345835755154b188c5145167`を照合します。DBではcatalog訂正と対象`fetishes.works`を同一transactionへ含めます。review queueが全件解決済みで、現行correction manifestのsource lockに完全適合するcatalogでは、旧review段階をskipします。skip前には明示的な`review_updates.target`だけを検証用copyで`expected`へ戻し、review manifestの再適用が完全no-opであることに加え、UTC instant正規化後の全resolved row fingerprintを照合します。74件版は`97a4405d95af9031ae5fa4f275272f7e559037f520a73a5ba48609cb96aab217`、旧79件版は`9fdb1d44dfb930eb91dd1a679dddbd95116d9058748aa48ca0bdd841e6e2e215`です。これにより既存訂正の適用後に新しい訂正を追加した部分状態でも、旧reviewで訂正内容を上書きせず、seed cleanup、既存訂正の冪等確認、新規訂正、inline同期を順に実行します。source lock、review意味、titles/ASIN/version/timestampを含むrow fingerprintのいずれかが不適合ならfail-closedで停止します。
+成功時は`correction_count=16`、`split_count=1`、`retitle_count=7`、`quarantine_count=7`、`link_rebind_count=1`、4つの`inline_*_count`、監査fingerprint `6e5880216de2cb67bd434dd9e2a440e0acdfc62b7ed674de6f399bdd4f86b665`を照合します。DBではcatalog訂正と対象`fetishes.works`を同一transactionへ含めます。review queueが全件解決済みで、現行correction manifestのsource lockに完全適合するcatalogでは、旧review段階をskipします。skip前には明示的な`review_updates.target`だけを検証用copyで`expected`へ戻し、review manifestの再適用が完全no-opであることに加え、UTC instant正規化後の全resolved row fingerprintを照合します。74件版は`97a4405d95af9031ae5fa4f275272f7e559037f520a73a5ba48609cb96aab217`、旧79件版は`9fdb1d44dfb930eb91dd1a679dddbd95116d9058748aa48ca0bdd841e6e2e215`です。これにより既存訂正の適用後に新しい訂正を追加した部分状態でも、旧reviewで訂正内容を上書きせず、seed cleanup、既存訂正の冪等確認、新規訂正、inline同期を順に実行します。source lock、review意味、titles/ASIN/version/timestampを含むrow fingerprintのいずれかが不適合ならfail-closedで停止します。
 
 healthは2種類のparityを混同しません。`approved_projection_ok` / `approved_mismatch_count`はcorrection manifestで固定されたowner・position・旧title/URLを新title/URLへ厳密投影した期待値との比較です。`automated_parity_ok` / `mismatch_count`は同期済みinlineとのraw比較であり、実際のlegacy fallback同値性とinline廃止可否を判定します。旧signatureの別position・別ownerへの移動、owner・件数・順序・URLの差、未承認titleはfail-closedです。`allow_missing`は真偽値だけを許可し、旧sourceが全ownerから不存在の場合だけno-opにします。
 

@@ -662,7 +662,7 @@ class WorkCatalogMigrationTests(unittest.TestCase):
         self.assertTrue(approved['approved_projection_ok'])
         self.assertEqual(approved['approved_mismatch_count'], 0)
         self.assertEqual(approved['approved_projection_applied_count'], 17)
-        self.assertEqual(approved['approved_projection_missing_count'], 1)
+        self.assertEqual(approved['approved_projection_missing_count'], 2)
 
     def test_approved_projection_rejects_unapproved_signature_and_shape_drift(self):
         catalog, fetishes, compounds, corrections = self._production_correction_projection_fixture()

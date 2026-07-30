@@ -582,6 +582,7 @@ _CORRECTION_ALLOWED_FIELDS = frozenset(
         'edition_additions',
         'edition_removals',
         'alias_additions',
+        'alias_references',
         'alias_removals',
         'link_updates',
         'link_removals',
@@ -593,6 +594,7 @@ _CORRECTION_EXACT_WRAPPER_FIELDS = {
     'edition_additions': frozenset({'target', 'identifiers'}),
     'edition_removals': frozenset({'expected', 'expected_identifiers'}),
     'alias_additions': frozenset({'target'}),
+    'alias_references': frozenset({'expected'}),
     'review_updates': frozenset({'expected', 'target', 'accepted_source_updated_at'}),
 }
 _CORRECTION_OPTIONAL_WRAPPER_FIELDS = {
@@ -601,7 +603,18 @@ _CORRECTION_OPTIONAL_WRAPPER_FIELDS = {
         frozenset({'expected'}),
     ),
     'link_updates': (
-        frozenset({'table', 'expected', 'edition_id', 'alias_id', 'context_label', 'allow_missing'}),
+        frozenset(
+            {
+                'table',
+                'expected',
+                'edition_id',
+                'alias_id',
+                'context_label',
+                'source_url',
+                'source_title',
+                'allow_missing',
+            }
+        ),
         frozenset({'table', 'expected'}),
     ),
     'link_removals': (
@@ -610,7 +623,7 @@ _CORRECTION_OPTIONAL_WRAPPER_FIELDS = {
     ),
 }
 _CORRECTION_V2_FIELDS = frozenset({'edition_additions', 'edition_removals', 'alias_additions'})
-_CORRECTION_V3_FIELDS = frozenset({'link_removals'})
+_CORRECTION_V3_FIELDS = frozenset({'alias_references', 'link_removals'})
 
 
 def _validate_correction_manifest_fields(corrections, schema_version):
@@ -638,6 +651,10 @@ def _validate_correction_manifest_fields(corrections, schema_version):
             for wrapper in correction.get(field, []):
                 if not required <= set(wrapper) <= allowed:
                     raise ValueError(f'work catalog correction has invalid {field}: {correction_id}')
+        if any({'source_url', 'source_title'} & set(wrapper) for wrapper in correction.get('link_updates', [])) and (
+            schema_version != 3 or correction.get('type') != 'link_rebind'
+        ):
+            raise ValueError(f'work catalog correction has invalid link_updates: {correction_id}')
 
 
 def _correction_final_link_position(corrections, table, expected):
@@ -716,6 +733,51 @@ def project_approved_inline_corrections(
         ):
             raise ValueError(
                 f'work catalog correction has invalid quarantine projection: {correction.get("correction_id", "")}'
+            )
+    for correction in correction_rows:
+        if correction.get('type') != 'link_rebind':
+            continue
+        expected_work = correction.get('expected_work')
+        alias_reference_rows = correction.get('alias_references') or []
+
+        def valid_alias_reference(reference):
+            if not isinstance(reference, dict) or not isinstance(reference.get('expected'), dict):
+                return False
+            expected = reference['expected']
+            alias = str(expected.get('alias') or '').strip()
+            normalized_alias = normalized_work_title(alias)
+            return bool(alias) and expected == {
+                'alias_id': _stable_id('wal', expected_work.get('work_id'), normalized_alias),
+                'work_id': expected_work.get('work_id'),
+                'alias': alias,
+                'normalized_alias': normalized_alias,
+            }
+
+        valid_alias_references = (
+            all(valid_alias_reference(reference) for reference in alias_reference_rows)
+            if isinstance(expected_work, dict)
+            else False
+        )
+        forbidden_rows = (
+            'edition_updates',
+            'edition_additions',
+            'edition_removals',
+            'alias_additions',
+            'alias_removals',
+            'link_removals',
+            'review_updates',
+        )
+        if (
+            schema_version != 3
+            or not isinstance(expected_work, dict)
+            or correction.get('target_work') != expected_work
+            or not alias_reference_rows
+            or not valid_alias_references
+            or not correction.get('link_updates')
+            or any(correction.get(field) for field in forbidden_rows)
+        ):
+            raise ValueError(
+                f'work catalog correction has invalid link rebind projection: {correction.get("correction_id", "")}'
             )
 
     projected_fetishes = copy.deepcopy(fetishes)
@@ -803,6 +865,13 @@ def project_approved_inline_corrections(
                 if isinstance(row, dict) and isinstance(row.get('target'), dict)
             }
         )
+        aliases.update(
+            {
+                row.get('expected', {}).get('alias_id'): row.get('expected', {})
+                for row in correction.get('alias_references') or []
+                if isinstance(row, dict) and isinstance(row.get('expected'), dict)
+            }
+        )
         return aliases
 
     def source_editions(correction):
@@ -835,7 +904,7 @@ def project_approved_inline_corrections(
         )
         return editions
 
-    def signature(correction, link, *, target, source_url=None):
+    def signature(correction, link, *, target, source_url=None, source_title=None):
         work = correction.get('target_work') if target else correction.get('expected_work')
         if not isinstance(work, dict) or not str(work.get('canonical_title') or '').strip():
             raise ValueError('missing work title')
@@ -848,6 +917,8 @@ def project_approved_inline_corrections(
             title = str(alias['alias']).strip()
         else:
             title = str(work['canonical_title']).strip()
+        if not target and source_title is not None:
+            title = source_title
         edition_id = link.get('edition_id') if target else link.get('expected', {}).get('edition_id')
         if edition_id:
             if source_url is not None:
@@ -882,7 +953,15 @@ def project_approved_inline_corrections(
                 projection_errors.append({'correction_id': correction_id, 'reason': 'invalid_allow_missing'})
                 continue
             allow_missing = allow_missing_value
-            if not isinstance(expected, dict):
+            source_url_present = 'source_url' in update
+            source_url = safe_work_url(update.get('source_url')) if source_url_present else None
+            source_title_present = 'source_title' in update
+            source_title = str(update.get('source_title') or '').strip() if source_title_present else None
+            if (
+                not isinstance(expected, dict)
+                or (source_url_present and (not expected.get('edition_id') or source_url != update.get('source_url')))
+                or (source_title_present and (not source_title or len(source_title) > 200))
+            ):
                 projection_errors.append({'correction_id': correction_id, 'reason': 'invalid_link_update'})
                 continue
             try:
@@ -901,8 +980,21 @@ def project_approved_inline_corrections(
                 if owner_key in seen_targets:
                     raise ValueError('duplicate owner position')
                 seen_targets.add(owner_key)
-                source_signature = signature(correction, update, target=False)
-                target_signature = signature(correction, update, target=True)
+                source_signature = signature(
+                    correction,
+                    update,
+                    target=False,
+                    source_url=source_url,
+                    source_title=source_title,
+                )
+                target_signature = signature(
+                    correction,
+                    update,
+                    target=True,
+                    source_url=source_url,
+                )
+                if correction.get('type') == 'link_rebind' and source_signature != target_signature:
+                    raise ValueError('link rebind changes inline signature')
                 expected_signature, replacement_signature = (
                     (source_signature, target_signature)
                     if direction == 'forward'
@@ -927,6 +1019,7 @@ def project_approved_inline_corrections(
                     expected_signature,
                     replacement_signature,
                     allow_missing,
+                    (source_title, source_url) if correction.get('type') == 'link_rebind' else None,
                 )
             )
 
@@ -944,6 +1037,7 @@ def project_approved_inline_corrections(
                 expected_signature,
                 replacement_signature,
                 allow_missing,
+                strict_source_components,
             ) = update_projection
             works = owner.get('works') if isinstance(owner, dict) else None
             replacement_positions = (
@@ -1009,7 +1103,22 @@ def project_approved_inline_corrections(
             elif actual_signature == replacement_signature:
                 continue
             elif allow_missing:
-                if missing_is_approved(correction_id, owner_key, owner_id, position, expected_signature):
+                if strict_source_components and (
+                    actual_signature[0] == strict_source_components[0]
+                    or actual_signature[1] == strict_source_components[1]
+                ):
+                    projection_errors.append(
+                        {
+                            'correction_id': correction_id,
+                            'source': owner_key[0],
+                            'owner_id': owner_id,
+                            'position': position,
+                            'reason': 'source_signature_drift',
+                            'expected': expected_signature,
+                            'actual': actual_signature,
+                        }
+                    )
+                elif missing_is_approved(correction_id, owner_key, owner_id, position, expected_signature):
                     missing_count += 1
             else:
                 projection_errors.append(
@@ -2178,6 +2287,7 @@ def apply_catalog_corrections(catalog, manifest):
             'split_misassigned_edition',
             'retitle_identity',
             'quarantine_recommendation',
+            'link_rebind',
         }:
             raise ValueError(f'work catalog correction has unsupported type: {correction_id}')
         expected_work = correction.get('expected_work')
@@ -2214,6 +2324,7 @@ def apply_catalog_corrections(catalog, manifest):
         edition_additions = correction.get('edition_additions', [])
         edition_removals = correction.get('edition_removals', [])
         alias_additions = correction.get('alias_additions', [])
+        alias_references = correction.get('alias_references', [])
         alias_removals = correction.get('alias_removals', [])
         link_updates = correction.get('link_updates', [])
         link_removals = correction.get('link_removals', [])
@@ -2224,6 +2335,7 @@ def apply_catalog_corrections(catalog, manifest):
             for rows in (
                 edition_updates,
                 *extended_rows,
+                alias_references,
                 alias_removals,
                 link_updates,
                 link_removals,
@@ -2240,6 +2352,7 @@ def apply_catalog_corrections(catalog, manifest):
                     edition_additions,
                     edition_removals,
                     alias_additions,
+                    alias_references,
                     alias_removals,
                     link_updates,
                     review_updates,
@@ -2247,6 +2360,24 @@ def apply_catalog_corrections(catalog, manifest):
             )
         ):
             raise ValueError(f'work catalog correction quarantine must only remove links: {correction_id}')
+        if correction_type == 'link_rebind' and (
+            schema_version != 3
+            or expected_work != target_work
+            or not alias_references
+            or not link_updates
+            or any(
+                (
+                    edition_updates,
+                    edition_additions,
+                    edition_removals,
+                    alias_additions,
+                    alias_removals,
+                    link_removals,
+                    review_updates,
+                )
+            )
+        ):
+            raise ValueError(f'work catalog correction has invalid link rebind: {correction_id}')
 
         if correction_type == 'split_misassigned_edition':
             if len(edition_updates) != 1:
@@ -2337,6 +2468,26 @@ def apply_catalog_corrections(catalog, manifest):
                 raise ValueError(f'work catalog correction has non-deterministic alias addition: {correction_id}')
             added_aliases.append(copy.deepcopy(target))
 
+        referenced_aliases = []
+        for reference in alias_references:
+            expected = reference.get('expected')
+            if not isinstance(expected, dict) or expected.get('work_id') != source_work_id:
+                raise ValueError(f'work catalog correction has invalid alias reference: {correction_id}')
+            alias = str(expected.get('alias') or '').strip()
+            normalized_alias = normalized_work_title(alias)
+            canonical_expected = {
+                'alias_id': _stable_id('wal', source_work_id, normalized_alias),
+                'work_id': source_work_id,
+                'alias': alias,
+                'normalized_alias': normalized_alias,
+            }
+            if not alias or expected != canonical_expected:
+                raise ValueError(f'work catalog correction has invalid alias reference: {correction_id}')
+            referenced_aliases.append(copy.deepcopy(expected))
+        referenced_alias_ids = [row['alias_id'] for row in referenced_aliases]
+        if len(referenced_alias_ids) != len(set(referenced_alias_ids)):
+            raise ValueError(f'work catalog correction has duplicate alias references: {correction_id}')
+
         removed_editions = []
         for removal in edition_removals:
             expected = removal.get('expected')
@@ -2364,14 +2515,24 @@ def apply_catalog_corrections(catalog, manifest):
             removed_editions.append((expected, expected_identifiers))
 
         target_links = []
+        referenced_aliases_by_id = {row['alias_id']: row for row in referenced_aliases}
         for link_update in link_updates:
             table = str(link_update.get('table') or '')
             expected = link_update.get('expected')
             allow_missing = link_update.get('allow_missing', False)
+            source_url_present = 'source_url' in link_update
+            source_url = safe_work_url(link_update.get('source_url')) if source_url_present else None
+            source_title_present = 'source_title' in link_update
+            source_title = str(link_update.get('source_title') or '').strip() if source_title_present else None
             if (
                 table not in {'fetish_work_links', 'compound_work_links'}
                 or not isinstance(expected, dict)
                 or type(allow_missing) is not bool
+                or (
+                    source_url_present
+                    and (not expected.get('edition_id') or source_url != link_update.get('source_url'))
+                )
+                or (source_title_present and (not source_title or len(source_title) > 200))
             ):
                 raise ValueError(f'work catalog correction has invalid link update: {correction_id}')
             if expected.get('work_id') != source_work_id:
@@ -2384,6 +2545,72 @@ def apply_catalog_corrections(catalog, manifest):
                 link_update.get('alias_id'),
                 str(link_update.get('context_label') or ''),
             )
+            if correction_type == 'link_rebind':
+                owner_fields = ('fetish_id',) if table == 'fetish_work_links' else ('id_a', 'id_b')
+                expected_fields = {
+                    'link_id',
+                    *owner_fields,
+                    'work_id',
+                    'edition_id',
+                    'alias_id',
+                    'position',
+                    'context_label',
+                    'recommendation_reason',
+                }
+                prefix = 'fwl' if table == 'fetish_work_links' else 'cwl'
+                deterministic_source_id = _stable_id(
+                    prefix,
+                    *[int(expected.get(field, -1)) for field in owner_fields],
+                    expected.get('work_id'),
+                    expected.get('edition_id'),
+                    expected.get('alias_id'),
+                )
+                target_alias = referenced_aliases_by_id.get(target.get('alias_id'))
+                if (
+                    set(expected) != expected_fields
+                    or not isinstance(expected.get('position'), int)
+                    or isinstance(expected.get('position'), bool)
+                    or expected.get('position', -1) < 0
+                    or expected.get('link_id') != deterministic_source_id
+                    or expected.get('alias_id') is not None
+                    or target.get('work_id') != expected.get('work_id')
+                    or target.get('edition_id') != expected.get('edition_id')
+                    or target.get('context_label') != expected.get('context_label')
+                    or target.get('recommendation_reason') != expected.get('recommendation_reason')
+                    or not source_title_present
+                    or target_alias is None
+                    or source_title != target_alias['alias']
+                    or bool(expected.get('edition_id')) != source_url_present
+                ):
+                    raise ValueError(f'work catalog correction has invalid link rebind update: {correction_id}')
+                source_row = initial_links[table].get(expected['link_id'])
+                target_row = initial_links[table].get(target['link_id'])
+                if source_row is not None and target_row is not None:
+                    raise ValueError(f'work catalog correction link rebind source remains: {correction_id}')
+                if source_row is None and target_row is None:
+                    signature_fields = (
+                        'work_id',
+                        'edition_id',
+                        'context_label',
+                        'recommendation_reason',
+                    )
+                    moved = [
+                        row
+                        for candidate_table in ('fetish_work_links', 'compound_work_links')
+                        for row in initial_links[candidate_table].values()
+                        if all(row.get(field) == expected.get(field) for field in signature_fields)
+                        and row.get('alias_id') in {expected.get('alias_id'), target.get('alias_id')}
+                    ]
+                    if moved:
+                        raise ValueError(f'work catalog correction link rebind source moved: {correction_id}')
+                if source_row is not None or target_row is not None:
+                    edition = initial_editions.get(expected.get('edition_id'))
+                    if (
+                        edition is None
+                        or edition.get('work_id') != source_work_id
+                        or edition.get('canonical_url') != source_url
+                    ):
+                        raise ValueError(f'work catalog correction link rebind edition source drift: {correction_id}')
             target_links.append((table, expected, target, allow_missing))
 
         removed_links = []
@@ -2482,6 +2709,9 @@ def apply_catalog_corrections(catalog, manifest):
         if not all(removed_alias_ids) or len(removed_alias_ids) != len(set(removed_alias_ids)):
             raise ValueError(f'work catalog correction contains invalid alias removals: {correction_id}')
 
+        for expected in referenced_aliases:
+            require_exact('work_aliases', 'alias_id', expected, correction_id)
+
         def link_update_applied(table, expected, target, allow_missing):
             target_row = find_row(table, 'link_id', target['link_id'])
             final_target = copy.deepcopy(target)
@@ -2499,6 +2729,10 @@ def apply_catalog_corrections(catalog, manifest):
                 find_row('work_editions', 'edition_id', target['edition_id']) == target for target, _ in added_editions
             )
             and all(find_row('work_aliases', 'alias_id', target['alias_id']) == target for target in added_aliases)
+            and all(
+                find_row('work_aliases', 'alias_id', expected['alias_id']) == expected
+                for expected in referenced_aliases
+            )
             and all(
                 find_row('work_edition_identifiers', 'identifier_id', identifier['identifier_id']) == identifier
                 for _, identifiers in added_editions

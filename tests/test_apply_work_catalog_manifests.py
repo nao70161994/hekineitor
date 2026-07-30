@@ -108,6 +108,7 @@ class FakeClient:
                 'split_count': sum(row.get('type') == 'split_misassigned_edition' for row in rows),
                 'retitle_count': sum(row.get('type') == 'retitle_identity' for row in rows),
                 'quarantine_count': sum(row.get('type') == 'quarantine_recommendation' for row in rows),
+                'link_rebind_count': sum(row.get('type') == 'link_rebind' for row in rows),
                 'inline_applied_link_count': 0,
                 'inline_fetish_owner_count': 0,
                 'inline_compound_owner_count': 0,
@@ -386,7 +387,7 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
     def test_resolved_reviews_skip_when_new_correction_is_partially_pending(self):
         corrections = json.loads((self.root / 'data/work_catalog_corrections.json').read_text(encoding='utf-8'))
         previous_manifest = copy.deepcopy(corrections)
-        previous_manifest['corrections'] = previous_manifest['corrections'][:-1]
+        previous_manifest['corrections'] = previous_manifest['corrections'][:-2]
         partially_corrected = work_catalog.apply_catalog_corrections(self.catalog, previous_manifest)
         partially_corrected = work_catalog.apply_bibliography_manifest(partially_corrected, self.bibliography)[0]
         fake = FakeClient(partially_corrected)

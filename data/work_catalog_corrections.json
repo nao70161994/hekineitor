@@ -868,6 +868,55 @@
           "allow_missing": true
         }
       ]
+    },
+    {
+      "correction_id": "rebind-player-added-escape-display-alias",
+      "type": "link_rebind",
+      "expected_work": {
+        "work_id": "wrk_0d91216489ad97581ebd",
+        "canonical_title": "逃げるは恥だが役に立つ",
+        "normalized_title": "逃げるは恥だが役に立つ",
+        "media_type": "manga",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_0d91216489ad97581ebd",
+        "canonical_title": "逃げるは恥だが役に立つ",
+        "normalized_title": "逃げるは恥だが役に立つ",
+        "media_type": "manga",
+        "status": "active"
+      },
+      "alias_references": [
+        {
+          "expected": {
+            "alias_id": "wal_e3fdfa57179ebc08db2e",
+            "work_id": "wrk_0d91216489ad97581ebd",
+            "alias": "逃げるは恥だが役に立つ（漫画）",
+            "normalized_alias": "逃げるは恥だが役に立つ(漫画)"
+          }
+        }
+      ],
+      "link_updates": [
+        {
+          "table": "fetish_work_links",
+          "expected": {
+            "link_id": "fwl_6eb279e52350c546dd7c",
+            "fetish_id": 107,
+            "work_id": "wrk_0d91216489ad97581ebd",
+            "edition_id": "wed_ebe11470e343d2c5658a",
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_ebe11470e343d2c5658a",
+          "alias_id": "wal_e3fdfa57179ebc08db2e",
+          "context_label": "",
+          "source_url": "https://www.amazon.co.jp/dp/B00GWVP77W?tag=hekinator-22",
+          "source_title": "逃げるは恥だが役に立つ（漫画）",
+          "allow_missing": true
+        }
+      ]
     }
   ]
 }

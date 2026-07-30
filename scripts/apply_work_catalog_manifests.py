@@ -35,7 +35,7 @@ LEGACY_COMPATIBLE_DIGESTS = {
     LEGACY_DURABLE_FINAL_DIGEST,
 }
 SEED_SHA256 = 'e960ed79e1f77c0af61275d536f311b3d8c3b93b563bf522e55b0ed4dbde32c3'
-CORRECTIONS_SHA256 = 'ff1740f02ab7961866e0c193ce250e421e6fd623345835755154b188c5145167'
+CORRECTIONS_SHA256 = '6e5880216de2cb67bd434dd9e2a440e0acdfc62b7ed674de6f399bdd4f86b665'
 BIBLIOGRAPHY_SHA256 = 'e572a91427ecac77bf278766fed35627f645ea885d69366c010e6891bd2cb908'
 PRIMARY_RESOLVED_REVIEW_SHA256 = '97a4405d95af9031ae5fa4f275272f7e559037f520a73a5ba48609cb96aab217'
 LEGACY_RESOLVED_REVIEW_SHA256 = '9fdb1d44dfb930eb91dd1a679dddbd95116d9058748aa48ca0bdd841e6e2e215'
@@ -228,7 +228,7 @@ def apply_manifests(
         raise RuntimeError('review manifest counts do not match the approved change sets')
     if len(seed.get('title_normalizations', [])) != 46 or len(seed.get('remove_display_titles', [])) != 4:
         raise RuntimeError('seed manifest counts do not match the approved change set')
-    if len(corrections.get('corrections', [])) != 15:
+    if len(corrections.get('corrections', [])) != 16:
         raise RuntimeError('correction manifest count does not match the approved change set')
     if len(bibliography.get('entries', [])) != 18:
         raise RuntimeError('bibliography manifest count does not match the approved change set')
@@ -323,6 +323,7 @@ def apply_manifests(
     expected_splits = sum(row.get('type') == 'split_misassigned_edition' for row in correction_rows)
     expected_retitles = sum(row.get('type') == 'retitle_identity' for row in correction_rows)
     expected_quarantines = sum(row.get('type') == 'quarantine_recommendation' for row in correction_rows)
+    expected_link_rebinds = sum(row.get('type') == 'link_rebind' for row in correction_rows)
     inline_count_fields = (
         'inline_applied_link_count',
         'inline_fetish_owner_count',
@@ -335,6 +336,7 @@ def apply_manifests(
         or correction_counts.get('split_count') != expected_splits
         or correction_counts.get('retitle_count') != expected_retitles
         or correction_counts.get('quarantine_count') != expected_quarantines
+        or correction_counts.get('link_rebind_count') != expected_link_rebinds
         or any(type(correction_counts.get(field)) is not int for field in inline_count_fields)
         or any(correction_counts[field] < 0 for field in inline_count_fields)
     ):
