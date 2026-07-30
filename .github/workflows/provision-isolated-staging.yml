@@ -40,6 +40,10 @@ jobs:
           PRODUCTION_NAME = 'hekineitor'
           STAGING_NAME = 'hekineitor-staging'
           DATABASE_NAME = 'hekineitor-staging-db'
+          DENY_EXTERNAL_IP_ALLOW_LIST = [{
+              'cidrBlock': '192.0.2.0/32',
+              'description': 'deny external access (TEST-NET-1 sentinel)',
+          }]
           token = os.environ.get('RENDER_API_KEY', '')
           admin_user = os.environ.get('STAGING_ADMIN_USER', '')
           admin_pass = os.environ.get('STAGING_ADMIN_PASS', '')
@@ -104,7 +108,7 @@ jobs:
                   'enableHighAvailability': False,
                   'connectionPool': 'none',
                   'region': region,
-                  'ipAllowList': [],
+                  'ipAllowList': DENY_EXTERNAL_IP_ALLOW_LIST,
                   'version': '18',
               })
               database_created = True
@@ -127,10 +131,10 @@ jobs:
           else:
               raise SystemExit('Timed out waiting for the staging database')
 
-          if database.get('ipAllowList') != []:
-              api('PATCH', f'/postgres/{database_id}', {'ipAllowList': []})
+          if database.get('ipAllowList') != DENY_EXTERNAL_IP_ALLOW_LIST:
+              api('PATCH', f'/postgres/{database_id}', {'ipAllowList': DENY_EXTERNAL_IP_ALLOW_LIST})
               database = api('GET', f'/postgres/{database_id}')
-          if database.get('ipAllowList') != []:
+          if database.get('ipAllowList') != DENY_EXTERNAL_IP_ALLOW_LIST:
               raise SystemExit('Staging database external access could not be disabled')
 
           connection = api('GET', f'/postgres/{database_id}/connection-info')
@@ -204,7 +208,7 @@ jobs:
               'staging_url': staging_url,
               'staging_database_id': database_id,
               'database_plan': database.get('plan'),
-              'database_external_access_disabled': database.get('ipAllowList') == [],
+              'database_external_access_disabled': database.get('ipAllowList') == DENY_EXTERNAL_IP_ALLOW_LIST,
               'service_plan': (staging.get('serviceDetails') or {}).get('plan'),
               'region': region,
               'release_commit': release_commit,

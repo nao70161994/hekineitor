@@ -26,7 +26,9 @@ P0 correctionとinline同期後の現行releaseを検証する復元元は、pos
 PostgreSQL Basic 256 MBを作成します。DBは外部接続を許可せず、Webはstaging専用管理認証と
 staging DBだけを受け取り、自動deployを無効にします。workflowは同名リソースを再利用するため
 再実行で重複作成しません。`render-staging-provision-<run_id>` artifactにcredentialを含まない
-service/database ID、URL、plan、release commitを保存します。追加料金が発生するため、初回実行は
+service/database ID、URL、plan、release commitを保存します。Renderでは空のIP allow listが
+外部接続許可を意味するため、外部から到達不能なTEST-NET-1の単一hostをdeny-all sentinelとして設定し、
+再取得した値の完全一致を必須にします。追加料金が発生するため、初回実行は
 費用承認後だけ行います。
 
 ## 実行
