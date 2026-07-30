@@ -171,9 +171,10 @@ local preflightでは、39 linkのinline同期、reverse/forward round-trip、de
 
 retirement候補releaseの最終deploy後、7日間以上かつ6時間ごとのscheduled rollout gate 28回以上を連続成功させます。
 
-- 全runでexpected worker集合を網羅し、同じworker ID、catalog revision、database/cache revisionを観測する。
+- 全runでexpected worker集合を網羅し、各観測workerのcatalog revision、database/cache revision一致を確認する。
 - raw/approved parity mismatch、pending review、legacy fallback、catalog load failureをすべて0にする。
-- 観測中のdeploy、worker再起動、catalog mutation、失敗run、欠測が1つでもあれば期間を0から再開する。
+- 観測中のdeploy、catalog mutation、失敗run、欠測が1つでもあれば期間を0から再開する。
+- worker ID変更・platform再起動は時刻と新旧IDを記録し、周辺logに`work catalog unavailable`、fallback、load failureがないことを確認する。logを確認できない場合や異常があれば期間を0から再開する。
 - staging restoreには観測終了時点から24時間以内のv3 backupを使う。
 - first/last run URL、全run数、観測開始・終了時刻を[Release Checklist](RELEASE_CHECKLIST.md)へ記録する。
 

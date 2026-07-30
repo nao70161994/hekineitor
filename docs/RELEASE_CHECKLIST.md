@@ -24,7 +24,8 @@
 - [ ] 観測開始（JST）: `________________`
 - [ ] 観測終了（JST）: `________________`
 - [ ] 7日以上・28回以上の連続scheduled rollout gate成功: `first run ________` / `last run ________`
-- [ ] 観測中にdeploy、worker再起動、catalog mutation、欠測がない
+- [ ] 観測中にdeploy、catalog mutation、失敗run、欠測がない
+- [ ] worker ID変更・再起動をすべて列挙し、周辺platform logにcatalog unavailable/fallbackがないことを確認
 - [ ] 24時間以内のv3 backup run / digest: `________________` / `________________`
 - [ ] staging serviceとDBがproductionから隔離済み（確認者）: `________________`
 - [ ] staging restore workflow run: `________________`
