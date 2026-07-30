@@ -156,6 +156,8 @@ class StagingV3RestoreRehearsalTests(unittest.TestCase):
         self.assertIn("'plan': 'starter'", workflow)
         self.assertIn("'plan': 'basic_256mb'", workflow)
         self.assertIn("'ipAllowList': []", workflow)
+        self.assertIn("api('PATCH', f'/postgres/{database_id}', {'ipAllowList': []})", workflow)
+        self.assertIn('Staging database external access could not be disabled', workflow)
         self.assertIn("'autoDeploy': 'no'", workflow)
         self.assertIn("'branch': 'main'", workflow)
         self.assertIn('secrets.STAGING_ADMIN_USER', workflow)

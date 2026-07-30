@@ -127,6 +127,12 @@ jobs:
           else:
               raise SystemExit('Timed out waiting for the staging database')
 
+          if database.get('ipAllowList') != []:
+              api('PATCH', f'/postgres/{database_id}', {'ipAllowList': []})
+              database = api('GET', f'/postgres/{database_id}')
+          if database.get('ipAllowList') != []:
+              raise SystemExit('Staging database external access could not be disabled')
+
           connection = api('GET', f'/postgres/{database_id}/connection-info')
           database_url = str(connection.get('internalConnectionString') or '')
           if not database_url.startswith(('postgres://', 'postgresql://')):
