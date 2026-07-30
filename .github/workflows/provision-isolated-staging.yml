@@ -1,0 +1,222 @@
+name: Provision Isolated Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: '「PROVISION ISOLATED STAGING」と正確に入力'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  provision:
+    if: ${{ inputs.confirm == 'PROVISION ISOLATED STAGING' }}
+    runs-on: ubuntu-latest
+    environment: staging
+    concurrency:
+      group: provision-isolated-staging
+      cancel-in-progress: false
+    steps:
+      - name: Provision isolated Render resources
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          STAGING_ADMIN_USER: ${{ secrets.STAGING_ADMIN_USER }}
+          STAGING_ADMIN_PASS: ${{ secrets.STAGING_ADMIN_PASS }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          API = 'https://api.render.com/v1'
+          PRODUCTION_NAME = 'hekineitor'
+          STAGING_NAME = 'hekineitor-staging'
+          DATABASE_NAME = 'hekineitor-staging-db'
+          token = os.environ.get('RENDER_API_KEY', '')
+          admin_user = os.environ.get('STAGING_ADMIN_USER', '')
+          admin_pass = os.environ.get('STAGING_ADMIN_PASS', '')
+          release_commit = os.environ.get('RELEASE_COMMIT', '')
+          if not token or not admin_user or not admin_pass:
+              raise SystemExit('Render and staging-only credentials are required')
+          if len(admin_pass) < 32:
+              raise SystemExit('STAGING_ADMIN_PASS must contain at least 32 characters')
+
+          def api(method, path, payload=None):
+              data = None if payload is None else json.dumps(payload).encode()
+              request = urllib.request.Request(
+                  f'{API}{path}', data=data, method=method,
+                  headers={
+                      'Authorization': f'Bearer {token}',
+                      'Accept': 'application/json',
+                      'Content-Type': 'application/json',
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(request, timeout=60) as response:
+                      body = response.read()
+                      return json.loads(body) if body else {}
+              except urllib.error.HTTPError as exc:
+                  raise RuntimeError(f'Render API {method} {path} failed with HTTP {exc.code}') from exc
+
+          def objects(payload, key):
+              if not isinstance(payload, list):
+                  return []
+              result = []
+              for item in payload:
+                  value = item.get(key, item) if isinstance(item, dict) else None
+                  if isinstance(value, dict):
+                      result.append(value)
+              return result
+
+          services = objects(api('GET', '/services?limit=100&includePreviews=true'), 'service')
+          production = next((item for item in services if item.get('name') == PRODUCTION_NAME), None)
+          if not production or production.get('type') != 'web_service':
+              raise SystemExit('The production web service could not be identified safely')
+          owner_id = str(production.get('ownerId') or '')
+          repo = str(production.get('repo') or '')
+          if not owner_id or repo != 'https://github.com/nao70161994/hekineitor':
+              raise SystemExit('Unexpected production owner or repository')
+          production_url = str((production.get('serviceDetails') or {}).get('url') or '').rstrip('/')
+          if production_url != 'https://hekineitor.onrender.com':
+              raise SystemExit('Unexpected production URL')
+          region = str((production.get('serviceDetails') or {}).get('region') or 'singapore')
+
+          databases = objects(api('GET', '/postgres?limit=100'), 'postgres')
+          database = next((item for item in databases if item.get('name') == DATABASE_NAME), None)
+          database_created = False
+          if database is None:
+              database = api('POST', '/postgres', {
+                  'name': DATABASE_NAME,
+                  'databaseName': 'hekineitor_staging',
+                  'databaseUser': 'hekineitor_staging',
+                  'ownerId': owner_id,
+                  'plan': 'basic_256mb',
+                  'diskSizeGB': 1,
+                  'enableDiskAutoscaling': False,
+                  'enableHighAvailability': False,
+                  'connectionPool': 'none',
+                  'region': region,
+                  'ipAllowList': [],
+                  'version': '18',
+              })
+              database_created = True
+          if database.get('owner', {}).get('id') not in {None, owner_id}:
+              raise SystemExit('Existing staging database belongs to an unexpected workspace')
+          if database.get('plan') != 'basic_256mb':
+              raise SystemExit('Existing staging database has an unexpected plan')
+          database_id = str(database.get('id') or '')
+          if not database_id:
+              raise SystemExit('Staging database ID is missing')
+
+          for _ in range(120):
+              database = api('GET', f'/postgres/{database_id}')
+              status = str(database.get('status') or '')
+              if status == 'available':
+                  break
+              if status not in {'creating', 'config_restart', 'updating_instance'}:
+                  raise SystemExit(f'Staging database entered an unsafe status: {status}')
+              time.sleep(10)
+          else:
+              raise SystemExit('Timed out waiting for the staging database')
+
+          connection = api('GET', f'/postgres/{database_id}/connection-info')
+          database_url = str(connection.get('internalConnectionString') or '')
+          if not database_url.startswith(('postgres://', 'postgresql://')):
+              raise SystemExit('Render did not return a private PostgreSQL connection string')
+
+          services = objects(api('GET', '/services?limit=100&includePreviews=true'), 'service')
+          staging = next((item for item in services if item.get('name') == STAGING_NAME), None)
+          service_created = False
+          deploy_id = None
+          env_vars = [
+              {'key': 'DATABASE_URL', 'value': database_url},
+              {'key': 'ADMIN_USER', 'value': admin_user},
+              {'key': 'ADMIN_PASS', 'value': admin_pass},
+              {'key': 'APP_ENV', 'value': 'production'},
+              {'key': 'AMAZON_ASSOCIATE_ID', 'value': 'hekinator-22'},
+          ]
+          if staging is None:
+              created = api('POST', '/services', {
+                  'type': 'web_service',
+                  'name': STAGING_NAME,
+                  'ownerId': owner_id,
+                  'repo': repo,
+                  'branch': 'main',
+                  'autoDeploy': 'no',
+                  'envVars': [*env_vars, {'key': 'SECRET_KEY', 'generateValue': True}],
+                  'serviceDetails': {
+                      'runtime': 'python',
+                      'plan': 'starter',
+                      'region': region,
+                      'numInstances': 1,
+                      'healthCheckPath': '/health',
+                      'envSpecificDetails': {
+                          'buildCommand': 'sh scripts/render_build.sh',
+                          'startCommand': 'gunicorn app:app --workers 1 --threads 4',
+                      },
+                  },
+              })
+              staging = created.get('service') or {}
+              deploy_id = created.get('deployId')
+              service_created = True
+          if staging.get('id') == production.get('id'):
+              raise SystemExit('Staging resolved to the production service')
+          if staging.get('repo') != repo or staging.get('branch') != 'main':
+              raise SystemExit('Existing staging service has an unexpected repository or branch')
+          staging_id = str(staging.get('id') or '')
+          staging_url = str((staging.get('serviceDetails') or {}).get('url') or '').rstrip('/')
+          if not staging_id or not staging_url.startswith('https://') or staging_url == production_url:
+              raise SystemExit('Staging service URL is missing or aliases production')
+
+          api('PUT', f'/services/{staging_id}/env-vars', [
+              *env_vars,
+              {'key': 'SECRET_KEY', 'generateValue': True},
+              {'key': 'SITE_BASE_URL', 'value': staging_url},
+          ])
+          if not service_created:
+              deploy = api('POST', f'/services/{staging_id}/deploys', {
+                  'clearCache': 'do_not_clear',
+                  'commitId': release_commit,
+              })
+              deploy_id = deploy.get('id') if isinstance(deploy, dict) else None
+
+          Path('artifacts').mkdir(exist_ok=True)
+          evidence = {
+              'schema_version': 1,
+              'observed_at': datetime.now(timezone.utc).isoformat(),
+              'production_service_id': production.get('id'),
+              'production_url': production_url,
+              'staging_service_id': staging_id,
+              'staging_url': staging_url,
+              'staging_database_id': database_id,
+              'database_plan': database.get('plan'),
+              'database_external_access_disabled': database.get('ipAllowList') == [],
+              'service_plan': (staging.get('serviceDetails') or {}).get('plan'),
+              'region': region,
+              'release_commit': release_commit,
+              'deploy_id': deploy_id,
+              'database_created': database_created,
+              'service_created': service_created,
+          }
+          Path('artifacts/render_staging_provision.json').write_text(
+              json.dumps(evidence, ensure_ascii=False, indent=2) + '\n', encoding='utf-8'
+          )
+          print(f'Provisioned isolated staging at {staging_url}')
+          PY
+
+      - name: Upload redacted provisioning evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: render-staging-provision-${{ github.run_id }}
+          path: artifacts/render_staging_provision.json
+          if-no-files-found: warn
+          retention-days: 30

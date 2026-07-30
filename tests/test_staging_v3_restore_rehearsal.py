@@ -148,6 +148,22 @@ class StagingV3RestoreRehearsalTests(unittest.TestCase):
         self.assertNotIn('secrets.ADMIN_USER', workflow)
         self.assertNotIn('secrets.ADMIN_PASS', workflow)
 
+    def test_provision_workflow_creates_only_isolated_staging_resources(self):
+        workflow = (Path(__file__).parents[1] / '.github/workflows/provision-isolated-staging.yml').read_text()
+        self.assertIn("inputs.confirm == 'PROVISION ISOLATED STAGING'", workflow)
+        self.assertIn('environment: staging', workflow)
+        self.assertIn("'name': STAGING_NAME", workflow)
+        self.assertIn("'plan': 'starter'", workflow)
+        self.assertIn("'plan': 'basic_256mb'", workflow)
+        self.assertIn("'ipAllowList': []", workflow)
+        self.assertIn("'autoDeploy': 'no'", workflow)
+        self.assertIn("'branch': 'main'", workflow)
+        self.assertIn('secrets.STAGING_ADMIN_USER', workflow)
+        self.assertIn('secrets.STAGING_ADMIN_PASS', workflow)
+        self.assertNotIn('secrets.RENDER_POSTGRES_ID', workflow)
+        self.assertNotIn('secrets.ADMIN_USER', workflow)
+        self.assertNotIn('secrets.ADMIN_PASS', workflow)
+
     def test_run_rehearsal_rejects_catalog_digest_drift_after_import(self):
         class Client:
             def csrf_token(self):

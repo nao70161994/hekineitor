@@ -21,6 +21,14 @@ P0 correctionとinline同期後の現行releaseを検証する復元元は、pos
 
 本番backupをstagingへ復元してよいのはデータを受け入れる隔離されたstaging serviceだけです。production credential、production database、production serviceの複製接続先は使いません。
 
+隔離環境が未作成の場合は`Provision Isolated Staging` workflowを使います。`confirm`へ
+`PROVISION ISOLATED STAGING`と正確に入力すると、`main`の現行commitを使うWeb Starter 1台と
+PostgreSQL Basic 256 MBを作成します。DBは外部接続を許可せず、Webはstaging専用管理認証と
+staging DBだけを受け取り、自動deployを無効にします。workflowは同名リソースを再利用するため
+再実行で重複作成しません。`render-staging-provision-<run_id>` artifactにcredentialを含まない
+service/database ID、URL、plan、release commitを保存します。追加料金が発生するため、初回実行は
+費用承認後だけ行います。
+
 ## 実行
 
 Actionsの`Staging v3 Restore Rehearsal`を手動実行し、次を指定します。
