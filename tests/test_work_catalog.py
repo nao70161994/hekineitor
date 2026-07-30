@@ -969,6 +969,19 @@ class WorkCatalogMigrationTests(unittest.TestCase):
         )
 
         self.assertTrue(parity['automated_parity_ok'])
+        correction_manifests = tuple(
+            json.loads((data / name).read_text(encoding='utf-8'))
+            for name in (
+                'work_catalog_corrections.json',
+                'work_catalog_corrections_batch2.json',
+                'work_catalog_link_bindings_batch2.json',
+            )
+        )
+        approved = work_catalog.approved_projection_parity_report_many(
+            catalog, fetishes, compound_rows=compounds, correction_manifests=correction_manifests
+        )
+        self.assertTrue(approved['approved_projection_ok'])
+        self.assertEqual(approved['approved_projection_applied_count'], 0)
         self.assertEqual(parity['mismatch_count'], 0)
 
     def test_approved_projection_explains_all_production_correction_deltas(self):

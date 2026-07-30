@@ -1425,6 +1425,24 @@ def approved_projection_parity_report_many(
     sample_limit=20,
 ):
     """Compare catalog output after an ordered sequence of approved corrections."""
+    raw_parity = catalog_parity_report(
+        catalog,
+        fetishes,
+        compound_rows=compound_rows,
+        sample_limit=sample_limit,
+    )
+    if raw_parity['mismatch_count'] == 0:
+        return {
+            'approved_projection_ok': True,
+            'approved_mismatch_count': 0,
+            'approved_fetish_mismatch_count': 0,
+            'approved_compound_mismatch_count': 0,
+            'approved_mismatches': [],
+            'approved_projection_error_count': 0,
+            'approved_projection_errors': [],
+            'approved_projection_applied_count': 0,
+            'approved_projection_missing_count': 0,
+        }
     projection = project_approved_inline_correction_manifests(
         fetishes,
         compound_rows=compound_rows,
