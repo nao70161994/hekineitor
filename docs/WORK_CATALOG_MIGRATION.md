@@ -51,7 +51,7 @@ manifestは全件を一つのtransaction/journalで適用します。同一manif
 }
 ```
 
-成功時は`correction_count=5`、`split_count=1`、`retitle_count=4`、4つの`inline_*_count`、監査fingerprint `bf68f459045abcd911574472cd60977c4baa7a43cf7008b6c58d3698a94d4d66`を照合します。DBではcatalog訂正と対象`fetishes.works`を同一transactionへ含めます。訂正済みcatalogへworkflowを再実行すると、訂正内容を上書きする旧review段階はskipし、seed cleanupとcorrection manifestおよびinline同期を冪等確認します。
+成功時は`correction_count=5`、`split_count=1`、`retitle_count=4`、4つの`inline_*_count`、監査fingerprint `bf68f459045abcd911574472cd60977c4baa7a43cf7008b6c58d3698a94d4d66`を照合します。DBではcatalog訂正と対象`fetishes.works`を同一transactionへ含めます。review queueが全件解決済みで、現行correction manifestのsource lockに完全適合するcatalogでは、旧review段階をskipします。skip前には明示的な`review_updates.target`だけを検証用copyで`expected`へ戻し、review manifestの再適用が完全no-opであることに加え、UTC instant正規化後の全resolved row fingerprintを照合します。74件版は`97a4405d95af9031ae5fa4f275272f7e559037f520a73a5ba48609cb96aab217`、旧79件版は`9fdb1d44dfb930eb91dd1a679dddbd95116d9058748aa48ca0bdd841e6e2e215`です。これにより既存訂正の適用後に新しい訂正を追加した部分状態でも、旧reviewで訂正内容を上書きせず、seed cleanup、既存訂正の冪等確認、新規訂正、inline同期を順に実行します。source lock、review意味、titles/ASIN/version/timestampを含むrow fingerprintのいずれかが不適合ならfail-closedで停止します。
 
 healthは2種類のparityを混同しません。`approved_projection_ok` / `approved_mismatch_count`はcorrection manifestで固定されたowner・position・旧title/URLを新title/URLへ厳密投影した期待値との比較です。`automated_parity_ok` / `mismatch_count`は同期済みinlineとのraw比較であり、実際のlegacy fallback同値性とinline廃止可否を判定します。旧signatureの別position・別ownerへの移動、owner・件数・順序・URLの差、未承認titleはfail-closedです。`allow_missing`は真偽値だけを許可し、旧sourceが全ownerから不存在の場合だけno-opにします。
 

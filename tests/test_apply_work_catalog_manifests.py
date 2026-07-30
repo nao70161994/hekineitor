@@ -234,12 +234,12 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
         self.assertEqual(
             [call[2]['operation'] for call in mutations],
             [
-                'review_apply_manifest',
                 'seed_overrides_apply_manifest',
                 'corrections_apply_manifest',
                 'bibliography_apply_manifest',
             ],
         )
+        self.assertTrue(evidence['review_result']['skipped'])
         self.assertTrue(all(call[2]['confirm_text'] == 'WORK_CATALOG' for call in mutations))
         self.assertEqual(evidence['final_digest'], work_catalog.catalog_digest(self.bibliography_catalog))
         self.assertNotIn('secret', json.dumps(evidence))
@@ -319,6 +319,101 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
             row for row in fake.catalog['review_queue'] if row['review_id'] == 'wrv_66989c04b744aa1a5b64'
         )
         self.assertEqual(corrected_review['decision'], 'keep_separate')
+
+    def test_resolved_review_compatibility_rejects_tampered_approval_state(self):
+        review = json.loads((self.root / 'data/work_catalog_review_decisions.json').read_text(encoding='utf-8'))
+        corrections = json.loads((self.root / 'data/work_catalog_corrections.json').read_text(encoding='utf-8'))
+        self.assertTrue(
+            apply_work_catalog_manifests._resolved_reviews_match_manifest(self.catalog, review, corrections)
+        )
+
+        mutations = []
+        for field, value in (
+            ('decision', 'tampered-but-resolved'),
+            ('status', 'pending'),
+            ('candidate_key', 'tampered'),
+            ('work_ids', ['wrk_tampered']),
+            ('target_work_id', 'wrk_tampered'),
+            ('titles', ['tampered']),
+            ('asins', ['tampered']),
+            ('version', 999),
+            ('updated_at', '2099-01-01'),
+            ('review_type', 'tampered'),
+        ):
+            catalog = copy.deepcopy(self.catalog)
+            catalog['review_queue'][0][field] = value
+            mutations.append(catalog)
+        for catalog in mutations:
+            with self.subTest(catalog=catalog):
+                self.assertFalse(
+                    apply_work_catalog_manifests._resolved_reviews_match_manifest(catalog, review, corrections)
+                )
+
+        equivalent_time = copy.deepcopy(self.catalog)
+        equivalent_time['review_queue'][0]['updated_at'] = '2026-07-28T09:00:00+09:00'
+        self.assertTrue(
+            apply_work_catalog_manifests._resolved_reviews_match_manifest(equivalent_time, review, corrections)
+        )
+
+    def test_fully_corrected_catalog_does_not_bypass_tampered_review(self):
+        tampered = copy.deepcopy(self.bibliography_catalog)
+        review = next(row for row in tampered['review_queue'] if row['review_id'] != 'wrv_66989c04b744aa1a5b64')
+        review['decision'] = 'tampered-but-resolved'
+        fake = FakeClient(tampered)
+
+        with tempfile.TemporaryDirectory() as directory:
+            backup = Path(directory) / 'backup.json'
+            backup.write_text(json.dumps({'work_catalog': tampered}), encoding='utf-8')
+            with (
+                patch.object(apply_work_catalog_manifests, 'AdminClient', return_value=fake),
+                self.assertRaises(ValueError),
+            ):
+                apply_work_catalog_manifests.apply_manifests(
+                    base_url='https://hekineitor.onrender.com',
+                    expected_host='hekineitor.onrender.com',
+                    username='admin',
+                    password='secret',
+                    review_path=self.root / 'data/work_catalog_review_decisions.json',
+                    legacy_review_path=self.root / 'data/work_catalog_review_decisions_legacy_v0.json',
+                    seed_path=self.root / 'data/work_catalog_seed_overrides.json',
+                    corrections_path=self.root / 'data/work_catalog_corrections.json',
+                    bibliography_path=self.root / 'data/work_catalog_bibliography.json',
+                    backup_path=backup,
+                )
+        self.assertFalse(any(call[0].endswith('/mutate') for call in fake.calls))
+
+    def test_resolved_reviews_skip_when_new_correction_is_partially_pending(self):
+        corrections = json.loads((self.root / 'data/work_catalog_corrections.json').read_text(encoding='utf-8'))
+        previous_manifest = copy.deepcopy(corrections)
+        previous_manifest['corrections'] = previous_manifest['corrections'][:-1]
+        partially_corrected = work_catalog.apply_catalog_corrections(self.catalog, previous_manifest)
+        partially_corrected = work_catalog.apply_bibliography_manifest(partially_corrected, self.bibliography)[0]
+        fake = FakeClient(partially_corrected)
+
+        with tempfile.TemporaryDirectory() as directory:
+            backup = Path(directory) / 'backup.json'
+            backup.write_text(json.dumps({'work_catalog': partially_corrected}), encoding='utf-8')
+            with patch.object(apply_work_catalog_manifests, 'AdminClient', return_value=fake):
+                evidence = apply_work_catalog_manifests.apply_manifests(
+                    base_url='https://hekineitor.onrender.com',
+                    expected_host='hekineitor.onrender.com',
+                    username='admin',
+                    password='secret',
+                    review_path=self.root / 'data/work_catalog_review_decisions.json',
+                    legacy_review_path=self.root / 'data/work_catalog_review_decisions_legacy_v0.json',
+                    seed_path=self.root / 'data/work_catalog_seed_overrides.json',
+                    corrections_path=self.root / 'data/work_catalog_corrections.json',
+                    bibliography_path=self.root / 'data/work_catalog_bibliography.json',
+                    backup_path=backup,
+                )
+
+        mutations = [call[2]['operation'] for call in fake.calls if call[0].endswith('/mutate')]
+        self.assertEqual(
+            mutations,
+            ['seed_overrides_apply_manifest', 'corrections_apply_manifest', 'bibliography_apply_manifest'],
+        )
+        self.assertEqual(evidence['review_result']['reason'], 'resolved_reviews_compatible_source')
+        self.assertEqual(evidence['final_digest'], work_catalog.catalog_digest(self.bibliography_catalog))
 
     def test_reapply_skips_superseded_review_and_keeps_final_catalog(self):
         fake = FakeClient(self.bibliography_catalog)

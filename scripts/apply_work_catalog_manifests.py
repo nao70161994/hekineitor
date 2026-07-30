@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import copy
 import hashlib
 import http.cookiejar
 import json
@@ -36,6 +37,8 @@ LEGACY_COMPATIBLE_DIGESTS = {
 SEED_SHA256 = 'e960ed79e1f77c0af61275d536f311b3d8c3b93b563bf522e55b0ed4dbde32c3'
 CORRECTIONS_SHA256 = 'bf68f459045abcd911574472cd60977c4baa7a43cf7008b6c58d3698a94d4d66'
 BIBLIOGRAPHY_SHA256 = 'e572a91427ecac77bf278766fed35627f645ea885d69366c010e6891bd2cb908'
+PRIMARY_RESOLVED_REVIEW_SHA256 = '97a4405d95af9031ae5fa4f275272f7e559037f520a73a5ba48609cb96aab217'
+LEGACY_RESOLVED_REVIEW_SHA256 = '9fdb1d44dfb930eb91dd1a679dddbd95116d9058748aa48ca0bdd841e6e2e215'
 CSRF_RE = re.compile(r'csrfToken\s*[:=]\s*["\']([^"\']+)')
 
 
@@ -111,6 +114,69 @@ def _validate_target(base_url: str, expected_host: str) -> None:
         raise RuntimeError('target URL contains forbidden URL components')
 
 
+def _review_instant(value):
+    value = str(value or '')
+    if re.fullmatch(r'\d{4}-\d{2}-\d{2}', value):
+        value += 'T00:00:00+00:00'
+    elif value.endswith('Z'):
+        value = value[:-1] + '+00:00'
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return parsed.astimezone(timezone.utc) if parsed.tzinfo is not None else None
+
+
+def _same_review_row_instant(left, right):
+    if not isinstance(left, dict) or not isinstance(right, dict):
+        return False
+    left = copy.deepcopy(left)
+    right = copy.deepcopy(right)
+    left_time = _review_instant(left.pop('updated_at', ''))
+    right_time = _review_instant(right.pop('updated_at', ''))
+    return left == right and left_time is not None and left_time == right_time
+
+
+def _resolved_reviews_match_manifest(catalog, review_manifest, corrections):
+    """Require semantic review validity and the approved full-row fingerprint."""
+    candidate = copy.deepcopy(catalog)
+    reviews = candidate.get('review_queue')
+    if not isinstance(reviews, list) or not all(isinstance(row, dict) for row in reviews):
+        return False
+    reviews_by_id = {str(row.get('review_id') or ''): row for row in reviews}
+    if len(reviews_by_id) != len(reviews):
+        return False
+    for correction in corrections.get('corrections') or []:
+        for update in correction.get('review_updates') or []:
+            expected = update.get('expected')
+            target = update.get('target')
+            if not isinstance(expected, dict) or not isinstance(target, dict):
+                return False
+            actual = reviews_by_id.get(str(target.get('review_id') or ''))
+            if _same_review_row_instant(actual, target):
+                actual.clear()
+                actual.update(copy.deepcopy(expected))
+    try:
+        if work_catalog.apply_review_decisions(candidate, review_manifest) != candidate:
+            return False
+    except ValueError:
+        return False
+
+    normalized_reviews = copy.deepcopy(candidate['review_queue'])
+    for row in normalized_reviews:
+        updated_at = _review_instant(row.get('updated_at'))
+        if updated_at is None:
+            return False
+        row['updated_at'] = updated_at.isoformat()
+    normalized_reviews.sort(key=lambda row: row['review_id'])
+    expected_fingerprints = {
+        REVIEW_SHA256: PRIMARY_RESOLVED_REVIEW_SHA256,
+        LEGACY_REVIEW_SHA256: LEGACY_RESOLVED_REVIEW_SHA256,
+    }
+    expected = expected_fingerprints.get(_canonical_sha(review_manifest))
+    return expected is not None and _canonical_sha(normalized_reviews) == expected
+
+
 def _snapshot(client: AdminClient):
     response = client.json('/api/admin/work_catalog')
     digest = str(response.get('digest') or '')
@@ -183,14 +249,19 @@ def apply_manifests(
         raise RuntimeError('fresh backup catalog digest does not match production before mutation')
     try:
         corrections_already_applied = work_catalog.apply_catalog_corrections(before, corrections) == before
+        corrections_source_compatible = True
     except ValueError:
         # Pre-review and pre-seed catalogs intentionally do not satisfy the
         # correction manifest's exact source locks. The ordered preflight
         # below must decide whether they are approved migration sources.
         corrections_already_applied = False
-    if corrections_already_applied:
+        corrections_source_compatible = False
+    reviews_already_resolved = _resolved_reviews_match_manifest(before, review, corrections)
+    review_skipped = reviews_already_resolved and corrections_source_compatible
+    if review_skipped:
         expected_after_review = before
-        review_counts = {'skipped': True, 'reason': 'corrections_already_applied'}
+        reason = 'corrections_already_applied' if corrections_already_applied else 'resolved_reviews_compatible_source'
+        review_counts = {'skipped': True, 'reason': reason}
         between, between_digest = before, before_digest
     else:
         expected_after_review = work_catalog.apply_review_decisions(before, review)
@@ -319,7 +390,7 @@ def apply_manifests(
         ('corrections_apply_manifest', CORRECTIONS_SHA256),
         ('bibliography_apply_manifest', BIBLIOGRAPHY_SHA256),
     }
-    if not corrections_already_applied:
+    if not review_skipped:
         expected_audits.add(('review_apply_manifest', review_sha256))
     observed_audits = {
         (row.get('detail', {}).get('operation'), row.get('detail', {}).get('manifest_sha256'))
