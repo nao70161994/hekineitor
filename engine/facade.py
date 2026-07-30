@@ -299,10 +299,10 @@ class Engine:
                     'observation_scope': 'current_worker_since_start',
                 },
             }
+
     def recommended_works_snapshot(self):
         """Return all per-fetish recommendations from one catalog read."""
         return copy.deepcopy(self._materialized_work_catalog()[0])
-
 
     def get_recommended_works(self, fetish_id):
         materialized = self._materialized_work_catalog()

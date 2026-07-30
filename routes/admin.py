@@ -279,10 +279,7 @@ def stop_test_play(ctx):
 
 def _fetishes_with_recommended_works(ctx):
     works_by_fetish = ctx.engine.recommended_works_snapshot()
-    return [
-        {**fetish, 'works': works_by_fetish.get(int(fetish['id']), [])}
-        for fetish in ctx.engine.fetishes
-    ]
+    return [{**fetish, 'works': works_by_fetish.get(int(fetish['id']), [])} for fetish in ctx.engine.fetishes]
 
 
 def works_link_queue_payload(ctx, *, sample_limit=20):

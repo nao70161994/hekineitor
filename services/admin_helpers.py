@@ -250,16 +250,18 @@ def build_admin_maintenance_checklist(engine, works_summary_fn):
                 + works.get('missing_asin_work_count', 0)
                 + works.get('duplicate_work_title_count', 0)
             ),
-            'severity': 'warn'
-            if (
-                works['missing_work_fetish_count']
-                or works['missing_url_work_count']
-                or works['unsafe_url_work_count']
-                or works.get('search_url_work_count', 0)
-                or works.get('missing_asin_work_count', 0)
-                or works.get('duplicate_work_title_count', 0)
-            )
-            else 'ok',
+            'severity': (
+                'warn'
+                if (
+                    works['missing_work_fetish_count']
+                    or works['missing_url_work_count']
+                    or works['unsafe_url_work_count']
+                    or works.get('search_url_work_count', 0)
+                    or works.get('missing_asin_work_count', 0)
+                    or works.get('duplicate_work_title_count', 0)
+                )
+                else 'ok'
+            ),
             'next_action': '作品リンク確認からURLなし・不正URL・作品なしの性癖を補修する',
         },
     ]
@@ -277,14 +279,12 @@ def build_work_maintenance_summary(engine, work_title_fn, safe_work_url_fn, samp
 
     works_by_fetish = engine.recommended_works_snapshot()
     return works_links.build_work_maintenance_summary(
-        [
-            {**fetish, 'works': works_by_fetish.get(int(fetish['id']), [])}
-            for fetish in engine.fetishes
-        ],
+        [{**fetish, 'works': works_by_fetish.get(int(fetish['id']), [])} for fetish in engine.fetishes],
         work_title_fn=work_title_fn,
         safe_work_url_fn=safe_work_url_fn,
         sample_limit=sample_limit,
     )
+
 
 def make_admin_maintenance_checklist(engine, work_title_fn, safe_work_url_fn):
     def checklist():

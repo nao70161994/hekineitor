@@ -211,9 +211,7 @@ def test_checked_in_seed_has_only_verified_safe_normalizations():
         ]
         assert matching_links, expected['display_title']
         assert all(row['context_label'] == expected['context_label'] for row in matching_links)
-    fetish_source = json.loads(
-        (ROOT / 'tests/fixtures/legacy_work_catalog/fetishes.json').read_text(encoding='utf-8')
-    )
+    fetish_source = json.loads((ROOT / 'tests/fixtures/legacy_work_catalog/fetishes.json').read_text(encoding='utf-8'))
     correction_manifests = (corrections, corrections_batch2, link_bindings_batch2)
     unprojected = work_catalog.project_approved_inline_correction_manifests(
         fetish_source,

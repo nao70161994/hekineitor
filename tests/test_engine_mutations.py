@@ -71,9 +71,12 @@ class TestEngineMutations(unittest.TestCase):
         self.assertNotIn('works', self.engine.fetishes[0])
         committed = commit_catalog.call_args.args[1]
         self.assertEqual(
-            [work['title'] for work in engine_module.work_catalog.materialize_fetish_works(
-                committed['work_catalog']
-            )[self.engine.fetishes[0]['id']]],
+            [
+                work['title']
+                for work in engine_module.work_catalog.materialize_fetish_works(committed['work_catalog'])[
+                    self.engine.fetishes[0]['id']
+                ]
+            ],
             ['W'],
         )
         commit_catalog.assert_called_once()
@@ -490,9 +493,7 @@ class TestEngineMutations(unittest.TestCase):
 
     def test_v3_restore_uses_catalog_and_discards_legacy_inline_works(self):
         fetish_id = self.engine.fetishes[0]['id']
-        catalog = engine_module.work_catalog.build_catalog_from_inline(
-            [{'id': fetish_id, 'works': ['Catalog work']}]
-        )
+        catalog = engine_module.work_catalog.build_catalog_from_inline([{'id': fetish_id, 'works': ['Catalog work']}])
         exported = [
             {
                 'id': fetish_id,
@@ -547,7 +548,6 @@ class TestEngineMutations(unittest.TestCase):
                 {'corrections_manifest': {'schema_version': 1, 'catalog_schema_version': 1, 'corrections': []}},
                 expected_digest=engine_module.work_catalog.catalog_digest(catalog),
             )
-
 
     def test_correction_manifest_commits_catalog_atomically(self):
         catalog = engine_module.work_catalog.build_catalog_from_inline([{'id': 1, 'works': ['Before']}])
