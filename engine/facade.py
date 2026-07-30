@@ -1312,7 +1312,7 @@ class Engine:
 
         return array_idx, db_id
 
-    def _sanitize_restored_player_fetishes(self, exported_fetishes):
+    def _sanitize_restored_fetishes(self, exported_fetishes, *, include_managed=False):
         existing_ids = {fetish['id'] for fetish in self.fetishes}
         restored = []
         seen = set()
@@ -1323,7 +1323,12 @@ class Engine:
                 fetish_id = int(raw.get('id'))
             except (TypeError, ValueError):
                 continue
-            if fetish_id < PLAYER_FETISH_BASE_ID or fetish_id in existing_ids or fetish_id in seen:
+            if (
+                fetish_id < 0
+                or (not include_managed and fetish_id < PLAYER_FETISH_BASE_ID)
+                or fetish_id in existing_ids
+                or fetish_id in seen
+            ):
                 continue
             name = str(raw.get('name') or '').strip()[:100]
             if not name:
@@ -1335,6 +1340,9 @@ class Engine:
             seen.add(fetish_id)
         return restored
 
+    def _sanitize_restored_player_fetishes(self, exported_fetishes):
+        return self._sanitize_restored_fetishes(exported_fetishes)
+
     def restore_player_fetishes(self, exported_fetishes):
         """Restore missing player-added fetish rows before matrix import.
 
@@ -1345,12 +1353,12 @@ class Engine:
         return restored
 
     def restore_matrix_snapshot(self, exported_fetishes, matrix_rows, *, work_catalog=None):
-        """Restore player fetishes and matrix values as one logical operation."""
+        """Restore missing v3 backup fetishes and matrix values as one logical operation."""
         _acquire_file_engine_process_lock()
         with self._lock:
             if work_catalog is not None:
                 work_catalog = engine_work_catalog.upgrade_catalog_schema(work_catalog)
-            missing = self._sanitize_restored_player_fetishes(exported_fetishes)
+            missing = self._sanitize_restored_fetishes(exported_fetishes, include_managed=work_catalog is not None)
             restored_inline_fetishes = (
                 missing if work_catalog is None and any(row.get('works') for row in missing) else None
             )

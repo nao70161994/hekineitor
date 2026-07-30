@@ -63,6 +63,7 @@ class StagingV3RestoreRehearsalTests(unittest.TestCase):
                 'expected_rows': 12,
                 'valid_rows': 12,
                 'skipped_rows': 0,
+                'restorable_fetish_count': 2,
                 'ignored_source_rows': 0,
             }
         )
@@ -74,11 +75,14 @@ class StagingV3RestoreRehearsalTests(unittest.TestCase):
                 'skipped_rows': 0,
                 'ignored_source_rows': 0,
                 'restored_source_rows': 12,
+                'restored_fetish_count': 2,
             },
             12,
+            2,
         )
         self.assertEqual(dry['expected_rows'], 12)
         self.assertEqual(result['restored_source_rows'], 12)
+        self.assertEqual(result['restored_fetish_count'], 2)
         with self.assertRaises(ValueError):
             rehearsal.validate_import_result(
                 {

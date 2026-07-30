@@ -161,11 +161,23 @@ local preflightでは、39 linkのinline同期、reverse/forward round-trip、de
 2. 既存DBへreview、safe seed cleanup、P0 correctionの3 manifestを順に適用し、それぞれの監査fingerprint、応答件数、新digestを保存する。fresh DBが訂正済みseedから作られた場合、workflowは旧reviewをskipし、seed/correctionのno-opだけを確認する。
 3. `/api/admin/works_health`で`migration.approved_projection_ok=true`、`approved_mismatch_count=0`、`automated_parity_ok=true`、`mismatch_count=0`、`pending_review_count=0`を確認する。raw parityが非ゼロなら影響ownerと表示順・実効title・安全化後URLを確認し、manifest workflowを失敗扱いにしてinline廃止を停止する。
 4. platformのinstance一覧から各workerへ直接probeするか、十分な回数アクセスしてresponseの`worker_id`を収集し、想定worker集合を網羅する。各responseで`snapshot_revision == database_revision == cached_revision`も確認する。
-5. 十分な観測期間、各workerの`legacy_fallback_reads_since_start`と`catalog_load_failures_since_start`が0であることを確認する。
+5. 下記の観測期間policyを満たし、各workerの`legacy_fallback_reads_since_start`と`catalog_load_failures_since_start`が0であることを確認する。
 6. [Staging v3 Restore Rehearsal](STAGING_V3_RESTORE_REHEARSAL.md)を実行し、artifactの自動gateを確認したうえで、通常/compound結果、作品理由、SEO/OGP、affiliate URLを手動サインオフする。
 7. [`WORK_CATALOG_REVIEW_2026-07-28.md`](WORK_CATALOG_REVIEW_2026-07-28.md)の件数・keep判断・残るデータ品質項目を確認し、rollback担当者と実行時刻を決めて手動サインオフする。
 
 `retirement.automated_eligible=true`でも、観測期間、restore rehearsal、手動サインオフがなければinlineを削除しません。
+
+### 観測期間policy
+
+retirement候補releaseの最終deploy後、7日間以上かつ6時間ごとのscheduled rollout gate 28回以上を連続成功させます。
+
+- 全runでexpected worker集合を網羅し、同じworker ID、catalog revision、database/cache revisionを観測する。
+- raw/approved parity mismatch、pending review、legacy fallback、catalog load failureをすべて0にする。
+- 観測中のdeploy、worker再起動、catalog mutation、失敗run、欠測が1つでもあれば期間を0から再開する。
+- staging restoreには観測終了時点から24時間以内のv3 backupを使う。
+- first/last run URL、全run数、観測開始・終了時刻を[Release Checklist](RELEASE_CHECKLIST.md)へ記録する。
+
+短時間の手動gateや単発成功は異常の早期検出には使えますが、この連続観測の代替にはしません。
 
 ## Deploy後
 
@@ -205,3 +217,14 @@ release `e0711f6`のphase 2 rolloutは完了しています。
 - raw/approved parity mismatch 0、pending review 0、legacy fallback 0、catalog load failure 0
 
 `retirement_ready=true`かつ`automated_eligible=true`ですが、`manual_signoff_required=true`です。staging v3 restore rehearsalと手動サインオフが済むまで、旧inline source of truthを廃止してはいけません。
+
+### Isolated v3 restore preflight (2026-07-30)
+
+production backup run `30528863296`を、productionへ接続しない一時展開releaseへimportして実データround-tripを確認しました。
+
+- source: 137 fetishes、153 questions、20,961 matrix rows
+- fresh seedとの差分: managed 6件、player 3件の計9 fetish
+- dry-run/import: `complete=true`、skipped 0、ignored 0、9件すべて復元
+- re-export: catalog digest `4952e3628a7431570265dadb64653699638fa82fdc653d2e3fcb1de8c576c268`一致
+
+このpreflightでv3がmissing managed fetishを無視する欠陥と、既存ownerのbackup inline worksを復元しない欠陥を検出して修正しました。隔離ローカルでの実backup検証はstaging PostgreSQL rehearsalと人手サインオフの代替にはしません。

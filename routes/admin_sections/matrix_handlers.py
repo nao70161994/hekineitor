@@ -6,7 +6,7 @@ from engine.work_catalog import validate_catalog, validate_catalog_fetish_refere
 from matrix_service import matrix_validation_report
 
 
-def _export_player_fetishes_to_restore(ctx, exported_fetishes):
+def _export_fetishes_to_restore(ctx, exported_fetishes, *, include_managed=False):
     if not isinstance(exported_fetishes, list):
         return []
     current_ids = {fetish['id'] for fetish in ctx.engine.fetishes}
@@ -19,7 +19,11 @@ def _export_player_fetishes_to_restore(ctx, exported_fetishes):
             fetish_id = int(fetish.get('id'))
         except (TypeError, ValueError):
             continue
-        if fetish_id < ctx.player_fetish_base_id or fetish_id in current_ids or fetish_id in seen:
+        if (
+            (not include_managed and fetish_id < ctx.player_fetish_base_id)
+            or fetish_id in current_ids
+            or fetish_id in seen
+        ):
             continue
         name = str(fetish.get('name') or '').strip()[:100]
         if not name:
@@ -34,6 +38,10 @@ def _export_player_fetishes_to_restore(ctx, exported_fetishes):
         )
         seen.add(fetish_id)
     return missing
+
+
+def _export_player_fetishes_to_restore(ctx, exported_fetishes):
+    return _export_fetishes_to_restore(ctx, exported_fetishes)
 
 
 def _missing_export_player_fetishes(ctx, exported_fetishes):
@@ -341,9 +349,13 @@ def import_matrix(ctx):
     rows = data.get('matrix_rows', [])
     if not rows:
         return ctx.jsonify({'status': 'error', 'message': 'matrix_rows が空です'}), 400
-    fetishes_to_restore = _export_player_fetishes_to_restore(ctx, data.get('fetishes'))
     try:
         backup_version = _matrix_backup_format_version(data)
+        fetishes_to_restore = _export_fetishes_to_restore(
+            ctx,
+            data.get('fetishes'),
+            include_managed=backup_version == 3,
+        )
         rows, adaptation = _adapt_matrix_rows_to_current_questions(
             ctx, rows, data.get('questions'), data.get('fetishes'), fetishes_to_restore
         )
@@ -358,7 +370,7 @@ def import_matrix(ctx):
             return confirm_error
         backup_path = ctx.snapshot_current_matrix('before_import_matrix')
         count, restored_fetishes = ctx.engine.restore_matrix_snapshot(
-            fetishes_to_restore,
+            data.get('fetishes') if backup_version == 3 else fetishes_to_restore,
             rows,
             work_catalog=data.get('work_catalog') if backup_version == 3 else None,
         )
@@ -376,6 +388,7 @@ def import_matrix(ctx):
             'backup_path': backup_relpath,
             **adaptation,
             'restored_player_fetish_count': len(restored_fetishes),
+            'restored_fetish_count': len(restored_fetishes),
         },
         ctx.request,
     )
@@ -388,6 +401,8 @@ def import_matrix(ctx):
             'backup_path': backup_relpath,
             'restored_player_fetishes': [{'id': fetish['id'], 'name': fetish['name']} for fetish in restored_fetishes],
             'restored_player_fetish_count': len(restored_fetishes),
+            'restored_fetishes': [{'id': fetish['id'], 'name': fetish['name']} for fetish in restored_fetishes],
+            'restored_fetish_count': len(restored_fetishes),
         }
     )
 
@@ -397,10 +412,14 @@ def import_matrix_dry_run(ctx):
     rows = data.get('matrix_rows', [])
     if not rows:
         return ctx.jsonify({'status': 'error', 'message': 'matrix_rows が空です'}), 400
-    fetishes_to_restore = _export_player_fetishes_to_restore(ctx, data.get('fetishes'))
-    missing = [{'id': fetish['id'], 'name': fetish['name']} for fetish in fetishes_to_restore]
     try:
-        _matrix_backup_format_version(data)
+        backup_version = _matrix_backup_format_version(data)
+        fetishes_to_restore = _export_fetishes_to_restore(
+            ctx,
+            data.get('fetishes'),
+            include_managed=backup_version == 3,
+        )
+        missing = [{'id': fetish['id'], 'name': fetish['name']} for fetish in fetishes_to_restore]
         rows, adaptation = _adapt_matrix_rows_to_current_questions(
             ctx, rows, data.get('questions'), data.get('fetishes'), fetishes_to_restore
         )
@@ -421,6 +440,9 @@ def import_matrix_dry_run(ctx):
             'missing_player_fetishes': missing,
             'missing_player_fetish_count': len(missing),
             'restorable_player_fetish_count': len(fetishes_to_restore),
+            'missing_fetishes': missing,
+            'missing_fetish_count': len(missing),
+            'restorable_fetish_count': len(fetishes_to_restore),
         }
     )
 
@@ -444,11 +466,13 @@ def restore_matrix_backup(ctx, name):
     allow_ignored = (
         request_data.get('allow_ignored_source_rows') is True or payload.get('allow_ignored_source_rows') is True
     )
-    fetishes_to_restore = _export_player_fetishes_to_restore(
-        ctx, payload.get('fetishes') if isinstance(payload, dict) else []
-    )
     try:
         backup_version = _matrix_backup_format_version(payload)
+        fetishes_to_restore = _export_fetishes_to_restore(
+            ctx,
+            payload.get('fetishes') if isinstance(payload, dict) else [],
+            include_managed=backup_version == 3,
+        )
         rows, adaptation = _adapt_matrix_rows_to_current_questions(
             ctx,
             rows,
@@ -467,7 +491,7 @@ def restore_matrix_backup(ctx, name):
             return confirm_error
         snapshot = ctx.snapshot_current_matrix('before_restore_matrix_backup')
         count, restored_fetishes = ctx.engine.restore_matrix_snapshot(
-            fetishes_to_restore,
+            payload.get('fetishes') if backup_version == 3 else fetishes_to_restore,
             rows,
             work_catalog=payload.get('work_catalog') if backup_version == 3 else None,
         )
@@ -486,6 +510,7 @@ def restore_matrix_backup(ctx, name):
             'pre_restore_backup': snapshot_relpath,
             **adaptation,
             'restored_player_fetish_count': len(restored_fetishes),
+            'restored_fetish_count': len(restored_fetishes),
         },
         ctx.request,
     )
@@ -497,5 +522,7 @@ def restore_matrix_backup(ctx, name):
             'pre_restore_backup': snapshot_relpath,
             'restored_player_fetishes': [{'id': fetish['id'], 'name': fetish['name']} for fetish in restored_fetishes],
             'restored_player_fetish_count': len(restored_fetishes),
+            'restored_fetishes': [{'id': fetish['id'], 'name': fetish['name']} for fetish in restored_fetishes],
+            'restored_fetish_count': len(restored_fetishes),
         }
     )

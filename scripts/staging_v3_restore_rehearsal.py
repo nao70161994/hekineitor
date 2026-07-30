@@ -64,12 +64,24 @@ def validate_dry_run(result: Mapping[str, Any]) -> dict[str, int]:
     valid = _int(result.get('valid_rows'), 'dry-run valid_rows', 1)
     skipped = _int(result.get('skipped_rows'), 'dry-run skipped_rows')
     ignored = _int(result.get('ignored_source_rows'), 'dry-run ignored_source_rows')
+    restorable_fetishes = _int(
+        result.get('restorable_fetish_count', result.get('restorable_player_fetish_count', 0)),
+        'restorable_fetish_count',
+    )
     if valid != expected or skipped or ignored:
         raise ValueError('staging dry-run row counts are not lossless')
-    return {'expected_rows': expected, 'valid_rows': valid, 'skipped_rows': skipped, 'ignored_source_rows': ignored}
+    return {
+        'expected_rows': expected,
+        'valid_rows': valid,
+        'skipped_rows': skipped,
+        'ignored_source_rows': ignored,
+        'restorable_fetish_count': restorable_fetishes,
+    }
 
 
-def validate_import_result(result: Mapping[str, Any], expected_rows: int) -> dict[str, int]:
+def validate_import_result(
+    result: Mapping[str, Any], expected_rows: int, expected_restored_fetishes: int = 0
+) -> dict[str, int]:
     if result.get('status') != 'ok':
         raise ValueError('staging import did not report status=ok')
     imported = _int(result.get('imported_rows'), 'imported_rows', 1)
@@ -77,7 +89,17 @@ def validate_import_result(result: Mapping[str, Any], expected_rows: int) -> dic
     skipped = _int(result.get('skipped_rows'), 'import skipped_rows')
     ignored = _int(result.get('ignored_source_rows'), 'import ignored_source_rows')
     restored = _int(result.get('restored_source_rows'), 'restored_source_rows', 1)
-    if imported != expected_rows or response_expected != expected_rows or skipped or ignored:
+    restored_fetishes = _int(
+        result.get('restored_fetish_count', result.get('restored_player_fetish_count', 0)),
+        'restored_fetish_count',
+    )
+    if (
+        imported != expected_rows
+        or response_expected != expected_rows
+        or skipped
+        or ignored
+        or restored_fetishes != expected_restored_fetishes
+    ):
         raise ValueError('staging import row counts are not lossless')
     return {
         'expected_rows': response_expected,
@@ -85,6 +107,7 @@ def validate_import_result(result: Mapping[str, Any], expected_rows: int) -> dic
         'skipped_rows': skipped,
         'ignored_source_rows': ignored,
         'restored_source_rows': restored,
+        'restored_fetish_count': restored_fetishes,
     }
 
 
@@ -285,7 +308,7 @@ def run_rehearsal(*, backup: Mapping[str, Any], client: RehearsalClient, backup_
     import_payload = dict(backup)
     import_payload['confirm_text'] = 'IMPORT'
     imported = client.json('/api/admin/import_matrix', method='POST', payload=import_payload, admin=True, csrf=csrf)
-    import_counts = validate_import_result(imported, dry_counts['expected_rows'])
+    import_counts = validate_import_result(imported, dry_counts['expected_rows'], dry_counts['restorable_fetish_count'])
     exported = client.json('/api/admin/export_matrix', admin=True)
     exported_validation = validate(exported)
     if exported_validation.get('version') != 3:

@@ -107,7 +107,7 @@ reviewの`keep_separate`または`merge`には現在の`expected_version`が必�
 `/api/admin/export_matrix`とimport/restore前snapshotは`backup_format_version: 3`として、matrix、全fetish metadata、question schema、`work_catalog`を一つのpayloadへ保存します。
 
 - v3 importはcatalogのschemaと参照整合性をwrite前に検証し、backupのinline fetish worksをcatalogのcorrection状態へforward/reverse投影してraw parity 0を要求します。
-- PostgreSQLでは不足player fetish、既存ownerのinline works、catalog、matrixを同一transactionで復元します。compound inlineはdeploy artifactであるため、backup catalogに合わせたforward/reverse投影が現行compound fileを変更する場合は、matching source/target code/data revisionを要求してDB write前にfail-closedします。
+- v3ではseedにないmanaged/player fetishをIDとmetadataごとすべて復元し、既存ownerを含むbackup inline works、catalog、matrixを同一transaction/journalで復元します。旧v1/v2はplayer fetishだけを復元する互換挙動を維持します。compound inlineはdeploy artifactであるため、backup catalogに合わせたforward/reverse投影が現行compound fileを変更する場合は、matching source/target code/data revisionを要求してDB write前にfail-closedします。
 - ローカルではrestore journal version 2にfetish inline、compound inline、catalog、matrixのbefore/afterを保存し、途中停止時は同じ世代へroll-forwardします。
 - 通常の作品編集journal version 1は3つの作品data fileを、性癖lifecycle journal version 2はさらにmatrixとfetish logを同じ世代へ復旧します。
 - 旧v1/v2 matrix backupも従来どおりimportでき、復元されたplayer-added fetishにinline作品がある場合は既存の管理済みID・metadata・review判断を保持したまま、その新規ownerのcatalog linkを同じtransaction/journalへ追加します。

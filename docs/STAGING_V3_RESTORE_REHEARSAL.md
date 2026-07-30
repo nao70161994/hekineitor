@@ -47,11 +47,13 @@ workflowは次を順に実行します。
 2. `validate_matrix_backup.py --max-age-days 30`でv3、matrix全積、fetish/question schema、`work_catalog`参照整合性を検証する。
 3. staging専用Basic認証で`/admin`のcookieとCSRF tokenを取得する。
 4. `/api/admin/import_matrix/dry_run`で`complete=true`、`valid_rows=expected_rows`、`skipped_rows=0`、`ignored_source_rows=0`を確認する。
-5. payloadへ`confirm_text=IMPORT`を加え、CSRF付きでimportする。imported/expected/restored件数とskipped/ignoredを再検証する。
+5. payloadへ`confirm_text=IMPORT`を加え、CSRF付きでimportする。seedにないmanaged/player fetishをすべて復元し、imported/expected/restored件数とskipped/ignoredを再検証する。
 6. stagingからv3 backupを再exportし、復元前後の正規化catalog SHA-256 digestと全テーブル件数を照合する。既存ownerのbackup inline worksも同じtransactionで復元され、catalogとのraw parityが0であることを確認する。
 7. `/api/admin/works_health`でparity、DB/snapshot/cache revision一致、pending review=0、fallback/load failure=0を確認する。
 8. 公開`/health`、`/`、`/fetishes`、active HTTPS editionを持つ`/fetish/<id>`、`/api/start`をsmokeする。canonical、OG title、JSON-LD、affiliate tag、診断開始response contractを確認する。
 9. `compound_work_links`が復元・再exportされdigestに含まれることを確認する。
+
+fresh stagingのseedに本番追加fetishが存在しなくても、v3 dry-runは全metadataを復元対象として`ignored_source_rows=0`を要求します。既存ownerのinline worksもbackup値へ揃えてからcatalog parityを検証します。旧v1/v2 backupでは、従来どおりplayer-added fetishだけを復元します。
 
 `/api/start`はstagingで診断セッションを1件開始しますが、回答、結果確定、フィードバック学習は行いません。複合結果は質問回答によって非決定的に変わるため、自動処理で無理に生成しません。artifactには`manual_compound_result_signoff_required=true`を残します。
 
