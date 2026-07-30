@@ -58,7 +58,7 @@ window.HekiRenderers = (() => {
     const focusTarget = focusTargetId ? document.getElementById(focusTargetId) : null;
     if (focusTarget) {
       requestAnimationFrame(() => {
-        const scrollTarget = id === 'result-screen' ? target : focusTarget;
+        const scrollTarget = id === 'result-screen' ? (target.closest('.card') || target) : focusTarget;
         scrollTarget.scrollIntoView({block: 'start', behavior: 'auto'});
         focusTarget.focus({preventScroll: true});
       });

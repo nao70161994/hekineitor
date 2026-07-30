@@ -104,6 +104,20 @@ describe('HekiRenderers screen transitions', () => {
     expect(document.activeElement).toBe(heading);
 
   });
+  it('keeps the result card padding in view when the screen is inside a card', () => {
+    document.getElementById('result-screen').remove();
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      '<main class="card"><section id="result-screen"><h2 id="result-name" tabindex="-1">結果</h2></section></main>',
+    );
+    const card = document.querySelector('.card');
+    card.scrollIntoView = vi.fn();
+
+    window.HekiRenderers.showScreen('result-screen');
+
+    expect(card.scrollIntoView).toHaveBeenCalledWith({block: 'start', behavior: 'auto'});
+    expect(document.activeElement).toBe(document.getElementById('result-name'));
+  });
   it('renders the deciding answers for every compound component', () => {
     document.body.innerHTML += `
       <section id="compound-reasons-section" class="hidden">
