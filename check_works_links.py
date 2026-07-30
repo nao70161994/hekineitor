@@ -19,6 +19,7 @@ if str(SCRIPT_DIR) not in sys.path:
 
 from engine import work_catalog
 from services.works_links import work_url_status
+
 with open('data/fetishes.json') as f:
     fetishes = json.load(f)
 with open('data/work_catalog.json') as f:

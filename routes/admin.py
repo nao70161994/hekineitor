@@ -368,11 +368,10 @@ def low_exposure_fetishes(ctx):
     limit = ctx.bounded_int(ctx.request.args.get('limit'), 30, 1, 200)
     threshold = ctx.bounded_int(ctx.request.args.get('threshold'), 3, 0, 1000000)
     rows = ctx.build_fetish_log_rows()
-    fetish_by_id = {fetish.get('id'): fetish for fetish in ctx.engine.fetishes}
+    works_by_fetish = ctx.engine.recommended_works_snapshot()
     enriched = []
     for row in rows:
-        fetish = fetish_by_id.get(row['id'], {})
-        works = ctx.engine.get_recommended_works(row['id'])
+        works = works_by_fetish.get(int(row['id']), [])
         item = {
             'id': row['id'],
             'name': row['name'],
