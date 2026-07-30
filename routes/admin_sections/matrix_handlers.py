@@ -397,6 +397,8 @@ def import_matrix(ctx):
             'status': 'ok',
             'imported_rows': count,
             'expected_rows': expected_rows,
+            'input_rows': report['input_rows'],
+            'skipped_rows': report['skipped_rows'],
             **adaptation,
             'backup_path': backup_relpath,
             'restored_player_fetishes': [{'id': fetish['id'], 'name': fetish['name']} for fetish in restored_fetishes],
