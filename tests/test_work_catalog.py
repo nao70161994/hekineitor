@@ -106,7 +106,7 @@ class WorkCatalogMigrationTests(unittest.TestCase):
             {entry['edition']['isbn'] for entry in manifest['entries'] if entry.get('edition')},
         )
         self.assertNotIn('4199007804', {row['value'] for row in catalog['work_edition_identifiers']})
-        self.assertEqual(sum(bool(row['media_type']) for row in catalog['works_master']), 18)
+        self.assertEqual(sum(bool(row['media_type']) for row in catalog['works_master']), 19)
         identified_editions = {row['edition_id'] for row in catalog['work_edition_identifiers']}
         self.assertTrue(
             all(
@@ -613,8 +613,8 @@ class WorkCatalogMigrationTests(unittest.TestCase):
             corrections=corrections,
         )
 
-        self.assertEqual(reverse['applied_link_count'], 7)
-        self.assertEqual(reverse['fetish_owner_count'], 6)
+        self.assertEqual(reverse['applied_link_count'], 8)
+        self.assertEqual(reverse['fetish_owner_count'], 7)
         self.assertEqual(reverse['compound_owner_count'], 1)
         self.assertEqual(forward['fetishes'], fetishes)
         self.assertEqual(forward['compound_rows'], compounds)
@@ -645,7 +645,7 @@ class WorkCatalogMigrationTests(unittest.TestCase):
         self.assertTrue(parity['automated_parity_ok'])
         self.assertEqual(parity['mismatch_count'], 0)
 
-    def test_approved_projection_explains_the_six_production_correction_deltas(self):
+    def test_approved_projection_explains_the_seven_production_correction_deltas(self):
         catalog, fetishes, compounds, corrections = self._production_correction_projection_fixture()
 
         raw = work_catalog.catalog_parity_report(catalog, fetishes, compound_rows=compounds)
@@ -656,11 +656,11 @@ class WorkCatalogMigrationTests(unittest.TestCase):
             corrections=corrections,
         )
 
-        self.assertEqual(raw['mismatch_count'], 6)
+        self.assertEqual(raw['mismatch_count'], 7)
         self.assertFalse(raw['automated_parity_ok'])
         self.assertTrue(approved['approved_projection_ok'])
         self.assertEqual(approved['approved_mismatch_count'], 0)
-        self.assertEqual(approved['approved_projection_applied_count'], 6)
+        self.assertEqual(approved['approved_projection_applied_count'], 7)
         self.assertEqual(approved['approved_projection_missing_count'], 1)
 
     def test_approved_projection_rejects_unapproved_signature_and_shape_drift(self):

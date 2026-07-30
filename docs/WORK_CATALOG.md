@@ -82,7 +82,7 @@ reviewの`keep_separate`または`merge`には現在の`expected_version`が必�
 - `normalization_conflict`: 緩いタイトル正規化で近く、複数ASINを持つ候補。
 - `identity_override`: 英題・和題・略称など、機械的な候補抽出では結び付かないが人手で同一と確認した候補。
 
-未判断の候補は別`work_id`のまま保持します。2026-07-28のseed reviewでは74件すべてを解決し、72件をmerge、2件を`keep_separate`としました。その後、確実なseed cleanup、P0訂正、一次書誌batchを適用しました。現行seedは325 master、251 edition、12 edition identifier、156 alias、376 fetish link、185 compound link、pending 0です。媒体種別は18件、紙版metadataは12件で、legacy公開projectionとのmismatchは0です。判断根拠と保留事項は[`WORK_CATALOG_REVIEW_2026-07-28.md`](WORK_CATALOG_REVIEW_2026-07-28.md)と[`WORK_CATALOG_DATA_QUALITY_2026-07-29.md`](WORK_CATALOG_DATA_QUALITY_2026-07-29.md)に記録します。
+未判断の候補は別`work_id`のまま保持します。2026-07-28のseed reviewでは74件すべてを解決し、72件をmerge、2件を`keep_separate`としました。その後、確実なseed cleanup、P0訂正、一次書誌batchを適用しました。現行seedは325 master、251 edition、12 edition identifier、157 alias、376 fetish link、185 compound link、pending 0です。媒体種別は19件、紙版metadataは12件で、legacy公開projectionとのmismatchは0です。判断根拠と保留事項は[`WORK_CATALOG_REVIEW_2026-07-28.md`](WORK_CATALOG_REVIEW_2026-07-28.md)と[`WORK_CATALOG_DATA_QUALITY_2026-07-29.md`](WORK_CATALOG_DATA_QUALITY_2026-07-29.md)に記録します。
 
 ## Backup and restore
 

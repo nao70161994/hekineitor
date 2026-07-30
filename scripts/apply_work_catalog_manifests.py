@@ -34,7 +34,7 @@ LEGACY_COMPATIBLE_DIGESTS = {
     LEGACY_DURABLE_FINAL_DIGEST,
 }
 SEED_SHA256 = 'e960ed79e1f77c0af61275d536f311b3d8c3b93b563bf522e55b0ed4dbde32c3'
-CORRECTIONS_SHA256 = '2e629957bd11a85f14269298aa8227298faa16fdba21cf82e19fbceb9d0bf76e'
+CORRECTIONS_SHA256 = 'bf68f459045abcd911574472cd60977c4baa7a43cf7008b6c58d3698a94d4d66'
 BIBLIOGRAPHY_SHA256 = 'e572a91427ecac77bf278766fed35627f645ea885d69366c010e6891bd2cb908'
 CSRF_RE = re.compile(r'csrfToken\s*[:=]\s*["\']([^"\']+)')
 
@@ -162,7 +162,7 @@ def apply_manifests(
         raise RuntimeError('review manifest counts do not match the approved change sets')
     if len(seed.get('title_normalizations', [])) != 46 or len(seed.get('remove_display_titles', [])) != 4:
         raise RuntimeError('seed manifest counts do not match the approved change set')
-    if len(corrections.get('corrections', [])) != 4:
+    if len(corrections.get('corrections', [])) != 5:
         raise RuntimeError('correction manifest count does not match the approved change set')
     if len(bibliography.get('entries', [])) != 18:
         raise RuntimeError('bibliography manifest count does not match the approved change set')

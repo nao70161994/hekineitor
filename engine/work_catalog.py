@@ -572,6 +572,65 @@ def catalog_parity_report(catalog, fetishes, *, compound_rows=(), sample_limit=2
     }
 
 
+
+_CORRECTION_ALLOWED_FIELDS = frozenset(
+    {
+        'correction_id',
+        'type',
+        'expected_work',
+        'target_work',
+        'edition_updates',
+        'edition_additions',
+        'edition_removals',
+        'alias_additions',
+        'alias_removals',
+        'link_updates',
+        'review_updates',
+    }
+)
+_CORRECTION_EXACT_WRAPPER_FIELDS = {
+    'edition_updates': frozenset({'expected'}),
+    'edition_additions': frozenset({'target', 'identifiers'}),
+    'edition_removals': frozenset({'expected', 'expected_identifiers'}),
+    'alias_additions': frozenset({'target'}),
+    'review_updates': frozenset({'expected', 'target', 'accepted_source_updated_at'}),
+}
+_CORRECTION_OPTIONAL_WRAPPER_FIELDS = {
+    'alias_removals': (
+        frozenset({'expected', 'allow_missing'}),
+        frozenset({'expected'}),
+    ),
+    'link_updates': (
+        frozenset({'table', 'expected', 'edition_id', 'alias_id', 'context_label', 'allow_missing'}),
+        frozenset({'table', 'expected'}),
+    ),
+}
+_CORRECTION_V2_FIELDS = frozenset({'edition_additions', 'edition_removals', 'alias_additions'})
+
+
+def _validate_correction_manifest_fields(corrections, schema_version):
+    """Reject misspelled manifest fields before projection or catalog mutation."""
+    for correction in corrections:
+        correction_id = str(correction.get('correction_id') or '')
+        if set(correction) - _CORRECTION_ALLOWED_FIELDS:
+            raise ValueError(f'work catalog correction contains unknown fields: {correction_id}')
+        if schema_version == 1 and set(correction) & _CORRECTION_V2_FIELDS:
+            raise ValueError(f'work catalog correction schema_version 1 contains version 2 fields: {correction_id}')
+        wrapper_fields = set(_CORRECTION_EXACT_WRAPPER_FIELDS) | set(_CORRECTION_OPTIONAL_WRAPPER_FIELDS)
+        for field in wrapper_fields:
+            wrappers = correction.get(field, [])
+            if not isinstance(wrappers, list) or not all(isinstance(wrapper, dict) for wrapper in wrappers):
+                raise ValueError(f'work catalog correction has invalid {field}: {correction_id}')
+        for field, allowed in _CORRECTION_EXACT_WRAPPER_FIELDS.items():
+            for wrapper in correction.get(field, []):
+                if set(wrapper) != allowed:
+                    raise ValueError(f'work catalog correction has invalid {field}: {correction_id}')
+        for field, (allowed, required) in _CORRECTION_OPTIONAL_WRAPPER_FIELDS.items():
+            for wrapper in correction.get(field, []):
+                if not required <= set(wrapper) <= allowed:
+                    raise ValueError(f'work catalog correction has invalid {field}: {correction_id}')
+
+
 def project_approved_inline_corrections(
     fetishes,
     *,
@@ -595,7 +654,7 @@ def project_approved_inline_corrections(
         catalog_schema_version = int(corrections.get('catalog_schema_version', 0))
     except (TypeError, ValueError):
         raise ValueError('unsupported work catalog corrections schema_version')
-    if schema_version != 1 or catalog_schema_version not in SUPPORTED_CATALOG_SCHEMA_VERSIONS:
+    if schema_version not in {1, 2} or catalog_schema_version not in SUPPORTED_CATALOG_SCHEMA_VERSIONS:
         raise ValueError('unsupported work catalog corrections schema_version')
     correction_rows = corrections.get('corrections')
     if not isinstance(correction_rows, list) or not all(isinstance(row, dict) for row in correction_rows):
@@ -603,6 +662,7 @@ def project_approved_inline_corrections(
     correction_ids = [str(row.get('correction_id') or '') for row in correction_rows]
     if not all(correction_ids) or len(correction_ids) != len(set(correction_ids)):
         raise ValueError('work catalog corrections contain missing or duplicate correction ids')
+    _validate_correction_manifest_fields(correction_rows, schema_version)
 
     projected_fetishes = copy.deepcopy(fetishes)
     fetish_by_id = {int(row['id']): row for row in projected_fetishes}
@@ -673,19 +733,53 @@ def project_approved_inline_corrections(
             return False
         return True
 
-    def expected_aliases(correction):
+    def source_aliases(correction):
         return {
             row.get('expected', {}).get('alias_id'): row.get('expected', {})
             for row in correction.get('alias_removals') or []
             if isinstance(row, dict) and isinstance(row.get('expected'), dict)
         }
 
-    def expected_editions(correction):
-        return {
+    def target_aliases(correction):
+        aliases = source_aliases(correction)
+        aliases.update(
+            {
+                row.get('target', {}).get('alias_id'): row.get('target', {})
+                for row in correction.get('alias_additions') or []
+                if isinstance(row, dict) and isinstance(row.get('target'), dict)
+            }
+        )
+        return aliases
+
+    def source_editions(correction):
+        editions = {
             row.get('expected', {}).get('edition_id'): row.get('expected', {})
             for row in correction.get('edition_updates') or []
             if isinstance(row, dict) and isinstance(row.get('expected'), dict)
         }
+        editions.update(
+            {
+                row.get('expected', {}).get('edition_id'): row.get('expected', {})
+                for row in correction.get('edition_removals') or []
+                if isinstance(row, dict) and isinstance(row.get('expected'), dict)
+            }
+        )
+        return editions
+
+    def target_editions(correction):
+        editions = {
+            row.get('expected', {}).get('edition_id'): row.get('expected', {})
+            for row in correction.get('edition_updates') or []
+            if isinstance(row, dict) and isinstance(row.get('expected'), dict)
+        }
+        editions.update(
+            {
+                row.get('target', {}).get('edition_id'): row.get('target', {})
+                for row in correction.get('edition_additions') or []
+                if isinstance(row, dict) and isinstance(row.get('target'), dict)
+            }
+        )
+        return editions
 
     def signature(correction, link, *, target):
         work = correction.get('target_work') if target else correction.get('expected_work')
@@ -693,7 +787,8 @@ def project_approved_inline_corrections(
             raise ValueError('missing work title')
         alias_id = link.get('alias_id') if target else link.get('expected', {}).get('alias_id')
         if alias_id:
-            alias = expected_aliases(correction).get(alias_id)
+            aliases = target_aliases(correction) if target else source_aliases(correction)
+            alias = aliases.get(alias_id)
             if not alias or not str(alias.get('alias') or '').strip():
                 raise ValueError(f'unknown alias_id {alias_id}')
             title = str(alias['alias']).strip()
@@ -701,7 +796,8 @@ def project_approved_inline_corrections(
             title = str(work['canonical_title']).strip()
         edition_id = link.get('edition_id') if target else link.get('expected', {}).get('edition_id')
         if edition_id:
-            edition = expected_editions(correction).get(edition_id)
+            editions = target_editions(correction) if target else source_editions(correction)
+            edition = editions.get(edition_id)
             if not edition:
                 raise ValueError(f'unknown edition_id {edition_id}')
             url = safe_work_url(edition.get('canonical_url'))
@@ -1678,7 +1774,7 @@ def apply_catalog_corrections(catalog, manifest):
         catalog_schema_version = int(manifest.get('catalog_schema_version', 0))
     except (TypeError, ValueError):
         raise ValueError('unsupported work catalog corrections schema_version')
-    if schema_version != 1 or catalog_schema_version not in SUPPORTED_CATALOG_SCHEMA_VERSIONS:
+    if schema_version not in {1, 2} or catalog_schema_version not in SUPPORTED_CATALOG_SCHEMA_VERSIONS:
         raise ValueError('unsupported work catalog corrections schema_version')
     corrections = manifest.get('corrections')
     if not isinstance(corrections, list) or not all(isinstance(row, dict) for row in corrections):
@@ -1687,6 +1783,9 @@ def apply_catalog_corrections(catalog, manifest):
     if not all(correction_ids) or len(correction_ids) != len(set(correction_ids)):
         raise ValueError('work catalog corrections contain missing or duplicate correction ids')
 
+    _validate_correction_manifest_fields(corrections, schema_version)
+    if schema_version == 2 and (catalog_schema_version != 2 or int(catalog.get('schema_version', 0)) != 2):
+        raise ValueError('work catalog corrections schema_version 2 requires catalog schema_version 2')
     updated = copy.deepcopy(catalog)
 
     def find_row(collection, id_field, row_id):
@@ -1777,24 +1876,35 @@ def apply_catalog_corrections(catalog, manifest):
             raise ValueError(f'work catalog correction requires expected_work and target_work: {correction_id}')
         source_work_id = str(expected_work.get('work_id') or '')
         target_work_id = str(target_work.get('work_id') or '')
-        canonical_title = str(target_work.get('canonical_title') or '').strip()
+        canonical_title = _admin_text(target_work.get('canonical_title'), 'canonical_title', 200, required=True)
+        canonical_target_work = {
+            'work_id': target_work_id,
+            'canonical_title': canonical_title,
+            'normalized_title': normalized_work_title(canonical_title),
+            'media_type': _admin_text(target_work.get('media_type'), 'media_type', 40),
+            'status': str(target_work.get('status') or ''),
+        }
         if (
             not source_work_id
             or not target_work_id
-            or not canonical_title
-            or target_work.get('normalized_title') != normalized_work_title(canonical_title)
+            or canonical_target_work['status'] not in {'active', 'inactive', 'archived'}
+            or target_work != canonical_target_work
         ):
             raise ValueError(f'work catalog correction has invalid target work: {correction_id}')
         if correction_type == 'retitle_identity' and target_work_id != source_work_id:
             raise ValueError(f'work catalog correction retitle must preserve work_id: {correction_id}')
 
         edition_updates = correction.get('edition_updates', [])
+        edition_additions = correction.get('edition_additions', [])
+        edition_removals = correction.get('edition_removals', [])
+        alias_additions = correction.get('alias_additions', [])
         alias_removals = correction.get('alias_removals', [])
         link_updates = correction.get('link_updates', [])
         review_updates = correction.get('review_updates', [])
+        extended_rows = (edition_additions, edition_removals, alias_additions)
         if not all(
             isinstance(rows, list) and all(isinstance(row, dict) for row in rows)
-            for rows in (edition_updates, alias_removals, link_updates, review_updates)
+            for rows in (edition_updates, *extended_rows, alias_removals, link_updates, review_updates)
         ):
             raise ValueError(f'work catalog correction row collections must be lists: {correction_id}')
 
@@ -1820,6 +1930,98 @@ def apply_catalog_corrections(catalog, manifest):
             target.setdefault('edition_title', '')
             target.setdefault('publisher', '')
             target_editions.append((expected, target))
+
+        added_editions = []
+        for addition in edition_additions:
+            target = addition.get('target')
+            identifiers = addition.get('identifiers')
+            if (
+                not isinstance(target, dict)
+                or target.get('work_id') != target_work_id
+                or not isinstance(identifiers, list)
+                or not all(isinstance(row, dict) for row in identifiers)
+            ):
+                raise ValueError(f'work catalog correction has invalid edition addition: {correction_id}')
+            canonical_url = safe_work_url(target.get('canonical_url'))
+            edition_key = _edition_key(canonical_url)
+            expected_id = _stable_id('wed', edition_key) if edition_key else ''
+            if (
+                not canonical_url
+                or target.get('canonical_url') != canonical_url
+                or target.get('edition_id') != expected_id
+                or str(target.get('asin') or '') != extract_asin(canonical_url)
+            ):
+                raise ValueError(f'work catalog correction has non-deterministic edition addition: {correction_id}')
+            canonical_target = {
+                'edition_id': expected_id,
+                'work_id': target_work_id,
+                'asin': extract_asin(canonical_url),
+                'canonical_url': canonical_url,
+                'format': _admin_text(target.get('format'), 'format', 40),
+                'status': str(target.get('status') or ''),
+                'edition_title': _admin_text(target.get('edition_title'), 'edition_title', 200),
+                'publisher': _admin_text(target.get('publisher'), 'publisher', 200),
+            }
+            if canonical_target['status'] not in {'active', 'inactive', 'archived'} or target != canonical_target:
+                raise ValueError(f'work catalog correction has invalid edition addition: {correction_id}')
+            canonical_identifiers = []
+            for identifier in identifiers:
+                canonical = build_edition_identifier(
+                    target['edition_id'],
+                    scheme=identifier.get('scheme'),
+                    authority=identifier.get('authority'),
+                    value=identifier.get('value'),
+                )
+                if identifier != canonical:
+                    raise ValueError(
+                        f'work catalog correction has non-deterministic identifier addition: {correction_id}'
+                    )
+                canonical_identifiers.append(copy.deepcopy(identifier))
+            added_editions.append((copy.deepcopy(target), canonical_identifiers))
+
+        added_aliases = []
+        for addition in alias_additions:
+            target = addition.get('target')
+            if not isinstance(target, dict) or target.get('work_id') != target_work_id:
+                raise ValueError(f'work catalog correction has invalid alias addition: {correction_id}')
+            alias = str(target.get('alias') or '').strip()
+            normalized_alias = normalized_work_title(alias)
+            expected_id = _stable_id('wal', target_work_id, normalized_alias)
+            canonical_target = {
+                'alias_id': expected_id,
+                'work_id': target_work_id,
+                'alias': alias,
+                'normalized_alias': normalized_alias,
+            }
+            if not alias or target != canonical_target:
+                raise ValueError(f'work catalog correction has non-deterministic alias addition: {correction_id}')
+            added_aliases.append(copy.deepcopy(target))
+
+        removed_editions = []
+        for removal in edition_removals:
+            expected = removal.get('expected')
+            expected_identifiers = removal.get('expected_identifiers')
+            if (
+                not isinstance(expected, dict)
+                or expected.get('work_id') != source_work_id
+                or not isinstance(expected_identifiers, list)
+                or not all(isinstance(row, dict) for row in expected_identifiers)
+            ):
+                raise ValueError(f'work catalog correction has invalid edition removal: {correction_id}')
+            identifier_ids = []
+            for identifier in expected_identifiers:
+                canonical = build_edition_identifier(
+                    expected.get('edition_id'),
+                    scheme=identifier.get('scheme'),
+                    authority=identifier.get('authority'),
+                    value=identifier.get('value'),
+                )
+                if identifier != canonical:
+                    raise ValueError(f'work catalog correction has invalid edition removal identifier: {correction_id}')
+                identifier_ids.append(identifier['identifier_id'])
+            if len(identifier_ids) != len(set(identifier_ids)):
+                raise ValueError(f'work catalog correction has duplicate edition removal identifiers: {correction_id}')
+            removed_editions.append((expected, expected_identifiers))
 
         target_links = []
         for link_update in link_updates:
@@ -1893,6 +2095,24 @@ def apply_catalog_corrections(catalog, manifest):
             and all(
                 find_row('work_editions', 'edition_id', target['edition_id']) == target for _, target in target_editions
             )
+            and all(
+                find_row('work_editions', 'edition_id', target['edition_id']) == target for target, _ in added_editions
+            )
+            and all(find_row('work_aliases', 'alias_id', target['alias_id']) == target for target in added_aliases)
+            and all(
+                find_row('work_edition_identifiers', 'identifier_id', identifier['identifier_id']) == identifier
+                for _, identifiers in added_editions
+                for identifier in identifiers
+            )
+            and all(
+                find_row('work_editions', 'edition_id', expected['edition_id']) is None
+                for expected, _ in removed_editions
+            )
+            and all(
+                find_row('work_edition_identifiers', 'identifier_id', identifier['identifier_id']) is None
+                for _, identifiers in removed_editions
+                for identifier in identifiers
+            )
             and all(link_update_applied(*values) for values in target_links)
             and all(find_row('work_aliases', 'alias_id', alias_id) is None for alias_id in removed_alias_ids)
             and all(
@@ -1909,6 +2129,40 @@ def apply_catalog_corrections(catalog, manifest):
             for row in updated['works_master']
         ):
             raise ValueError(f'work catalog correction canonical collision: {correction_id}')
+        for expected, expected_identifiers in removed_editions:
+            require_exact('work_editions', 'edition_id', expected, correction_id)
+            actual_identifiers = sorted(
+                (
+                    row
+                    for row in updated.get('work_edition_identifiers', [])
+                    if row.get('edition_id') == expected['edition_id']
+                ),
+                key=lambda row: row['identifier_id'],
+            )
+            if actual_identifiers != sorted(expected_identifiers, key=lambda row: row['identifier_id']):
+                raise ValueError(f'work catalog correction edition removal identifier drift: {correction_id}')
+        for target, identifiers in added_editions:
+            if find_row('work_editions', 'edition_id', target['edition_id']) is not None or any(
+                _edition_key(row.get('canonical_url')) == _edition_key(target['canonical_url'])
+                for row in updated['work_editions']
+            ):
+                raise ValueError(f'work catalog correction edition addition collision: {correction_id}')
+            for identifier in identifiers:
+                if find_row('work_edition_identifiers', 'identifier_id', identifier['identifier_id']) is not None:
+                    raise ValueError(f'work catalog correction identifier addition collision: {correction_id}')
+                if any(
+                    (row['scheme'], row['authority'], row['value'])
+                    == (identifier['scheme'], identifier['authority'], identifier['value'])
+                    for row in updated['work_edition_identifiers']
+                ):
+                    raise ValueError(f'work catalog correction identifier addition collision: {correction_id}')
+        for target in added_aliases:
+            if find_row('work_aliases', 'alias_id', target['alias_id']) is not None or any(
+                row['work_id'] == target_work_id and row['normalized_alias'] == target['normalized_alias']
+                for row in updated['work_aliases']
+            ):
+                raise ValueError(f'work catalog correction alias addition collision: {correction_id}')
+
         if correction_type == 'split_misassigned_edition':
             if find_row('works_master', 'work_id', target_work_id) is not None:
                 raise ValueError(f'work catalog correction target collision: {correction_id}')
@@ -1917,6 +2171,11 @@ def apply_catalog_corrections(catalog, manifest):
             source_work = find_row('works_master', 'work_id', source_work_id)
             source_work.clear()
             source_work.update(copy.deepcopy(target_work))
+
+        for target, identifiers in added_editions:
+            updated['work_editions'].append(copy.deepcopy(target))
+            updated['work_edition_identifiers'].extend(copy.deepcopy(identifiers))
+        updated['work_aliases'].extend(copy.deepcopy(added_aliases))
 
         for expected, target in target_editions:
             edition = require_exact('work_editions', 'edition_id', expected, correction_id)
@@ -1935,6 +2194,20 @@ def apply_catalog_corrections(catalog, manifest):
                 raise ValueError(f'work catalog correction link collision: {correction_id}')
             link.clear()
             link.update(target)
+        for expected, expected_identifiers in removed_editions:
+            if any(
+                link.get('edition_id') == expected['edition_id']
+                for link in updated['fetish_work_links'] + updated['compound_work_links']
+            ):
+                raise ValueError(f'work catalog correction edition still referenced: {correction_id}')
+            removed_identifier_ids = {row['identifier_id'] for row in expected_identifiers}
+            updated['work_edition_identifiers'] = [
+                row for row in updated['work_edition_identifiers'] if row['identifier_id'] not in removed_identifier_ids
+            ]
+            updated['work_editions'] = [
+                row for row in updated['work_editions'] if row['edition_id'] != expected['edition_id']
+            ]
+
         for expected, allow_missing in removed_aliases:
             alias = find_row('work_aliases', 'alias_id', expected['alias_id'])
             if alias is None and allow_missing:

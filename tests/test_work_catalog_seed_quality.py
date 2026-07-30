@@ -208,8 +208,11 @@ def test_checked_in_seed_has_only_verified_safe_normalizations():
     corrected_fetish_titles = {}
     corrected_compound_titles = {}
     for correction in corrections['corrections']:
-        title = correction['target_work']['canonical_title']
+        added_aliases = {
+            row['target']['alias_id']: row['target']['alias'] for row in correction.get('alias_additions', [])
+        }
         for update in correction['link_updates']:
+            title = added_aliases.get(update.get('alias_id'), correction['target_work']['canonical_title'])
             expected_link = update['expected']
             if update['table'] == 'fetish_work_links':
                 corrected_fetish_titles[(expected_link['fetish_id'], expected_link['position'])] = title
@@ -238,7 +241,7 @@ def test_checked_in_seed_has_only_verified_safe_normalizations():
     assert '賭ケグルイ（参考）' in {row['alias'] for row in aliases.values()}
     assert len([title for title in canonical_titles if title.startswith('ベルセルク')]) == 2
     assert len([title for title in canonical_titles if title.startswith('小林さんちのメイドラゴン')]) == 2
-    assert sum(bool(row['media_type']) for row in masters.values()) == 18
+    assert sum(bool(row['media_type']) for row in masters.values()) == 19
     assert sum(row['format'] == 'paper' for row in catalog['work_editions']) == 12
     assert len(catalog['work_edition_identifiers']) == 12
     assert all(row['scheme'] == row['authority'] == 'isbn' for row in catalog['work_edition_identifiers'])

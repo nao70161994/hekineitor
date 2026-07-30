@@ -4,7 +4,7 @@ inline `fetishes.works` / `compound_works`をsource of truthから外すため�
 
 ## Checked-in evidence (2026-07-29)
 
-`data/work_catalog_review_decisions.json`は74件のinput-locked判断（merge 72、keep separate 2）を持ち、seed override、P0 correction、schema v2 bibliography manifestを順に適用します。現行seedはmaster 325、edition 251、edition identifier 12、alias 156、fetish link 376、compound link 185、pending 0です。18作品の媒体と12紙版の一次書誌を保持しながら、legacy projectionとのfetish/compound mismatchはいずれも0で、`automated_parity_ok=true`です。
+`data/work_catalog_review_decisions.json`は74件のinput-locked判断（merge 72、keep separate 2）を持ち、seed override、P0 correction、schema v2 bibliography manifestを順に適用します。現行seedはmaster 325、edition 251、edition identifier 12、alias 157、fetish link 376、compound link 185、pending 0です。19作品の媒体と12紙版の一次書誌を保持しながら、legacy projectionとのfetish/compound mismatchはいずれも0で、`automated_parity_ok=true`です。
 
 既存DBへ適用するときは、まず`GET /api/admin/work_catalog`で最新`digest`を取得し、`POST /api/admin/work_catalog/mutate`へ次を送ります。
 
@@ -38,7 +38,7 @@ manifestは全件を一つのtransaction/journalで適用します。同一manif
 
 この操作もDBではcatalog lock内の一transaction、localでは一つのmutation journalで適用されます。displayの欠落・複数work一致、canonical衝突、削除後の参照残りはfail-closedです。成功時は`normalized_title_count=46`、初回のみ`removed_work_count=4`を確認し、監査ログの`manifest_sha256=e960ed79e1f77c0af61275d536f311b3d8c3b93b563bf522e55b0ed4dbde32c3`を照合します。再適用は`removed_work_count=0`のno-opとなり、digestも変化しません。
 
-`data/work_catalog_corrections.json`は、一次情報で確認したP0誤紐付け4件を、source row完全一致・決定的ID・冪等適用で訂正します。1件は別作品editionを新masterへ分離し、3件は誤ったmaster identityを正式作品名へretitleします。edition/linkのownerとpositionを維持し、誤aliasを削除して推薦文脈をlink contextへ移します。`review_queue.updated_at`だけはUTC instantとして比較し、checked seedの`2026-07-28`に加えて、旧79件review manifestが本番へdurable保存した既知値`2026-07-29T00:00:00+00:00`をmanifestの`accepted_source_updated_at`で明示許可します。同一instantのdate/ISO表現だけが一致し、未列挙の日付や他fieldの差異はfail-closedです。本番でplayer-added owner 104の推薦置換により既に不存在となったseed alias `wal_d6cfef435e8063b178c5`とlink `fwl_0491358730a92c95b5dc`だけは`allow_missing`でskipします。存在する場合は完全一致を必須とし、異内容のrowは拒否します。不在のseed linkを再作成しないため、本番のplayer-added推薦・owner/positionは保持されます。
+`data/work_catalog_corrections.json`は、一次情報で確認したP0誤紐付け5件を、source row完全一致・決定的ID・冪等適用で訂正します。1件は別作品editionを新masterへ分離し、4件は誤ったmaster identityを正式作品名へretitleします。露出少女日記は旧表示aliasとowner/positionを維持したまま、誤ASIN editionを厳密削除して作者販売のFantia editionへ付け替えます。edition/linkのownerとpositionを維持し、誤aliasを削除して推薦文脈をlink contextへ移します。`review_queue.updated_at`だけはUTC instantとして比較し、checked seedの`2026-07-28`に加えて、旧79件review manifestが本番へdurable保存した既知値`2026-07-29T00:00:00+00:00`をmanifestの`accepted_source_updated_at`で明示許可します。同一instantのdate/ISO表現だけが一致し、未列挙の日付や他fieldの差異はfail-closedです。本番でplayer-added owner 104の推薦置換により既に不存在となったseed alias `wal_d6cfef435e8063b178c5`とlink `fwl_0491358730a92c95b5dc`だけは`allow_missing`でskipします。存在する場合は完全一致を必須とし、異内容のrowは拒否します。不在のseed linkを再作成しないため、本番のplayer-added推薦・owner/positionは保持されます。
 
 ```json
 {
@@ -51,7 +51,7 @@ manifestは全件を一つのtransaction/journalで適用します。同一manif
 }
 ```
 
-成功時は`correction_count=4`、`split_count=1`、`retitle_count=3`、4つの`inline_*_count`、監査fingerprint `2e629957bd11a85f14269298aa8227298faa16fdba21cf82e19fbceb9d0bf76e`を照合します。DBではcatalog訂正と対象`fetishes.works`を同一transactionへ含めます。訂正済みcatalogへworkflowを再実行すると、訂正内容を上書きする旧review段階はskipし、seed cleanupとcorrection manifestおよびinline同期を冪等確認します。
+成功時は`correction_count=5`、`split_count=1`、`retitle_count=4`、4つの`inline_*_count`、監査fingerprint `bf68f459045abcd911574472cd60977c4baa7a43cf7008b6c58d3698a94d4d66`を照合します。DBではcatalog訂正と対象`fetishes.works`を同一transactionへ含めます。訂正済みcatalogへworkflowを再実行すると、訂正内容を上書きする旧review段階はskipし、seed cleanupとcorrection manifestおよびinline同期を冪等確認します。
 
 healthは2種類のparityを混同しません。`approved_projection_ok` / `approved_mismatch_count`はcorrection manifestで固定されたowner・position・旧title/URLを新title/URLへ厳密投影した期待値との比較です。`automated_parity_ok` / `mismatch_count`は同期済みinlineとのraw比較であり、実際のlegacy fallback同値性とinline廃止可否を判定します。旧signatureの別position・別ownerへの移動、owner・件数・順序・URLの差、未承認titleはfail-closedです。`allow_missing`は真偽値だけを許可し、旧sourceが全ownerから不存在の場合だけno-opにします。
 

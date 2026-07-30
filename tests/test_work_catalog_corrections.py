@@ -59,7 +59,7 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
         self.assertTrue(work_catalog.validate_catalog(corrected))
         self.assertEqual(len(corrected['works_master']), len(self.catalog['works_master']) + 1)
         self.assertEqual(len(corrected['work_editions']), len(self.catalog['work_editions']))
-        self.assertEqual(len(corrected['work_aliases']), len(self.catalog['work_aliases']) - 4)
+        self.assertEqual(len(corrected['work_aliases']), len(self.catalog['work_aliases']) - 3)
         works = {row['work_id']: row for row in corrected['works_master']}
         editions = {row['edition_id']: row for row in corrected['work_editions']}
         self.assertEqual(works['wrk_76a08381045d290abf30']['canonical_title'], 'ゼロの使い魔')
@@ -79,6 +79,23 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
         for asin, title in expected_titles.items():
             edition = next(row for row in corrected['work_editions'] if row['asin'] == asin)
             self.assertEqual(works[edition['work_id']]['canonical_title'], title)
+        exposure_work = works['wrk_d870201346843e8d88db']
+        self.assertEqual(exposure_work['canonical_title'], '露出少女日記')
+        self.assertEqual(exposure_work['media_type'], 'manga')
+        self.assertNotIn('B097ZSFLYR', {row['asin'] for row in corrected['work_editions']})
+        self.assertEqual(
+            editions['wed_31d146e9bdd8d864e274'],
+            {
+                'edition_id': 'wed_31d146e9bdd8d864e274',
+                'work_id': 'wrk_d870201346843e8d88db',
+                'asin': '',
+                'canonical_url': 'https://fantia.jp/products/685549',
+                'format': 'digital',
+                'status': 'active',
+                'edition_title': '露出少女日記総集編１冊目',
+                'publisher': '',
+            },
+        )
 
         materialized = work_catalog.materialize_fetish_works(corrected)
         corrected_links = [
@@ -91,6 +108,7 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
                 'wrk_5d1a3d2f9813efa92de1',
                 'wrk_875e300c4de51e82ed13',
                 'wrk_635907b25c09a91c33a9',
+                'wrk_d870201346843e8d88db',
             }
         ]
         source_ids = {
@@ -119,6 +137,14 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
         self.assertEqual(materialized[13][2]['context_label'], '乙女ゲーム転生もの')
         self.assertEqual(materialized[71][2]['context_label'], '悪役令嬢系')
         self.assertEqual(materialized[86][2]['context_label'], '執事キャラ')
+        self.assertEqual(materialized[55][1]['title'], '露出少女日記（成人向け漫画）')
+        self.assertEqual(materialized[55][1]['url'], 'https://fantia.jp/products/685549')
+        exposure_link = next(
+            row for row in corrected['fetish_work_links'] if row['fetish_id'] == 55 and row['position'] == 1
+        )
+        self.assertEqual(exposure_link['link_id'], 'fwl_48c4eb3f1ab94a99f39f')
+        self.assertEqual(exposure_link['edition_id'], 'wed_31d146e9bdd8d864e274')
+        self.assertEqual(exposure_link['alias_id'], 'wal_163bdd5ff438f9e6e0f7')
         self.assertFalse(
             {
                 'wal_461f29db4e2b82b4ea07',
@@ -284,6 +310,129 @@ class WorkCatalogCorrectionTests(unittest.TestCase):
                 manifest['corrections'][0]['review_updates'][0]['accepted_source_updated_at'] = values
                 with self.assertRaisesRegex(ValueError, 'invalid review update|duplicate accepted'):
                     self.apply(manifest=manifest)
+
+    def test_v2_additions_removal_and_projection_fail_closed(self):
+        correction = copy.deepcopy(self.manifest['corrections'][-1])
+        manifest = {
+            'schema_version': 2,
+            'catalog_schema_version': 2,
+            'corrections': [correction],
+        }
+
+        invented_id = copy.deepcopy(manifest)
+        invented_id['corrections'][0]['edition_additions'][0]['target']['edition_id'] = 'wed_invented'
+        with self.assertRaisesRegex(ValueError, 'non-deterministic edition addition'):
+            self.apply(manifest=invented_id)
+
+        invented_alias_id = copy.deepcopy(manifest)
+        invented_alias_id['corrections'][0]['alias_additions'][0]['target']['alias_id'] = 'wal_invented'
+        with self.assertRaisesRegex(ValueError, 'non-deterministic alias addition'):
+            self.apply(manifest=invented_alias_id)
+
+        extra_work_field = copy.deepcopy(manifest)
+        extra_work_field['corrections'][0]['target_work']['unexpected'] = True
+        with self.assertRaisesRegex(ValueError, 'invalid target work'):
+            self.apply(manifest=extra_work_field)
+
+        extra_edition_field = copy.deepcopy(manifest)
+        extra_edition_field['corrections'][0]['edition_additions'][0]['target']['unexpected'] = True
+        with self.assertRaisesRegex(ValueError, 'invalid edition addition'):
+            self.apply(manifest=extra_edition_field)
+
+        invalid_wrappers = []
+        extra_correction_field = copy.deepcopy(manifest)
+        extra_correction_field['corrections'][0]['unexpected'] = True
+        invalid_wrappers.append(extra_correction_field)
+        misspelled_identifiers = copy.deepcopy(manifest)
+        addition = misspelled_identifiers['corrections'][0]['edition_additions'][0]
+        addition['identifier'] = addition.pop('identifiers')
+        invalid_wrappers.append(misspelled_identifiers)
+        extra_removal_field = copy.deepcopy(manifest)
+        extra_removal_field['corrections'][0]['edition_removals'][0]['unexpected'] = True
+        invalid_wrappers.append(extra_removal_field)
+        extra_alias_wrapper_field = copy.deepcopy(manifest)
+        extra_alias_wrapper_field['corrections'][0]['alias_additions'][0]['unexpected'] = True
+        invalid_wrappers.append(extra_alias_wrapper_field)
+        invalid_collection = copy.deepcopy(manifest)
+        invalid_collection['corrections'][0]['edition_updates'] = {}
+        invalid_wrappers.append(invalid_collection)
+        missing_alias_source = copy.deepcopy(manifest)
+        missing_alias_source['corrections'][0]['alias_removals'] = [{}]
+        invalid_wrappers.append(missing_alias_source)
+        missing_link_owner = copy.deepcopy(manifest)
+        missing_link_owner['corrections'][0]['link_updates'] = [{'expected': {}}]
+        invalid_wrappers.append(missing_link_owner)
+        for invalid_manifest in invalid_wrappers:
+            with self.subTest(invalid_manifest=invalid_manifest):
+                with self.assertRaisesRegex(ValueError, 'unknown fields|invalid edition|invalid alias|invalid link'):
+                    self.apply(manifest=invalid_manifest)
+                with self.assertRaisesRegex(ValueError, 'unknown fields|invalid edition|invalid alias|invalid link'):
+                    work_catalog.project_approved_inline_corrections([], corrections=invalid_manifest)
+
+        unexpected_identifier = copy.deepcopy(self.catalog)
+        unexpected_identifier['work_edition_identifiers'].append(
+            work_catalog.build_edition_identifier(
+                'wed_d870201346843e8d88db',
+                scheme='platform',
+                authority='amazon',
+                value='B097ZSFLYR',
+            )
+        )
+        with self.assertRaisesRegex(ValueError, 'identifier drift'):
+            work_catalog.apply_catalog_corrections(unexpected_identifier, manifest)
+
+        remaining_link = copy.deepcopy(self.catalog)
+        remaining_link['fetish_work_links'].append(
+            {
+                'link_id': work_catalog._stable_id(
+                    'fwl', 999, 'wrk_d870201346843e8d88db', 'wed_d870201346843e8d88db', None
+                ),
+                'fetish_id': 999,
+                'work_id': 'wrk_d870201346843e8d88db',
+                'edition_id': 'wed_d870201346843e8d88db',
+                'alias_id': None,
+                'position': 0,
+                'context_label': '',
+                'recommendation_reason': '',
+            }
+        )
+        with self.assertRaisesRegex(ValueError, 'edition still referenced'):
+            work_catalog.apply_catalog_corrections(remaining_link, manifest)
+
+        inline = [
+            {
+                'id': 55,
+                'works': [
+                    {'title': 'other', 'url': ''},
+                    {
+                        'title': '露出少女日記（成人向け漫画）',
+                        'url': 'https://www.amazon.co.jp/dp/B097ZSFLYR?tag=hekinator-22',
+                    },
+                ],
+            }
+        ]
+        forward = work_catalog.project_approved_inline_corrections(inline, corrections=manifest)
+        self.assertEqual(
+            forward['fetishes'][0]['works'][1],
+            {'title': '露出少女日記（成人向け漫画）', 'url': 'https://fantia.jp/products/685549'},
+        )
+        reverse = work_catalog.project_approved_inline_corrections(
+            forward['fetishes'], corrections=manifest, direction='reverse'
+        )
+        self.assertEqual(reverse['fetishes'], inline)
+
+    def test_v1_manifest_compatibility_and_v2_field_guard(self):
+        legacy = copy.deepcopy(self.manifest)
+        legacy['schema_version'] = 1
+        legacy['catalog_schema_version'] = 1
+        legacy['corrections'] = legacy['corrections'][:-1]
+        corrected = self.apply(manifest=legacy)
+        self.assertTrue(work_catalog.validate_catalog(corrected))
+
+        invalid = copy.deepcopy(legacy)
+        invalid['corrections'][0]['edition_additions'] = []
+        with self.assertRaisesRegex(ValueError, 'version 2 fields'):
+            self.apply(manifest=invalid)
 
     def test_manifest_schema_and_duplicate_ids_are_rejected(self):
         for manifest in ({}, {'schema_version': 1, 'catalog_schema_version': 1, 'corrections': [{}, {}]}):

@@ -623,8 +623,8 @@ class TestEngineMutations(unittest.TestCase):
             compound_rows=after['compound_works'],
         )
         self.assertTrue(parity['automated_parity_ok'])
-        self.assertEqual(result['result']['inline_applied_link_count'], 6)
-        self.assertEqual(result['result']['inline_fetish_owner_count'], 5)
+        self.assertEqual(result['result']['inline_applied_link_count'], 7)
+        self.assertEqual(result['result']['inline_fetish_owner_count'], 6)
         self.assertEqual(result['result']['inline_compound_owner_count'], 1)
         self.assertEqual(result['result']['inline_missing_count'], 1)
         self.assertEqual(next(row for row in after['fetishes'] if row['id'] == 104)['works'], player_works)

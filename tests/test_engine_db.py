@@ -944,9 +944,9 @@ class TestWorkCatalogInlineTransaction(unittest.TestCase):
             )
 
         update_rows = [call for call in cursor.executed if call[0] == 'UPDATE fetishes SET works=%s WHERE id=%s']
-        self.assertEqual(len(update_rows), 5)
-        self.assertEqual(result['inline_applied_link_count'], 5)
-        self.assertEqual(result['inline_fetish_owner_count'], 5)
+        self.assertEqual(len(update_rows), 6)
+        self.assertEqual(result['inline_applied_link_count'], 6)
+        self.assertEqual(result['inline_fetish_owner_count'], 6)
         self.assertEqual(result['inline_missing_count'], 1)
         self.assertEqual(next(row for row in inline_fetishes if row['id'] == 104)['works'], player_works)
         self.assertIs(updated, catalog)

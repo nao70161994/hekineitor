@@ -274,7 +274,7 @@
 
 ## 55 公開羞恥・露出
 - Discipline（C:drive.） | https://www.amazon.co.jp/dp/B086RZNHCS?tag=hekinator-22
-- 露出少女日記（成人向け漫画） | https://www.amazon.co.jp/dp/B097ZSFLYR?tag=hekinator-22
+- 露出少女日記（成人向け漫画） | https://fantia.jp/products/685549
 - 監獄学園（プリズンスクール） | https://www.amazon.co.jp/dp/B00BB1ZTBM?tag=hekinator-22
 
 ## 56 媚薬・薬物

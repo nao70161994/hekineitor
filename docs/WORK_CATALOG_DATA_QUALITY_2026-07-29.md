@@ -22,7 +22,7 @@ P0は別identityのedition混入であり、通常の表記normalizationとし�
 - `wrk_7f498...` `闇の契約（成人向け漫画）` / editionなし
 - `wrk_9b707...` `人妻ゆうわく日記（成人向け漫画）` / ASIN `B07PVX5CFT`
 - `wrk_c0e365...` `美少年レモネード（成人向け）` / editionなし
-- `wrk_d870...` `露出少女日記（成人向け漫画）` / ASIN `B097ZSFLYR`（シリーズ存在は[作者販売ページ](https://fantia.jp/products/685549)で確認、ASINとの同一性は未確認）
+- `wrk_d870...` `露出少女日記（成人向け漫画）` / 旧ASIN `B097ZSFLYR`（[作者販売ページ](https://fantia.jp/products/685549)とは別作品と確認し、P0 correctionで作者販売版へ訂正済み）
 
 年齢確認画面で商品title/creator/formatを一次確認できないASINは推測補完しません。
 
@@ -60,11 +60,11 @@ ASINはAmazon直商品ページと照合できた場合だけ登録します。�
 
 ## Applied P0 correction manifest
 
-`data/work_catalog_corrections.json`で上記P0 4件を実装済みです。canonical SHA-256は`2e629957bd11a85f14269298aa8227298faa16fdba21cf82e19fbceb9d0bf76e`、内訳はsplit 1件・retitle 3件です。checked seedはmaster 325、edition 239、alias 150、fetish link 376、compound link 185、review 74、pending 0です。source row完全一致を基本とし、review timestampはchecked seedの2026-07-28と旧79件manifest由来の2026-07-29だけを明示許可し、同一UTC instantのdate/ISO表現を受け入れます。本番のplayer-added owner 104置換で既に不存在のseed alias/linkだけは`allow_missing`で再作成せず、存在時のdrift、未許可日付、他field差異、collision/dangling参照は拒否します。owner/position維持、冪等再適用、fresh v3 backup由来の本番preflightを自動テストで固定しています。
+`data/work_catalog_corrections.json`でP0 5件を実装済みです。canonical SHA-256は`bf68f459045abcd911574472cd60977c4baa7a43cf7008b6c58d3698a94d4d66`、内訳はsplit 1件・retitle 4件です。checked seedはmaster 325、edition 239、alias 151、fetish link 376、compound link 185、review 74、pending 0です。source row完全一致を基本とし、review timestampはchecked seedの2026-07-28と旧79件manifest由来の2026-07-29だけを明示許可し、同一UTC instantのdate/ISO表現を受け入れます。本番のplayer-added owner 104置換で既に不存在のseed alias/linkだけは`allow_missing`で再作成せず、存在時のdrift、未許可日付、他field差異、collision/dangling参照は拒否します。owner/position維持、冪等再適用、fresh v3 backup由来の本番preflightを自動テストで固定しています。
 
 ## Applied bibliography manifest
 
-schema v2と`data/work_catalog_bibliography.json`で上記12版のISBN-13、版名、出版社、一次情報URLを登録し、媒体だけ確認できた6作品はmedia typeと根拠URLだけを登録しました。canonical SHA-256は`e572a91427ecac77bf278766fed35627f645ea885d69366c010e6891bd2cb908`です。ISBNは全件checksum検証済みで、ISBN-10入力もISBN-13へ正規化されます。現行seedはmaster 325、edition 251、edition identifier 12、alias 156、fetish link 376、compound link 185、review 74、pending 0です。正式名を変更した5作品と`Free!`は旧表示をaliasとして保持し、追加版を推薦linkへ接続しないことでraw parity 0を維持します。
+schema v2と`data/work_catalog_bibliography.json`で上記12版のISBN-13、版名、出版社、一次情報URLを登録し、媒体だけ確認できた6作品はmedia typeと根拠URLだけを登録しました。canonical SHA-256は`e572a91427ecac77bf278766fed35627f645ea885d69366c010e6891bd2cb908`です。ISBNは全件checksum検証済みで、ISBN-10入力もISBN-13へ正規化されます。現行seedはmaster 325、edition 251、edition identifier 12、alias 157、fetish link 376、compound link 185、review 74、pending 0です。正式名を変更した5作品と`Free!`は旧表示をaliasとして保持し、追加版を推薦linkへ接続しないことでraw parity 0を維持します。
 
 ## Auditable research queue
 
@@ -76,7 +76,7 @@ schema v2と`data/work_catalog_bibliography.json`で上記12版のISBN-13、版�
 
 指定6件は一次情報で3件の正式identityを確定し、3件は同一性を確定できませんでした。さらに、関連1件で別商品のASIN混入を確認しました。
 
-- `wrk_d870201346843e8d88db`: [作者販売ページ](https://fantia.jp/products/685549)の正式作品は`露出少女日記総集編１冊目`。登録ASIN `B097ZSFLYR`は別作品であり、誤editionを分離して推薦linkを作者販売版へ付け替えるP0 correction対象。
+- `wrk_d870201346843e8d88db`: [作者販売ページ](https://fantia.jp/products/685549)の正式作品は`露出少女日記総集編１冊目`。登録されていたASIN `B097ZSFLYR`は別作品でした。P0 correctionで誤editionを厳密削除し、旧表示とowner/positionを維持したまま推薦linkを作者販売版へ付け替え済み。
 - `wrk_9b70748b8f29776d9e3d`: ASIN `B07PVX5CFT`は`妻は人妻、人妻は妻`という小説。正式identityへ訂正し、熟女推薦への適合は別reviewにする。
 - `wrk_33c8de99aa77f9c17600`: ASIN `B07DFY8ZX1`は`人妻とNTR温泉旅行`。[Books](https://www.books.or.jp/book-details/9784799211441)で紙版ISBN `9784799211441`も確認したが、幼なじみ推薦への適合は確認できない。
 - `wrk_7d5a75f6654855f5dad5`: [公式](https://www.ignote.net/operetta/tumikui/)はゲーム`罪喰い～千の呪い、千の祈り～`であり漫画ではない。BL×ヤンデレcompound linkは推薦意図と衝突する。
@@ -87,5 +87,5 @@ Amazon URLだけで正式metadataを取得できない場合や、NDLに同名�
 ## Remaining gates
 
 1. 機械可読queue 43件を一次ソースで順に調査し、確認済み版への置換または推薦quarantineを明示判断する。
-2. 上記の確定3件、未確定3件、追加P0 1件をdigest-locked correction/reviewで処理し、公開推薦の誤誘導を解消する。
+2. 追加P0 1件は処理済み。残る確定3件と未確定3件をdigest-locked correction/reviewで処理し、公開推薦の誤誘導を解消する。
 3. staging v3 restore rehearsalと本番manifest適用後backupを完了してから、旧inline source of truthの廃止可否を判断する。

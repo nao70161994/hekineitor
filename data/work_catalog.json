@@ -1879,9 +1879,9 @@
     },
     {
       "work_id": "wrk_d870201346843e8d88db",
-      "canonical_title": "露出少女日記（成人向け漫画）",
-      "normalized_title": "露出少女日記(成人向け漫画)",
-      "media_type": "",
+      "canonical_title": "露出少女日記",
+      "normalized_title": "露出少女日記",
+      "media_type": "manga",
       "status": "active"
     },
     {
@@ -2666,6 +2666,16 @@
       "format": "",
       "status": "active",
       "edition_title": "",
+      "publisher": ""
+    },
+    {
+      "edition_id": "wed_31d146e9bdd8d864e274",
+      "work_id": "wrk_d870201346843e8d88db",
+      "asin": "",
+      "canonical_url": "https://fantia.jp/products/685549",
+      "format": "digital",
+      "status": "active",
+      "edition_title": "露出少女日記総集編１冊目",
       "publisher": ""
     },
     {
@@ -4309,16 +4319,6 @@
       "publisher": ""
     },
     {
-      "edition_id": "wed_d870201346843e8d88db",
-      "work_id": "wrk_d870201346843e8d88db",
-      "asin": "B097ZSFLYR",
-      "canonical_url": "https://www.amazon.co.jp/dp/B097ZSFLYR?tag=hekinator-22",
-      "format": "",
-      "status": "active",
-      "edition_title": "",
-      "publisher": ""
-    },
-    {
       "edition_id": "wed_da149f5f3aa42e7163f4",
       "work_id": "wrk_da149f5f3aa42e7163f4",
       "asin": "B0FPFRSXVL",
@@ -4891,6 +4891,12 @@
       "work_id": "wrk_b948b4388df5c853d4fe",
       "alias": "小林さんちのメイドラゴン（トール）",
       "normalized_alias": "小林さんちのメイドラゴン(トール)"
+    },
+    {
+      "alias_id": "wal_163bdd5ff438f9e6e0f7",
+      "work_id": "wrk_d870201346843e8d88db",
+      "alias": "露出少女日記（成人向け漫画）",
+      "normalized_alias": "露出少女日記(成人向け漫画)"
     },
     {
       "alias_id": "wal_16d007e15838c8a43dcb",
@@ -7465,11 +7471,11 @@
       "recommendation_reason": ""
     },
     {
-      "link_id": "fwl_ebcd71730b7cf71b1c6e",
+      "link_id": "fwl_48c4eb3f1ab94a99f39f",
       "fetish_id": 55,
       "work_id": "wrk_d870201346843e8d88db",
-      "edition_id": "wed_d870201346843e8d88db",
-      "alias_id": null,
+      "edition_id": "wed_31d146e9bdd8d864e274",
+      "alias_id": "wal_163bdd5ff438f9e6e0f7",
       "position": 1,
       "context_label": "",
       "recommendation_reason": ""

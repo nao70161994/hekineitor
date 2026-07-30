@@ -1,8 +1,8 @@
 {
-  "schema_version": 1,
-  "reviewed_at": "2026-07-29",
-  "reviewed_by": "catalog data-quality review",
-  "catalog_schema_version": 1,
+  "schema_version": 2,
+  "reviewed_at": "2026-07-30",
+  "reviewed_by": "catalog data-quality review 2026-07-30",
+  "catalog_schema_version": 2,
   "corrections": [
     {
       "correction_id": "split-zero-no-tsukaima-b0cvlhhdd3",
@@ -335,6 +335,85 @@
           "edition_id": null,
           "alias_id": null,
           "context_label": "身分差×政略"
+        }
+      ],
+      "review_updates": []
+    },
+    {
+      "correction_id": "replace-misassigned-exposure-diary-b097zsflyr",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_d870201346843e8d88db",
+        "canonical_title": "露出少女日記（成人向け漫画）",
+        "normalized_title": "露出少女日記(成人向け漫画)",
+        "media_type": "",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_d870201346843e8d88db",
+        "canonical_title": "露出少女日記",
+        "normalized_title": "露出少女日記",
+        "media_type": "manga",
+        "status": "active"
+      },
+      "edition_updates": [],
+      "edition_additions": [
+        {
+          "target": {
+            "edition_id": "wed_31d146e9bdd8d864e274",
+            "work_id": "wrk_d870201346843e8d88db",
+            "asin": "",
+            "canonical_url": "https://fantia.jp/products/685549",
+            "format": "digital",
+            "status": "active",
+            "edition_title": "露出少女日記総集編１冊目",
+            "publisher": ""
+          },
+          "identifiers": []
+        }
+      ],
+      "edition_removals": [
+        {
+          "expected": {
+            "edition_id": "wed_d870201346843e8d88db",
+            "work_id": "wrk_d870201346843e8d88db",
+            "asin": "B097ZSFLYR",
+            "canonical_url": "https://www.amazon.co.jp/dp/B097ZSFLYR?tag=hekinator-22",
+            "format": "",
+            "status": "active",
+            "edition_title": "",
+            "publisher": ""
+          },
+          "expected_identifiers": []
+        }
+      ],
+      "alias_additions": [
+        {
+          "target": {
+            "alias_id": "wal_163bdd5ff438f9e6e0f7",
+            "work_id": "wrk_d870201346843e8d88db",
+            "alias": "露出少女日記（成人向け漫画）",
+            "normalized_alias": "露出少女日記(成人向け漫画)"
+          }
+        }
+      ],
+      "alias_removals": [],
+      "link_updates": [
+        {
+          "table": "fetish_work_links",
+          "expected": {
+            "link_id": "fwl_ebcd71730b7cf71b1c6e",
+            "fetish_id": 55,
+            "work_id": "wrk_d870201346843e8d88db",
+            "edition_id": "wed_d870201346843e8d88db",
+            "alias_id": null,
+            "position": 1,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_31d146e9bdd8d864e274",
+          "alias_id": "wal_163bdd5ff438f9e6e0f7",
+          "context_label": ""
         }
       ],
       "review_updates": []
