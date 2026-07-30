@@ -116,6 +116,15 @@ test('covers continue, feedback, history, and mobile transitions', async ({page}
     gameplayEvents.push(route.request().postDataJSON());
     return route.fulfill({json: {status: 'ok'}});
   });
+  const revealFeaturedImpressions = async expectedOccurrences => {
+    const cards = page.locator('.work-recommendation.featured');
+    await expect(cards).toHaveCount(3);
+    for (let index = 0; index < 3; index += 1) {
+      await cards.nth(index).scrollIntoViewIfNeeded();
+      await expect(cards.nth(index)).toBeInViewport();
+      await expect.poll(() => gameplayEvents.filter(event => event.work_id === `wrk_${index + 1}`).length).toBe(expectedOccurrences);
+    }
+  };
 
   await page.goto('/');
   await page.getByRole('button', {name: 'スタート'}).click();
@@ -158,6 +167,7 @@ test('covers continue, feedback, history, and mobile transitions', async ({page}
 
   await page.getByRole('button', {name: 'はい', exact: true}).click();
   expect(answerCount).toBe(2);
+  await revealFeaturedImpressions(2);
   await expect.poll(() => gameplayEvents.filter(event => event.event_name === 'work_impression').length).toBe(8);
   await page.getByRole('button', {name: '当たってる'}).click();
   await expect(page.locator('#quick-feedback-status')).toContainText('正解として学習しました');
@@ -167,6 +177,7 @@ test('covers continue, feedback, history, and mobile transitions', async ({page}
   await expect(page.locator('#history-panel')).toContainText('NTR（寝取られ）');
   await page.locator('.history-item').filter({hasText: 'NTR（寝取られ）'}).first().getByRole('button', {name: '結果を見る'}).click();
   await expect(page.locator('#result-name')).toHaveText('NTR（寝取られ）');
+  await revealFeaturedImpressions(3);
   await expect.poll(() => gameplayEvents.filter(event => event.event_name === 'work_impression').length).toBe(11);
   expect(gameplayEvents.filter(event => event.event_name === 'history_reopened')).toHaveLength(1);
 });
