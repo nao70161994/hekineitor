@@ -89,6 +89,7 @@ schema v2と`data/work_catalog_bibliography.json`で上記12版のISBN-13、版�
 
 ## Remaining gates
 
+schema v3 correctionの本番適用は完了しました。workflow run `30514530917`で適用し、適用後backup `30514560153`とrollout gate `30514599569`により、最終digest、全件数、revision 29、raw/approved parity mismatch 0、fallback/load failure 0を保存しています。
+
 1. pending 39件を一次ソースで順に調査し、確認済み版への置換または推薦quarantineを明示判断する。
-2. schema v3 correctionを本番へ適用し、適用後backup、parity、全worker revisionを保存する。
-3. staging v3 restore rehearsalと手動サインオフを完了してから、旧inline source of truthの廃止可否を判断する。
+2. staging v3 restore rehearsalと手動サインオフを完了し、必要な観測期間を満たしてから旧inline source of truthを廃止する。

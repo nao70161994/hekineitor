@@ -129,6 +129,18 @@ schema v2と一次書誌18件を本番へ適用しました。最終catalogはma
 
 適用後backup run `30506142764`のcatalog digest `755464ef6731ca1b09883b2224d8707e7b8d2ac87985a1e4e6c9b25a0c4da845`に対し、新schema v3 manifestをローカルでpreflightしました。旧79件reviewの全行fingerprintとcorrection source lockは互換、seed cleanupとbibliographyはno-op、correction再適用は冪等です。想定結果はmaster 375、edition 308、edition identifier 14、alias 160、fetish link 393、compound link 179、resolved review 79、pending 0、digest `c5fe0fe9d61ffef8d8a0633f3187fd29fb401d064656607a40f7e2a1a8486333`です。これはmutation前の検証値であり、本番反映の証跡ではありません。
 
+### Schema v3 quarantine and production alias rebind rollout (2026-07-30)
+
+release `eceb3ce`でschema v3 quarantineと本番追加推薦向けのoptional alias rebindを反映しました。最終catalogはmaster 375、edition 308、edition identifier 14、alias 160、fetish link 393、compound link 179、resolved review 79、pending 0で、digestは`f5bac98370b0af0fd5054be4257d6873378192c268366bf23ff475b79a1e52c6`です。
+
+- release CI: workflow run `30514145701`
+- 適用前v3 backup: workflow run `30514507429`
+- manifest適用成功: workflow run `30514530917`
+- 適用後v3 backup: workflow run `30514560153`（上記digestと全件数を再確認）
+- 12 sample rollout gate: workflow run `30514599569`（68.428秒、1 worker、revision 29、fallback 0、catalog load failure 0、raw/approved parity mismatch 0、`automated_eligible=true`）
+
+本番追加linkはsource `fwl_6eb279e52350c546dd7c`が消え、target `fwl_35eef2046426b62f78ae`が既存alias `wal_e3fdfa57179ebc08db2e`を参照しています。canonical titleは`逃げるは恥だが役に立つ`のまま、公開表示title `逃げるは恥だが役に立つ（漫画）`とURL `https://www.amazon.co.jp/dp/B00GWVP77W?tag=hekinator-22`は不変です。自動gateは成功していますが、staging restore rehearsalと運用担当者の手動サインオフは引き続き必須です。
+
 ## Deploy前
 
 1. backup format v3のmatrix backupを保存し、`work_catalog`を含むことを確認する。
