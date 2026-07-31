@@ -79,6 +79,41 @@ class TestQuestionCategoryMetadata(unittest.TestCase):
             counts[question['category']] += 1
         for category in supported:
             self.assertGreater(counts[category], 0, category)
+        supported_frames = {
+            '作品・設定の好みとして',
+            '人物・関係性の好みとして',
+            '普段の感覚・行動として',
+        }
+        self.assertTrue(all(question.get('answer_frame') in supported_frames for question in questions))
+        self.assertEqual({question['answer_frame'] for question in questions}, supported_frames)
         self.assertGreaterEqual(counts['attribute'], 1)
         self.assertGreaterEqual(counts['world'], 10)
         self.assertGreaterEqual(counts['aesthetic'], 10)
+
+    def test_revised_indirect_questions_are_distinct_and_balanced(self):
+        path = os.path.join(os.path.dirname(__file__), '..', 'data', 'questions.json')
+        with open(path, encoding='utf-8') as file_obj:
+            questions = json.load(file_obj)
+
+        self.assertNotEqual(questions[2]['text'], questions[127]['text'])
+        self.assertNotEqual(questions[138]['text'], questions[143]['text'])
+        self.assertIn('終わり方が曖昧', questions[127]['text'])
+        self.assertIn('行動の一貫性', questions[143]['text'])
+        self.assertIn('片方が前に出る', questions[88]['text'])
+        self.assertIn('穏やかな時間より困難', questions[92]['text'])
+        self.assertIn('時間を置いて選ばれた言葉', questions[152]['text'])
+        self.assertTrue(all('hint' not in question for question in questions))
+
+        rewritten_ids = set(range(40, 55)) | set(range(93, 105)) | {
+            13, 15, 25, 29, 108, 112, 126, 133, 142, 143, 144, 151, 152,
+        }
+        direct_result_terms = (
+            'NTR', '寝取', '露出', '時間停止', 'クローン', '媚薬', '魔法少女',
+            'ヤクザ', 'マフィア', '後宮', '宮廷', 'タイムループ', 'スパイ',
+            '契約結婚', '探偵', 'ヤンキー', '社畜',
+        )
+        for question_id in rewritten_ids:
+            self.assertFalse(
+                any(term in questions[question_id]['text'] for term in direct_result_terms),
+                questions[question_id]['text'],
+            )

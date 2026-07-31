@@ -73,6 +73,22 @@
     margin-bottom: 8px;
     min-height: 60px;
   }
+  .question-answer-frame {
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto 7px;
+    color: #aeb9ca;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    text-align: center;
+  }
+  .answer-guide {
+    margin: 10px auto 4px;
+    color: #7f8a9b;
+    font-size: 0.7rem;
+    line-height: 1.4;
+    text-align: center;
+  }
   .question-progress-message {
     width: fit-content;
     max-width: 100%;

@@ -139,7 +139,9 @@
   <div id="start-screen">
     <p style="margin-bottom:20px;color:#aaa;font-size:0.95rem;line-height:1.7;">
       あなたの性癖を暴きます。<br>
-      質問に正直に答えてください。<br>
+      作品の好みだけでなく、普段の感覚や選び方も聞きます。<br>
+      結果を当てにいかず、直感で近い答えを選んでください。<br>
+      迷ったときは「わからない」で大丈夫です。<br>
       あなたのフィードバックで、診断結果が改善されます。
     </p>
     <div class="play-guide" aria-label="診断について">
@@ -175,10 +177,11 @@
     <div style="text-align:center;margin-bottom:4px;">
       <span id="question-axis-tag" class="axis-tag" style="display:none;"></span>
     </div>
-    <div class="question-text" id="question-text" role="heading" aria-level="2" tabindex="-1">読み込み中…</div>
+    <div class="question-text" id="question-text" role="heading" aria-level="2" aria-describedby="question-answer-frame" tabindex="-1">読み込み中…</div>
+    <div id="question-answer-frame" class="question-answer-frame hidden"></div>
     <div id="question-progress-message" class="question-progress-message hidden" aria-live="polite"></div>
-    <div id="question-hint" style="text-align:center;font-size:0.78rem;color:#f5a623;margin-top:6px;min-height:1em;"></div>
     <div id="contradiction-hint" class="hidden" style="font-size:0.72rem;color:#e67e22;margin-top:4px;text-align:center;padding:4px 8px;border-radius:6px;background:rgba(230,126,34,0.1);"></div>
+    <div class="answer-guide">この文が好み・感覚に近いほど「はい」、違うほど「いいえ」</div>
     <div class="btn-group">
       <button class="btn btn-yes"      data-action="send-answer" data-answer="1" aria-pressed="false">はい</button>
       <button class="btn btn-prob-yes" data-action="send-answer" data-answer="0.5" aria-pressed="false">どちらかといえばはい</button>

@@ -12,7 +12,8 @@ function questionDom() {
     <button class="btn-start" data-action="start-game">スタート</button>
     <button data-action="start-excluding"></button><button data-action="quick-retry"></button>
     <div id="resume-banner"></div><div id="question-text"></div>
-    <div id="question-progress-message"></div><div id="question-hint"></div>
+    <div id="question-answer-frame"></div>
+    <div id="question-progress-message"></div>
     <div id="question-axis-tag"></div><div id="question-stage-label"></div>
     <div class="progress-bar"><div id="progress-fill"></div></div>
     <button id="btn-back"></button><div id="contradiction-hint"></div>
@@ -118,6 +119,23 @@ describe('HekiGameFlow', () => {
     expect(window._clearDraft).toHaveBeenCalledOnce();
     expect(window.__fetching).toBe(false);
     expect(window.show).toHaveBeenCalledWith('question-screen');
+  });
+
+  it('shows the answer frame and progress without a question hint', () => {
+    window.HekiGameFlow.showQuestion({
+      question_id: 7,
+      question: '安心できる場面より、緊張する場面の方が感覚が鋭くなる？',
+      hint: '答えが見えてきました…もう少しです',
+      answer_frame: '普段の感覚・行動として',
+      count: 5,
+      total: 20,
+    });
+
+    expect(document.getElementById('question-answer-frame').textContent)
+      .toBe('回答の視点：普段の感覚・行動として');
+    expect(document.getElementById('question-hint')).toBeNull();
+    expect(window.HekiRenderers.setProgressMessage)
+      .toHaveBeenCalledWith('答えが見えてきました…もう少しです');
   });
 
   it('switches to an additional-question stage without moving progress backwards', () => {

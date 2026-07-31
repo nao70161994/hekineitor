@@ -22,6 +22,12 @@ class TestGameSessionFlow(APITestCase):
         data = self._start()
         self.assertIn('question_id', data)
         self.assertIn('question', data)
+        self.assertIn(data['answer_frame'], {
+            '作品・設定の好みとして',
+            '人物・関係性の好みとして',
+            '普段の感覚・行動として',
+        })
+        self.assertNotIn('q_hint', data)
         self.assertEqual(data['count'], 0)
 
     def test_answer_yes(self):
@@ -132,7 +138,6 @@ class TestGameSessionFlow(APITestCase):
             {
                 'question': '表示時だけの質問variant',
                 'axis': '表示時の軸',
-                'q_hint': '表示時の質問ヒント',
                 'hint': '表示時の進行ヒント',
                 'progress_message': '表示時の進捗文言',
                 'contradictions': [{'question_id': 999, 'message': '表示時の矛盾'}],

@@ -28,7 +28,7 @@ def question_payload(
         'count': count,
         'total': total,
         'axis': engine._question_axis(question_id),
-        'q_hint': q_data.get('hint', ''),
+        'answer_frame': q_data.get('answer_frame', ''),
     }
     if hint:
         payload['hint'] = hint
@@ -52,7 +52,7 @@ def _remember_question_payload(ctx, payload):
         'count',
         'total',
         'axis',
-        'q_hint',
+        'answer_frame',
         'hint',
         'progress_message',
         'contradictions',
@@ -296,7 +296,7 @@ def start(ctx):
             'count': 0,
             'total': ctx.soft_max_questions,
             'axis': ctx.engine._question_axis(question_id),
-            'q_hint': q_data.get('hint', ''),
+            'answer_frame': q_data.get('answer_frame', ''),
         },
     )
 

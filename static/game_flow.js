@@ -95,20 +95,24 @@ function showQuestion(data) {
   currentQuestionId = data.question_id;
   answeredCount = Number(data.count || 0);
   resultShown = false;
+  const progressMessage = data.progress_message || data.hint || '';
   if (window.HekiRenderers) {
     window.HekiRenderers.setText('question-text', data.question);
-    window.HekiRenderers.setProgressMessage(data.progress_message);
+    window.HekiRenderers.setProgressMessage(progressMessage);
   } else {
     document.getElementById('question-text').textContent = data.question;
     const progressEl = document.getElementById('question-progress-message');
     if (progressEl) {
-      progressEl.textContent = data.progress_message || '';
-      progressEl.classList.toggle('hidden', !data.progress_message);
+      progressEl.textContent = progressMessage;
+      progressEl.classList.toggle('hidden', !progressMessage);
     }
   }
-  const focusHint = data.hint || '';
-  const qHint = data.q_hint || '';
-  document.getElementById('question-hint').textContent = focusHint || qHint;
+  const frameEl = document.getElementById('question-answer-frame');
+  const answerFrame = String(data.answer_frame || '').trim();
+  if (frameEl) {
+    frameEl.textContent = answerFrame ? `回答の視点：${answerFrame}` : '';
+    frameEl.classList.toggle('hidden', !answerFrame);
+  }
   const axisEl = document.getElementById('question-axis-tag');
   if (data.axis && axisLabels[data.axis]) {
     axisEl.textContent = axisLabels[data.axis];

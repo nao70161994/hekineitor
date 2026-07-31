@@ -2,6 +2,8 @@
 
 Hekineitor keeps inference math, priors, and learned data stable while using question metadata to reduce early over-concentration on relation-heavy results.
 
+Question wording follows `docs/QUESTION_DESIGN.md`: each question should split several remaining candidates through an indirect latent axis instead of naming one result directly.
+
 ## Categories
 
 Supported question categories:
@@ -30,15 +32,17 @@ This avoids changing posterior calculation, global priors, or learned matrix val
 
 ## Added Questions
 
-Eight abstract questions were added for non-attachment discovery:
+Abstract questions were added for non-attachment discovery. Q143-Q152 are cold-start probes whose wording separates these latent dimensions:
 
-- world: non-realistic atmosphere
-- attribute: neat clothes/uniforms
-- tone: quiet relationship temperature
-- aesthetic: inorganic atmosphere
-- world: closed or special places
-- role: rules and roles
-- aesthetic: cleanliness and order
-- value: observing / being observed
+- trust based on behavioral consistency rather than readable emotion
+- delayed, carefully chosen responses
+- monochrome rather than vivid color
+- intimacy conveyed without abandoning formal language
+- intention perceived behind unexplained events
+- voice and timing cues rather than facial cues
+- ordered workspaces rather than lived-in rooms
+- observing habits before approaching
+- precise, almost non-human movement
+- carefully composed rather than terse wording
 
-Existing matrix columns are preserved. New columns are seeded with neutral values plus light domain priors for relevant attribute/world/tone/value candidates.
+Existing matrix columns are preserved. Q143-Q152 start from neutral matrix values and are monitored as cold-start questions while feedback supplies their candidate-splitting signal.

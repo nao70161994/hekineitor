@@ -480,7 +480,7 @@ class TestAdminReporting(APITestCase):
         self.assertEqual(questions[124]['id'], 124)
         self.assertIn('礼儀を保ったまま少しずつ近づく関係が好き', questions[124]['text'])
         self.assertEqual(questions[135]['id'], 135)
-        self.assertIn('身近にいそうな相手より、少し現実離れした相手の方が好き', questions[135]['text'])
+        self.assertIn('身近にいそうな相手より、日常のルールから少し外れた相手の方が好き', questions[135]['text'])
 
     def test_edit_question_empty_text_rejected(self):
         headers = self._admin_headers()
@@ -587,7 +587,7 @@ class TestAdminReporting(APITestCase):
         self.assertEqual(app_engine.questions[141].get('category'), 'aesthetic')
         self.assertEqual(
             app_engine.questions[135]['text'],
-            '身近にいそうな相手より、少し現実離れした相手の方が好き？',
+            '身近にいそうな相手より、日常のルールから少し外れた相手の方が好き？',
         )
         self.assertEqual(app_engine.questions[135].get('category'), 'world')
 
