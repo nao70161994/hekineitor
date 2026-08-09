@@ -63,26 +63,21 @@ def build(
             adjusted_score_provider=lambda probs, ranked: result_exposure.adjusted_scores(engine, probs, ranked),
         )
 
-    def adjusted_top_guess(engine_arg, answers, n=1):
+    def raw_confidence_top_guess(engine_arg, answers, n=1):
+        """Return raw model leaders for question-flow confidence decisions.
+
+        The strong exposure factor intentionally changes the final result
+        ranking. It must not manufacture or suppress confidence for question
+        stopping, progress, or low-confidence extension decisions.
+        """
         probs = inference.posteriors(engine_arg, answers)
-        raw_ranked = sorted(range(len(probs)), key=lambda index: probs[index], reverse=True)
-        scores = result_exposure.adjusted_scores(engine_arg, probs, raw_ranked)
-        ranked = sorted(
-            raw_ranked,
-            key=lambda index: (
-                -scores.get(index, {}).get('adjusted_score', float(probs[index])),
-                raw_ranked.index(index),
-            ),
-        )
+        ranked = sorted(range(len(probs)), key=lambda index: probs[index], reverse=True)
         exclude_ids = set(session.get('exclude_ids', []))
         if exclude_ids:
             ranked = [index for index in ranked if engine_arg.fetishes[index].get('id') not in exclude_ids] + [
                 index for index in ranked if engine_arg.fetishes[index].get('id') in exclude_ids
             ]
-        return [
-            (index, scores.get(index, {}).get('adjusted_score', float(probs[index])))
-            for index in ranked[: max(1, int(n or 1))]
-        ]
+        return [(index, float(probs[index])) for index in ranked[: max(1, int(n or 1))]]
 
     def make_guess(answers):
         guess_context = context.game_guess(
@@ -125,7 +120,7 @@ def build(
     )
     question_flow = context.game_question_flow(
         best_question=question_selection.best_question,
-        top_guess=adjusted_top_guess,
+        top_guess=raw_confidence_top_guess,
         make_guess=make_guess,
         question_total_for_count=question_selection.make_question_total_for_count(
             soft_max_questions,

@@ -39,6 +39,8 @@ seedの既定値は`20260809`です。`--check`は絶対閾値またはbaseline�
 
 `adaptive.rows[].question_trace`には質問ID、persona回答、情報利得、実効候補削減量、無信号/cold-start判定を残します。`adaptive.question_metrics`は同じ値を質問IDごとに集約するため、平均指標が悪化した時に原因となった質問まで追跡できます。
 
+質問継続と停止はraw posteriorで評価し、指数`-3`の分散補正は最終結果順位にだけ適用します。production-likeな大きいexposure factorでもraw確信度が低い1問目で終了しないことをAPI回帰テストで確認します。
+
 絶対gateはTop1/Top3、calibration、情報利得、実効候補削減、無信号0、cold-start 1診断1問以下、反復0、persona回答coverage、結果集中、分散数式、60秒以内を確認します。baseline gateはTop1/Top3、calibration、情報利得、実効候補削減、未定義回答率の悪化を許容差内に制限します。
 
 ## baseline更新

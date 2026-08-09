@@ -410,16 +410,17 @@ class TestGameSessionFlow(APITestCase):
     def test_low_confidence_at_soft_limit_extends_questions(self):
         import app as app_module
 
+        raw_probabilities = [0.001] * len(app_module.engine.fetishes)
+        raw_probabilities[0] = 0.50
+        raw_probabilities[1] = 0.45
+
         with self.client.session_transaction() as sess:
             sess['started'] = True
             sess['answers'] = {str(i): 1.0 for i in range(19)}
             sess['asked'] = list(range(20))
             sess['idk_streak'] = 0
         with (
-            patch(
-                'services.game_context.result_exposure.adjusted_scores',
-                side_effect=self._adjusted_scores_for(0.50, 0.45),
-            ),
+            patch.object(app_module.engine, 'posteriors', return_value=raw_probabilities),
             patch.object(app_module.engine, 'best_disambiguating_question', return_value=20) as disambiguating,
         ):
             res = self.client.post('/api/answer', json={'question_id': 19, 'answer': 1.0})
@@ -434,16 +435,17 @@ class TestGameSessionFlow(APITestCase):
     def test_normal_flow_uses_best_question_before_soft_limit(self):
         import app as app_module
 
+        raw_probabilities = [0.001] * len(app_module.engine.fetishes)
+        raw_probabilities[0] = 0.36
+        raw_probabilities[1] = 0.22
+
         with self.client.session_transaction() as sess:
             sess['started'] = True
             sess['answers'] = {str(i): 1.0 for i in range(4)}
             sess['asked'] = list(range(5))
             sess['idk_streak'] = 0
         with (
-            patch(
-                'services.game_context.result_exposure.adjusted_scores',
-                side_effect=self._adjusted_scores_for(0.36, 0.22),
-            ),
+            patch.object(app_module.engine, 'posteriors', return_value=raw_probabilities),
             patch.object(app_module.engine, 'best_question', return_value=5) as best_question,
             patch.object(app_module.engine, 'best_disambiguating_question', return_value=6) as disambiguating,
         ):
@@ -456,26 +458,53 @@ class TestGameSessionFlow(APITestCase):
         best_question.assert_called_once()
         disambiguating.assert_not_called()
 
-    def test_answer_progress_ignores_excluded_adjusted_top_candidate(self):
+    def test_strong_diversity_boost_does_not_manufacture_stopping_confidence(self):
         import app as app_module
 
-        def adjusted_scores(engine, probs, ranked):
-            scores = {}
-            for index in ranked:
-                if index == 0:
-                    adjusted_score = 0.90
-                elif index == 1:
-                    adjusted_score = 0.36
-                elif index == 2:
-                    adjusted_score = 0.22
-                else:
-                    adjusted_score = 0.01
-                scores[index] = {
+        start = self._start()
+        raw_probabilities = [0.007] * len(app_module.engine.fetishes)
+        raw_probabilities[0] = 0.009
+        raw_probabilities[1] = 0.008
+
+        def production_like_scores(_engine, probs, ranked):
+            return {
+                index: {
                     'raw_probability': float(probs[index]),
-                    'factor': adjusted_score / float(probs[index]) if probs[index] else 1.0,
-                    'adjusted_score': adjusted_score,
+                    'factor': 92.2381,
+                    'adjusted_score': 0.864 if index == 0 else 0.72,
                 }
-            return scores
+                for index in ranked
+            }
+
+        next_question = next(
+            question_id
+            for question_id in range(len(app_module.engine.questions))
+            if question_id != start['question_id']
+        )
+        with (
+            patch.object(app_module.engine, 'posteriors', return_value=raw_probabilities),
+            patch.object(app_module.engine, 'best_question', return_value=next_question),
+            patch(
+                'services.game_context.result_exposure.adjusted_scores', side_effect=production_like_scores
+            ) as adjusted_scores,
+        ):
+            response = self.client.post(
+                '/api/answer',
+                json={'question_id': start['question_id'], 'answer': 0},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()['action'], 'question')
+        self.assertEqual(response.get_json()['question_id'], next_question)
+        adjusted_scores.assert_not_called()
+
+    def test_answer_progress_ignores_excluded_raw_top_candidate(self):
+        import app as app_module
+
+        raw_probabilities = [0.01] * len(app_module.engine.fetishes)
+        raw_probabilities[0] = 0.90
+        raw_probabilities[1] = 0.36
+        raw_probabilities[2] = 0.22
 
         with self.client.session_transaction() as sess:
             sess['started'] = True
@@ -484,7 +513,7 @@ class TestGameSessionFlow(APITestCase):
             sess['idk_streak'] = 0
             sess['exclude_ids'] = [app_module.engine.fetishes[0]['id']]
         with (
-            patch('services.game_context.result_exposure.adjusted_scores', side_effect=adjusted_scores),
+            patch.object(app_module.engine, 'posteriors', return_value=raw_probabilities),
             patch.object(app_module.engine, '_best_question_with_exclusions', return_value=5) as best_question,
         ):
             res = self.client.post('/api/answer', json={'question_id': 4, 'answer': 1.0})
@@ -499,16 +528,17 @@ class TestGameSessionFlow(APITestCase):
     def test_progress_message_for_close_candidates(self):
         import app as app_module
 
+        raw_probabilities = [0.001] * len(app_module.engine.fetishes)
+        raw_probabilities[0] = 0.42
+        raw_probabilities[1] = 0.39
+
         with self.client.session_transaction() as sess:
             sess['started'] = True
             sess['answers'] = {str(i): 1.0 for i in range(2)}
             sess['asked'] = [0, 1, 2]
             sess['idk_streak'] = 0
         with (
-            patch(
-                'services.game_context.result_exposure.adjusted_scores',
-                side_effect=self._adjusted_scores_for(0.42, 0.39),
-            ),
+            patch.object(app_module.engine, 'posteriors', return_value=raw_probabilities),
             patch.object(app_module.engine, 'best_question', return_value=3),
         ):
             res = self.client.post('/api/answer', json={'question_id': 2, 'answer': 1.0})
@@ -520,14 +550,16 @@ class TestGameSessionFlow(APITestCase):
     def test_hard_limit_forces_guess_even_when_low_confidence(self):
         import app as app_module
 
+        raw_probabilities = [0.001] * len(app_module.engine.fetishes)
+        raw_probabilities[0] = 0.50
+        raw_probabilities[1] = 0.45
+
         with self.client.session_transaction() as sess:
             sess['started'] = True
             sess['answers'] = {str(i): 1.0 for i in range(29)}
             sess['asked'] = list(range(30))
             sess['idk_streak'] = 0
-        with patch(
-            'services.game_context.result_exposure.adjusted_scores', side_effect=self._adjusted_scores_for(0.50, 0.45)
-        ):
+        with patch.object(app_module.engine, 'posteriors', return_value=raw_probabilities):
             res = self.client.post('/api/answer', json={'question_id': 29, 'answer': 1.0})
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.get_json()['action'], 'guess')
@@ -540,13 +572,7 @@ class TestGameSessionFlow(APITestCase):
             sess['idk_streak'] = 3
             sess['idk_recovery_count'] = 0
         recovery = {'question_id': 4, 'fallback': True, 'avoided_axes': ['abstract']}
-        with (
-            patch('services.question_selection.idk_recovery_selection', return_value=recovery),
-            patch(
-                'services.game_context.result_exposure.adjusted_scores',
-                side_effect=self._adjusted_scores_for(0.35, 0.30),
-            ),
-        ):
+        with patch('services.question_selection.idk_recovery_selection', return_value=recovery):
             response = self.client.post(
                 '/api/answer',
                 json={'question_id': 3, 'answer': 0, 'answer_request_id': 'answer_idk_fallback_001'},
