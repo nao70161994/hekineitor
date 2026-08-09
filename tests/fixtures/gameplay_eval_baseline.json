@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "seed": 20260809,
+  "transcript": {
+    "top1_rate": 0.875,
+    "top3_rate": 1.0,
+    "calibration_brier": 0.774431
+  },
+  "adaptive": {
+    "average_questions": 30.0,
+    "top1_rate": 0.75,
+    "top3_rate": 0.75,
+    "average_information_gain": 0.00955281,
+    "average_effective_candidate_reduction": 29.4853,
+    "legacy_no_signal_selected": 0,
+    "cold_start_per_persona": 0.0,
+    "question_repeats": 0,
+    "unknown_answer_rate": 0.0
+  },
+  "diversity": {
+    "exponent": -3.0,
+    "preserved": true
+  }
+}

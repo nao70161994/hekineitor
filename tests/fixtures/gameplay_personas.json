@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "description": "Hand-authored preference transcripts. Explicit answers are strong traits; default_answer is the reviewed mild response for unspecified traits. Neither is generated from matrix probabilities.",
+  "personas": [
+    {
+      "id": "betrayal_tension",
+      "target_result_id": 0,
+      "default_answer": -0.5,
+      "answers": {"8": 1, "6": 1, "87": 1, "91": 1, "37": 0.5, "10": -1, "11": -1, "28": -1, "33": -1, "36": -0.5}
+    },
+    {
+      "id": "devoted_service",
+      "target_result_id": 27,
+      "default_answer": -0.5,
+      "answers": {"27": 1, "36": 1, "140": 1, "136": 1, "18": 1, "0": 0.5, "10": -1, "33": -1, "8": -1}
+    },
+    {
+      "id": "precise_nonhuman",
+      "target_result_id": 28,
+      "default_answer": -0.5,
+      "answers": {"28": 1, "10": 1, "138": 1, "89": 1, "151": 1, "33": -0.5, "8": -1, "26": -1, "17": -1}
+    },
+    {
+      "id": "quiet_shared_life",
+      "target_result_id": 65,
+      "default_answer": -0.5,
+      "answers": {"18": 1, "5": 1, "61": 1, "70": 1, "24": -1, "10": -1, "33": -1, "22": -1, "87": -1}
+    },
+    {
+      "id": "fated_rivals",
+      "target_result_id": 69,
+      "default_answer": -0.5,
+      "answers": {"20": 1, "17": 1, "33": 1, "92": 1, "0": 0.5, "87": 0.5, "10": -1, "14": -1}
+    },
+    {
+      "id": "love_beyond_death",
+      "target_result_id": 90,
+      "default_answer": -0.5,
+      "answers": {"10": 1, "34": 1, "1": 1, "61": 1, "33": 1, "37": 0.5, "55": 1, "28": -1, "22": -1}
+    },
+    {
+      "id": "repeated_destiny",
+      "target_result_id": 101,
+      "default_answer": -0.5,
+      "answers": {"95": 1, "90": 1, "33": 1, "55": 0.5, "61": 0.5, "44": 1, "10": -1, "0": -1}
+    },
+    {
+      "id": "observant_order",
+      "target_result_id": 123,
+      "default_answer": -0.5,
+      "answers": {"136": 1, "141": 1, "123": 1, "114": 1, "142": 1, "18": 0.5, "33": -1, "10": -1, "22": -1}
+    }
+  ]
+}

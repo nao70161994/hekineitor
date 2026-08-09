@@ -33,6 +33,8 @@
 - [`FUNNEL_METRICS.md`](FUNNEL_METRICS.md): funnel指標
 - [`QUESTION_ANALYTICS.md`](QUESTION_ANALYTICS.md): 質問分析
 - [`QUESTION_CATEGORY_BALANCE.md`](QUESTION_CATEGORY_BALANCE.md): 質問カテゴリのバランス
+- [`GAMEPLAY_EVALUATION.md`](GAMEPLAY_EVALUATION.md): 固定personaによるゲーム品質のsimulation/regression gate
+- [`GAMEPLAY_METRICS.md`](GAMEPLAY_METRICS.md): schema version 2の匿名診断summaryと運用指標
 - [`RESULT_ANALYTICS_LIFECYCLE.md`](RESULT_ANALYTICS_LIFECYCLE.md): result analyticsの保存期間
 - [`SHARE_EVENT_TRACKING.md`](SHARE_EVENT_TRACKING.md): share event計測
 - [`SHARE_IMPROVEMENT_NOTES.md`](SHARE_IMPROVEMENT_NOTES.md): share改善メモ

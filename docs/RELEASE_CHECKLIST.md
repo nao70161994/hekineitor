@@ -1,5 +1,17 @@
 # Release Checklist
 
+## Game quality and analytics
+
+- [ ] `sh scripts/check.sh`で固定persona評価を含む全gateが成功
+- [ ] 評価レポートでlegacy無信号0、cold-start 1診断1問以下、質問反復0、実効分散指数`-3.0`
+- [ ] 「惜しい」で上位3候補、1件選択、残り表示、候補なし、通信失敗、二重tapを確認
+- [ ] 推測結果のnear-missと訂正候補のpositive学習が1つのfeedback batchで保存される
+- [ ] 訂正確定の同一再送が二重学習せず、異なる再送・重複IDを拒否し、未選択候補を負例にしない
+- [ ] `/api/admin/gameplay_events`で新releaseのversion 2 summaryと`invariants.valid=true`を確認
+- [ ] summary CSVに永続識別子、IP、User-Agent、自由記述、回答値がないことをspot check
+- [ ] PostgreSQL storage statusの90日保持とrelease別分母を確認
+- [ ] rollback時にversionなしイベントがlegacyへ隔離されることを確認
+
 ## AdSense
 
 - [x] AdSense 審査コード導入済み
