@@ -5,6 +5,7 @@ from collections import Counter, defaultdict, deque
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
+from engine import question_selection as engine_question_selection
 from services import event_store
 from services.csv_safety import csv_text
 from storage import data_path
@@ -458,37 +459,63 @@ def event_report(
         )
 
     cold_start_rows = []
+    no_signal_rows = []
     for row in question_rows:
         question_id = row['question_id']
         question = engine.questions[question_id] if 0 <= question_id < len(getattr(engine, 'questions', [])) else {}
         stats = question_stats.get(question_id, {})
-        disc = float(stats.get('disc', 0.0))
         neutral_seed = bool(question.get('learning_scale_neutral'))
-        first_feedback_disc = row.get('feedback_discrimination_first')
-        is_cold_start = (
-            neutral_seed
-            or (question_id in question_stats and disc <= 0.02)
-            or (first_feedback_disc is not None and first_feedback_disc <= 0.02)
-        )
-        if disc >= 0.05:
+        if hasattr(engine, 'matrix') and hasattr(engine, 'fetishes'):
+            profile = engine_question_selection.question_signal_profile(engine, question_id)
+            disc = float(profile['discrimination'])
+            matrix_feedback = float(profile['learned_feedback'])
+            exact_neutral = bool(profile['exact_neutral'])
+            mature = bool(profile['mature'])
+            needs_review = bool(profile['needs_review'])
+        else:
+            disc = float(stats.get('disc', 0.0))
+            matrix_feedback = float(row['feedback'])
+            exact_neutral = disc <= 1e-12
+            mature = neutral_seed and disc >= 0.05
+            needs_review = neutral_seed and matrix_feedback >= 20 and disc < 0.02
+        is_cold_start = neutral_seed
+        legacy_no_signal = not neutral_seed and question_id in question_stats and exact_neutral
+        if not is_cold_start:
+            maturity = 'not_applicable'
+        elif mature:
             maturity = 'mature'
-        elif row['feedback'] < 20:
+        elif matrix_feedback < 20:
             maturity = 'collecting'
-        elif disc < 0.02:
+        elif needs_review:
             maturity = 'needs_review'
         else:
             maturity = 'learning'
+        if legacy_no_signal:
+            selection_status = 'legacy_no_signal'
+        elif maturity == 'mature':
+            selection_status = 'active'
+        elif maturity == 'needs_review':
+            selection_status = 'cold_start_needs_review'
+        elif is_cold_start:
+            selection_status = 'cold_start_exploration'
+        else:
+            selection_status = 'active'
         row.update(
             {
                 'discrimination': round(disc, 3),
                 'matrix_weight': float(stats.get('ask_count', 0.0)),
+                'matrix_feedback_equivalent': round(matrix_feedback, 3),
                 'learning_scale_neutral': neutral_seed,
                 'cold_start': is_cold_start,
                 'maturity': maturity,
+                'legacy_no_signal': legacy_no_signal,
+                'selection_status': selection_status,
             }
         )
         if is_cold_start:
             cold_start_rows.append(row)
+        if legacy_no_signal:
+            no_signal_rows.append(row)
 
     total_shown = sum(row['shown'] for row in question_rows)
     category_rows = []
@@ -538,6 +565,13 @@ def event_report(
                 'message': f'{len(stalled_cold_start)}件の未学習質問が20回以上のフィードバック後も識別力0.02未満です。',
             }
         )
+    if no_signal_rows:
+        warnings.append(
+            {
+                'type': 'legacy_questions_without_signal',
+                'message': f'{len(no_signal_rows)}件の既存質問は候補を識別できないため通常選択から除外されます。',
+            }
+        )
 
     contribution_rows = sorted(
         [row for row in question_rows if row['contribution'] > 0],
@@ -583,6 +617,12 @@ def event_report(
             'needs_review': len(stalled_cold_start),
             'minimum_feedback_for_review': 20,
             'review_discrimination_threshold': 0.02,
+            'exploration_limit_per_diagnosis': 1,
+        },
+        'no_signal_questions': sorted(no_signal_rows, key=lambda row: row['question_id']),
+        'no_signal_summary': {
+            'total': len(no_signal_rows),
+            'selection_status': 'excluded',
         },
         'warnings': warnings,
     }
@@ -613,9 +653,12 @@ def question_csv(report):
         'feedback_discrimination_delta',
         'discrimination',
         'matrix_weight',
+        'matrix_feedback_equivalent',
         'learning_scale_neutral',
         'cold_start',
         'maturity',
+        'legacy_no_signal',
+        'selection_status',
         'question_text',
     ]
     return csv_text(report.get('questions', []), fieldnames)

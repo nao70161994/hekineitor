@@ -146,6 +146,40 @@ class TestEngineQuestionSelectionRegression(unittest.TestCase):
             0.52,
         )
 
+    def test_legacy_neutral_questions_are_excluded_but_one_cold_start_probe_is_allowed(self):
+        self.assertTrue(engine_question_selection.question_signal_profile(self.engine, 40)['exact_neutral'])
+        self.assertFalse(engine_question_selection.question_signal_profile(self.engine, 40)['cold_start'])
+        self.assertFalse(engine_question_selection.question_is_eligible(self.engine, 40, []))
+
+        self.assertTrue(engine_question_selection.question_signal_profile(self.engine, 143)['cold_start'])
+        self.assertTrue(engine_question_selection.question_is_eligible(self.engine, 143, []))
+        self.assertFalse(engine_question_selection.question_is_eligible(self.engine, 144, [143]))
+
+    def test_cold_start_question_moves_to_normal_pool_after_feedback_and_discrimination(self):
+        question_id = 143
+        split = len(self.engine.fetishes) // 2
+        for fetish_idx in range(len(self.engine.fetishes)):
+            self.engine.matrix['total'][fetish_idx][question_id] = 20.0
+            self.engine.matrix['yes'][fetish_idx][question_id] = 12.0 if fetish_idx < split else 8.0
+
+        profile = engine_question_selection.question_signal_profile(self.engine, question_id)
+
+        self.assertTrue(profile['mature'])
+        self.assertFalse(profile['cold_start'])
+        self.assertGreaterEqual(profile['learned_feedback'], 20)
+        self.assertTrue(engine_question_selection.question_is_eligible(self.engine, question_id, [144]))
+
+    def test_stalled_cold_start_question_is_removed_for_review(self):
+        question_id = 143
+        for fetish_idx in range(len(self.engine.fetishes)):
+            self.engine.matrix['total'][fetish_idx][question_id] = 5.0
+            self.engine.matrix['yes'][fetish_idx][question_id] = 2.5
+
+        profile = engine_question_selection.question_signal_profile(self.engine, question_id)
+
+        self.assertTrue(profile['needs_review'])
+        self.assertFalse(engine_question_selection.question_is_eligible(self.engine, question_id, []))
+
     def test_best_question_penalizes_high_yes_rate_question_when_alternatives_exist(self):
         answers = {'60': 1, '2': 1, '91': 1}
         asked = {60, 2, 91}

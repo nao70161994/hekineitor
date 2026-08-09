@@ -1,3 +1,6 @@
+from .question_selection import invalidate_question_signal_cache
+
+
 def learn(engine, answers, fetish_idx, strength_factor=1.0, *, pseudo):
     disc_scales = engine._get_disc_scales()
     all_updates = {}
@@ -28,6 +31,8 @@ def learn(engine, answers, fetish_idx, strength_factor=1.0, *, pseudo):
 
         idx_to_db_id = {i: fetish['id'] for i, fetish in enumerate(engine.fetishes)}
 
+    if all_updates:
+        invalidate_question_signal_cache(engine)
     engine._save_async(all_updates, idx_to_db_id)
     engine._increment_learn_count()
 
@@ -64,6 +69,8 @@ def learn_cooccurrence(engine, answers, idx_a, idx_b, factor=0.25, *, pseudo):
                 all_updates.setdefault(target, []).append((q, delta_yes, effective, before_yes, before_total))
         idx_to_db_id = {i: fetish['id'] for i, fetish in enumerate(engine.fetishes)}
 
+    if all_updates:
+        invalidate_question_signal_cache(engine)
     engine._save_async(all_updates, idx_to_db_id)
 
 
@@ -95,6 +102,8 @@ def learn_near_miss(engine, answers, fetish_idx, strength_factor=1.0, *, pseudo)
             all_updates.setdefault(fetish_idx, []).append((q, delta_yes, effective, before_yes, before_total))
         idx_to_db_id = {i: fetish['id'] for i, fetish in enumerate(engine.fetishes)}
 
+    if all_updates:
+        invalidate_question_signal_cache(engine)
     engine._save_async(all_updates, idx_to_db_id)
     engine._increment_learn_count()
 
@@ -126,6 +135,8 @@ def learn_negative(engine, answers, fetish_idx, strength_factor=1.0, *, pseudo):
             all_updates.setdefault(fetish_idx, []).append((q, delta_yes, effective, before_yes, before_total))
         idx_to_db_id = {i: fetish['id'] for i, fetish in enumerate(engine.fetishes)}
 
+    if all_updates:
+        invalidate_question_signal_cache(engine)
     engine._save_async(all_updates, idx_to_db_id)
 
 
@@ -162,4 +173,6 @@ def learn_silent(engine, answers, fetish_idx, cold_start=False, *, pseudo):
 
         idx_to_db_id = {i: fetish['id'] for i, fetish in enumerate(engine.fetishes)}
 
+    if all_updates:
+        invalidate_question_signal_cache(engine)
     engine._save_async(all_updates, idx_to_db_id)

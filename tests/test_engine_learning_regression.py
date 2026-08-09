@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import engine.facade as engine_facade
 from engine import Engine
+from engine.question_selection import question_signal_profiles
 
 
 class TestEngineLearningRegression(unittest.TestCase):
@@ -54,6 +55,15 @@ class TestEngineLearningRegression(unittest.TestCase):
 
         self.assertEqual(engine.matrix['yes'][1], other_yes_before)
         self.assertEqual(engine.matrix['total'][1], other_total_before)
+
+    def test_learning_invalidates_cached_question_signal_profiles(self):
+        engine = Engine()
+        before = question_signal_profiles(engine)
+
+        engine.learn({'8': 1}, 0, strength_factor=0.5)
+
+        self.assertIsNone(engine._question_signal_profiles_cache)
+        self.assertIsNot(question_signal_profiles(engine), before)
 
     def test_near_miss_learning_matrix_delta_snapshot(self):
         engine = Engine()

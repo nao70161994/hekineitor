@@ -59,10 +59,15 @@ def best_low_exposure_axis_question(
     best_q, best_score = None, -1.0
     recent_categories = [engine._question_category(q) for q in list(asked)[-3:]]
     allowed = set(allowed_question_ids) if allowed_question_ids is not None else None
+    from engine import question_selection as engine_question_selection
+
+    eligible = engine_question_selection.eligible_question_ids(engine, asked)
     for question_id in range(len(engine.questions)):
         if allowed is not None and question_id not in allowed:
             continue
         if question_id in asked or question_id in engine.disabled_questions:
+            continue
+        if question_id not in eligible:
             continue
         category = engine._question_category(question_id)
         if category not in preferred_categories:
@@ -114,11 +119,15 @@ def idk_recovery_selection(engine, answers, asked, *, exclude_ids=None):
     concrete = {'attribute', 'world', 'aesthetic', 'value', 'role'}
     asked_in_order = list(dict.fromkeys(asked))
     recent_axes, recent_categories = _recent_idk_dimensions(engine, answers, asked_in_order)
+    from engine import question_selection as engine_question_selection
+
+    eligible = engine_question_selection.eligible_question_ids(engine, asked_in_order)
     alternate = [
         question_id
         for question_id in range(len(engine.questions))
         if question_id not in asked_in_order
         and question_id not in engine.disabled_questions
+        and question_id in eligible
         and engine._question_axis(question_id) not in recent_axes
     ]
     different_category = [

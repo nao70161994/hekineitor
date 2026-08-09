@@ -143,6 +143,30 @@ class TestServiceEvents(unittest.TestCase):
         self.assertEqual(report['metrics']['feedback_learning'], 20)
         self.assertIn('cold_start_questions_stalled', [item['type'] for item in report['warnings']])
 
+    def test_question_events_report_separates_legacy_no_signal_from_cold_start(self):
+        class Engine:
+            questions = [
+                {'text': 'legacy', 'category': 'world'},
+                {'text': 'probe', 'category': 'value', 'learning_scale_neutral': True},
+            ]
+
+            def get_question_stats(self):
+                return [
+                    {'id': 0, 'disc': 0.0, 'ask_count': 512.0},
+                    {'id': 1, 'disc': 0.0, 'ask_count': 512.0},
+                ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'question_events.jsonl')
+            question_events.record_event('question_shown', question_id=0, category='world', path=path)
+            question_events.record_event('question_shown', question_id=1, category='value', path=path)
+            report = question_events.event_report(Engine(), path=path)
+
+        self.assertEqual([row['question_id'] for row in report['no_signal_questions']], [0])
+        self.assertEqual([row['question_id'] for row in report['cold_start_questions']], [1])
+        self.assertEqual(report['no_signal_summary']['selection_status'], 'excluded')
+        self.assertEqual(report['cold_start_summary']['exploration_limit_per_diagnosis'], 1)
+
     def test_question_events_report_exposes_available_total_when_limited(self):
         class Engine:
             questions = [{'text': 'Q0', 'category': 'relation', 'axis': 'abstract'}]

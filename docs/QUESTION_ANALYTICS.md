@@ -27,35 +27,37 @@
 - feedback learning回数、positive feedback回数、学習対象結果数
 - discrimination（識別力）、feedback観測期間中の識別力差分、未学習質問の成熟度
 
-## 未学習質問の扱い
+## 無信号質問とcold-startの扱い
 
-初期の識別力が中立な質問は、同じ結果しか出ない状態を避けるための探索対象です。質問を無効化せず、実際の回答と結果feedbackを蓄積してmatrixを学習させます。`learning_scale_neutral: true` の質問（現在はQ143〜Q152）に加え、discriminationが `0.02` 以下の質問をcold-start監視対象として表示します。
+全候補で厳密に `P(YES)=0.5` かつ `learning_scale_neutral` の印がない既存質問は、学習予定の質問ではなく `legacy_no_signal` として扱います。通常選択、後半の候補識別、低露出軸、除外再挑戦、追加質問、IDK回復のすべてから安全に除外します。質問文から妥当な広範囲の初期シグナルをレビューできた場合だけmatrixへ付与し、単一結果へ直結するseedは作りません。
+
+`learning_scale_neutral: true` の質問（現在はQ143〜Q152）だけが意図的なcold-startです。未成熟な間も1診断につき最大1問だけ探索でき、回答と結果feedbackによるmatrix学習を受けます。上限は全質問選択経路で共通です。
 
 成熟度は次のルールです。
 
-- `collecting`: feedback learningが20回未満。警告せず、データ収集中として扱う。
-- `learning`: feedback learningが20回以上で、discriminationが `0.02` 以上 `0.05` 未満。
-- `mature`: discriminationが `0.05` 以上。
-- `needs_review`: feedback learningが20回以上あるのに、discriminationが `0.02` 未満。
+- `collecting`: matrixの初期重みを超えたfeedback相当量が20未満。
+- `learning`: feedback相当量が20以上で、discriminationが `0.02` 以上 `0.05` 未満。探索枠に残る。
+- `mature`: feedback相当量が20以上かつdiscriminationが `0.05` 以上。cold-start枠を卒業して通常選択へ自動移行する。
+- `needs_review`: feedback相当量が20以上あるのに、discriminationが `0.02` 未満。通常・探索の双方から除外する。
 
-`needs_review` だけを警告対象にします。表示回数だけが多い質問やfeedbackがまだ少ない質問は異常扱いしません。しきい値は診断用であり、自動的に質問を停止したりmatrixを変更したりはしません。
+`matrix_feedback_equivalent` は各候補セルの `total - 4` の合計で、イベントログの件数とは別物です。選択可否と管理レポートは同じmatrix根拠を使います。`needs_review` と `legacy_no_signal` を警告し、前者は自動停止、後者は常時除外されます。matrix自体は自動補完しません。
 
 このfeedback eventは導入後から蓄積します。過去に行われた学習回数は復元しないため、導入直後の `collecting` は既存質問の品質が低いという意味ではありません。
 
 ## 読み取りAPIとCSV
 
-- `/api/admin/question_events`: 集約、警告、`cold_start_summary`、`cold_start_questions`
+- `/api/admin/question_events`: 集約、警告、`cold_start_summary`、`cold_start_questions`、`no_signal_summary`、`no_signal_questions`
 - `/api/admin/operations_snapshot`: 運用snapshot内の同じcold-start集約
 - `/api/admin/question_events/questions.csv`: 質問別CSV
 - `/api/admin/question_events/category.csv`: カテゴリ別CSV
 
-質問別CSVには `feedback`、`positive_feedback`、`feedback_targets`、`feedback_discrimination_first`、`feedback_discrimination_latest`、`feedback_discrimination_delta`、`discrimination`、`learning_scale_neutral`、`cold_start`、`maturity` を含みます。すべて管理者認証必須です。
+質問別CSVにはイベント由来のfeedback列に加え、`matrix_feedback_equivalent`、`discrimination`、`learning_scale_neutral`、`cold_start`、`maturity`、`legacy_no_signal`、`selection_status` を含みます。すべて管理者認証必須です。
 
 ## 本番分析に必要な確認手順
 
 1. `/api/admin/preflight` で `analysis_question_events_rows` を確認します。
 2. `/api/admin/question_events` の `quality` を確認し、不審な同一秒burstが除外されていないか確認します。
-3. `cold_start_summary` で `collecting` / `learning` / `mature` / `needs_review` の推移を確認します。
+3. `no_signal_summary.total` が意図せず増えていないことと、`cold_start_summary` の `collecting` / `learning` / `mature` / `needs_review` の推移を確認します。
 4. `needs_review` が出た場合だけ、質問文、回答分布、対象結果、matrixの学習方向を個別にレビューします。
 5. 長期的な外部レビューには `ADMIN_READ_TOKEN` を使い、読み取り専用APIだけを参照します。詳細は `docs/ADMIN_READ_ACCESS.md` を参照してください。
 

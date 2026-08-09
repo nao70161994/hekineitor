@@ -110,7 +110,9 @@ class TestEngine(unittest.TestCase):
         self.assertLess(q, len(self.e.questions))
 
     def test_best_question_avoids_asked(self):
-        asked = set(range(len(self.e.questions) - 1))
+        # Leave a known mature question available. The final questions are
+        # cold-start probes and may correctly be ineligible after another probe.
+        asked = set(range(1, len(self.e.questions)))
         q = self.e.best_question({}, asked)
         self.assertIsNotNone(q)
         self.assertNotIn(q, asked)

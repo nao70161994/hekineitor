@@ -5,6 +5,115 @@ HEAVY_RELATION_RESULT_NAMES = {'共依存', '激重感情', '共生関係', '執
 DIVERSIFYING_EARLY_CATEGORIES = {'attribute', 'world', 'aesthetic', 'value', 'role'}
 HEAVY_RELATION_CATEGORIES = {'relation', 'attachment'}
 HEAVY_EMOTION_CATEGORIES = {'relation', 'attachment', 'tone'}
+COLD_START_EXPLORATION_LIMIT = 1
+COLD_START_MIN_FEEDBACK = 20
+COLD_START_MATURE_DISCRIMINATION = 0.05
+COLD_START_REVIEW_DISCRIMINATION = 0.02
+MATRIX_BASE_TOTAL = 4.0
+
+
+def question_signal_profile(engine, question_id):
+    """Describe whether a question can currently separate result candidates.
+
+    ``learning_scale_neutral`` questions are deliberately introduced without a
+    prior.  They get a tightly bounded exploration slot until feedback has made
+    them discriminative.  An older, unmarked all-0.5 column is a data defect and
+    must not consume a player question.
+    """
+    probabilities = [engine._prob(fetish_idx, question_id) for fetish_idx in range(len(engine.fetishes))]
+    discrimination = (
+        sum(abs(probability - 0.5) for probability in probabilities) / len(probabilities) if probabilities else 0.0
+    )
+    exact_neutral = bool(probabilities) and all(abs(probability - 0.5) <= 1e-12 for probability in probabilities)
+    question = engine.questions[question_id] if 0 <= question_id < len(engine.questions) else {}
+    cold_start_seed = bool(question.get('learning_scale_neutral'))
+    learned_feedback = 0.0
+    totals = engine.matrix.get('total', []) if isinstance(getattr(engine, 'matrix', None), dict) else []
+    for fetish_idx in range(min(len(engine.fetishes), len(totals))):
+        row = totals[fetish_idx]
+        if question_id < len(row):
+            learned_feedback += max(0.0, float(row[question_id]) - MATRIX_BASE_TOTAL)
+    mature = (
+        cold_start_seed
+        and learned_feedback >= COLD_START_MIN_FEEDBACK
+        and discrimination >= COLD_START_MATURE_DISCRIMINATION
+    )
+    needs_review = (
+        cold_start_seed
+        and learned_feedback >= COLD_START_MIN_FEEDBACK
+        and discrimination < COLD_START_REVIEW_DISCRIMINATION
+    )
+    return {
+        'exact_neutral': exact_neutral,
+        'cold_start': cold_start_seed and not mature,
+        'mature': mature,
+        'needs_review': needs_review,
+        'discrimination': discrimination,
+        'learned_feedback': learned_feedback,
+    }
+
+
+def invalidate_question_signal_cache(engine):
+    """Invalidate profiles after an in-memory matrix learning update."""
+    engine._question_signal_profiles_cache = None
+
+
+def question_signal_profiles(engine):
+    """Return matrix-wide profiles cached until the matrix changes."""
+    signature = (id(getattr(engine, 'matrix', None)), len(engine.fetishes), len(engine.questions))
+    cached = getattr(engine, '_question_signal_profiles_cache', None)
+    if isinstance(cached, tuple) and len(cached) == 2 and cached[0] == signature:
+        return cached[1]
+    profiles = {
+        question_id: question_signal_profile(engine, question_id) for question_id in range(len(engine.questions))
+    }
+    engine._question_signal_profiles_cache = (signature, profiles)
+    return profiles
+
+
+def question_is_eligible(engine, question_id, asked, *, cold_start_limit=COLD_START_EXPLORATION_LIMIT):
+    """Apply one eligibility policy to every question-selection path."""
+    profile = question_signal_profile(engine, question_id)
+    if profile['needs_review']:
+        return False
+    if profile['exact_neutral'] and not profile['cold_start']:
+        return False
+    if not profile['cold_start']:
+        return True
+    cold_start_asked = 0
+    for asked_id in asked:
+        try:
+            asked_id = int(asked_id)
+        except (TypeError, ValueError):
+            continue
+        if 0 <= asked_id < len(engine.questions) and question_signal_profile(engine, asked_id)['cold_start']:
+            cold_start_asked += 1
+    return cold_start_asked < max(0, int(cold_start_limit))
+
+
+def eligible_question_ids(engine, asked, *, cold_start_limit=COLD_START_EXPLORATION_LIMIT):
+    """Return eligible ids while calculating every matrix profile only once."""
+    profiles = question_signal_profiles(engine)
+    asked_ids = set()
+    for asked_id in asked:
+        try:
+            asked_ids.add(int(asked_id))
+        except (TypeError, ValueError):
+            continue
+    cold_start_asked = sum(
+        bool(profiles[question_id]['cold_start']) for question_id in asked_ids if question_id in profiles
+    )
+    allow_cold_start = cold_start_asked < max(0, int(cold_start_limit))
+    eligible = set()
+    for question_id, profile in profiles.items():
+        if profile['needs_review']:
+            continue
+        if profile['exact_neutral'] and not profile['cold_start']:
+            continue
+        if profile['cold_start'] and not allow_cold_start:
+            continue
+        eligible.add(question_id)
+    return eligible
 
 
 def question_axis(question_id, question_axes):
@@ -70,6 +179,7 @@ def best_question(
     probs = _exclude_and_normalize(engine, engine.posteriors(answers), exclude_ids)
     nf = len(engine.fetishes)
     asked_list = list(asked)
+    eligible_questions = eligible_question_ids(engine, asked_list)
 
     focus_threshold = engine.config.get('focus_threshold', focus_threshold_default)
     ucb_c = engine.config.get('ucb_explore_c', ucb_explore_c)
@@ -107,7 +217,7 @@ def best_question(
     has_early_abstract = early_game and any(
         engine._question_axis(q) == 'abstract'
         for q in range(len(engine.questions))
-        if q not in asked and q not in engine.disabled_questions
+        if q not in asked and q not in engine.disabled_questions and q in eligible_questions
     )
 
     if has_early_abstract:
@@ -144,7 +254,7 @@ def best_question(
     early_candidates = []
 
     for q in range(len(engine.questions)):
-        if q in asked or q in engine.disabled_questions:
+        if q in asked or q in engine.disabled_questions or q not in eligible_questions:
             continue
         p_yes = sum(weighted_probs[f] * engine._prob(f, q) for f in range(nf))
         p_no = 1.0 - p_yes
@@ -243,6 +353,7 @@ def best_disambiguating_question(
                 asked_list.append(question_id)
         except (ValueError, TypeError):
             pass
+    eligible_questions = eligible_question_ids(engine, asked_list)
 
     ranked = sorted(range(nf), key=lambda i: probs[i], reverse=True)
     top = ranked[: max(2, min(candidate_count, nf))]
@@ -265,7 +376,7 @@ def best_disambiguating_question(
     ) or {}
 
     for q in range(len(engine.questions)):
-        if q in asked_ints or q in engine.disabled_questions:
+        if q in asked_ints or q in engine.disabled_questions or q not in eligible_questions:
             continue
         p_yes = sum(top_weights[f] * engine._prob(f, q) for f in top)
         p_no = 1.0 - p_yes
