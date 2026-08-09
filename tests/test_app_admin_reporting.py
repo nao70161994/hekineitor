@@ -16,6 +16,28 @@ class TestAdminReporting(APITestCase):
         self.assertEqual(payload['status'], 'ok')
         self.assertEqual(payload['metrics']['retry_rate'], 50.0)
 
+    def test_gameplay_summary_csv_is_available_to_read_admin(self):
+        headers = self._admin_headers()
+        report = {
+            'summaries': [
+                {
+                    'timestamp': '2026-08-09T00:00:00+00:00',
+                    'schema_version': 2,
+                    'release': 'abc123',
+                    'summary_status': 'completed',
+                    'retry_kind': 'new',
+                    'answered_count': 20,
+                    'result_reached': True,
+                }
+            ]
+        }
+        with patch('app._admin_gameplay_event_report', return_value=report):
+            response = self.client.get('/api/admin/gameplay_events/summaries.csv', headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('text/csv', response.content_type)
+        self.assertIn('schema_version,release,summary_status', response.data.decode('utf-8').splitlines()[0])
+        self.assertIn('abc123', response.data.decode('utf-8'))
+
     def test_admin_promote_fetish_reassigns_result_exposure_events(self):
         import app as app_module
 

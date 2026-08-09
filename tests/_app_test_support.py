@@ -14,6 +14,7 @@ os.environ.setdefault('SECRET_KEY', 'test_secret_key_for_testing')
 import engine as eng_module
 from app import app
 from engine import PLAYER_FETISH_BASE_ID, _use_db
+from services import gameplay_events as gameplay_events_service
 from services import inference as inference_service
 from services import learning as learning_service
 from services import ogp as ogp_service
@@ -43,6 +44,13 @@ DATA_FILES = (
     'share_links.json',
     time.strftime('admin_audit_log_%Y%m.json'),
 )
+
+
+def _nonpersistent_gameplay_event(*args, **kwargs):
+    try:
+        return gameplay_events_service.build_event(*args, **kwargs)
+    except (TypeError, ValueError):
+        return None
 
 
 class FileSnapshotMixin:
@@ -81,6 +89,12 @@ class APITestCase(FileSnapshotMixin, unittest.TestCase):
             patch.object(app_engine, '_save_matrix_file', return_value=None),
             patch.object(app_engine, '_save_fetishes_file', return_value=None),
             patch.object(app_engine, '_save_to_db', return_value=None),
+            patch.object(
+                gameplay_events_service,
+                'safe_record_event',
+                side_effect=_nonpersistent_gameplay_event,
+            ),
+            patch.object(result_exposure_service, 'safe_record_result', return_value=None),
         ]
         for p in self._patches:
             p.start()
@@ -189,6 +203,7 @@ __all__ = [
     'share_links_service',
     'share_notes_service',
     'result_exposure_service',
+    'gameplay_events_service',
     'test_play_service',
     'inference_service',
     'learning_service',

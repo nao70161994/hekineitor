@@ -18,15 +18,32 @@ class TestGameSessionFlow(APITestCase):
         rejected = self.client.post('/api/gameplay_event', json={'event_name': 'arbitrary', 'source': 'history'})
         self.assertEqual(rejected.status_code, 400)
 
+    def test_expired_draft_finalizes_the_anonymous_summary_as_expired(self):
+        def recorded(event_name, **fields):
+            return {'event_name': event_name, **fields}
+
+        with patch('services.gameplay_events.safe_record_event', side_effect=recorded) as record:
+            response = self.client.post(
+                '/api/gameplay_event',
+                json={'event_name': 'draft_discarded', 'source': 'draft', 'outcome': 'expired'},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        summary_call = next(call for call in record.call_args_list if call.args[0] == 'diagnosis_summary')
+        self.assertEqual(summary_call.kwargs['summary_status'], 'expired')
+
     def test_start_returns_question(self):
         data = self._start()
         self.assertIn('question_id', data)
         self.assertIn('question', data)
-        self.assertIn(data['answer_frame'], {
-            '作品・設定の好みとして',
-            '人物・関係性の好みとして',
-            '普段の感覚・行動として',
-        })
+        self.assertIn(
+            data['answer_frame'],
+            {
+                '作品・設定の好みとして',
+                '人物・関係性の好みとして',
+                '普段の感覚・行動として',
+            },
+        )
         self.assertNotIn('q_hint', data)
         self.assertEqual(data['count'], 0)
 
@@ -585,12 +602,22 @@ class TestGameSessionFlow(APITestCase):
         from app import engine as app_engine
 
         before = app_engine.get_stats().get('start_count', 0)
-        res = self.client.post('/api/resume', json={'pairs': []})
+        with patch(
+            'services.gameplay_events.safe_record_event',
+            side_effect=lambda event_name, **fields: {'event_name': event_name, **fields},
+        ) as record:
+            res = self.client.post('/api/resume', json={'pairs': []})
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertEqual(data.get('action'), 'question')
         self.assertIn('question_id', data)
         self.assertEqual(app_engine.get_stats().get('start_count', 0), before)
+        self.assertTrue(
+            any(
+                call.args == ('resume_started',) and call.kwargs.get('answered_count') == 0
+                for call in record.call_args_list
+            )
+        )
 
     def test_resume_with_answers_counts_as_start_source(self):
         from app import engine as app_engine
@@ -665,7 +692,7 @@ class TestGameSessionFlow(APITestCase):
             self.assertEqual(res2.get_json()['status'], 'ignored')
             recorder.assert_called_once()
 
-    def test_dropoff_ignored_after_completion(self):
+    def test_pagehide_after_completion_finalizes_summary_without_dropoff_learning(self):
         from app import engine as app_engine
 
         with self.client.session_transaction() as sess:
@@ -676,8 +703,11 @@ class TestGameSessionFlow(APITestCase):
         with patch.object(app_engine, 'log_dropoff') as recorder:
             res = self.client.post('/api/dropoff', json={'answered_count': 1})
             self.assertEqual(res.status_code, 200)
-            self.assertEqual(res.get_json()['status'], 'ignored')
+            self.assertEqual(res.get_json()['status'], 'ok')
+            self.assertTrue(res.get_json()['completed'])
             recorder.assert_not_called()
+        with self.client.session_transaction() as sess:
+            self.assertNotIn('_gameplay_summary_v2', sess)
 
     def test_answer_returns_axis(self):
         self._start()

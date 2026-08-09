@@ -296,9 +296,9 @@ function showGuess(data) {
 
 
 function reportDropoff() {
-  if (dropoffSent || resultShown || currentQuestionId == null) return;
+  if (dropoffSent || currentQuestionId == null) return;
   const questionScreen = document.getElementById('question-screen');
-  if (!questionScreen || questionScreen.classList.contains('hidden')) return;
+  if (!resultShown && (!questionScreen || questionScreen.classList.contains('hidden'))) return;
   dropoffSent = true;
   const payload = JSON.stringify({answered_count: answeredCount, question_id: currentQuestionId});
   if (navigator.sendBeacon) {
@@ -360,6 +360,7 @@ async function continueGame() {
     showGuess,
     quickRetry,
     continueGame,
+    reportDropoff,
     resetAnswerPending,
   };
 })();

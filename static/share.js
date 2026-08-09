@@ -185,6 +185,12 @@ window.HekiShare = (() => {
 document.addEventListener('click', event => {
   const link = event.target.closest('a[data-work-title]');
   if (!link) return;
+  window.trackGameplayEvent?.('work_click', {
+    source: 'works',
+    outcome: 'success',
+    work_id: link.dataset.workId || '',
+    edition_id: link.dataset.editionId || '',
+  });
   window.HekiShare.trackShareEvent('work_click', {
     resultName: link.dataset.resultName || diagnosedName || '',
     channel: link.dataset.workChannel || 'work',

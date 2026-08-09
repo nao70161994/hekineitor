@@ -98,7 +98,7 @@ DAILY:
 
 `result_source=stats_history_fallback` の場合、結果分布は過去の累積/legacy guessed counters を含む可能性があるため、`heavy_result_ratio` は `unavailable` として扱います。最新デプロイ後の偏り確認は `/api/admin/result_exposures/recent` または `result_source=result_exposures` の集計だけを使います。
 
-未学習質問は `/api/admin/question_events` の `cold_start_summary` と `cold_start_questions` で確認します。20回未満はデータ収集中なので通知せず、20回以上のfeedback learning後もdiscriminationが `0.02` 未満の場合だけ `needs_review` としてINSIGHTSに出します。このシグナルはntfy WARNにはせず、質問を自動停止しません。`/api/admin/operations_snapshot` にも同じ集約が含まれます。
+未学習質問は `/api/admin/question_events` の `cold_start_summary` と `cold_start_questions` で確認します。matrixのfeedback相当量20未満はデータ収集中です。20以上でもdiscriminationが `0.02` 未満の`needs_review`は選択から自動除外されるため、質問文と学習方向をレビューします。`no_signal_summary`は印のない全候補0.5列で、常に通常プレイから除外されます。件数増加は新規データ不備として調査します。
 
 動的priorの旧データ母集団は `/api/admin/operations_snapshot` の `dynamic_prior_shadow` で確認します。schema 2では`mismatched_count`と`excess_correct_count`を移行前監査値として残し、`legacy_row_count`、`exposure_guessed_count`、`exposure_correct_count`を追加します。`operations_check.py`は行詳細を保存・通知せず、これらの集約値とmigration policyだけをDAILY metricsへ出します。shadow行は旧無制限weight、旧runtime clamp weight、露出専用counterだけのcurrent weightを比較します。
 
@@ -288,4 +288,14 @@ GitHub Actions checks retry read-only admin API calls with `NTFY_ADMIN_RETRIES` 
 
 ## ゲームプレイループ
 
-匿名ゲームプレイ指標は `/api/admin/gameplay_events` と operations snapshot の `gameplay_events_summary` で確認します。再挑戦率、除外再挑戦率、追加質問率、feedback完了率、作品クリック率、質問重複率を、母数と一緒に週次確認します。個人識別情報・回答値・自由記述は保存しません。詳細は [GAMEPLAY_METRICS.md](GAMEPLAY_METRICS.md) を参照してください。
+匿名ゲームプレイ指標は `/api/admin/gameplay_events` と operations snapshot の `gameplay_events_summary` で確認します。schema version 2の`diagnosis_summary`だけを分母に使い、release別の結果到達、再挑戦、除外再挑戦、追加質問、feedback、作品CTR、質問重複を週次確認します。`legacy`は新指標に混ぜません。
+
+デプロイ直後は次を確認します。
+
+1. 新しいreleaseの`summary_total`が増える。
+2. `invariants.valid=true`である。
+3. `feedback_completion_rate`が100%を超えない。
+4. `/api/admin/gameplay_events/summaries.csv`の列に永続識別子や回答値がない。
+5. storage statusがPostgreSQLなら90日、JSONLなら5 MiB×2世代の保持方式を返す。
+
+不変条件違反時は率を意思決定に使わず、該当releaseのclient/server event順序を調査します。旧releaseへのrollbackでversionなしイベントが再発してもlegacyへ隔離されます。詳細は [GAMEPLAY_METRICS.md](GAMEPLAY_METRICS.md) を参照してください。

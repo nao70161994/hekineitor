@@ -13,6 +13,7 @@ from routes.admin_sections import operations as operations_routes
 from routes.admin_sections import page as page_routes
 from routes.admin_sections import works as works_routes
 from services import context as context_service
+from services import gameplay_events as gameplay_events_service
 from services import improvement_candidates as improvement_candidates_service
 from services import inference as inference_service
 from services import ogp as ogp_service
@@ -580,6 +581,16 @@ def share_events_report(ctx):
 def gameplay_events_report(ctx):
     limit = ctx.bounded_int(ctx.request.args.get('limit'), 5000, 1, 50000)
     return ctx.jsonify({'status': 'ok', **ctx.gameplay_event_report(limit=limit)})
+
+
+def gameplay_events_csv(ctx):
+    limit = ctx.bounded_int(ctx.request.args.get('limit'), 5000, 1, 50000)
+    report = ctx.gameplay_event_report(limit=limit)
+    return ctx.Response(
+        gameplay_events_service.summary_csv(report),
+        mimetype='text/csv; charset=utf-8',
+        headers={'Content-Disposition': 'attachment; filename="gameplay_summaries_v2.csv"'},
+    )
 
 
 def question_events_report(ctx):

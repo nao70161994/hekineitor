@@ -30,6 +30,7 @@ def register_routes(bp, *, ctx_factory, require_admin, require_admin_or_read, re
         ('/api/admin/quality_report', 'quality_report_route', 'quality_report'),
         ('/api/admin/share_events', 'share_events_report_route', 'share_events_report'),
         ('/api/admin/gameplay_events', 'gameplay_events_report_route', 'gameplay_events_report'),
+        ('/api/admin/gameplay_events/summaries.csv', 'gameplay_events_csv_route', 'gameplay_events_csv'),
         ('/api/admin/question_events', 'question_events_report_route', 'question_events_report'),
         ('/api/admin/question_events/<kind>.csv', 'question_events_csv_route', 'question_events_csv'),
         ('/api/admin/share_events/<kind>.csv', 'share_events_csv_route', 'share_events_csv'),

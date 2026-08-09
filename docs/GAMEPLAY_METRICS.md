@@ -1,30 +1,53 @@
 # ゲームプレイ指標
 
-`/api/gameplay_event` はゲームループ改善のための匿名イベントだけを保存します。IP、User-Agent、session ID、自由記述、回答値は保存しません。event/source/outcomeはallowlist、IDと回答数は上限付き整数です。DB event storeが有効なら`event_type=gameplay`、それ以外は`data/gameplay_events.jsonl`を使います。
+ゲームループの率はschema version 2の`diagnosis_summary`だけから計算します。細かな操作イベントはデバッグ用に残しますが、異なる診断の開始と完了をイベント件数だけで結合しません。
 
-## 管理レポート
+## 匿名summary契約
 
-管理者またはread-only管理者は `GET /api/admin/gameplay_events?limit=5000` で次を確認できます。
+診断開始時にFlask session内へ一時的な集計状態を作り、完了、離脱、再開始、破棄のいずれかでsummaryを1件だけ保存して状態を消します。永続的なuser/session/run ID、IP、User-Agent、自由記述、回答値は保存しません。ページ離脱時は`sendBeacon`を使い、届かなかった場合も同じsessionで次に開始した時に直前summaryを確定します。
 
-- 通常再挑戦率
-- 除外再挑戦率
-- 追加質問率
-- フィードバック完了率
-- おすすめ作品クリック率
-- 質問重複率
+全イベントに次を付けます。
 
-`work_impression`はサーバーが結果payloadを作った時点では記録しません。clientで初期表示した先頭3件、残りの展開時、履歴からの結果再表示時のうち、カードの50%以上がviewportへ入ったおすすめだけを送ります。同じ結果描画内では`work_id`と`edition_id`の組で重複排除し、安定IDがない旧データだけtitleをclient内の重複排除keyに使います。未展開・未到達の作品は母数に含めず、送信失敗は表示や操作を妨げません。
+- `schema_version: 2`
+- `release`: `RENDER_GIT_COMMIT`、次に`RELEASE_VERSION`、ローカルは`dev`
+- UTCの`timestamp`
 
-`/api/admin/operations_snapshot` の `gameplay_events_summary` にも同じ集約を含みます。作品クリック数は安定した`work_id`/`edition_id`を持つshare event、質問表示数はquestion eventと結合して率を算出します。
+summaryは`summary_status`、`retry_kind`、`answered_count`、`result_reached`、`result_id`、`continued`、`feedback_outcome`、`correction_count`、`work_impressions`、`work_clicks`、`question_repeats`を持ちます。値はallowlistまたは上限付き整数です。
 
-## 運用
+## 指標と分母
 
-1. リリース直後は母数が少ないため率だけで判断せず、`total`と`by_event`を同時に確認する。
-2. 週次で再挑戦、追加質問、feedback、作品クリックを前週と比較する。
-3. `question_repeat_rate`が増えた場合は通常・後半識別・除外・IDK回復の各質問選択を再現する。
-4. ログ肥大化時はJSONLが5 MiBで世代ローテーションされる。DB利用時は既存event storeの保持方針に従う。
-5. test-playでは記録しない。計測失敗はゲーム進行を止めない。
+- 結果到達率: `result_reached=true / summary_total`
+- 通常再挑戦率・除外再挑戦率: 各`retry_kind / summary_total`
+- 追加質問率: `continued=true / result_reached=true`
+- feedback完了率: `feedback_outcomeあり / result_reached=true`
+- おすすめ作品CTR: summary内`work_clicks / work_impressions`
+- 質問重複率: summary内`question_repeats / answered_count`
 
-## イベント契約
+`work_impression`はカードの50%以上がviewportへ入った時だけclientが送り、同じ結果描画内では安定した`work_id`/`edition_id`で重複排除します。`work_click`も同じゲームプレイ仕様へ送り、従来のshare analyticsとは用途を分けます。
 
-`diagnosis_started`, `result_shown`, `retry_started`, `exclude_retry_started`, `continue_started`, `feedback_completed`, `work_impression`, `history_reopened`, `resume_started`, `draft_discarded`, `question_repeated`のみを受け付けます。未知のイベントやsource/outcomeはHTTP 400で拒否します。
+## 管理APIと不変条件
+
+- `GET /api/admin/gameplay_events?limit=5000`: version 2集計、release別集計、legacy、直近イベント
+- `GET /api/admin/gameplay_events/summaries.csv`: summaryだけのCSV export
+- `/api/admin/operations_snapshot`: `gameplay_events_summary`に同じレポート
+
+`feedback_without_result`（feedback summary数が結果到達数を超える）、`work_clicks_exceed_impressions`、feedbackなしの訂正、結果なしの続行・作品表示を不変条件違反として返します。全体だけでなくrelease別にも判定するため、あるreleaseの異常が別releaseの結果数で相殺されません。`schema_version`のない既存履歴は`legacy.metrics_trusted=false`へ分離し、新指標へ混ぜません。release識別子はcommit SHAに加え、`2026.08.09`のような`.`区切りversionも保持します。
+
+## 保存先・保持・プライバシー
+
+- PostgreSQL: 汎用`analytics_events`に同じJSON payloadを保存する。`(event_type, timestamp)` indexを作り、gameplay書き込み時に1プロセス1日1回、90日より古いgameplay行を削除する。
+- ローカル/DB障害fallback: `data/gameplay_events.jsonl`。5 MiBを超えると`.1`へローテーションし、最大2世代（約10 MiB）に制限する。
+- test-playでは記録しない。計測失敗はゲーム進行を止めない。
+- CSVを外部共有する場合も、必要期間のsummaryだけを扱い、自由記述や他ログと個人単位で結合しない。
+
+`GET /api/admin/gameplay_events`のstorage statusに実際の保持方式を返します。PostgreSQLとJSONLはpayload契約が同一で、保存先を切り替えてもschema versionとreleaseの意味は変わりません。
+
+## 移行・rollback・運用
+
+1. デプロイ後、version 2 summaryが増え、`legacy.total`は増えないことを確認する。
+2. `invariants.valid=true`、release別`summary_total`、結果到達率、feedback完了率を確認する。
+3. CSVを取得し、1行が1診断終了で、永続識別子がないことをspot checkする。
+4. PostgreSQLではstorage statusが`retention.mode=age`, `days=90`であることを確認する。
+5. 異常時は旧releaseへrollbackできる。旧releaseが出すversionなしイベントはlegacyへ隔離されるため、version 2の分母を破壊しない。履歴を書き換えるmigrationは行わず、修正releaseをforward deployする。
+
+旧イベントのbackfillは行いません。診断境界を復元できないため、推測でsummaryへ変換すると誤った率を作るためです。

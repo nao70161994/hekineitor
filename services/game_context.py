@@ -1,5 +1,6 @@
 from services import (
     context,
+    gameplay_events,
     ids,
     inference,
     learning,
@@ -41,6 +42,13 @@ def build(
     request = flask_runtime.request
     session = flask_runtime.session
     jsonify = flask_runtime.jsonify
+
+    def tracked_gameplay_event(event_name, **fields):
+        gameplay_events.update_summary(session, event_name, **fields)
+        return record_gameplay_event(event_name, **fields)
+
+    def finalize_gameplay_summary(status):
+        return gameplay_events.finalize_summary(session, status, record_gameplay_event)
 
     def inference_context():
         return context.build_inference_context(
@@ -89,7 +97,7 @@ def build(
                 else quality_stats.mark_guess_quality
             ),
             record_question_event=record_question_event,
-            record_gameplay_event=record_gameplay_event,
+            record_gameplay_event=tracked_gameplay_event,
             record_result_exposure=result_exposure.safe_record_result,
             learning_disabled=learning_disabled,
         )
@@ -106,7 +114,11 @@ def build(
         record_share_event=record_share_event,
         record_question_event=record_question_event,
         preserve_test_play_flag=preserve_test_play_flag,
-        record_gameplay_event=record_gameplay_event,
+        record_gameplay_event=tracked_gameplay_event,
+        update_gameplay_summary=lambda event_name, **fields: gameplay_events.update_summary(
+            session, event_name, **fields
+        ),
+        finalize_gameplay_summary=finalize_gameplay_summary,
         restore_test_play_flag=restore_test_play_flag,
         learning_disabled=learning_disabled,
         environ=environ or {},

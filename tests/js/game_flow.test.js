@@ -148,4 +148,23 @@ describe('HekiGameFlow', () => {
     expect(document.getElementById('question-stage-label').textContent).toBe('追加質問 1/10');
     expect(document.querySelector('.progress-bar').getAttribute('aria-valuetext')).toBe('追加質問 1/10');
   });
+
+  it('finalizes the anonymous summary on page exit after a result is shown', () => {
+    const sendBeacon = vi.fn(() => true);
+    Object.defineProperty(navigator, 'sendBeacon', {value: sendBeacon, configurable: true});
+    window.HekiRenderers.renderGuess = vi.fn(() => '結果');
+    window.HekiRenderers.trackFeaturedWorks = vi.fn();
+    window.setLastFetishName = vi.fn();
+    window.setDiagnosedName = vi.fn();
+    window.saveHistory = vi.fn();
+    window.escapeHtml = value => String(value);
+    window.safeExternalUrl = value => String(value);
+    window.HekiGameFlow.showQuestion({question_id: 4, question: 'Q', count: 3, total: 20});
+    window.HekiGameFlow.showGuess({fetish_id: 2, fetish_name: '結果', probability: 70, compound: []});
+
+    window.HekiGameFlow.reportDropoff();
+
+    expect(sendBeacon).toHaveBeenCalledOnce();
+    expect(sendBeacon.mock.calls[0][0]).toBe('/api/dropoff');
+  });
 });

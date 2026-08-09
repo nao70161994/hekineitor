@@ -26,6 +26,7 @@ describe('HekiDraft', () => {
     window.apiFetch = vi.fn();
     window.showQuestion = vi.fn();
     window.showGuess = vi.fn();
+    window.trackGameplayEvent = vi.fn();
     window.eval(source);
   });
   it('keeps a two-day-old draft and exposes update and expiry times', () => {
@@ -120,5 +121,8 @@ describe('HekiDraft', () => {
     expect(localStorage.getItem('heki_draft')).toBeNull();
     expect(window.HekiDraft.getPairs()).toEqual([]);
     expect(window._excludedIds).toEqual([]);
+    expect(window.trackGameplayEvent).toHaveBeenCalledWith('draft_discarded', {
+      source: 'draft', outcome: 'expired',
+    });
   });
 });

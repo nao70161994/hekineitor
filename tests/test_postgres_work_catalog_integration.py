@@ -3,12 +3,15 @@
 import importlib
 import json
 import os
+import tempfile
 import unittest
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from engine import db as engine_db
 from engine import db_stats, db_work_catalog, work_catalog
+from services import event_store, gameplay_events
 
 TEST_POSTGRES_URL = os.environ.get('TEST_POSTGRES_URL')
 DATA_DIR = Path(__file__).resolve().parents[1] / 'data'
@@ -252,6 +255,49 @@ class PostgresWorkCatalogIntegrationTests(unittest.TestCase):
             self.put_conn(conn)
         rolled_back = db_stats.load_fetish_log(get_conn=self.get_conn, put_conn=self.put_conn)
         self.assertEqual(rolled_back[1]['exposure_guessed'], 3)
+
+    def test_gameplay_event_payload_and_retention_match_jsonl_on_real_postgres(self):
+        event_type = f'gameplay_integration_{uuid.uuid4().hex}'
+        now = datetime(2026, 8, 9, tzinfo=timezone.utc)
+        with tempfile.TemporaryDirectory() as tmp:
+            json_event = gameplay_events.record_event(
+                'diagnosis_summary',
+                path=os.path.join(tmp, 'gameplay.jsonl'),
+                now_fn=lambda: now,
+                release='2026.08.09',
+                summary_status='completed',
+                retry_kind='new',
+                result_reached=True,
+                answered_count=12,
+                feedback_outcome='maybe',
+                correction_count=1,
+            )
+        old_event = {**json_event, 'timestamp': (now - timedelta(days=91)).isoformat(timespec='seconds')}
+        event_store.record_event(
+            event_type,
+            old_event,
+            get_conn_fn=self.get_conn,
+            put_conn_fn=self.put_conn,
+        )
+        event_store._LAST_RETENTION_PRUNE.pop(event_type, None)
+        event_store.record_event(
+            event_type,
+            json_event,
+            retention_days=90,
+            now_fn=lambda: now,
+            get_conn_fn=self.get_conn,
+            put_conn_fn=self.put_conn,
+        )
+
+        stored = event_store.read_events(
+            event_type,
+            get_conn_fn=self.get_conn,
+            put_conn_fn=self.put_conn,
+        )
+
+        self.assertEqual(stored, [json_event])
+        self.assertEqual(stored[0]['schema_version'], gameplay_events.SCHEMA_VERSION)
+        self.assertEqual(stored[0]['release'], '2026.08.09')
 
 
 if __name__ == '__main__':

@@ -1,8 +1,12 @@
 import json
+import threading
+from datetime import datetime, timedelta, timezone
 
 from storage import get_conn, put_conn, use_db
 
 TABLE_NAME = 'analytics_events'
+_RETENTION_LOCK = threading.Lock()
+_LAST_RETENTION_PRUNE = {}
 
 
 def enabled(environ=None):
@@ -23,14 +27,44 @@ def ensure_schema(conn):
         )
     """)
     cur.execute('CREATE INDEX IF NOT EXISTS idx_analytics_events_type_id ON analytics_events (event_type, id)')
+    cur.execute(
+        'CREATE INDEX IF NOT EXISTS idx_analytics_events_type_timestamp ON analytics_events (event_type, timestamp)'
+    )
 
 
-def record_event(event_type, event, *, get_conn_fn=get_conn, put_conn_fn=put_conn):
+def record_event(
+    event_type,
+    event,
+    *,
+    retention_days=None,
+    now_fn=None,
+    get_conn_fn=get_conn,
+    put_conn_fn=put_conn,
+):
     conn = get_conn_fn()
+    pruned_on = None
     try:
         with conn:
             ensure_schema(conn)
             cur = conn.cursor()
+            if retention_days is not None:
+                retention_days = max(1, int(retention_days))
+                now = now_fn() if now_fn else datetime.now(timezone.utc)
+                prune_day = now.date().isoformat()
+                pending_marker = f'pending:{prune_day}'
+                with _RETENTION_LOCK:
+                    if _LAST_RETENTION_PRUNE.get(str(event_type)) not in {prune_day, pending_marker}:
+                        _LAST_RETENTION_PRUNE[str(event_type)] = pending_marker
+                        pruned_on = prune_day
+                        cutoff = (
+                            (now - timedelta(days=retention_days))
+                            .astimezone(timezone.utc)
+                            .isoformat(timespec='seconds')
+                        )
+                        cur.execute(
+                            'DELETE FROM analytics_events WHERE event_type = %s AND timestamp < %s',
+                            (str(event_type), cutoff),
+                        )
             cur.execute(
                 'INSERT INTO analytics_events (event_type, timestamp, payload) VALUES (%s, %s, %s)',
                 (
@@ -39,6 +73,15 @@ def record_event(event_type, event, *, get_conn_fn=get_conn, put_conn_fn=put_con
                     json.dumps(event, ensure_ascii=False, separators=(',', ':')),
                 ),
             )
+        if pruned_on:
+            with _RETENTION_LOCK:
+                _LAST_RETENTION_PRUNE[str(event_type)] = pruned_on
+    except BaseException:
+        if pruned_on:
+            with _RETENTION_LOCK:
+                if _LAST_RETENTION_PRUNE.get(str(event_type)) == f'pending:{pruned_on}':
+                    _LAST_RETENTION_PRUNE.pop(str(event_type), None)
+        raise
     finally:
         put_conn_fn(conn)
     return event

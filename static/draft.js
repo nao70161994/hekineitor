@@ -128,6 +128,9 @@ window.HekiDraft = (() => {
         try { localStorage.removeItem(DRAFT_KEY); } catch {}
         draftPairs = [];
         restoreExcludeIds([]);
+        if (window.trackGameplayEvent) {
+          window.trackGameplayEvent('draft_discarded', {source: 'draft', outcome: 'expired'});
+        }
         return;
       }
       draftPairs = pairs;

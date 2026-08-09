@@ -15,6 +15,7 @@ describe('HekiShare', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ok: false}));
     window.open = vi.fn();
     window.showToast = vi.fn();
+    window.trackGameplayEvent = vi.fn();
     window._guessData = {probability: 82, fetish_desc: '説明'};
     window.eval(source);
     window.HekiShare.setDiagnosedName('NTR');
@@ -41,5 +42,17 @@ describe('HekiShare', () => {
     window.HekiShare.openXShare();
     expect(window.open).toHaveBeenCalledOnce();
     expect(window.open.mock.calls[0][0]).toContain('twitter.com/intent/tweet');
+  });
+
+  it('records a versioned gameplay work click without player identity', () => {
+    document.body.innerHTML = '<a href="https://example.com" data-work-title="作品" data-work-id="work_1" data-edition-id="ed_1">作品</a>';
+    document.querySelector('a').dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true}));
+
+    expect(window.trackGameplayEvent).toHaveBeenCalledWith('work_click', {
+      source: 'works',
+      outcome: 'success',
+      work_id: 'work_1',
+      edition_id: 'ed_1',
+    });
   });
 });
