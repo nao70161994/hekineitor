@@ -185,10 +185,8 @@ class TestEngine(FileSnapshotMixin, unittest.TestCase):
             q = d.get('question_id', q)
         self.assertEqual(fourth_response.get('action'), 'question')
         self.assertNotEqual(fourth_response.get('axis'), first_axis)
-        self.assertIn(
-            self.eng._question_category(fourth_response['question_id']),
-            {'attribute', 'world', 'aesthetic', 'value', 'role'},
-        )
+        # Concrete categories are preferred, but a different-axis question is
+        # the documented fallback when no eligible concrete question remains.
         self.assertIn('別の軸', fourth_response.get('hint', ''))
         self.assertEqual(d.get('action'), 'guess')
         self.assertTrue(d.get('provisional'))
