@@ -697,6 +697,7 @@
 .works-more { display:grid; width:100%; gap:8px; margin-top:8px; }
 .fetish-item { display:block; width:100%; color:#eee; text-align:left; }
 .fetish-item-desc { display:block; font-size:0.72rem; color:#8b98ad; margin-top:2px; }
+#teach-more-candidates { width:100%; margin:0 0 8px; font-size:0.82rem; }
 
 @media (max-width: 340px) {
   body { padding-left:8px; padding-right:8px; }

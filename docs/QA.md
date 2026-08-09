@@ -13,7 +13,7 @@ sh scripts/check.sh
 npm run test:e2e
 ```
 
-`scripts/check.sh`はPython compile、既存の安全性check、Ruff lint/format、段階導入したmypy、Python testとcoverage最低基準、ESLint、Vitestをまとめて実行します。PlaywrightのChromium E2Eは、診断完走、manifest/offline、回答待機と通信失敗復帰、中断復帰、通常・除外再挑戦、追加質問、簡易・複合詳細feedbackと完了event、対抗候補との差・複合説明、理由付き作品表示とclick計測、共有失敗fallback、履歴再閲覧、320px/横向きでの最下部到達をCIの専用stepで検証します。
+`scripts/check.sh`はPython compile、既存の安全性check、Ruff lint/format、段階導入したmypy、Python testとcoverage最低基準、ESLint、Vitestに加え、固定seedのゲームプレイ評価gateを実行します。評価のpersona、指標、baselineは[`GAMEPLAY_EVALUATION.md`](GAMEPLAY_EVALUATION.md)を参照してください。PlaywrightのChromium E2Eは、診断完走、manifest/offline、回答待機と通信失敗復帰、中断復帰、通常・除外再挑戦、追加質問、簡易・複合詳細feedbackと完了event、対抗候補との差・複合説明、理由付き作品表示とclick計測、共有失敗fallback、履歴再閲覧、320px/横向きでの最下部到達をCIの専用stepで検証します。
 
 個別に問題を切り分ける場合は次を使います。
 
@@ -47,6 +47,8 @@ npm run test:e2e      # Chromium browser E2E
 - 除外再挑戦では除外結果が全質問選択経路から外れ、全候補除外時も診断が停止しない。
 - 詳細○△×は全項目を1回のrequestで送信し、重複・不足・未知IDを学習前に拒否する。
 - 詳細フィードバックの行列・診断ログ・累積統計・日次統計は、DB transactionまたはローカルjournalで一括確定し、保存失敗時は全てrollbackされる。
+- 「惜しい」は推測結果をnear-missとして保存し、上位3候補を先に表示する。訂正候補は1件だけ選べ、残り候補と既存検索・追加導線も使える。推測評価と訂正正解は訂正確定時の1つのfeedback batchで別の学習意味を持つ。表示しただけの未選択候補は負例にしない。
+- 訂正確定の通信失敗では画面を完了扱いにしない。同一itemsの再送は直前の成功responseを返して二重学習せず、同じ診断で異なるitemsを再送した場合と同一IDの重複指定は拒否する。訂正を選ばず終了する場合も空itemsで評価を確定する。
 - 途中経過は回答と`exclude_ids`を7日保持する。保存してタイトルへ戻った場合と復帰後は両方を維持し、旧draftは除外なしとして復帰でき、明示的な破棄時だけ両方を消す。最終回答時刻、期限、続行、破棄を表示する。
 - 結果の主CTA、履歴再閲覧、作品3件先行表示、残り展開、共有fallbackをkeyboardと320px幅でも操作できる。作品impressionは可視化時だけ安定ID付きで1回送信し、未展開作品や重複描画を数えない。
 

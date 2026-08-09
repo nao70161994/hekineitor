@@ -4,21 +4,44 @@ window.HekiTeach = (() => {
   }
 
   async function skipTeach() {
+    if (window.gameState?.fetching) return;
     if (window._addOnlyMode === 'add') {
       window._addOnlyMode = false;
       document.getElementById('done-msg').textContent = window._addOnlyDoneMsg || '学習しました！';
       show('done-screen');
     } else if (window._addOnlyMode === 'maybe') {
-      window._addOnlyMode = false;
-      const data = await apiFetch('/api/finalize_added', {items: []});
-      document.getElementById('done-msg').textContent = testPlayMessage(data, 'あなたの癖に近いものとして学習しました。');
-      show('done-screen');
+      setFetching(true);
+      try {
+        const data = await apiFetch('/api/finalize_added', {items: []});
+        if (!data) return;
+        window._addOnlyMode = false;
+        document.getElementById('done-msg').textContent = testPlayMessage(data, 'あなたの癖に近いものとして学習しました。');
+        show('done-screen');
+      } finally {
+        setFetching(false);
+      }
     } else if (window._addOnlyMode === 'maybe_deferred') {
-      window._addOnlyMode = false;
-      document.getElementById('done-msg').textContent = '今回は保存せず終了しました。';
-      show('done-screen');
+      setFetching(true);
+      try {
+        const data = await apiFetch('/api/finalize_added', {items: []});
+        if (!data) return;
+        window._addOnlyMode = false;
+        document.getElementById('done-msg').textContent = testPlayMessage(data, '「惜しい」という評価を学習しました。');
+        show('done-screen');
+      } finally {
+        setFetching(false);
+      }
     } else {
-      showStart();
+      setFetching(true);
+      try {
+        const data = await apiFetch('/api/finalize_added', {items: []});
+        if (!data) return;
+        window._addOnlyMode = false;
+        document.getElementById('done-msg').textContent = testPlayMessage(data, '「違う」という評価を学習しました。');
+        show('done-screen');
+      } finally {
+        setFetching(false);
+      }
     }
   }
 
@@ -28,11 +51,27 @@ window.HekiTeach = (() => {
       el.classList.remove('selected');
       el.setAttribute('aria-pressed', 'false');
     } else {
+      if (window._addOnlyMode === 'maybe_deferred') {
+        document.querySelectorAll('#fetish-list .fetish-item.selected').forEach(item => {
+          item.classList.remove('selected');
+          item.setAttribute('aria-pressed', 'false');
+        });
+        window._teachSelected.clear();
+      }
       window._teachSelected.set(id, name);
       el.classList.add('selected');
       el.setAttribute('aria-pressed', 'true');
     }
     updateTeachSubmitBtn();
+  }
+
+  function showMoreCandidates() {
+    document.querySelectorAll('#fetish-list .candidate-extra').forEach(item => item.classList.remove('hidden'));
+    const button = document.getElementById('teach-more-candidates');
+    if (button) {
+      button.classList.add('hidden');
+      button.setAttribute('aria-expanded', 'true');
+    }
   }
 
   function updateTeachSubmitBtn() {
@@ -53,6 +92,7 @@ window.HekiTeach = (() => {
       const teachData = await apiFetch('/api/finalize_added', {
         items: [...selected.keys()].map(fid => ({id: fid, is_new: false}))
       });
+      if (!teachData) return;
       const correctNames = (window._teachCorrectIds || []).map(id => {
         const el = document.getElementById(`ci-${id}`);
         return el ? el.querySelector('.confirm-item-name').textContent : '';
@@ -235,6 +275,7 @@ window.HekiTeach = (() => {
     addFetishMore,
     addFetishDone,
     deleteAddedItem,
+    showMoreCandidates,
   };
 })();
 
@@ -248,3 +289,4 @@ window.addFetishConfirmNew = () => window.HekiTeach.addFetishConfirmNew();
 window.addFetishStep2 = skip => window.HekiTeach.addFetishStep2(skip);
 window.addFetishMore = () => window.HekiTeach.addFetishMore();
 window.addFetishDone = () => window.HekiTeach.addFetishDone();
+window.showMoreCandidates = () => window.HekiTeach.showMoreCandidates();

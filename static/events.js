@@ -45,6 +45,7 @@ window.HekiEvents = (() => {
     else if (action === 'start-excluding') startExcluding();
     else if (action === 'quick-retry') quickRetry();
     else if (action === 'submit-teach') submitTeach();
+    else if (action === 'show-more-candidates') showMoreCandidates();
     else if (action === 'add-fetish-step1') addFetishStep1();
     else if (action === 'add-fetish-confirm-new') addFetishConfirmNew();
     else if (action === 'add-fetish-step2') addFetishStep2(el.dataset.skip === 'true');

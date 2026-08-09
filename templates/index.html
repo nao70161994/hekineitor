@@ -256,14 +256,14 @@
   <!-- 正解選択画面 -->
   <div id="teach-screen" class="hidden">
     <p id="teach-label" style="margin-bottom:12px;color:#aaa;font-size:0.9rem;text-align:center;"></p>
+    <div class="fetish-list" id="fetish-list"></div>
+    <button class="btn btn-idk hidden" id="teach-more-candidates" type="button" aria-expanded="false" data-action="show-more-candidates">ほかの候補を見る</button>
+    <button class="btn btn-yes" id="teach-submit-btn" style="width:100%;margin-bottom:8px;display:none;" data-action="submit-teach">学習する</button>
+    <div class="teach-or">候補にない場合</div>
     <div class="teach-add-panel" id="add-step1">
-      <div class="teach-add-label">候補にない場合</div>
       <input id="new-fetish-name" type="text" placeholder="例: 眼鏡 / 白衣 / 共依存" autocomplete="off">
       <button class="btn btn-yes teach-add-primary" data-action="add-fetish-step1">この性癖を追加する</button>
     </div>
-    <div class="teach-or">または候補から選ぶ</div>
-    <div class="fetish-list" id="fetish-list"></div>
-    <button class="btn btn-yes" id="teach-submit-btn" style="width:100%;margin-bottom:8px;display:none;" data-action="submit-teach">学習する</button>
     <hr style="border-color:#333;margin:14px 0;">
     <div id="add-step-similar" style="display:none">
       <p style="color:#f5a623;font-size:0.85rem;margin-bottom:8px;text-align:center;">似た性癖が見つかりました。同じなら候補を選んでください。</p>

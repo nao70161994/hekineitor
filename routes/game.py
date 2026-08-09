@@ -178,17 +178,30 @@ def _clear_guess_ids(ctx):
 
 def _clear_pending_feedback(ctx):
     ctx.session.pop('wrong_db_ids', None)
+    ctx.session.pop('negative_learned_db_ids', None)
     ctx.session.pop('candidate_db_ids', None)
     ctx.session.pop('near_miss_db_ids', None)
     ctx.session.pop('candidate_negative_factor', None)
+    ctx.session.pop('pending_feedback_outcome', None)
+    ctx.session.pop('pending_presented_ids', None)
+    ctx.session.pop('pending_correct_db_ids', None)
+    ctx.session.pop('staged_correction_db_ids', None)
 
 
-def _finish_feedback(ctx):
+def _finish_feedback(ctx, *, correction_count=0):
+    feedback_outcome = ctx.session.get('pending_feedback_outcome', 'yes')
+    if feedback_outcome not in {'yes', 'maybe', 'no'}:
+        feedback_outcome = 'no'
+    if not ctx.learning_disabled():
+        ctx.record_gameplay_event(
+            'feedback_completed',
+            source='feedback',
+            outcome=feedback_outcome,
+            correction_count=correction_count,
+        )
     _clear_pending_feedback(ctx)
     _clear_guess_ids(ctx)
     ctx.session['feedback_status'] = 'done'
-    if not ctx.learning_disabled():
-        ctx.record_gameplay_event('feedback_completed', source='feedback', outcome='success')
 
 
 def _require_feedback_open(ctx):
@@ -249,7 +262,14 @@ def _feedback_allowed_ids(ctx):
     allowed.update(ctx.parse_id_list(ctx.session.get('candidate_db_ids', [])))
     allowed.update(ctx.parse_id_list(ctx.session.get('near_miss_db_ids', [])))
     allowed.update(ctx.parse_id_list(ctx.session.get('owned_added_fetish_ids', [])))
+    allowed.update(ctx.parse_id_list(ctx.session.get('staged_correction_db_ids', [])))
     return allowed
+
+
+def _stage_correction_ids(ctx, values):
+    staged = ctx.parse_id_list(ctx.session.get('staged_correction_db_ids', []))
+    staged.update(ctx.parse_id_list(values))
+    ctx.session['staged_correction_db_ids'] = sorted(staged)
 
 
 def _learning_skipped(ctx):
@@ -263,6 +283,8 @@ def start(ctx):
         return limited
     data = ctx.request.get_json(silent=True) or {}
     previously_completed = bool(ctx.session.get('completed'))
+    if not ctx.learning_disabled():
+        ctx.finalize_gameplay_summary('completed' if previously_completed else 'restarted')
     test_play_enabled = ctx.preserve_test_play_flag()
     ctx.session.clear()
     ctx.restore_test_play_flag(test_play_enabled)
@@ -312,6 +334,8 @@ def resume(ctx):
     if len(pairs) > ctx.hard_max_questions:
         return ctx.jsonify({'status': 'error', 'message': '復元する回答数が多すぎます'}), 400
 
+    if not ctx.learning_disabled():
+        ctx.finalize_gameplay_summary('completed' if ctx.session.get('completed') else 'restarted')
     test_play_enabled = ctx.preserve_test_play_flag()
     ctx.session.clear()
     ctx.restore_test_play_flag(test_play_enabled)
@@ -324,7 +348,7 @@ def resume(ctx):
     ctx.session['idk_streak'] = 0
     ctx.session['idk_recovery_count'] = 0
     ctx.session['exclude_ids'] = _parse_exclude_ids(data.get('exclude_ids', []))
-    if pairs and not ctx.learning_disabled():
+    if not ctx.learning_disabled():
         ctx.record_gameplay_event('resume_started', source='resume', outcome='success', answered_count=len(pairs))
     ctx.session['client_resumed'] = bool(pairs)
     ctx.session['resume_learning_verified'] = not bool(pairs)
@@ -800,6 +824,10 @@ def confirm(ctx):
     maybe_db_ids = batch['maybe'] if batch else ctx.parse_id_list(data.get('maybe_ids')) & presented_db_ids
     explicit_wrong_ids = batch['wrong'] if batch else ctx.parse_id_list(data.get('wrong_ids')) & presented_db_ids
     wrong_db_ids = explicit_wrong_ids if ('wrong_ids' in data or 'maybe_ids' in data) else set(presented_db_ids)
+    if defer_learning and not batch and not maybe_db_ids and not wrong_db_ids:
+        maybe_db_ids = set(presented_db_ids)
+    complete_without_correction = bool(batch and correct_db_ids == presented_db_ids)
+    defer_learning = defer_learning or not complete_without_correction
 
     with getattr(ctx.engine, 'feedback_batch', nullcontext)():
         positive_learned_count = 0
@@ -882,20 +910,15 @@ def confirm(ctx):
 
     candidate_ids = [fetish['id'] for fetish in sorted_fetishes]
     if defer_learning:
-        ctx.session['wrong_db_ids'] = []
-        ctx.session['near_miss_db_ids'] = []
-        ctx.session['candidate_db_ids'] = candidate_ids
-        ctx.session['candidate_negative_factor'] = 0.3
-    elif not data.get('add_only', False):
         ctx.session['wrong_db_ids'] = sorted(wrong_db_ids)
         ctx.session['near_miss_db_ids'] = sorted(maybe_db_ids)
+        ctx.session['pending_correct_db_ids'] = sorted(correct_db_ids)
         ctx.session['candidate_db_ids'] = candidate_ids
-        ctx.session['candidate_negative_factor'] = 0.15 if maybe_db_ids else 0.3
-    else:
-        ctx.session['wrong_db_ids'] = []
-        ctx.session['near_miss_db_ids'] = []
-        ctx.session['candidate_db_ids'] = candidate_ids
-        ctx.session['candidate_negative_factor'] = 0.3
+        ctx.session['pending_feedback_outcome'] = 'maybe' if maybe_db_ids else 'no'
+        ctx.session['pending_presented_ids'] = sorted(presented_db_ids)
+    # Every response that needs a correction is finalized in one later batch.
+    # Keeping an immediate-learning branch here would split the user's rating
+    # from the selected correction and make retries capable of double learning.
     ctx.session['feedback_status'] = 'pending_correction'
     payload = {'status': 'wrong', 'fetishes': sorted_fetishes}
     if batch:
@@ -931,6 +954,7 @@ def add_fetish(ctx):
         return active_guess_error
     existing = next((fetish for fetish in ctx.engine.fetishes if fetish['name'] == name), None)
     if existing:
+        _stage_correction_ids(ctx, [existing['id']])
         return ctx.jsonify(
             {
                 'status': 'learned',
@@ -964,12 +988,12 @@ def add_fetish(ctx):
         if not desc:
             desc = name
         _, db_id = ctx.engine.add_fetish(name, desc, answers)
-        _record_question_feedback_learning(ctx, answers, 'positive', 1)
         owned.add(db_id)
         ctx.session['owned_added_fetish_ids'] = sorted(owned)
         return ctx.jsonify({'status': 'learned', 'fetish_name': name, 'fetish_id': db_id, 'is_new': True})
     similar = ctx.find_similar(name, ctx.engine.fetishes)
     if similar:
+        _stage_correction_ids(ctx, [candidate.get('id') for candidate in similar])
         return ctx.jsonify({'status': 'similar', 'candidates': similar})
     return ctx.jsonify({'status': 'needs_desc'})
 
@@ -981,103 +1005,158 @@ def finalize_added(ctx):
         return ctx.jsonify({'status': 'error', 'message': 'items はリストで指定してください'}), 400
     if len(items) > 10:
         return ctx.jsonify({'status': 'error', 'message': 'items は10件以内で指定してください'}), 400
+    normalized_items = []
+    submitted_ids = set()
+    for item in items:
+        if not isinstance(item, dict):
+            return ctx.jsonify({'status': 'error', 'message': 'items の各要素はオブジェクトで指定してください'}), 400
+        try:
+            db_id = int(item.get('id'))
+        except (ValueError, TypeError):
+            return ctx.jsonify({'status': 'error', 'message': '不正な fetish_id です'}), 400
+        if 'is_new' in item and not isinstance(item['is_new'], bool):
+            return ctx.jsonify({'status': 'error', 'message': 'is_new は真偽値で指定してください'}), 400
+        if db_id in submitted_ids:
+            return ctx.jsonify({'status': 'error', 'message': '同じ fetish_id は1回だけ指定してください'}), 400
+        submitted_ids.add(db_id)
+        normalized_items.append({'id': db_id, 'is_new': bool(item.get('is_new'))})
+    replay_signature = sorted((item['id'], item['is_new']) for item in normalized_items)
+    replay = ctx.session.get('last_finalize_added')
+    if ctx.session.get('feedback_status') == 'done' and isinstance(replay, dict):
+        stored_signature = [tuple(item) for item in replay.get('signature', [])]
+        if stored_signature != replay_signature:
+            return ctx.jsonify({'status': 'error', 'message': '処理済みの確定内容と一致しません'}), 409
+        return ctx.jsonify(replay['response'])
     active_guess_error = _require_active_guess(ctx)
     if active_guess_error:
         return active_guess_error
     allowed_ids = _feedback_allowed_ids(ctx)
-    submitted_ids = set()
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        try:
-            submitted_ids.add(int(item.get('id')))
-        except (ValueError, TypeError):
-            return ctx.jsonify({'status': 'error', 'message': '不正な fetish_id です'}), 400
     if submitted_ids and not submitted_ids.issubset(allowed_ids):
         return ctx.jsonify({'status': 'error', 'message': '現在の診断候補と一致しません'}), 409
+    owned_ids = ctx.parse_id_list(ctx.session.get('owned_added_fetish_ids', []))
+    if any(item['is_new'] != (item['id'] in owned_ids) for item in normalized_items):
+        return ctx.jsonify({'status': 'error', 'message': '訂正候補の新規作成状態と一致しません'}), 409
     if _learning_skipped(ctx):
+        response_payload = {'status': 'done', 'learning_disabled': True}
+        ctx.session['last_finalize_added'] = {'signature': replay_signature, 'response': response_payload}
         _finish_feedback(ctx)
-        return ctx.jsonify({'status': 'done', 'learning_disabled': True})
+        return ctx.jsonify(response_payload)
     answers = ctx.session.get('answers', {})
-    total_n = max(1, len([item for item in items if isinstance(item, dict)]))
-    factor = ctx.learn_factor(answers, total_n)
+    feedback_outcome = ctx.session.get('pending_feedback_outcome', 'no')
+    wrong_db_ids = list(ctx.session.get('wrong_db_ids', []))
+    previously_negative = set(ctx.session.get('negative_learned_db_ids', []))
+    near_miss_db_ids = set(ctx.session.get('near_miss_db_ids', []))
+    if feedback_outcome == 'maybe' and not near_miss_db_ids:
+        near_miss_db_ids = ctx.parse_id_list(ctx.session.get('pending_presented_ids', []))
+    pending_correct_db_ids = ctx.parse_id_list(ctx.session.get('pending_correct_db_ids', []))
+    correction_n = max(1, len(normalized_items))
+    correction_factor = ctx.learn_factor(answers, correction_n)
+    pending_positive_factor = ctx.learn_factor(answers, max(1, len(pending_correct_db_ids)))
+    near_factor = ctx.learn_factor(answers, max(1, len(near_miss_db_ids)))
     correct_db_ids = set()
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        try:
-            db_id = int(item.get('id'))
-            is_new = bool(item.get('is_new'))
-        except (ValueError, TypeError):
-            continue
-        idx = ctx.engine.index_of(db_id)
-        if idx is None:
-            continue
-        correct_db_ids.add(db_id)
-        ctx.engine.log_correction_selected(db_id)
-        if is_new:
-            ctx.engine.boost_learn_new(idx, answers)
-        else:
-            scaled_factor = factor * ctx.positive_feedback_factor(ctx.engine, idx)
-            ctx.learn_positive(ctx.engine, answers, idx, strength_factor=scaled_factor)
+    positive_count = 0
+    correction_count = 0
+    near_count = 0
+    negative_count = 0
 
-    correct_idxs = [ctx.engine.index_of(db_id) for db_id in correct_db_ids if ctx.engine.index_of(db_id) is not None]
-    for i in range(len(correct_idxs)):
-        for j in range(i + 1, len(correct_idxs)):
-            pair_factor = (
-                ctx.positive_feedback_factor(ctx.engine, correct_idxs[i])
-                + ctx.positive_feedback_factor(ctx.engine, correct_idxs[j])
-            ) / 2
-            ctx.learn_cooccurrence(ctx.engine, answers, correct_idxs[i], correct_idxs[j], factor * pair_factor * 0.3)
+    with getattr(ctx.engine, 'feedback_batch', nullcontext)():
+        for db_id in pending_correct_db_ids:
+            idx = ctx.engine.index_of(db_id)
+            if idx is None:
+                continue
+            correct_db_ids.add(db_id)
+            ctx.learn_positive(
+                ctx.engine,
+                answers,
+                idx,
+                strength_factor=pending_positive_factor * ctx.positive_feedback_factor(ctx.engine, idx),
+            )
+            ctx.engine.log_correct(db_id)
+            positive_count += 1
 
-    wrong_db_ids = ctx.session.pop('wrong_db_ids', [])
-    negative_learned_db_ids = set(ctx.session.pop('negative_learned_db_ids', []))
-    finalized_negative_count = 0
-    for wrong_id in wrong_db_ids:
-        if wrong_id not in correct_db_ids and wrong_id not in negative_learned_db_ids:
-            wrong_idx = ctx.engine.index_of(wrong_id)
-            if wrong_idx is not None:
-                ctx.learn_negative(
+        for item in normalized_items:
+            db_id = item['id']
+            is_new = item['is_new']
+            idx = ctx.engine.index_of(db_id)
+            if idx is None:
+                continue
+            correct_db_ids.add(db_id)
+            ctx.engine.log_correction_selected(db_id)
+            if is_new:
+                ctx.engine.boost_learn_new(idx, answers)
+            else:
+                ctx.learn_positive(
                     ctx.engine,
                     answers,
-                    wrong_idx,
-                    strength_factor=ctx.negative_feedback_factor(ctx.engine, wrong_idx),
+                    idx,
+                    strength_factor=correction_factor * ctx.positive_feedback_factor(ctx.engine, idx),
                 )
-                finalized_negative_count += 1
+            positive_count += 1
+            correction_count += 1
 
-    candidate_db_ids = ctx.session.pop('candidate_db_ids', [])
-    near_miss_db_ids = set(ctx.session.pop('near_miss_db_ids', []))
-    already_learned = set(wrong_db_ids) | correct_db_ids | near_miss_db_ids
-    unselected = [cid for cid in candidate_db_ids if cid not in already_learned]
-    n_unsel = max(1, len(unselected))
-    candidate_negative_factor = ctx.session.pop('candidate_negative_factor', 0.3)
-    for cid in unselected:
-        candidate_idx = ctx.engine.index_of(cid)
-        if candidate_idx is not None:
+        correct_idxs = [ctx.engine.index_of(db_id) for db_id in correct_db_ids]
+        correct_idxs = [idx for idx in correct_idxs if idx is not None]
+        for position, left in enumerate(correct_idxs):
+            for right in correct_idxs[position + 1 :]:
+                pair_factor = (
+                    ctx.positive_feedback_factor(ctx.engine, left) + ctx.positive_feedback_factor(ctx.engine, right)
+                ) / 2
+                ctx.learn_cooccurrence(ctx.engine, answers, left, right, correction_factor * pair_factor * 0.3)
+
+        for db_id in near_miss_db_ids:
+            if db_id in correct_db_ids:
+                continue
+            idx = ctx.engine.index_of(db_id)
+            if idx is None:
+                continue
+            ctx.learn_near_miss(
+                ctx.engine,
+                answers,
+                idx,
+                strength_factor=near_factor * ctx.near_miss_feedback_factor(ctx.engine, idx),
+            )
+            near_count += 1
+
+        for db_id in wrong_db_ids:
+            if db_id in correct_db_ids or db_id in previously_negative:
+                continue
+            idx = ctx.engine.index_of(db_id)
+            if idx is None:
+                continue
+            ctx.engine.log_wrong(db_id)
             ctx.learn_negative(
                 ctx.engine,
                 answers,
-                candidate_idx,
-                strength_factor=(
-                    factor
-                    * candidate_negative_factor
-                    * ctx.negative_feedback_factor(ctx.engine, candidate_idx)
-                    / (n_unsel**0.5)
-                ),
+                idx,
+                strength_factor=ctx.negative_feedback_factor(ctx.engine, idx),
             )
-            finalized_negative_count += 1
-    finalized_positive_count = len(correct_db_ids)
-    finalized_target_count = finalized_positive_count + finalized_negative_count
-    if finalized_target_count:
-        if finalized_positive_count and finalized_negative_count:
-            finalized_kind = 'mixed'
-        elif finalized_positive_count:
-            finalized_kind = 'positive'
-        else:
-            finalized_kind = 'negative'
-        _record_question_feedback_learning(ctx, answers, finalized_kind, finalized_target_count)
-    _finish_feedback(ctx)
-    return ctx.jsonify({'status': 'done'})
+            negative_count += 1
+
+        if near_count or negative_count:
+            ctx.record_guess_quality_feedback(False)
+
+    target_count = positive_count + near_count + negative_count
+    if target_count:
+        kinds = [
+            kind
+            for kind, count in (('positive', positive_count), ('near_miss', near_count), ('negative', negative_count))
+            if count
+        ]
+        _record_question_feedback_learning(
+            ctx,
+            answers,
+            kinds[0] if len(kinds) == 1 else 'mixed',
+            target_count,
+        )
+    response_payload = {
+        'status': 'done',
+        'atomic': True,
+        'feedback_outcome': feedback_outcome,
+        'correction_count': correction_count,
+    }
+    ctx.session['last_finalize_added'] = {'signature': replay_signature, 'response': response_payload}
+    _finish_feedback(ctx, correction_count=correction_count)
+    return ctx.jsonify(response_payload)
 
 
 def delete_fetish(ctx, fetish_id):
@@ -1172,6 +1251,8 @@ def gameplay_event(ctx):
     )
     if not event:
         return ctx.jsonify({'status': 'error', 'message': '不正な gameplay event です'}), 400
+    if data.get('event_name') == 'draft_discarded':
+        ctx.finalize_gameplay_summary('expired' if data.get('outcome') == 'expired' else 'discarded')
     return ctx.jsonify({'status': 'ok', 'recorded': True})
 
 
@@ -1181,8 +1262,12 @@ def dropoff(ctx):
         return limited
     if not ctx.session.get('started'):
         return ctx.jsonify({'status': 'ignored', 'reason': 'not_started'})
-    if ctx.session.get('completed') or ctx.session.get('dropoff_recorded'):
+    if ctx.session.get('dropoff_recorded'):
         return ctx.jsonify({'status': 'ignored', 'reason': 'already_finalized'})
+    if ctx.session.get('completed'):
+        ctx.finalize_gameplay_summary('completed')
+        ctx.session['dropoff_recorded'] = True
+        return ctx.jsonify({'status': 'ok', 'completed': True})
     answers = ctx.session.get('answers', {})
     answered_count = len(answers) if isinstance(answers, dict) else 0
     data = ctx.request.get_json(silent=True) or {}
@@ -1195,8 +1280,10 @@ def dropoff(ctx):
         if question_id is None or question_id < 0 or question_id >= len(ctx.engine.questions):
             return ctx.jsonify({'status': 'error', 'message': '不正な question_id です'}), 400
     _record_question_event(ctx, 'question_dropoff', question_id, answered_count=answered_count)
+    ctx.update_gameplay_summary('progress', answered_count=answered_count)
     if not ctx.learning_disabled():
         ctx.engine.log_dropoff(answered_count)
+        ctx.finalize_gameplay_summary('abandoned')
     ctx.session['dropoff_recorded'] = True
     return ctx.jsonify({'status': 'ok', 'answered_count': answered_count})
 

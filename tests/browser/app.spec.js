@@ -338,13 +338,25 @@ test('resumes a saved diagnosis and excludes every shown result on retry', async
   expect(retryBody.exclude_ids.sort((a, b) => a - b)).toEqual([1, 2, 3, 8, 9]);
 });
 
-test('submits compound detail feedback atomically and tracks a work click', async ({page}) => {
+test('stages compound detail feedback and finalizes one atomic batch', async ({page}) => {
   let confirmBody = null;
+  let finalizeBody = null;
   const shareEvents = [];
   await routeSingleQuestion(page);
   await page.route('**/api/confirm', route => {
     confirmBody = route.request().postDataJSON();
-    return route.fulfill({json: {status: 'learned'}});
+    return route.fulfill({json: {
+      status: 'wrong',
+      atomic: true,
+      processed_count: 3,
+      fetishes: [{id: 11, name: '訂正候補', desc: '複合結果に近い候補'}],
+    }});
+  });
+  await page.route('**/api/finalize_added', route => {
+    finalizeBody = route.request().postDataJSON();
+    return route.fulfill({json: {
+      status: 'done', atomic: true, feedback_outcome: 'mixed', correction_count: 1,
+    }});
   });
   await page.route('**/api/share_event', route => {
     shareEvents.push(route.request().postDataJSON());
@@ -374,10 +386,56 @@ test('submits compound detail feedback atomically and tracks a work click', asyn
   await page.getByRole('button', {name: '要素B: 違う'}).click();
   await page.getByRole('button', {name: '確定して学習'}).click();
 
+  await expect(page.locator('#teach-screen')).toBeVisible();
+  await page.getByRole('button', {name: '訂正候補'}).click();
+  await page.getByRole('button', {name: '1件を学習する'}).click();
   await expect(page.locator('#done-screen')).toBeVisible();
   expect(confirmBody).toMatchObject({
     fetish_id: 1, compound_ids: [2, 3], correct_ids: [1], maybe_ids: [2], wrong_ids: [3],
   });
+  expect(finalizeBody).toEqual({items: [{id: 11, is_new: false}]});
+});
+
+test('offers three near-miss corrections first and saves one correction atomically', async ({page}) => {
+  let confirmBody = null;
+  let finalizeBody = null;
+  await routeSingleQuestion(page, {...compoundGuess, compound: []});
+  await page.route('**/api/confirm', route => {
+    confirmBody = route.request().postDataJSON();
+    return route.fulfill({json: {
+      status: 'wrong',
+      atomic: true,
+      fetishes: [11, 12, 13, 14, 15].map(id => ({id, name: `候補${id}`, desc: `説明${id}`, prob: 10})),
+    }});
+  });
+  await page.route('**/api/finalize_added', route => {
+    finalizeBody = route.request().postDataJSON();
+    return route.fulfill({json: {
+      status: 'done', atomic: true, feedback_outcome: 'maybe', correction_count: 1,
+    }});
+  });
+
+  await page.goto('/');
+  await page.getByRole('button', {name: 'スタート'}).click();
+  await page.getByRole('button', {name: 'はい', exact: true}).click();
+  await page.getByRole('button', {name: '惜しい'}).click();
+
+  await expect(page.locator('#teach-screen')).toBeVisible();
+  await expect(page.locator('#fetish-list .fetish-item')).toHaveCount(5);
+  await expect(page.locator('#fetish-list .candidate-extra.hidden')).toHaveCount(2);
+  await page.getByRole('button', {name: 'ほかの候補を見る'}).click();
+  await expect(page.locator('#fetish-list .candidate-extra.hidden')).toHaveCount(0);
+  await page.getByRole('button', {name: /候補11/}).click();
+  await page.getByRole('button', {name: /候補12/}).click();
+  await expect(page.getByRole('button', {name: /候補11/})).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('button', {name: /候補12/})).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', {name: '1件を学習する'}).click();
+
+  await expect(page.locator('#done-screen')).toBeVisible();
+  expect(confirmBody).toMatchObject({
+    correct: false, fetish_id: 1, defer_learning: true, maybe_ids: [], wrong_ids: [],
+  });
+  expect(finalizeBody).toEqual({items: [{id: 12, is_new: false}]});
 });
 
 test('records feedback completion and a normal non-exclusion retry', async ({page}) => {

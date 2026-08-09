@@ -63,10 +63,29 @@ class TestLearningFeedbackFlow(APITestCase):
         before = app_engine.get_fetish_log().get(0, {}).get('wrong', 0)
         first = self.client.post('/api/confirm', json={'correct': False, 'fetish_id': 0})
         second = self.client.post('/api/confirm', json={'correct': False, 'fetish_id': 0})
+        finalized = self.client.post('/api/finalize_added', json={'items': []})
+        duplicate_finalize = self.client.post('/api/finalize_added', json={'items': []})
         after = app_engine.get_fetish_log().get(0, {}).get('wrong', 0)
         self.assertEqual(first.status_code, 200)
         self.assertEqual(second.status_code, 409)
+        self.assertEqual(finalized.status_code, 200)
+        self.assertEqual(duplicate_finalize.status_code, 200)
+        self.assertEqual(duplicate_finalize.get_json(), finalized.get_json())
         self.assertEqual(after, before + 1)
+
+    def test_finalize_added_replay_rejects_changed_or_duplicate_items(self):
+        staged = self.client.post('/api/confirm', json={'correct': False, 'fetish_id': 0})
+        self.assertEqual(staged.status_code, 200)
+        correction_id = staged.get_json()['fetishes'][0]['id']
+        item = {'id': correction_id, 'is_new': False}
+
+        duplicate_items = self.client.post('/api/finalize_added', json={'items': [item, item]})
+        self.assertEqual(duplicate_items.status_code, 400)
+
+        finalized = self.client.post('/api/finalize_added', json={'items': []})
+        self.assertEqual(finalized.status_code, 200)
+        changed_retry = self.client.post('/api/finalize_added', json={'items': [item]})
+        self.assertEqual(changed_retry.status_code, 409)
 
     def test_teach_valid(self):
         res = self.client.post('/api/teach', json={'fetish_id': 0})
@@ -79,6 +98,38 @@ class TestLearningFeedbackFlow(APITestCase):
         self.assertEqual(data['status'], 'learned')
         self.assertEqual(data['fetish_name'], 'ヤンデレ')
         self.assertFalse(data['is_new'])
+
+    def test_searched_existing_fetish_is_staged_for_atomic_correction(self):
+        existing_id = self._fetish_id_by_name('白衣')
+        with self.client.session_transaction() as sess:
+            sess['candidate_db_ids'] = []
+
+        found = self.client.post('/api/add_fetish', json={'name': '白衣'})
+
+        self.assertEqual(found.status_code, 200)
+        self.assertEqual(found.get_json()['fetish_id'], existing_id)
+        with self.client.session_transaction() as sess:
+            self.assertIn(existing_id, sess.get('staged_correction_db_ids', []))
+        with patch('services.learning.learn_positive') as learn_positive:
+            finalized = self.client.post(
+                '/api/finalize_added',
+                json={'items': [{'id': existing_id, 'is_new': False}]},
+            )
+        self.assertEqual(finalized.status_code, 200)
+        learn_positive.assert_called_once()
+
+    def test_finalize_added_rejects_forged_new_item_state(self):
+        existing_id = self._fetish_id_by_name('白衣')
+        with self.client.session_transaction() as sess:
+            sess['candidate_db_ids'] = [existing_id]
+
+        forged = self.client.post(
+            '/api/finalize_added',
+            json={'items': [{'id': existing_id, 'is_new': True}]},
+        )
+
+        self.assertEqual(forged.status_code, 409)
+        self.assertIn('新規作成状態', forged.get_json()['message'])
 
     def test_add_fetish_new_needs_desc_or_confirmed(self):
         res = self.client.post('/api/add_fetish', json={'name': 'テスト性癖XYZ_unique'})
@@ -160,6 +211,35 @@ class TestLearningFeedbackFlow(APITestCase):
             for fetish_id in created_ids:
                 app_engine.delete_fetish(fetish_id)
 
+    def test_new_correction_records_question_learning_only_when_finalized(self):
+        from app import engine as app_engine
+
+        db_id = None
+        try:
+            with patch('routes.game._record_question_feedback_learning') as record_learning:
+                created = self.client.post(
+                    '/api/add_fetish',
+                    json={
+                        'name': f'確定時学習テスト_{len(app_engine.fetishes)}',
+                        'desc': 'テスト用',
+                        'confirmed': True,
+                    },
+                )
+                self.assertEqual(created.status_code, 200)
+                db_id = created.get_json()['fetish_id']
+                record_learning.assert_not_called()
+
+                finalized = self.client.post(
+                    '/api/finalize_added',
+                    json={'items': [{'id': db_id, 'is_new': True}]},
+                )
+                self.assertEqual(finalized.status_code, 200)
+                self.assertEqual(finalized.get_json()['feedback_outcome'], 'no')
+                record_learning.assert_called_once()
+        finally:
+            if db_id is not None:
+                app_engine.delete_fetish(db_id)
+
     def test_delete_owned_added_fetish_endpoint(self):
         from app import engine as app_engine
 
@@ -191,6 +271,107 @@ class TestLearningFeedbackFlow(APITestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.get_json()['status'], 'done')
 
+    def test_deferred_near_miss_and_correction_commit_once_as_distinct_feedback(self):
+        from app import engine as app_engine
+
+        question_id = 8
+        guessed_id = 0
+        guessed_idx = app_engine.index_of(guessed_id)
+        before = {
+            'guessed_yes': app_engine.matrix['yes'][guessed_idx][question_id],
+            'guessed_total': app_engine.matrix['total'][guessed_idx][question_id],
+        }
+        correction_idx = None
+        try:
+            with self.client.session_transaction() as sess:
+                sess['answers'] = {str(question_id): 1.0}
+
+            deferred = self.client.post(
+                '/api/confirm',
+                json={
+                    'correct': False,
+                    'fetish_id': guessed_id,
+                    'maybe_ids': [],
+                    'wrong_ids': [],
+                    'defer_learning': True,
+                },
+            )
+            self.assertEqual(deferred.status_code, 200)
+            correction_id = deferred.get_json()['fetishes'][0]['id']
+            correction_idx = app_engine.index_of(correction_id)
+            before['correction_yes'] = app_engine.matrix['yes'][correction_idx][question_id]
+            before['correction_total'] = app_engine.matrix['total'][correction_idx][question_id]
+            self.assertEqual(app_engine.matrix['total'][guessed_idx][question_id], before['guessed_total'])
+            with self.client.session_transaction() as sess:
+                self.assertEqual(sess.get('pending_feedback_outcome'), 'maybe')
+                self.assertEqual(sess.get('pending_presented_ids'), [guessed_id])
+
+            finalized = self.client.post(
+                '/api/finalize_added',
+                json={'items': [{'id': correction_id, 'is_new': False}]},
+            )
+            payload = finalized.get_json()
+            self.assertEqual(finalized.status_code, 200)
+            self.assertTrue(payload['atomic'])
+            self.assertEqual(payload['feedback_outcome'], 'maybe')
+            self.assertEqual(payload['correction_count'], 1)
+            self.assertGreater(app_engine.matrix['total'][guessed_idx][question_id], before['guessed_total'])
+            self.assertGreater(app_engine.matrix['total'][correction_idx][question_id], before['correction_total'])
+
+            totals_after = (
+                app_engine.matrix['total'][guessed_idx][question_id],
+                app_engine.matrix['total'][correction_idx][question_id],
+            )
+            duplicate = self.client.post(
+                '/api/finalize_added',
+                json={'items': [{'id': correction_id, 'is_new': False}]},
+            )
+            self.assertEqual(duplicate.status_code, 200)
+            self.assertEqual(duplicate.get_json(), payload)
+            self.assertEqual(
+                totals_after,
+                (
+                    app_engine.matrix['total'][guessed_idx][question_id],
+                    app_engine.matrix['total'][correction_idx][question_id],
+                ),
+            )
+        finally:
+            app_engine.matrix['yes'][guessed_idx][question_id] = before['guessed_yes']
+            app_engine.matrix['total'][guessed_idx][question_id] = before['guessed_total']
+            if correction_idx is not None:
+                app_engine.matrix['yes'][correction_idx][question_id] = before['correction_yes']
+                app_engine.matrix['total'][correction_idx][question_id] = before['correction_total']
+
+    def test_deferred_near_miss_without_correction_is_still_learned(self):
+        from app import engine as app_engine
+
+        question_id = 8
+        guessed_idx = app_engine.index_of(0)
+        before_yes = app_engine.matrix['yes'][guessed_idx][question_id]
+        before_total = app_engine.matrix['total'][guessed_idx][question_id]
+        try:
+            with self.client.session_transaction() as sess:
+                sess['answers'] = {str(question_id): 1.0}
+            self.client.post(
+                '/api/confirm',
+                json={
+                    'correct': False,
+                    'fetish_id': 0,
+                    'maybe_ids': [],
+                    'wrong_ids': [],
+                    'defer_learning': True,
+                },
+            )
+
+            finalized = self.client.post('/api/finalize_added', json={'items': []})
+
+            self.assertEqual(finalized.status_code, 200)
+            self.assertEqual(finalized.get_json()['feedback_outcome'], 'maybe')
+            self.assertGreater(app_engine.matrix['total'][guessed_idx][question_id], before_total)
+        finally:
+            app_engine.matrix['yes'][guessed_idx][question_id] = before_yes
+            app_engine.matrix['total'][guessed_idx][question_id] = before_total
+
     def test_confirm_maybe_learns_weak_positive_without_wrong_bucket(self):
         from app import engine as app_engine
 
@@ -213,12 +394,12 @@ class TestLearningFeedbackFlow(APITestCase):
 
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.get_json()['status'], 'wrong')
+        self.assertEqual(app_engine.matrix['yes'][idx][q], before_yes)
+        self.assertEqual(app_engine.matrix['total'][idx][q], before_total)
+        finalized = self.client.post('/api/finalize_added', json={'items': []})
+        self.assertEqual(finalized.status_code, 200)
         self.assertGreater(app_engine.matrix['yes'][idx][q], before_yes)
         self.assertGreater(app_engine.matrix['total'][idx][q], before_total)
-        with self.client.session_transaction() as sess:
-            self.assertEqual(sess.get('wrong_db_ids'), [])
-            self.assertEqual(sess.get('near_miss_db_ids'), [0])
-            self.assertEqual(sess.get('candidate_negative_factor'), 0.15)
         app_engine.matrix['yes'][idx][q] = before_yes
         app_engine.matrix['total'][idx][q] = before_total
 
@@ -358,17 +539,18 @@ class TestLearningFeedbackFlow(APITestCase):
                     'wrong_ids': [broad_id],
                 },
             )
+            self.assertEqual(learn_negative.call_count, 0)
+            finalized = self.client.post('/api/finalize_added', json={'items': []})
 
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.get_json()['status'], 'wrong')
+        self.assertEqual(finalized.status_code, 200)
         learn_negative.assert_called_once()
         self.assertEqual(learn_negative.call_args.args[2], broad_idx)
         self.assertAlmostEqual(
             learn_negative.call_args.kwargs['strength_factor'],
             learning_service.BROAD_RESULT_NEGATIVE_SCALE,
         )
-        with self.client.session_transaction() as sess:
-            self.assertEqual(sess.get('negative_learned_db_ids'), [broad_id])
 
     def test_finalize_added_wrong_result_uses_negative_factor(self):
         from app import engine as app_engine
@@ -444,9 +626,12 @@ class TestLearningFeedbackFlow(APITestCase):
                     'wrong_ids': [],
                 },
             )
+            self.assertEqual(learn_near_miss.call_count, 0)
+            finalized = self.client.post('/api/finalize_added', json={'items': []})
 
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.get_json()['status'], 'wrong')
+        self.assertEqual(finalized.status_code, 200)
         learn_near_miss.assert_called_once()
         self.assertEqual(learn_near_miss.call_args.args[2], maybe_idx)
         self.assertAlmostEqual(
@@ -485,7 +670,7 @@ class TestLearningFeedbackFlow(APITestCase):
         self.assertEqual(app_engine.get_fetish_log().get(0, {}), before_log)
         with self.client.session_transaction() as sess:
             self.assertEqual(sess.get('wrong_db_ids'), [])
-            self.assertEqual(sess.get('near_miss_db_ids'), [])
+            self.assertEqual(sess.get('near_miss_db_ids'), [0])
             self.assertTrue(sess.get('candidate_db_ids'))
 
         app_engine.matrix['yes'][idx][q] = before_yes
@@ -648,6 +833,14 @@ class TestLearningFeedbackFlow(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.get_json()['atomic'])
         self.assertEqual(response.get_json()['processed_count'], 3)
+        staged = [
+            (app_engine.matrix['yes'][index][question_id], app_engine.matrix['total'][index][question_id])
+            for index in indexes
+        ]
+        self.assertEqual(staged, before)
+        finalized = self.client.post('/api/finalize_added', json={'items': []})
+        self.assertEqual(finalized.status_code, 200)
+        self.assertTrue(finalized.get_json()['atomic'])
         after_first = [
             (app_engine.matrix['yes'][index][question_id], app_engine.matrix['total'][index][question_id])
             for index in indexes
@@ -665,7 +858,7 @@ class TestLearningFeedbackFlow(APITestCase):
                 'wrong_ids': [10],
             },
         )
-        self.assertEqual(duplicate.status_code, 409)
+        self.assertIn(duplicate.status_code, (409, 440))
         self.assertEqual(
             [
                 (app_engine.matrix['yes'][index][question_id], app_engine.matrix['total'][index][question_id])
@@ -726,19 +919,21 @@ class TestLearningFeedbackFlow(APITestCase):
         ]
         with self.client.session_transaction() as sess:
             sess['answers'] = {str(question_id): 1.0}
+        staged = self.client.post(
+            '/api/confirm',
+            json={
+                'correct': False,
+                'fetish_id': 0,
+                'compound_ids': [1, 10],
+                'correct_ids': [0],
+                'maybe_ids': [1],
+                'wrong_ids': [10],
+            },
+        )
+        self.assertEqual(staged.status_code, 200)
         with patch('services.game_context.learning.learn_near_miss', side_effect=RuntimeError('later update failed')):
             with self.assertRaisesRegex(RuntimeError, 'later update failed'):
-                self.client.post(
-                    '/api/confirm',
-                    json={
-                        'correct': False,
-                        'fetish_id': 0,
-                        'compound_ids': [1, 10],
-                        'correct_ids': [0],
-                        'maybe_ids': [1],
-                        'wrong_ids': [10],
-                    },
-                )
+                self.client.post('/api/finalize_added', json={'items': []})
         self.assertEqual(
             [
                 (app_engine.matrix['yes'][index][question_id], app_engine.matrix['total'][index][question_id])

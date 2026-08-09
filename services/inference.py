@@ -309,6 +309,7 @@ def make_guess(ctx, answers):
     ctx.session['last_guess_fetish_id'] = result['fetish_id']
     ctx.session['last_guess_compound_ids'] = [item['fetish_id'] for item in result.get('compound', [])]
     ctx.session.pop('feedback_status', None)
+    ctx.session.pop('last_finalize_added', None)
     ctx.session['completed'] = True
     gameplay_recorder = getattr(ctx, 'record_gameplay_event', None)
     if not analytics_disabled and callable(gameplay_recorder):

@@ -71,8 +71,8 @@ window.HekiFeedback = (() => {
           window._teachSelected = new Map();
           window._teachCorrectIds = [];
           window._addOnlyMode = 'maybe_deferred';
-          document.getElementById('teach-label').textContent = 'あなたの癖に近いものを選んでください（選んだものだけ学習します）';
-          renderTeachCandidates(data.fetishes);
+          document.getElementById('teach-label').textContent = '最も近い候補を1つ選んでください';
+          renderTeachCandidates(data.fetishes, {compact: true});
           show('teach-screen');
           return;
         }
@@ -180,19 +180,27 @@ window.HekiFeedback = (() => {
     }
   }
 
-  function renderTeachCandidates(fetishes) {
+  function renderTeachCandidates(fetishes, options = {}) {
     const list = document.getElementById('fetish-list');
     list.innerHTML = '';
-    fetishes.forEach(fetish => {
+    const compact = options.compact === true;
+    fetishes.forEach((fetish, index) => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'fetish-item';
       button.id = `ti-${fetish.id}`;
       button.setAttribute('aria-pressed', 'false');
+      if (compact && index >= 3) button.classList.add('candidate-extra', 'hidden');
       button.innerHTML = `<span>${escapeHtml(fetish.name)}${fetish.prob != null ? ` <span style="color:#888;font-size:0.78em">(${escapeHtml(fetish.prob)}%)</span>` : ''}</span>${fetish.desc ? `<span class="fetish-item-desc">${escapeHtml(fetish.desc)}</span>` : ''}`;
       button.onclick = () => toggleTeachItem(fetish.id, fetish.name, button);
       list.appendChild(button);
     });
+    const moreButton = document.getElementById('teach-more-candidates');
+    if (moreButton) {
+      moreButton.classList.toggle('hidden', !compact || fetishes.length <= 3);
+      moreButton.setAttribute('aria-expanded', 'false');
+      moreButton.textContent = 'ほかの候補を見る';
+    }
     document.getElementById('teach-submit-btn').style.display = '';
     updateTeachSubmitBtn();
   }
