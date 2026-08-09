@@ -104,13 +104,43 @@ class TestQuestionCategoryMetadata(unittest.TestCase):
         self.assertIn('時間を置いて選ばれた言葉', questions[152]['text'])
         self.assertTrue(all('hint' not in question for question in questions))
 
-        rewritten_ids = set(range(40, 55)) | set(range(93, 105)) | {
-            13, 15, 25, 29, 108, 112, 126, 133, 142, 143, 144, 151, 152,
-        }
+        rewritten_ids = (
+            set(range(40, 55))
+            | set(range(93, 105))
+            | {
+                13,
+                15,
+                25,
+                29,
+                108,
+                112,
+                126,
+                133,
+                142,
+                143,
+                144,
+                151,
+                152,
+            }
+        )
         direct_result_terms = (
-            'NTR', '寝取', '露出', '時間停止', 'クローン', '媚薬', '魔法少女',
-            'ヤクザ', 'マフィア', '後宮', '宮廷', 'タイムループ', 'スパイ',
-            '契約結婚', '探偵', 'ヤンキー', '社畜',
+            'NTR',
+            '寝取',
+            '露出',
+            '時間停止',
+            'クローン',
+            '媚薬',
+            '魔法少女',
+            'ヤクザ',
+            'マフィア',
+            '後宮',
+            '宮廷',
+            'タイムループ',
+            'スパイ',
+            '契約結婚',
+            '探偵',
+            'ヤンキー',
+            '社畜',
         )
         for question_id in rewritten_ids:
             self.assertFalse(
