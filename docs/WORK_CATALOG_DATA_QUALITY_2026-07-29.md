@@ -122,3 +122,11 @@ release `e0711f6`でbatch 2のcorrection、bibliography、link bindingと、既�
 本番catalogの最終digestは`4952e3628a7431570265dadb64653699638fa82fdc653d2e3fcb1de8c576c268`、revisionは38です。manifest適用ではbatch 2 correction 20件、bibliography 13件、link binding 12件を確認し、再適用時の変更は0件でした。raw/approved projectionはいずれもmismatch 0、pending review 0です。
 
 rollout gateは12 sampleを65.048秒観測し、1 workerのsnapshot/database/cache revisionがすべて38、legacy fallback 0、catalog load failure 0、`retirement_ready=true`、`automated_eligible=true`を確認しました。この観測は移行時の証跡として保存します。2026-07-31の明示承認後はcatalog-only運用へ移行し、旧inline保存は廃止済みです。
+
+## 2026-08-10 最終未整備作品の本番反映
+
+release `d119ed2` では、activeかつ推薦から参照中でeditionがなかった最後の作品 `花は咲くか` を、確認済みの紙版 `花は咲くか（1）`（ISBN `9784344818279`）へ昇格し、対応する推薦linkをdigest-lock付きbindingで同じeditionへ接続しました。適用前backupはworkflow run `31353729856`、manifest適用はrun `31389407857`、適用後rollout gateはrun `31389477509`です。CI run `31388786795`では全check、PostgreSQL実DB lifecycle、Chromium E2Eが成功しています。
+
+本番manifest適用ではedition 1件、identifier 1件を追加し、13件の推薦link bindingを確認しました。最終digestは`b300e71d97a0c3d13dd559f3ac679df6014c82032cac5aee170f3a740c981f18`、revisionは41、raw/approved projectionはいずれもmismatch 0、pending review 0です。本番にはseed以外の利用者追加データがあるため、このdigestはchecked-in seedのdigestとは一致させず、本番projectionの監査値として扱います。
+
+rollout gateは12 sampleを62.889秒観測し、1 workerのsnapshot/database/cache revisionがすべて41、legacy fallback 0、catalog load failure 0、`retirement_ready=true`、`automated_gate_ok=true`、`manual_signoff_required=false`を確認しました。
