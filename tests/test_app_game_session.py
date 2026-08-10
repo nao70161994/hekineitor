@@ -435,7 +435,8 @@ class TestGameSessionFlow(APITestCase):
     def test_normal_flow_uses_best_question_before_soft_limit(self):
         import app as app_module
 
-        raw_probabilities = [0.001] * len(app_module.engine.fetishes)
+        remaining_probability = (1.0 - 0.36 - 0.22) / (len(app_module.engine.fetishes) - 2)
+        raw_probabilities = [remaining_probability] * len(app_module.engine.fetishes)
         raw_probabilities[0] = 0.36
         raw_probabilities[1] = 0.22
 
@@ -457,6 +458,51 @@ class TestGameSessionFlow(APITestCase):
         self.assertEqual(data.get('progress_message'), 'かなり見えてきました')
         best_question.assert_called_once()
         disambiguating.assert_not_called()
+
+    def test_high_raw_confidence_does_not_guess_before_minimum_questions(self):
+        import app as app_module
+
+        raw_probabilities = [0.0] * len(app_module.engine.fetishes)
+        raw_probabilities[0] = 0.90
+        raw_probabilities[1] = 0.10
+        with self.client.session_transaction() as sess:
+            sess['started'] = True
+            sess['answers'] = {str(i): 1.0 for i in range(4)}
+            sess['asked'] = list(range(5))
+            sess['idk_streak'] = 0
+        with (
+            patch.object(app_module.engine, 'posteriors', return_value=raw_probabilities),
+            patch.object(app_module.engine, 'best_question', return_value=5),
+        ):
+            response = self.client.post('/api/answer', json={'question_id': 4, 'answer': 1.0})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()['action'], 'question')
+        with self.client.session_transaction() as sess:
+            self.assertEqual(sess['last_stopping_assessment']['reason'], 'minimum_questions')
+
+    def test_stable_raw_leader_can_finish_before_hard_limit(self):
+        import app as app_module
+
+        raw_probabilities = [0.0] * len(app_module.engine.fetishes)
+        raw_probabilities[0] = 0.06
+        raw_probabilities[1] = 0.03
+        for index in range(2, 92):
+            raw_probabilities[index] = 0.91 / 90
+        top_id = app_module.engine.fetishes[0]['id']
+        with self.client.session_transaction() as sess:
+            sess['started'] = True
+            sess['answers'] = {str(i): 1.0 for i in range(19)}
+            sess['asked'] = list(range(20))
+            sess['idk_streak'] = 0
+            sess['confidence_history'] = [{'top_id': top_id}] * 3
+        with patch.object(app_module.engine, 'posteriors', return_value=raw_probabilities):
+            response = self.client.post('/api/answer', json={'question_id': 19, 'answer': 1.0})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()['action'], 'guess')
+        with self.client.session_transaction() as sess:
+            self.assertEqual(sess['last_stopping_assessment']['reason'], 'stable_leader')
 
     def test_strong_diversity_boost_does_not_manufacture_stopping_confidence(self):
         import app as app_module

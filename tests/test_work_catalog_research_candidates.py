@@ -21,7 +21,7 @@ def _reference_key(reference):
     return 1, reference['id_a'], reference['id_b'], reference['position']
 
 
-def test_research_candidates_artifact_is_current_and_has_one_unique_sorted_entry():
+def test_research_candidates_artifact_is_current_and_empty_after_resolution():
     artifact = _load(CANDIDATES_PATH)
     catalog = _load(CATALOG_PATH)
     entries = artifact['entries']
@@ -32,7 +32,7 @@ def test_research_candidates_artifact_is_current_and_has_one_unique_sorted_entry
     assert artifact['generated_at'] == '2026-07-30'
     assert artifact['catalog_digest'] == catalog_digest(catalog)
     assert artifact['selection_rule'] == builder.SELECTION_RULE
-    assert len(entries) == 1
+    assert entries == []
     assert work_ids == sorted(work_ids)
     assert len(work_ids) == len(set(work_ids))
 

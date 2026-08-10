@@ -25,7 +25,7 @@
 - カテゴリ別出現率、YES率、離脱率
 - `relation` / `attachment` 偏重警告
 - feedback learning回数、positive feedback回数、学習対象結果数
-- discrimination（識別力）、feedback観測期間中の識別力差分、未学習質問の成熟度
+- posterior discrimination、初期疑似観測を除いたlearned discrimination、未学習質問の成熟度
 
 ## 無信号質問とcold-startの扱い
 
@@ -36,11 +36,11 @@
 成熟度は次のルールです。
 
 - `collecting`: matrixの初期重みを超えたfeedback相当量が20未満。
-- `learning`: feedback相当量が20以上で、discriminationが `0.02` 以上 `0.05` 未満。探索枠に残る。
-- `mature`: feedback相当量が20以上かつdiscriminationが `0.05` 以上。cold-start枠を卒業して通常選択へ自動移行する。
-- `needs_review`: feedback相当量が20以上あるのに、discriminationが `0.02` 未満。通常・探索の双方から除外する。
+- `learning`: feedback相当量が20以上で、learned discriminationが `0.015` 以上 `0.04` 未満。探索枠に残る。
+- `mature`: feedback相当量が20以上かつlearned discriminationが `0.04` 以上。cold-start枠を卒業して通常選択へ自動移行する。
+- `needs_review`: feedback相当量が20以上あるのに、learned discriminationが `0.015` 未満。通常・探索の双方から除外する。
 
-`matrix_feedback_equivalent` は各候補セルの `total - 4` の合計で、イベントログの件数とは別物です。選択可否と管理レポートは同じmatrix根拠を使います。`needs_review` と `legacy_no_signal` を警告し、前者は自動停止、後者は常時除外されます。matrix自体は自動補完しません。
+`matrix_feedback_equivalent` は各候補セルの `total - 4` の合計で、イベントログの件数とは別物です。learned discriminationは各候補の初期疑似観測（total 4 / yes 2）を差し引き、実際に学習されたYES率の候補間weighted mean absolute deviationを測ります。posterior discriminationは現時点の推論列の分離度を診断用に残しますが、cold-start成熟度には使いません。選択可否と管理レポートは同じmatrix根拠を使います。
 
 このfeedback eventは導入後から蓄積します。過去に行われた学習回数は復元しないため、導入直後の `collecting` は既存質問の品質が低いという意味ではありません。
 
@@ -51,7 +51,7 @@
 - `/api/admin/question_events/questions.csv`: 質問別CSV
 - `/api/admin/question_events/category.csv`: カテゴリ別CSV
 
-質問別CSVにはイベント由来のfeedback列に加え、`matrix_feedback_equivalent`、`discrimination`、`learning_scale_neutral`、`cold_start`、`maturity`、`legacy_no_signal`、`selection_status` を含みます。すべて管理者認証必須です。
+質問別CSVにはイベント由来のfeedback列に加え、`matrix_feedback_equivalent`、`discrimination`、`posterior_discrimination`、`learned_discrimination`、`learning_scale_neutral`、`cold_start`、`maturity`、`legacy_no_signal`、`selection_status` を含みます。すべて管理者認証必須です。
 
 ## 本番分析に必要な確認手順
 

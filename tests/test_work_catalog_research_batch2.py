@@ -49,7 +49,7 @@ BIBLIOGRAPHY_ENTRY_IDS = {
     'edition-rosario-vampire-9784088736655',
     'edition-vampire-bund-9784864726986',
     'edition-hatsukoi-monster-9784063588323',
-    'evidence-hana-wa-saku-ka',
+    'edition-hana-wa-saku-ka-9784344818279',
     'edition-ano-natsu-bluray-box',
     'edition-killing-stalking-9781638585572',
     'edition-free-season1-vol1',
@@ -148,8 +148,8 @@ def test_batch2_counts_and_both_manifests_are_idempotent():
 
     assert _counts(phase1) == {
         'works_master': 325,
-        'work_editions': 265,
-        'work_edition_identifiers': 25,
+        'work_editions': 266,
+        'work_edition_identifiers': 26,
         'work_aliases': 164,
         'fetish_work_links': 373,
         'compound_work_links': 120,
@@ -157,8 +157,8 @@ def test_batch2_counts_and_both_manifests_are_idempotent():
     }
     assert _counts(final) == {
         'works_master': 325,
-        'work_editions': 265,
-        'work_edition_identifiers': 25,
+        'work_editions': 266,
+        'work_edition_identifiers': 26,
         'work_aliases': 164,
         'fetish_work_links': 373,
         'compound_work_links': 120,
@@ -204,12 +204,12 @@ def test_batch2_bibliography_sources_and_targets_are_exactly_locked():
             bool((entry.get('edition') or {}).get('isbn') or (entry.get('edition') or {}).get('identifier'))
             for entry in bibliography['entries']
         )
-        == 11
+        == 12
     )
 
     assert len(bibliography['entries']) == 13
     assert {row['entry_id'] for row in bibliography['entries']} == BIBLIOGRAPHY_ENTRY_IDS
-    assert sum('edition' in row for row in bibliography['entries']) == 12
+    assert sum('edition' in row for row in bibliography['entries']) == 13
     for entry in bibliography['entries']:
         work_id = entry['expected_work']['work_id']
         assert entry['target_work']['work_id'] == work_id
@@ -224,29 +224,24 @@ def test_batch2_bibliography_sources_and_targets_are_exactly_locked():
         assert target_masters[work_id] == entry['target_work']
 
 
-def test_batch2_leaves_only_media_confirmed_hana_wa_saku_ka_without_an_edition():
+def test_batch2_resolves_every_active_linked_work_to_an_edition():
     _, _, final, _, bibliography, _ = _apply_batch2()
     candidates = build_work_catalog_research_candidates.build_candidates(
         final,
         (_load('work_catalog_bibliography.json'), bibliography),
     )
 
-    assert candidates['entries'] == [
-        {
-            'work_id': 'wrk_b0c6dc64fe5060a13680',
-            'canonical_title': '花は咲くか',
-            'media_type': 'manga',
-            'owner_references': [
-                {
-                    'table': 'compound_work_links',
-                    'id_a': 2,
-                    'id_b': 6,
-                    'position': 0,
-                }
-            ],
-            'bibliography_state': 'media_confirmed',
-        }
-    ]
+    assert candidates['entries'] == []
+
+
+def test_hana_wa_saku_ka_link_materializes_the_verified_edition_url():
+    catalog = _load('work_catalog.json')
+    works = work_catalog.materialize_compound_works(catalog)
+    hana = next(row for row in works['2,6'] if row['work_id'] == 'wrk_b0c6dc64fe5060a13680')
+
+    assert hana['title'] == '花は咲くか'
+    assert hana['edition_id'] == 'wed_d413ce753b816f8ab45b'
+    assert hana['url'] == 'https://books.rakuten.co.jp/rb/6243095/'
 
 
 def test_batch2_reindexes_every_owner_and_preserves_identifier_uniqueness_and_safe_urls():
@@ -260,7 +255,7 @@ def test_batch2_reindexes_every_owner_and_preserves_identifier_uniqueness_and_sa
 
     identifiers = final['work_edition_identifiers']
     keys = [(row['scheme'], row['authority'], row['value']) for row in identifiers]
-    assert len(identifiers) == 25
+    assert len(identifiers) == 26
     assert len(keys) == len(set(keys))
     assert len({row['identifier_id'] for row in identifiers}) == len(identifiers)
     assert all(safe_work_url(row['canonical_url']) == row['canonical_url'] for row in final['work_editions'])

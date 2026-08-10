@@ -37,11 +37,11 @@ PYTHONPATH=. python scripts/build_recommended_works_list.py
 
 この候補artifactは「現行公開linkに版を補うための作業リスト」です。`data/work_catalog_research_queue.json`の45件は、根拠不足により既に公開linkから隔離した作品の監査履歴であり、再公開候補や現行の不足一覧ではありません。両者を結合したり、一方の件数から他方の進捗を推定したりしません。
 
-active・参照中・版なし33件の再調査は、一次情報で13件を確認し、19件をidentity未確認、`囚われのパルマ`1件を推薦文脈不適合と判定しました。`data/work_catalog_bibliography_batch2.json`は確認済み13件のうち12件へ直接版を追加し、`花は咲くか`は作品identityと媒体だけを根拠URLで固定します。実写映画ページは原作漫画の直接版ではないためeditionとして登録しません。`data/work_catalog_corrections_batch2.json`は未確認19件と不適合1件の計20 masterを監査可能な`archived`状態へ移し、21 compound linkを除去します。`data/work_catalog_link_bindings_batch2.json`は確認済み12版を既存推薦linkへ接続し、表示aliasを維持したまま空URLを一次情報のdirect URLへ置き換えます。
+active・参照中・版なし33件の再調査は、確実な根拠で13件を確認し、19件をidentity未確認、`囚われのパルマ`1件を推薦文脈不適合と判定しました。`data/work_catalog_bibliography_batch2.json`は確認済み13件すべてへ直接版を追加します。最後に残った`花は咲くか`は第1巻、出版社、ISBN `9784344818279`が一致する書誌を確認して紙版へ昇格しました。`data/work_catalog_corrections_batch2.json`は未確認19件と不適合1件の計20 masterを監査可能な`archived`状態へ移し、21 compound linkを除去します。`data/work_catalog_link_bindings_batch2.json`は13版を既存推薦linkへ接続し、表示aliasを維持したまま空URLを安全なdirect URLへ置き換えます。
 
 適用順はreview→seed override→corrections batch 1→bibliography batch 1→corrections batch 2→bibliography batch 2→link bindings batch 2です。初期catalogの再現性検証だけは、`tests/fixtures/legacy_work_catalog/`の固定fixtureを厳密に逆投影してから同じ順序でmanifestを適用します。quarantineの`link_removals.source_title`はschema v3のquarantineだけで利用でき、catalog linkの完全一致検証を弱めません。
 
-候補generatorは通常書誌manifestとbatch2を合わせて`bibliography_state`を判定します。correction manifestは公開可否と参照除去、bibliography manifestは確認できたidentity・媒体・版metadataだけを担当し、類似題や別媒体から版を推定しません。最終候補は媒体確認済み・版なしの`花は咲くか`1件です。
+候補generatorは通常書誌manifestとbatch2を合わせて`bibliography_state`を判定します。correction manifestは公開可否と参照除去、bibliography manifestは確認できたidentity・媒体・版metadataだけを担当し、類似題や別媒体から版を推定しません。最終候補は0件です。quarantine 45件は監査履歴として維持し、根拠なしに再公開しません。
 
 旧inline同期scriptは削除済みです。catalog buildはテスト専用の固定legacy fixtureをsource状態へ逆投影してからreviewとcorrectionを再適用するため、移行履歴の安定IDとcatalog digestを再検証できます。新しい作品情報は正規catalogとmanifestだけを更新し、fixtureをruntimeデータへ戻しません。
 
@@ -98,7 +98,7 @@ reviewの`keep_separate`または`merge`には現在の`expected_version`が必�
 - `normalization_conflict`: 緩いタイトル正規化で近く、複数ASINを持つ候補。
 - `identity_override`: 英題・和題・略称など、機械的な候補抽出では結び付かないが人手で同一と確認した候補。
 
-未判断の候補は別`work_id`のまま保持します。2026-07-28のseed reviewでは74件すべてを解決し、72件をmerge、2件を`keep_separate`としました。その後、seed cleanupと2段階のcorrection/bibliography、版link bindingを適用しました。現行seedは325 master、265 edition、25 edition identifier、164 alias、373 fetish link、120 compound link、pending 0です。媒体種別は31件で、legacy公開projectionとのmismatchは0です。判断根拠と保留事項は[`WORK_CATALOG_REVIEW_2026-07-28.md`](WORK_CATALOG_REVIEW_2026-07-28.md)と[`WORK_CATALOG_DATA_QUALITY_2026-07-29.md`](WORK_CATALOG_DATA_QUALITY_2026-07-29.md)に記録します。
+未判断の候補は別`work_id`のまま保持します。2026-07-28のseed reviewでは74件すべてを解決し、72件をmerge、2件を`keep_separate`としました。その後、seed cleanupと2段階のcorrection/bibliography、版link bindingを適用しました。現行seedは325 master、266 edition、26 edition identifier、164 alias、373 fetish link、120 compound link、pending 0です。媒体種別は31件で、legacy公開projectionとのmismatchは0です。判断根拠と保留事項は[`WORK_CATALOG_REVIEW_2026-07-28.md`](WORK_CATALOG_REVIEW_2026-07-28.md)と[`WORK_CATALOG_DATA_QUALITY_2026-07-29.md`](WORK_CATALOG_DATA_QUALITY_2026-07-29.md)に記録します。
 
 ## Backup and restore
 

@@ -1,7 +1,7 @@
 {
   "schema_version": 3,
-  "reviewed_at": "2026-07-30",
-  "reviewed_by": "primary-source direct-edition binding audit 2026-07-30",
+  "reviewed_at": "2026-08-10",
+  "reviewed_by": "verified-source direct-edition binding audit 2026-08-10",
   "catalog_schema_version": 2,
   "corrections": [
     {
@@ -386,6 +386,57 @@
             "recommendation_reason": ""
           },
           "edition_id": "wed_b2ec710a72426bd5cb0b",
+          "alias_id": null,
+          "context_label": ""
+        }
+      ]
+    },
+    {
+      "correction_id": "bind-reviewed-edition-b0c6dc64fe5060a13680",
+      "type": "retitle_identity",
+      "expected_work": {
+        "work_id": "wrk_b0c6dc64fe5060a13680",
+        "canonical_title": "花は咲くか",
+        "normalized_title": "花は咲くか",
+        "media_type": "manga",
+        "status": "active"
+      },
+      "target_work": {
+        "work_id": "wrk_b0c6dc64fe5060a13680",
+        "canonical_title": "花は咲くか",
+        "normalized_title": "花は咲くか",
+        "media_type": "manga",
+        "status": "active"
+      },
+      "edition_updates": [
+        {
+          "expected": {
+            "edition_id": "wed_d413ce753b816f8ab45b",
+            "work_id": "wrk_b0c6dc64fe5060a13680",
+            "asin": "",
+            "canonical_url": "https://books.rakuten.co.jp/rb/6243095/",
+            "edition_title": "花は咲くか（1）",
+            "publisher": "幻冬舎コミックス",
+            "format": "paper",
+            "status": "active"
+          }
+        }
+      ],
+      "link_updates": [
+        {
+          "table": "compound_work_links",
+          "expected": {
+            "link_id": "cwl_15e172fa1ae9b9e5cd82",
+            "id_a": 2,
+            "id_b": 6,
+            "work_id": "wrk_b0c6dc64fe5060a13680",
+            "edition_id": null,
+            "alias_id": null,
+            "position": 0,
+            "context_label": "",
+            "recommendation_reason": ""
+          },
+          "edition_id": "wed_d413ce753b816f8ab45b",
           "alias_id": null,
           "context_label": ""
         }

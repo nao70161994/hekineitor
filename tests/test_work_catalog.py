@@ -131,7 +131,7 @@ class WorkCatalogMigrationTests(unittest.TestCase):
                     expected_identifier_values.add(
                         work_catalog.normalize_edition_identifier(**edition['identifier'])[2]
                     )
-        self.assertEqual(len(catalog['work_edition_identifiers']), 25)
+        self.assertEqual(len(catalog['work_edition_identifiers']), 26)
         self.assertEqual(
             {row['value'] for row in catalog['work_edition_identifiers']},
             expected_identifier_values,
@@ -940,9 +940,9 @@ class WorkCatalogMigrationTests(unittest.TestCase):
             correction_manifests=correction_manifests,
         )
 
-        self.assertEqual(reverse['applied_link_count'], 92)
+        self.assertEqual(reverse['applied_link_count'], 93)
         self.assertEqual(reverse['fetish_owner_count'], 10)
-        self.assertEqual(reverse['compound_owner_count'], 50)
+        self.assertEqual(reverse['compound_owner_count'], 51)
         self.assertEqual(forward['fetishes'], fetishes)
         self.assertEqual(forward['compound_rows'], compounds)
 
@@ -996,11 +996,11 @@ class WorkCatalogMigrationTests(unittest.TestCase):
             correction_manifests=correction_manifests,
         )
 
-        self.assertEqual(raw['mismatch_count'], 59)
+        self.assertEqual(raw['mismatch_count'], 60)
         self.assertFalse(raw['automated_parity_ok'])
         self.assertTrue(approved['approved_projection_ok'])
         self.assertEqual(approved['approved_mismatch_count'], 0)
-        self.assertEqual(approved['approved_projection_applied_count'], 91)
+        self.assertEqual(approved['approved_projection_applied_count'], 92)
         self.assertEqual(approved['approved_projection_missing_count'], 2)
 
     def test_approved_projection_rejects_unapproved_signature_and_shape_drift(self):

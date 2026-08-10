@@ -295,6 +295,7 @@ def start(ctx):
     ctx.session['started'] = True
     ctx.session['completed'] = False
     ctx.session['idk_recovery_count'] = 0
+    ctx.session['confidence_history'] = []
     ctx.session['dropoff_recorded'] = False
     ctx.session['completion_recorded'] = False
     ctx.session['exclude_ids'] = _parse_exclude_ids(data.get('exclude_ids', []))
@@ -347,6 +348,7 @@ def resume(ctx):
     ctx.session['asked'] = []
     ctx.session['idk_streak'] = 0
     ctx.session['idk_recovery_count'] = 0
+    ctx.session['confidence_history'] = []
     ctx.session['exclude_ids'] = _parse_exclude_ids(data.get('exclude_ids', []))
     if not ctx.learning_disabled():
         ctx.record_gameplay_event('resume_started', source='resume', outcome='success', answered_count=len(pairs))
@@ -417,6 +419,7 @@ def continue_game(ctx):
     top_p = top2[0][1] if top2 else 0.0
     ctx.session['continue_thr'] = min(top_p + 0.20, 0.95)
     ctx.session['continued'] = True
+    ctx.session['confidence_history'] = []
     if not ctx.learning_disabled():
         ctx.record_gameplay_event('continue_started', source='result', outcome='success', answered_count=len(answers))
     next_q = ctx.best_question(ctx.engine, answers, asked, idk_streak=0, exclude_ids=ctx.session.get('exclude_ids', []))
@@ -551,21 +554,28 @@ def answer(ctx):
         ctx.session.pop('provisional_result', None)
 
     try:
-        top2 = ctx.top_guess(ctx.engine, answers, n=2)
-        top_p = top2[0][1]
-        second_p = top2[1][1] if len(top2) > 1 else 0.0
+        confidence = ctx.confidence_snapshot(ctx.engine, answers)
+        top_p = confidence['top_probability']
+        second_p = confidence['second_probability']
         count = len(asked)
 
         guess_threshold = ctx.engine.config.get('guess_threshold', ctx.guess_threshold)
         if ctx.session.get('continued'):
             guess_threshold = ctx.session.get('continue_thr', min(guess_threshold + 0.20, 0.95))
-        gap_ratio = top_p / max(second_p, 0.001)
-        early_stop = (count >= 4 and top_p >= 0.70 and gap_ratio >= 3.0) or (
-            count >= 8 and top_p >= 0.55 and gap_ratio >= 2.5
+        confidence_history = ctx.append_confidence_history(
+            ctx.session.get('confidence_history', []),
+            confidence,
         )
-        effective_threshold = (
-            guess_threshold if (gap_ratio >= 1.8 or count >= 10) else min(guess_threshold + 0.10, 0.90)
+        ctx.session['confidence_history'] = confidence_history
+        stopping = ctx.stopping_assessment(
+            confidence,
+            count=count,
+            confidence_history=confidence_history,
+            guess_threshold=guess_threshold,
+            hard_max_questions=ctx.hard_max_questions,
+            idk_streak=idk_streak,
         )
+        ctx.session['last_stopping_assessment'] = stopping
         extend_low_confidence = ctx.should_extend_low_confidence(count, top_p, second_p, guess_threshold)
         recovery_count = int(ctx.session.get('idk_recovery_count', 0) or 0)
         if idk_streak >= 4 and recovery_count < 2 and count < ctx.hard_max_questions:
@@ -602,13 +612,7 @@ def answer(ctx):
                 )
                 return replayable(response)
 
-        should_guess = (
-            idk_streak >= 6
-            or top_p >= effective_threshold
-            or count >= ctx.hard_max_questions
-            or early_stop
-            or (count >= ctx.soft_max_questions and not extend_low_confidence)
-        )
+        should_guess = stopping['should_guess']
         if should_guess:
             if idk_streak >= 4:
                 ctx.session['provisional_result'] = True

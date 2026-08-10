@@ -4389,6 +4389,16 @@
       "publisher": ""
     },
     {
+      "edition_id": "wed_d413ce753b816f8ab45b",
+      "work_id": "wrk_b0c6dc64fe5060a13680",
+      "asin": "",
+      "canonical_url": "https://books.rakuten.co.jp/rb/6243095/",
+      "edition_title": "花は咲くか（1）",
+      "publisher": "幻冬舎コミックス",
+      "format": "paper",
+      "status": "active"
+    },
+    {
       "edition_id": "wed_d44bd44dc296246c8146",
       "work_id": "wrk_d44bd44dc296246c8146",
       "asin": "B07NBHT6JB",
@@ -5950,6 +5960,13 @@
       "scheme": "steam_bundle",
       "authority": "steam",
       "value": "12092"
+    },
+    {
+      "identifier_id": "wei_3fb8cf01a3391b848f39",
+      "edition_id": "wed_d413ce753b816f8ab45b",
+      "scheme": "isbn",
+      "authority": "isbn",
+      "value": "9784344818279"
     },
     {
       "identifier_id": "wei_4f63fd13937172c3cf89",
@@ -9969,11 +9986,11 @@
       "recommendation_reason": ""
     },
     {
-      "link_id": "cwl_15e172fa1ae9b9e5cd82",
+      "link_id": "cwl_9953d1de443e4fc5235d",
       "id_a": 2,
       "id_b": 6,
       "work_id": "wrk_b0c6dc64fe5060a13680",
-      "edition_id": null,
+      "edition_id": "wed_d413ce753b816f8ab45b",
       "alias_id": null,
       "position": 0,
       "context_label": "",

@@ -4,18 +4,25 @@
   "transcript": {
     "top1_rate": 0.875,
     "top3_rate": 1.0,
-    "calibration_brier": 0.774431
+    "calibration_brier": 0.781466
   },
   "adaptive": {
-    "average_questions": 30.0,
+    "average_questions": 25.3636,
     "top1_rate": 0.75,
     "top3_rate": 0.75,
-    "average_information_gain": 0.00955281,
-    "average_effective_candidate_reduction": 29.4853,
+    "average_information_gain": 0.00862733,
+    "average_effective_candidate_reduction": 23.2017,
     "legacy_no_signal_selected": 0,
     "cold_start_per_persona": 0.0,
     "question_repeats": 0,
-    "unknown_answer_rate": 0.0
+    "unknown_answer_rate": 0.0,
+    "confidence_stop_leader_changes": 0,
+    "scenario_coverage": {
+      "standard": 8,
+      "idk_heavy": 1,
+      "close_candidates": 1,
+      "exclude_retry": 1
+    }
   },
   "diversity": {
     "exponent": -3.0,

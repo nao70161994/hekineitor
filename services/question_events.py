@@ -468,16 +468,24 @@ def event_report(
         if hasattr(engine, 'matrix') and hasattr(engine, 'fetishes'):
             profile = engine_question_selection.question_signal_profile(engine, question_id)
             disc = float(profile['discrimination'])
+            posterior_disc = float(profile['posterior_discrimination'])
+            learned_disc = float(profile['learned_discrimination'])
             matrix_feedback = float(profile['learned_feedback'])
             exact_neutral = bool(profile['exact_neutral'])
             mature = bool(profile['mature'])
             needs_review = bool(profile['needs_review'])
         else:
             disc = float(stats.get('disc', 0.0))
+            posterior_disc = disc
+            learned_disc = disc
             matrix_feedback = float(row['feedback'])
             exact_neutral = disc <= 1e-12
-            mature = neutral_seed and disc >= 0.05
-            needs_review = neutral_seed and matrix_feedback >= 20 and disc < 0.02
+            mature = neutral_seed and disc >= engine_question_selection.COLD_START_MATURE_DISCRIMINATION
+            needs_review = (
+                neutral_seed
+                and matrix_feedback >= engine_question_selection.COLD_START_MIN_FEEDBACK
+                and disc < engine_question_selection.COLD_START_REVIEW_DISCRIMINATION
+            )
         is_cold_start = neutral_seed
         legacy_no_signal = not neutral_seed and question_id in question_stats and exact_neutral
         if not is_cold_start:
@@ -503,6 +511,8 @@ def event_report(
         row.update(
             {
                 'discrimination': round(disc, 3),
+                'posterior_discrimination': round(posterior_disc, 3),
+                'learned_discrimination': round(learned_disc, 3),
                 'matrix_weight': float(stats.get('ask_count', 0.0)),
                 'matrix_feedback_equivalent': round(matrix_feedback, 3),
                 'learning_scale_neutral': neutral_seed,
@@ -562,7 +572,11 @@ def event_report(
         warnings.append(
             {
                 'type': 'cold_start_questions_stalled',
-                'message': f'{len(stalled_cold_start)}件の未学習質問が20回以上のフィードバック後も識別力0.02未満です。',
+                'message': (
+                    f'{len(stalled_cold_start)}件の未学習質問が'
+                    f'{engine_question_selection.COLD_START_MIN_FEEDBACK}相当以上のフィードバック後も'
+                    '候補間の分離度基準を満たしていません。'
+                ),
             }
         )
     if no_signal_rows:
@@ -615,9 +629,10 @@ def event_report(
             'learning': sum(row['maturity'] == 'learning' for row in cold_start_rows),
             'mature': sum(row['maturity'] == 'mature' for row in cold_start_rows),
             'needs_review': len(stalled_cold_start),
-            'minimum_feedback_for_review': 20,
-            'review_discrimination_threshold': 0.02,
-            'exploration_limit_per_diagnosis': 1,
+            'minimum_feedback_for_review': engine_question_selection.COLD_START_MIN_FEEDBACK,
+            'mature_discrimination_threshold': engine_question_selection.COLD_START_MATURE_DISCRIMINATION,
+            'review_discrimination_threshold': engine_question_selection.COLD_START_REVIEW_DISCRIMINATION,
+            'exploration_limit_per_diagnosis': engine_question_selection.COLD_START_EXPLORATION_LIMIT,
         },
         'no_signal_questions': sorted(no_signal_rows, key=lambda row: row['question_id']),
         'no_signal_summary': {

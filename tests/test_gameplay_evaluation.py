@@ -10,6 +10,7 @@ def passing_report():
         'runtime_seconds': 1.0,
         'transcript': {
             'persona_count': 8,
+            'accuracy_scored_persona_count': 8,
             'top1_rate': 0.875,
             'top3_rate': 1.0,
             'calibration_brier': 0.5,
@@ -25,8 +26,21 @@ def passing_report():
             'cold_start_per_persona': 1.0,
             'question_repeats': 0,
             'unknown_answer_rate': 0.0,
+            'confidence_stop_leader_changes': 0,
+            'stopping_reasons': {'hard_limit': 4, 'stable_leader': 4},
+            'scenario_coverage': {
+                'standard': 5,
+                'idk_heavy': 1,
+                'close_candidates': 1,
+                'exclude_retry': 1,
+            },
+            'rows': [{} for _ in range(8)],
         },
         'diversity': {'preserved': True, 'formula_matches': True},
+        'question_design': {
+            'direct_result_name_mention_count': 0,
+            'missing_answer_frame_count': 0,
+        },
     }
 
 
@@ -83,6 +97,15 @@ class GameplayEvaluationTests(unittest.TestCase):
         failure = next(item for item in failures if item['check'] == 'baseline:adaptive.top3_rate')
         self.assertEqual(failure['actual_delta'], -0.25)
         self.assertEqual(failure['tolerance'], 0.125)
+
+    def test_scenario_coverage_failure_names_missing_boundary(self):
+        report = passing_report()
+        report['adaptive']['scenario_coverage'].pop('exclude_retry')
+
+        failures = evaluate_gameplay.quality_failures(report, evaluate_gameplay.DEFAULT_THRESHOLDS)
+
+        failure = next(item for item in failures if item['check'] == 'adaptive_scenario_coverage')
+        self.assertIn('exclude_retry', failure['reason'])
 
 
 if __name__ == '__main__':

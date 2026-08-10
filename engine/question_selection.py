@@ -7,9 +7,27 @@ HEAVY_RELATION_CATEGORIES = {'relation', 'attachment'}
 HEAVY_EMOTION_CATEGORIES = {'relation', 'attachment', 'tone'}
 COLD_START_EXPLORATION_LIMIT = 1
 COLD_START_MIN_FEEDBACK = 20
-COLD_START_MATURE_DISCRIMINATION = 0.05
-COLD_START_REVIEW_DISCRIMINATION = 0.02
+COLD_START_MATURE_DISCRIMINATION = 0.04
+COLD_START_REVIEW_DISCRIMINATION = 0.015
 MATRIX_BASE_TOTAL = 4.0
+
+
+def _weighted_mean_absolute_deviation(values, weights=None):
+    if not values:
+        return 0.0
+    if weights is None:
+        weights = [1.0] * len(values)
+    total_weight = sum(max(0.0, float(weight)) for weight in weights)
+    if total_weight <= 0:
+        return 0.0
+    mean = sum(value * max(0.0, float(weight)) for value, weight in zip(values, weights)) / total_weight
+    return (
+        sum(
+            max(0.0, float(weight)) * abs(value - mean)
+            for value, weight in zip(values, weights)
+        )
+        / total_weight
+    )
 
 
 def question_signal_profile(engine, question_id):
@@ -21,34 +39,43 @@ def question_signal_profile(engine, question_id):
     must not consume a player question.
     """
     probabilities = [engine._prob(fetish_idx, question_id) for fetish_idx in range(len(engine.fetishes))]
-    discrimination = (
-        sum(abs(probability - 0.5) for probability in probabilities) / len(probabilities) if probabilities else 0.0
-    )
+    posterior_discrimination = _weighted_mean_absolute_deviation(probabilities)
     exact_neutral = bool(probabilities) and all(abs(probability - 0.5) <= 1e-12 for probability in probabilities)
     question = engine.questions[question_id] if 0 <= question_id < len(engine.questions) else {}
     cold_start_seed = bool(question.get('learning_scale_neutral'))
     learned_feedback = 0.0
+    learned_rates = []
+    learned_weights = []
     totals = engine.matrix.get('total', []) if isinstance(getattr(engine, 'matrix', None), dict) else []
+    yes_rows = engine.matrix.get('yes', []) if isinstance(getattr(engine, 'matrix', None), dict) else []
     for fetish_idx in range(min(len(engine.fetishes), len(totals))):
         row = totals[fetish_idx]
         if question_id < len(row):
-            learned_feedback += max(0.0, float(row[question_id]) - MATRIX_BASE_TOTAL)
+            learned_total = max(0.0, float(row[question_id]) - MATRIX_BASE_TOTAL)
+            learned_feedback += learned_total
+            if learned_total > 1e-12 and fetish_idx < len(yes_rows) and question_id < len(yes_rows[fetish_idx]):
+                learned_yes = float(yes_rows[fetish_idx][question_id]) - MATRIX_BASE_TOTAL / 2.0
+                learned_rates.append(max(0.0, min(1.0, learned_yes / learned_total)))
+                learned_weights.append(learned_total)
+    learned_discrimination = _weighted_mean_absolute_deviation(learned_rates, learned_weights)
     mature = (
         cold_start_seed
         and learned_feedback >= COLD_START_MIN_FEEDBACK
-        and discrimination >= COLD_START_MATURE_DISCRIMINATION
+        and learned_discrimination >= COLD_START_MATURE_DISCRIMINATION
     )
     needs_review = (
         cold_start_seed
         and learned_feedback >= COLD_START_MIN_FEEDBACK
-        and discrimination < COLD_START_REVIEW_DISCRIMINATION
+        and learned_discrimination < COLD_START_REVIEW_DISCRIMINATION
     )
     return {
         'exact_neutral': exact_neutral,
         'cold_start': cold_start_seed and not mature,
         'mature': mature,
         'needs_review': needs_review,
-        'discrimination': discrimination,
+        'discrimination': learned_discrimination if cold_start_seed else posterior_discrimination,
+        'posterior_discrimination': posterior_discrimination,
+        'learned_discrimination': learned_discrimination,
         'learned_feedback': learned_feedback,
     }
 

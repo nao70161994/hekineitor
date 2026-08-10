@@ -12,6 +12,91 @@ from tests._service_test_support import (
 
 
 class TestServiceInference(unittest.TestCase):
+    def test_raw_confidence_snapshot_excludes_and_renormalizes_candidates(self):
+        class Engine:
+            fetishes = [{'id': 10}, {'id': 20}, {'id': 30}]
+
+            def posteriors(self, _answers):
+                return [0.60, 0.30, 0.10]
+
+        snapshot = question_selection.raw_confidence_snapshot(Engine(), {}, exclude_ids=[10])
+
+        self.assertEqual(snapshot['top_id'], 20)
+        self.assertAlmostEqual(snapshot['top_probability'], 0.75)
+        self.assertAlmostEqual(snapshot['second_probability'], 0.25)
+        self.assertEqual(snapshot['candidate_count'], 2)
+
+    def test_stopping_assessment_requires_minimum_questions_even_with_high_probability(self):
+        snapshot = {
+            'top_id': 1,
+            'top_probability': 0.90,
+            'second_probability': 0.05,
+            'gap_ratio': 18.0,
+            'effective_candidates': 2.0,
+            'candidate_count': 137,
+            'concentration': 0.99,
+        }
+        history = question_selection.append_confidence_history([], snapshot)
+
+        assessment = question_selection.stopping_assessment(
+            snapshot,
+            count=11,
+            confidence_history=history,
+        )
+
+        self.assertFalse(assessment['should_guess'])
+        self.assertEqual(assessment['reason'], 'minimum_questions')
+
+    def test_stopping_assessment_accepts_a_stable_separated_raw_leader(self):
+        snapshot = {
+            'top_id': 7,
+            'top_probability': 0.06,
+            'second_probability': 0.03,
+            'gap_ratio': 2.0,
+            'effective_candidates': 90.0,
+            'candidate_count': 137,
+            'concentration': 0.35,
+        }
+        history = []
+        for _ in range(4):
+            history = question_selection.append_confidence_history(history, snapshot)
+
+        assessment = question_selection.stopping_assessment(
+            snapshot,
+            count=20,
+            confidence_history=history,
+        )
+
+        self.assertTrue(assessment['should_guess'])
+        self.assertEqual(assessment['reason'], 'stable_leader')
+        self.assertEqual(assessment['stable_answers'], 4)
+
+    def test_stopping_assessment_rejects_an_unstable_or_crowded_leader(self):
+        snapshot = {
+            'top_id': 7,
+            'top_probability': 0.06,
+            'second_probability': 0.03,
+            'gap_ratio': 2.0,
+            'effective_candidates': 120.0,
+            'candidate_count': 137,
+            'concentration': 0.12,
+        }
+        history = [
+            {'top_id': 7},
+            {'top_id': 8},
+            {'top_id': 7},
+            {'top_id': 7},
+        ]
+
+        assessment = question_selection.stopping_assessment(
+            snapshot,
+            count=24,
+            confidence_history=history,
+        )
+
+        self.assertFalse(assessment['should_guess'])
+        self.assertEqual(assessment['reason'], 'insufficient_evidence')
+
     def test_question_selection_low_confidence_extension_bounds(self):
         self.assertFalse(question_selection.should_extend_low_confidence(19, 0.1, 0.09, 0.75, 20, 30))
         self.assertTrue(question_selection.should_extend_low_confidence(20, 0.7, 0.6, 0.75, 20, 30))

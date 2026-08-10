@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "generated_at": "2026-07-30",
-  "catalog_digest": "9c5d3baa7477156b45648625d80e91d1d4e4cbaca303fbc20d14a78bf40f3835",
+  "catalog_digest": "e9ccd0590089fd6343cf12f1d1b44312d6cd828049d120f6ae78771bad738a31",
   "selection_rule": {
     "catalog": "data/work_catalog.json",
     "criteria": [
@@ -15,20 +15,5 @@
       "owner_references by table, owner ids, then position"
     ]
   },
-  "entries": [
-    {
-      "work_id": "wrk_b0c6dc64fe5060a13680",
-      "canonical_title": "花は咲くか",
-      "media_type": "manga",
-      "owner_references": [
-        {
-          "table": "compound_work_links",
-          "id_a": 2,
-          "id_b": 6,
-          "position": 0
-        }
-      ],
-      "bibliography_state": "media_confirmed"
-    }
-  ]
+  "entries": []
 }

@@ -92,7 +92,7 @@ PYTHONPATH=. python scripts/build_work_catalog_research_candidates.py
 
 抽出時点の33件を一次情報で再調査し、13件はexact identityを確認、19件はexact identity未確認、`囚われのパルマ`1件はidentity確認済みでも推薦文脈に不適合と判定しました。`data/work_catalog_corrections_batch2.json`は後二群の計20 masterを`archived`へ移し、元ownerを固定した21 compound linkを除去します。
 
-`data/work_catalog_bibliography_batch2.json`は確認済み13件をinput-lockし、12 editionと11 identifierを追加します。残る`花は咲くか`は漫画としてidentityを確認できるものの、根拠の東映ビデオページは実写映画であり適切な原作漫画版ではありません。このため媒体確認だけを保存し、別媒体を原作editionとして扱いません。batch2適用後のactive・参照中・editionなし候補は、この`花は咲くか`1件だけです。
+`data/work_catalog_bibliography_batch2.json`は確認済み13件をinput-lockし、13 editionと12 identifierを追加します。最後に残った`花は咲くか`は、[楽天ブックス](https://books.rakuten.co.jp/rb/6243095/)と[アニメイト](https://www.animate-onlineshop.jp/pn/%E3%80%90%E3%82%B3%E3%83%9F%E3%83%83%E3%82%AF%E3%80%91%E8%8A%B1%E3%81%AF%E5%92%B2%E3%81%8F%E3%81%8B%281%29/pd/65087/)で日高ショーコ著、第1巻、幻冬舎コミックス、ISBN `9784344818279`が一致する紙版を確認し、既存の媒体確認行を同じdigest-lock付きmanifest内で販売版へ昇格しました。batch2適用後のactive・参照中・editionなし候補は0件です。
 
 correction2は公開linkの安全な隔離、bibliography2は一次情報で確認できた書誌だけを担当します。旧45件quarantine queueへ履歴を混ぜず、candidate artifactは最終catalog digestに対して再生成します。
 

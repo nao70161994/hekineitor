@@ -28,6 +28,7 @@ npm run test:js       # ESLint + Vitest
 npm run test:static   # 静的asset・AdSense smoke
 npm run test:pwa      # service worker・share/OGP/PWA contract
 npm run test:e2e      # Chromium browser E2E
+PYTHONPATH=. python scripts/public_experience_check.py  # 本番のcrawler meta・OGP・PWA resource（read-only）
 ```
 
 設定のsource of truthは`pyproject.toml`、`package.json`、`playwright.config.js`です。対象や閾値を変更した場合は、CIと`scripts/check.sh`も同じ変更で更新します。
@@ -39,6 +40,8 @@ npm run test:e2e      # Chromium browser E2E
 - iOS Safari / Android Chromeのtap target、長い結果名、native share sheet
 - 公開URLを使ったX、LINE、DiscordのOGP preview
 - 実browser profileでのPWA install/update/offline lifecycle
+
+`scripts/public_experience_check.py`は本番hostをHTTPS rootへ固定し、通常browser・Twitterbot・Discordbotのmeta一致、1200×630 PNG、manifest、service worker、offline routeを変更なしで検査します。2026-08-10の実行は全項目passedで、日本語OGPも`眼鏡`が読めることを画像で確認しました。外部アプリが実際に描画したpreview、OS native share sheet、インストール済みPWAの更新lifecycleは引き続き[`MANUAL_DEVICE_QA.md`](MANUAL_DEVICE_QA.md)の境界です。
 
 ## ゲーム体験回帰
 

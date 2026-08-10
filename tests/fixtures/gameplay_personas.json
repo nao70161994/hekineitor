@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "description": "Hand-authored preference transcripts. Explicit answers are strong traits; default_answer is the reviewed mild response for unspecified traits. Neither is generated from matrix probabilities.",
+  "schema_version": 2,
+  "description": "Hand-authored preference transcripts and boundary scenarios. Explicit answers are reviewed traits; default_answer is the reviewed response for unspecified traits. Neither is generated from matrix probabilities. accuracy_scored=false scenarios exercise flow invariants without claiming a unique correct result.",
   "personas": [
     {
       "id": "betrayal_tension",
@@ -49,6 +49,31 @@
       "target_result_id": 123,
       "default_answer": -0.5,
       "answers": {"136": 1, "141": 1, "123": 1, "114": 1, "142": 1, "18": 0.5, "33": -1, "10": -1, "22": -1}
+    },
+    {
+      "id": "idk_heavy_boundary",
+      "scenario": "idk_heavy",
+      "accuracy_scored": false,
+      "target_result_id": 123,
+      "default_answer": 0,
+      "answers": {}
+    },
+    {
+      "id": "close_candidates_boundary",
+      "scenario": "close_candidates",
+      "accuracy_scored": false,
+      "target_result_id": 101,
+      "default_answer": -0.5,
+      "answers": {"95": 0.5, "90": 0.5, "33": 0.5, "55": 0.5, "61": 0.5, "44": 0.5, "10": -0.5, "0": -0.5}
+    },
+    {
+      "id": "exclude_observant_retry",
+      "scenario": "exclude_retry",
+      "accuracy_scored": false,
+      "target_result_id": 124,
+      "exclude_result_ids": [123],
+      "default_answer": -0.5,
+      "answers": {"136": 1, "141": 1, "145": 1, "149": 1, "150": 1, "151": -1, "10": -1, "33": -1, "22": -1}
     }
   ]
 }

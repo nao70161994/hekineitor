@@ -235,10 +235,10 @@ def test_checked_in_seed_has_only_verified_safe_normalizations():
     assert len([title for title in canonical_titles if title.startswith('ベルセルク')]) == 2
     assert len([title for title in canonical_titles if title.startswith('小林さんちのメイドラゴン')]) == 2
     assert sum(bool(row['media_type']) for row in masters.values()) == 31
-    assert sum(row['format'] == 'paper' for row in catalog['work_editions']) == 18
-    assert len(catalog['work_edition_identifiers']) == 25
+    assert sum(row['format'] == 'paper' for row in catalog['work_editions']) == 19
+    assert len(catalog['work_edition_identifiers']) == 26
     assert Counter((row['scheme'], row['authority']) for row in catalog['work_edition_identifiers']) == {
-        ('isbn', 'isbn'): 20,
+        ('isbn', 'isbn'): 21,
         ('catalog_number', 'marvelous'): 1,
         ('catalog_number', 'nbc-universal-jp'): 1,
         ('nintendo_software', 'nintendo-jp'): 1,

@@ -463,7 +463,7 @@ def build_report(
                 if int(cold_start.get('needs_review') or 0):
                     insight.append(
                         f'未学習質問 needs_review={int(cold_start.get("needs_review") or 0)} '
-                        '(フィードバック20回以上・識別力0.02未満)'
+                        '(十分なフィードバック後も候補間の分離度基準未満)'
                     )
             if relation_share >= _env_float(environ, 'NTFY_RELATION_ATTACHMENT_WARN_RATIO', 55.0):
                 warn.append(f'relation/attachment share={_pct(relation_share)}')

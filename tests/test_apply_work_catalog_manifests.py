@@ -189,6 +189,21 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
         self.final_catalog = work_catalog.apply_catalog_corrections(self.catalog, corrections)
         self.bibliography_catalog = work_catalog.apply_bibliography_manifest(self.final_catalog, self.bibliography)[0]
         phase2 = work_catalog.apply_catalog_corrections(self.bibliography_catalog, self.corrections_batch2)
+        prior_bibliography = copy.deepcopy(self.bibliography_batch2)
+        hana_entry = next(
+            row for row in prior_bibliography['entries'] if row['target_work']['work_id'] == 'wrk_b0c6dc64fe5060a13680'
+        )
+        hana_entry['entry_id'] = 'evidence-hana-wa-saku-ka'
+        hana_entry.pop('edition')
+        hana_entry['evidence_url'] = 'https://www.toei-video.co.jp/special/hanawasakuka/'
+        prior_bindings = copy.deepcopy(self.link_bindings_batch2)
+        prior_bindings['corrections'] = [
+            row
+            for row in prior_bindings['corrections']
+            if row['expected_work']['work_id'] != 'wrk_b0c6dc64fe5060a13680'
+        ]
+        prior_phase2 = work_catalog.apply_bibliography_manifest(phase2, prior_bibliography)[0]
+        self.prior_phase2_catalog = work_catalog.apply_catalog_corrections(prior_phase2, prior_bindings)
         phase2 = work_catalog.apply_bibliography_manifest(phase2, self.bibliography_batch2)[0]
         self.phase2_catalog = work_catalog.apply_catalog_corrections(phase2, self.link_bindings_batch2)
 
@@ -356,6 +371,19 @@ class ApplyWorkCatalogManifestsTests(unittest.TestCase):
         self.assertEqual(evidence['bibliography_batch2_result']['work_update_count'], 0)
         self.assertEqual(evidence['bibliography_batch2_result']['edition_count'], 0)
         self.assertEqual(evidence['bibliography_batch2_result']['identifier_count'], 0)
+
+    def test_phase2_upgrade_adds_the_new_edition_and_link_to_the_prior_production_catalog(self):
+        fake, evidence = self._apply_with_phase2(self.prior_phase2_catalog)
+
+        self.assertEqual(fake.catalog, self.phase2_catalog)
+        self.assertEqual(evidence['bibliography_batch2_result']['edition_count'], 1)
+        self.assertEqual(evidence['bibliography_batch2_result']['identifier_count'], 1)
+        hana = next(
+            row
+            for row in work_catalog.materialize_compound_works(fake.catalog)['2,6']
+            if row['work_id'] == 'wrk_b0c6dc64fe5060a13680'
+        )
+        self.assertEqual(hana['url'], 'https://books.rakuten.co.jp/rb/6243095/')
 
     def test_pre_review_source_reaches_the_same_approved_final_catalog(self):
         fake = FakeClient(self.raw_catalog)

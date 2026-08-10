@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "catalog_schema_version": 2,
-  "reviewed_by": "primary-source active-linked editionless audit 2026-07-30",
+  "reviewed_by": "verified-source active-linked editionless audit 2026-08-10",
   "entries": [
     {
       "entry_id": "edition-ef-steam-bundle-12092",
@@ -188,7 +188,7 @@
       }
     },
     {
-      "entry_id": "evidence-hana-wa-saku-ka",
+      "entry_id": "edition-hana-wa-saku-ka-9784344818279",
       "expected_work": {
         "work_id": "wrk_b0c6dc64fe5060a13680",
         "canonical_title": "花は咲くか",
@@ -203,7 +203,13 @@
         "media_type": "manga",
         "status": "active"
       },
-      "evidence_url": "https://www.toei-video.co.jp/special/hanawasakuka/"
+      "edition": {
+        "edition_title": "花は咲くか（1）",
+        "publisher": "幻冬舎コミックス",
+        "format": "paper",
+        "canonical_url": "https://books.rakuten.co.jp/rb/6243095/",
+        "isbn": "9784344818279"
+      }
     },
     {
       "entry_id": "edition-ano-natsu-bluray-box",

@@ -81,7 +81,7 @@ INSIGHTS（ntfy通知しない・Actionsログ/本文確認用）:
 - YES率90%以上の質問
 - share率低下
 - 母数不足または参考値のcompletion_rate
-- feedback 20回以上でも識別力0.02未満の未学習質問（`needs_review`）
+- feedback相当量20以上でもlearned discrimination 0.015未満の未学習質問（`needs_review`）
 
 DAILY:
 
@@ -98,7 +98,7 @@ DAILY:
 
 `result_source=stats_history_fallback` の場合、結果分布は過去の累積/legacy guessed counters を含む可能性があるため、`heavy_result_ratio` は `unavailable` として扱います。最新デプロイ後の偏り確認は `/api/admin/result_exposures/recent` または `result_source=result_exposures` の集計だけを使います。
 
-未学習質問は `/api/admin/question_events` の `cold_start_summary` と `cold_start_questions` で確認します。matrixのfeedback相当量20未満はデータ収集中です。20以上でもdiscriminationが `0.02` 未満の`needs_review`は選択から自動除外されるため、質問文と学習方向をレビューします。`no_signal_summary`は印のない全候補0.5列で、常に通常プレイから除外されます。件数増加は新規データ不備として調査します。
+未学習質問は `/api/admin/question_events` の `cold_start_summary` と `cold_start_questions` で確認します。matrixのfeedback相当量20未満はデータ収集中です。20以上でも初期疑似観測を除くlearned discriminationが `0.015` 未満の`needs_review`は選択から自動除外されるため、質問文と学習方向をレビューします。`0.04`以上なら通常枠へ移り、その間は`learning`です。`no_signal_summary`は印のない全候補0.5列で、常に通常プレイから除外されます。
 
 動的priorの旧データ母集団は `/api/admin/operations_snapshot` の `dynamic_prior_shadow` で確認します。schema 2では`mismatched_count`と`excess_correct_count`を移行前監査値として残し、`legacy_row_count`、`exposure_guessed_count`、`exposure_correct_count`を追加します。`operations_check.py`は行詳細を保存・通知せず、これらの集約値とmigration policyだけをDAILY metricsへ出します。shadow行は旧無制限weight、旧runtime clamp weight、露出専用counterだけのcurrent weightを比較します。
 

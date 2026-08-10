@@ -4,12 +4,12 @@
 
 ## 循環評価を避けるfixture
 
-`tests/fixtures/gameplay_personas.json`には、8種類の代表personaについて人手でレビューした強い回答と、未指定の軸に対する穏やかな既定回答を保存します。回答は現在のmatrix確率からsampling・生成しません。
+`tests/fixtures/gameplay_personas.json`には、精度を採点する8種類の代表personaと、IDK多め・近接候補・除外再挑戦の3種類の境界personaを保存します。回答は人手でレビューした強い回答と未指定の軸に対する穏やかな既定回答であり、現在のmatrix確率からsampling・生成しません。境界personaは制御フローを検証するため`accuracy_scored: false`とし、通常personaのTop1/Top3を歪めません。
 
 評価は2種類です。
 
 - transcript: 人手で明示した回答だけをholdoutとして一括推論し、Top1/Top3とconfidence calibrationを測る。
-- adaptive: 実際の質問選択、20問時点の低確信延長、最大30問、IDK回復、低露出軸probeを再現し、personaが選ばれた質問へ回答する。
+- adaptive: 実際の質問選択、複合的な停止判定、最大30問、IDK回復、低露出軸probe、除外を再現し、personaが選ばれた質問へ回答する。
 
 personaのtargetや回答を変更する時は、質問文の意味と期待する嗜好像を人がレビューします。品質gateを通す目的でmatrixの値を読み取って回答を自動反転させてはいけません。
 
@@ -25,6 +25,9 @@ personaのtargetや回答を変更する時は、質問文の意味と期待す�
 - 結果分布と最大集中のgate
 - 強い結果分散の実効べき指数`-3`、数式一致、低露出候補のboost数
 - seed、最大質問数、実行秒数
+- 停止理由、停止時のraw Top1/Top2比・実効候補数・leader安定回答数、停止後30問までshadow継続した場合のleader変化
+- standard / IDK多め / 近接候補 / 除外再挑戦のscenario coverage
+- 結果名を直接含む質問と`answer_frame`欠落の件数
 
 ## 実行方法
 
@@ -39,9 +42,9 @@ seedの既定値は`20260809`です。`--check`は絶対閾値またはbaseline�
 
 `adaptive.rows[].question_trace`には質問ID、persona回答、情報利得、実効候補削減量、無信号/cold-start判定を残します。`adaptive.question_metrics`は同じ値を質問IDごとに集約するため、平均指標が悪化した時に原因となった質問まで追跡できます。
 
-質問継続と停止はraw posteriorで評価し、指数`-3`の分散補正は最終結果順位にだけ適用します。production-likeな大きいexposure factorでもraw確信度が低い1問目で終了しないことをAPI回帰テストで確認します。
+質問継続と停止はraw posteriorで評価し、指数`-3`の分散補正は最終結果順位にだけ適用します。最低12問まではconfidenceで終了せず、その後は絶対確率だけでなくTop1/Top2比、posterior entropyから算出した実効候補数、同じleaderが続いた回答数を組み合わせます。hard limitは30問、IDK連続終了は6回です。production-likeな大きいexposure factorでもraw確信度が低い1問目で終了しないことをAPI回帰テストで確認します。
 
-絶対gateはTop1/Top3、calibration、情報利得、実効候補削減、無信号0、cold-start 1診断1問以下、反復0、persona回答coverage、結果集中、分散数式、60秒以内を確認します。baseline gateはTop1/Top3、calibration、情報利得、実効候補削減、未定義回答率の悪化を許容差内に制限します。
+絶対gateはTop1/Top3、calibration、平均28問以下、confidence停止後のleader変化0、hard-limit比率、情報利得、実効候補削減、無信号0、cold-start 1診断1問以下、反復0、全scenario、直接結果名0、`answer_frame`欠落0、結果集中、分散数式、60秒以内を確認します。baseline gateはTop1/Top3、calibration、情報利得、実効候補削減、未定義回答率の悪化を許容差内に制限します。
 
 ## baseline更新
 

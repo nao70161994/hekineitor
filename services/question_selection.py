@@ -1,3 +1,132 @@
+import math
+
+
+CONFIDENCE_HISTORY_LIMIT = 8
+MIN_CONFIDENCE_QUESTIONS = 12
+
+
+def raw_confidence_snapshot(engine, answers, *, exclude_ids=None):
+    """Return an exposure-independent posterior summary for question flow."""
+    probabilities = [max(0.0, float(value)) for value in engine.posteriors(answers)]
+    excluded = {int(value) for value in (exclude_ids or ())}
+    included = [
+        index for index, fetish in enumerate(engine.fetishes) if fetish.get('id') not in excluded
+    ]
+    if not included:
+        included = list(range(len(probabilities)))
+    total = sum(probabilities[index] for index in included)
+    if total <= 0:
+        normalized = {index: 1.0 / max(1, len(included)) for index in included}
+    else:
+        normalized = {index: probabilities[index] / total for index in included}
+    ranked = sorted(included, key=lambda index: normalized[index], reverse=True)
+    top_index = ranked[0] if ranked else None
+    second_index = ranked[1] if len(ranked) > 1 else None
+    top_probability = normalized.get(top_index, 0.0)
+    second_probability = normalized.get(second_index, 0.0)
+    distribution = list(normalized.values())
+    entropy = -sum(value * math.log(value) for value in distribution if value > 0)
+    effective_candidates = math.exp(entropy) if distribution else 0.0
+    candidate_count = len(included)
+    concentration = (
+        1.0 - (effective_candidates - 1.0) / max(1.0, candidate_count - 1.0)
+        if candidate_count > 1
+        else 1.0
+    )
+    return {
+        'probabilities': [normalized.get(index, 0.0) for index in range(len(probabilities))],
+        'top_index': top_index,
+        'top_id': engine.fetishes[top_index].get('id') if top_index is not None else None,
+        'top_probability': top_probability,
+        'second_probability': second_probability,
+        'gap_ratio': top_probability / max(second_probability, 0.001),
+        'gap_points': top_probability - second_probability,
+        'effective_candidates': effective_candidates,
+        'candidate_count': candidate_count,
+        'concentration': max(0.0, min(concentration, 1.0)),
+        'ranked': ranked,
+    }
+
+
+def append_confidence_history(history, snapshot, *, limit=CONFIDENCE_HISTORY_LIMIT):
+    """Append one compact, JSON-session-safe confidence observation."""
+    rows = [row for row in (history or []) if isinstance(row, dict)]
+    rows.append(
+        {
+            'top_id': snapshot.get('top_id'),
+            'top_probability': round(float(snapshot.get('top_probability', 0.0)), 8),
+            'gap_ratio': round(float(snapshot.get('gap_ratio', 0.0)), 8),
+            'effective_candidates': round(float(snapshot.get('effective_candidates', 0.0)), 4),
+        }
+    )
+    return rows[-max(1, int(limit or 1)) :]
+
+
+def _stable_leader_count(history, top_id):
+    stable = 0
+    for row in reversed(history or []):
+        if not isinstance(row, dict) or row.get('top_id') != top_id:
+            break
+        stable += 1
+    return stable
+
+
+def stopping_assessment(
+    snapshot,
+    *,
+    count,
+    confidence_history=None,
+    guess_threshold=0.75,
+    hard_max_questions=30,
+    idk_streak=0,
+):
+    """Explain whether raw posterior evidence is sufficient to end questions.
+
+    Absolute confidence remains valid, but the normal path for a large result
+    catalog uses a stable leader, separation from the runner-up, and posterior
+    concentration. Exposure-adjusted scores are deliberately absent.
+    """
+    top_probability = float(snapshot.get('top_probability', 0.0))
+    gap_ratio = float(snapshot.get('gap_ratio', 0.0))
+    effective_candidates = float(snapshot.get('effective_candidates', 0.0))
+    candidate_count = max(1, int(snapshot.get('candidate_count', 1)))
+    stable_answers = _stable_leader_count(confidence_history, snapshot.get('top_id'))
+    metrics = {
+        'top_probability': top_probability,
+        'second_probability': float(snapshot.get('second_probability', 0.0)),
+        'gap_ratio': gap_ratio,
+        'effective_candidates': effective_candidates,
+        'candidate_count': candidate_count,
+        'concentration': float(snapshot.get('concentration', 0.0)),
+        'stable_answers': stable_answers,
+    }
+    if count >= hard_max_questions:
+        return {'should_guess': True, 'reason': 'hard_limit', **metrics}
+    if idk_streak >= 6:
+        return {'should_guess': True, 'reason': 'idk_limit', **metrics}
+    if count < MIN_CONFIDENCE_QUESTIONS:
+        return {'should_guess': False, 'reason': 'minimum_questions', **metrics}
+    if top_probability >= float(guess_threshold) and gap_ratio >= 1.5:
+        return {'should_guess': True, 'reason': 'absolute_confidence', **metrics}
+
+    effective_share = effective_candidates / candidate_count
+    tiers = (
+        (16, 4, 0.08, 2.0, 0.80, 'strong_stable_leader'),
+        (20, 4, 0.045, 1.6, 0.75, 'stable_leader'),
+        (24, 6, 0.04, 1.6, 0.75, 'mature_stable_leader'),
+    )
+    for min_count, min_stable, min_probability, min_ratio, max_effective_share, reason in tiers:
+        if (
+            count >= min_count
+            and stable_answers >= min_stable
+            and top_probability >= min_probability
+            and gap_ratio >= min_ratio
+            and effective_share <= max_effective_share
+        ):
+            return {'should_guess': True, 'reason': reason, **metrics}
+    return {'should_guess': False, 'reason': 'insufficient_evidence', **metrics}
+
+
 def best_question(engine, answers, asked, *, idk_streak=0, exclude_ids=None):
     if exclude_ids and hasattr(engine, '_best_question_with_exclusions'):
         return engine._best_question_with_exclusions(answers, asked, idk_streak=idk_streak, exclude_ids=exclude_ids)

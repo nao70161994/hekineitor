@@ -4,6 +4,10 @@ This checklist is only for items that cannot be fully verified by HTTP smoke tes
 
 Production base URL: `https://hekineitor.onrender.com`
 
+## Automated boundary (2026-08-10)
+
+`PYTHONPATH=. python scripts/public_experience_check.py`で、公開health、通常UA・Twitterbot・Discordbotのmeta一致、HTTPS PNG参照、1200×630 PNG、manifest、service worker、offline routeを確認済みです。PNGは`眼鏡`を含む日本語が読めることも目視済みで、本番のCJKフォント設定は正常です。以下には、外部アプリの実描画、OSのshare sheet、実browser profileのinstall/update状態など、自動HTTP・Chromium検証で代替できない項目だけを記録します。
+
 ## X OGP Card
 
 - Confirmation URL: `https://hekineitor.onrender.com/r?f=%E7%9C%BC%E9%8F%A1&p=88&d=%E3%83%86%E3%82%B9%E3%83%88`

@@ -41,8 +41,13 @@ DEFAULT_THRESHOLDS = {
     'adaptive_effective_candidate_reduction_min': 5.0,
     'adaptive_unknown_answer_rate_max': 0.25,
     'adaptive_top3_rate_min': 0.50,
+    'adaptive_average_questions_max': 28.0,
+    'adaptive_confidence_stop_leader_changes_max': 0,
+    'adaptive_hard_limit_share_max': 0.75,
     'calibration_brier_max': 0.85,
     'result_distribution_max_share': 0.50,
+    'question_design_direct_result_mentions_max': 0,
+    'question_design_missing_answer_frames_max': 0,
     'runtime_seconds_max': 60.0,
 }
 BASELINE_TOLERANCES = {
@@ -64,13 +69,16 @@ def effective_candidates(probabilities):
     return math.exp(entropy(probabilities))
 
 
-def ranked_ids(engine, answers):
-    probabilities = engine.posteriors(answers)
-    ranked = sorted(range(len(probabilities)), key=lambda index: probabilities[index], reverse=True)
-    return probabilities, [engine.fetishes[index]['id'] for index in ranked]
+def ranked_ids(engine, answers, *, exclude_ids=None):
+    snapshot = service_question_selection.raw_confidence_snapshot(
+        engine,
+        answers,
+        exclude_ids=exclude_ids,
+    )
+    return snapshot['probabilities'], [engine.fetishes[index]['id'] for index in snapshot['ranked']]
 
 
-def next_question(engine, answers, asked):
+def next_question(engine, answers, asked, *, exclude_ids=None):
     return question_selection.best_question(
         engine,
         answers,
@@ -83,6 +91,7 @@ def next_question(engine, answers, asked):
         early_random_top_k=EARLY_RANDOM_TOP_K,
         axis_indirect_bonus=AXIS_INDIRECT_BONUS,
         question_balance_stats={},
+        exclude_ids=exclude_ids,
     )
 
 
@@ -91,18 +100,22 @@ def evaluate_transcripts(engine, personas):
     top_results = Counter()
     squared_errors = []
     for persona in personas:
+        accuracy_scored = persona.get('accuracy_scored', True) is not False
         answers = {str(key): float(value) for key, value in persona['answers'].items()}
-        probabilities, ranking = ranked_ids(engine, answers)
+        probabilities, ranking = ranked_ids(engine, answers, exclude_ids=persona.get('exclude_result_ids'))
         target_id = int(persona['target_result_id'])
         target_rank = ranking.index(target_id) + 1 if target_id in ranking else None
         top_index = engine.index_of(ranking[0])
         confidence = float(probabilities[top_index]) if top_index is not None else 0.0
         correct = target_rank == 1
-        squared_errors.append((confidence - float(correct)) ** 2)
-        top_results[ranking[0]] += 1
+        if accuracy_scored:
+            squared_errors.append((confidence - float(correct)) ** 2)
+            top_results[ranking[0]] += 1
         rows.append(
             {
                 'persona_id': persona['id'],
+                'scenario': persona.get('scenario', 'standard'),
+                'accuracy_scored': accuracy_scored,
                 'target_result_id': target_id,
                 'target_rank': target_rank,
                 'top_result_id': ranking[0],
@@ -110,11 +123,13 @@ def evaluate_transcripts(engine, personas):
                 'top3': ranking[:3],
             }
         )
-    count = max(1, len(rows))
+    scored_rows = [row for row in rows if row['accuracy_scored']]
+    count = max(1, len(scored_rows))
     return {
         'persona_count': len(rows),
-        'top1_rate': round(sum(row['target_rank'] == 1 for row in rows) / count, 4),
-        'top3_rate': round(sum((row['target_rank'] or 999999) <= 3 for row in rows) / count, 4),
+        'accuracy_scored_persona_count': len(scored_rows),
+        'top1_rate': round(sum(row['target_rank'] == 1 for row in scored_rows) / count, 4),
+        'top3_rate': round(sum((row['target_rank'] or 999999) <= 3 for row in scored_rows) / count, 4),
         'calibration_brier': round(sum(squared_errors) / count, 6),
         'result_distribution': {str(key): value for key, value in sorted(top_results.items())},
         'rows': rows,
@@ -131,46 +146,71 @@ def evaluate_adaptive(engine, personas, max_questions):
     question_observations = {}
     for persona in personas:
         scripted = {str(key): float(value) for key, value in persona['answers'].items()}
+        exclude_ids = persona.get('exclude_result_ids', [])
         answers = {}
         asked = []
         unknown_answers = 0
+        idk_answers = 0
         idk_streak = 0
         recovery_count = 0
         probe_count = 0
         forced_question = None
         question_trace = []
-        start_probabilities = engine.posteriors({})
+        confidence_history = []
+        selected_state = None
+        shadow_after_stop = False
+        start_probabilities = service_question_selection.raw_confidence_snapshot(
+            engine,
+            {},
+            exclude_ids=exclude_ids,
+        )['probabilities']
         for _ in range(max_questions):
             if forced_question is not None:
                 question_id = forced_question
                 forced_question = None
             elif idk_streak >= 4 and recovery_count < 2:
-                recovery = service_question_selection.idk_recovery_selection(engine, answers, asked)
+                recovery = service_question_selection.idk_recovery_selection(
+                    engine,
+                    answers,
+                    asked,
+                    exclude_ids=exclude_ids,
+                )
                 question_id = recovery.get('question_id') if isinstance(recovery, dict) else recovery
                 recovery_count += int(question_id is not None)
             else:
-                question_id = next_question(engine, answers, asked)
+                question_id = next_question(engine, answers, asked, exclude_ids=exclude_ids)
             if question_id is None:
                 break
             if question_id in asked:
-                repeated += 1
+                if not shadow_after_stop:
+                    repeated += 1
                 break
             profile = question_selection.question_signal_profile(engine, question_id)
-            legacy_no_signal += int(profile['exact_neutral'] and not profile['cold_start'])
-            cold_start += int(profile['cold_start'])
-            before = engine.posteriors(answers)
+            if not shadow_after_stop:
+                legacy_no_signal += int(profile['exact_neutral'] and not profile['cold_start'])
+                cold_start += int(profile['cold_start'])
+            before = service_question_selection.raw_confidence_snapshot(
+                engine,
+                answers,
+                exclude_ids=exclude_ids,
+            )['probabilities']
             has_scripted_answer = str(question_id) in scripted
             answer = scripted.get(str(question_id), float(persona.get('default_answer', 0.0)))
             unknown_answers += int(not has_scripted_answer and 'default_answer' not in persona)
+            idk_answers += int(answer == 0)
             idk_streak = idk_streak + 1 if answer == 0 else 0
             if answer != 0:
                 recovery_count = 0
             answers[str(question_id)] = answer
             asked.append(question_id)
-            after = engine.posteriors(answers)
+            confidence = service_question_selection.raw_confidence_snapshot(
+                engine,
+                answers,
+                exclude_ids=exclude_ids,
+            )
+            after = confidence['probabilities']
             information_gain = entropy(before) - entropy(after)
             candidate_reduction = effective_candidates(before) - effective_candidates(after)
-            all_information_gain.append(information_gain)
             trace_row = {
                 'question_id': question_id,
                 'answer': answer,
@@ -179,35 +219,27 @@ def evaluate_adaptive(engine, personas, max_questions):
                 'legacy_no_signal': bool(profile['exact_neutral'] and not profile['cold_start']),
                 'cold_start': bool(profile['cold_start']),
             }
-            question_trace.append(trace_row)
-            question_observations.setdefault(question_id, []).append(trace_row)
-            ranked = sorted(range(len(after)), key=lambda index: after[index], reverse=True)
-            top_p = after[ranked[0]]
-            second_p = after[ranked[1]] if len(ranked) > 1 else 0.0
+            if not shadow_after_stop:
+                all_information_gain.append(information_gain)
+                question_trace.append(trace_row)
+                question_observations.setdefault(question_id, []).append(trace_row)
+            confidence_history = service_question_selection.append_confidence_history(
+                confidence_history,
+                confidence,
+            )
+            top_p = confidence['top_probability']
+            second_p = confidence['second_probability']
             count = len(asked)
             guess_threshold = engine.config.get('guess_threshold', 0.75)
-            gap_ratio = top_p / max(second_p, 0.001)
-            early_stop = (count >= 4 and top_p >= 0.70 and gap_ratio >= 3.0) or (
-                count >= 8 and top_p >= 0.55 and gap_ratio >= 2.5
+            stopping = service_question_selection.stopping_assessment(
+                confidence,
+                count=count,
+                confidence_history=confidence_history,
+                guess_threshold=guess_threshold,
+                hard_max_questions=max_questions,
+                idk_streak=idk_streak,
             )
-            effective_threshold = (
-                guess_threshold if gap_ratio >= 1.8 or count >= 10 else min(guess_threshold + 0.10, 0.90)
-            )
-            extend = service_question_selection.should_extend_low_confidence(
-                count,
-                top_p,
-                second_p,
-                guess_threshold,
-                DEFAULT_SOFT_MAX_QUESTIONS,
-                max_questions,
-            )
-            should_guess = (
-                idk_streak >= 6
-                or top_p >= effective_threshold
-                or count >= max_questions
-                or early_stop
-                or (count >= DEFAULT_SOFT_MAX_QUESTIONS and not extend)
-            )
+            should_guess = bool(stopping['should_guess']) and not shadow_after_stop
             if should_guess and idk_streak < 4 and probe_count < 2:
                 if service_question_selection.should_probe_low_exposure_axis(
                     engine,
@@ -218,37 +250,107 @@ def evaluate_adaptive(engine, personas, max_questions):
                     second_p=second_p,
                     hard_max_questions=max_questions,
                 ):
-                    forced_question = service_question_selection.best_low_exposure_axis_question(engine, answers, asked)
+                    forced_question = service_question_selection.best_low_exposure_axis_question(
+                        engine,
+                        answers,
+                        asked,
+                        exclude_ids=exclude_ids,
+                    )
                     probe_count += int(forced_question is not None)
             if should_guess and forced_question is None:
-                break
-        final_probabilities, ranking = ranked_ids(engine, answers)
+                selected_state = {
+                    'answers': dict(answers),
+                    'asked': list(asked),
+                    'unknown_answers': unknown_answers,
+                    'idk_answers': idk_answers,
+                    'question_trace': list(question_trace),
+                    'stopping': dict(stopping),
+                }
+                if count >= max_questions:
+                    break
+                shadow_after_stop = True
+        full_horizon_probabilities, full_horizon_ranking = ranked_ids(
+            engine,
+            answers,
+            exclude_ids=exclude_ids,
+        )
+        if selected_state is None:
+            selected_state = {
+                'answers': dict(answers),
+                'asked': list(asked),
+                'unknown_answers': unknown_answers,
+                'idk_answers': idk_answers,
+                'question_trace': list(question_trace),
+                'stopping': {
+                    'reason': 'questions_exhausted',
+                    'stable_answers': 0,
+                    'effective_candidates': effective_candidates(full_horizon_probabilities),
+                },
+            }
+        final_probabilities, ranking = ranked_ids(
+            engine,
+            selected_state['answers'],
+            exclude_ids=exclude_ids,
+        )
         target_id = int(persona['target_result_id'])
         target_rank = ranking.index(target_id) + 1 if target_id in ranking else None
-        top_results[ranking[0]] += 1
+        accuracy_scored = persona.get('accuracy_scored', True) is not False
+        if accuracy_scored:
+            top_results[ranking[0]] += 1
         rows.append(
             {
                 'persona_id': persona['id'],
-                'questions': len(asked),
+                'scenario': persona.get('scenario', 'standard'),
+                'accuracy_scored': accuracy_scored,
+                'exclude_result_ids': list(exclude_ids),
+                'questions': len(selected_state['asked']),
                 'target_rank': target_rank,
                 'top_result_id': ranking[0],
+                'stopping_reason': selected_state['stopping']['reason'],
+                'stopping_metrics': {
+                    key: selected_state['stopping'].get(key)
+                    for key in (
+                        'top_probability',
+                        'second_probability',
+                        'gap_ratio',
+                        'effective_candidates',
+                        'candidate_count',
+                        'concentration',
+                        'stable_answers',
+                    )
+                    if key in selected_state['stopping']
+                },
+                'full_horizon_top_result_id': full_horizon_ranking[0],
+                'leader_changed_after_stop': ranking[0] != full_horizon_ranking[0],
+                'confidence_leader_changed_after_stop': (
+                    selected_state['stopping']['reason']
+                    not in {'hard_limit', 'idk_limit', 'questions_exhausted'}
+                    and ranking[0] != full_horizon_ranking[0]
+                ),
                 'effective_candidates_before': round(effective_candidates(start_probabilities), 4),
                 'effective_candidates_after': round(effective_candidates(final_probabilities), 4),
                 'cold_start_questions': sum(
                     question_selection.question_signal_profile(engine, question_id)['cold_start']
-                    for question_id in asked
+                    for question_id in selected_state['asked']
                 ),
-                'unknown_answers': unknown_answers,
-                'question_ids': asked,
-                'question_trace': question_trace,
+                'unknown_answers': selected_state['unknown_answers'],
+                'idk_answers': selected_state['idk_answers'],
+                'question_ids': selected_state['asked'],
+                'question_trace': selected_state['question_trace'],
             }
         )
     persona_count = max(1, len(rows))
+    scored_rows = [row for row in rows if row['accuracy_scored']]
+    scored_count = max(1, len(scored_rows))
     question_count = max(1, sum(row['questions'] for row in rows))
     return {
         'average_questions': round(sum(row['questions'] for row in rows) / persona_count, 4),
-        'top1_rate': round(sum(row['target_rank'] == 1 for row in rows) / persona_count, 4),
-        'top3_rate': round(sum((row['target_rank'] or 999999) <= 3 for row in rows) / persona_count, 4),
+        'accuracy_scored_persona_count': len(scored_rows),
+        'top1_rate': round(sum(row['target_rank'] == 1 for row in scored_rows) / scored_count, 4),
+        'top3_rate': round(
+            sum((row['target_rank'] or 999999) <= 3 for row in scored_rows) / scored_count,
+            4,
+        ),
         'average_information_gain': round(sum(all_information_gain) / max(1, len(all_information_gain)), 8),
         'average_effective_candidate_reduction': round(
             sum(row['effective_candidates_before'] - row['effective_candidates_after'] for row in rows) / persona_count,
@@ -258,11 +360,16 @@ def evaluate_adaptive(engine, personas, max_questions):
         'cold_start_selected': cold_start,
         'cold_start_per_persona': round(cold_start / persona_count, 4),
         'question_repeats': repeated,
+        'early_stop_leader_changes': sum(row['leader_changed_after_stop'] for row in rows),
+        'confidence_stop_leader_changes': sum(row['confidence_leader_changed_after_stop'] for row in rows),
+        'stopping_reasons': dict(sorted(Counter(row['stopping_reason'] for row in rows).items())),
+        'scenario_coverage': dict(sorted(Counter(row['scenario'] for row in rows).items())),
         'result_distribution': {str(key): value for key, value in sorted(top_results.items())},
         'unknown_answer_rate': round(
             sum(row['unknown_answers'] for row in rows) / question_count,
             4,
         ),
+        'idk_answer_rate': round(sum(row['idk_answers'] for row in rows) / question_count, 4),
         'question_metrics': [
             {
                 'question_id': question_id,
@@ -296,6 +403,43 @@ def evaluate_diversity(engine):
         'expected_overexposed_factor': round(expected_factor, 10),
         'formula_matches': math.isclose(actual_factor, expected_factor, rel_tol=1e-12),
         'underexposed_results_boosted': sum(float(value) > 1.0 for value in factors.values()),
+    }
+
+
+def evaluate_question_design(engine):
+    direct_mentions = []
+    result_names = [
+        str(fetish.get('name', '')).strip()
+        for fetish in engine.fetishes
+        if len(str(fetish.get('name', '')).strip()) >= 2
+    ]
+    missing_answer_frames = []
+    narrow_signal_questions = []
+    for question_id, question in enumerate(engine.questions):
+        texts = [question.get('text', ''), *(question.get('variants') or [])]
+        joined = ' '.join(str(value) for value in texts)
+        matches = sorted({name for name in result_names if name in joined})
+        if matches:
+            direct_mentions.append({'question_id': question_id, 'result_names': matches})
+        if not str(question.get('answer_frame', '')).strip():
+            missing_answer_frames.append(question_id)
+        meaningful_candidates = sum(
+            abs(engine._prob(fetish_index, question_id) - 0.5) >= 0.10
+            for fetish_index in range(len(engine.fetishes))
+        )
+        if meaningful_candidates <= 1:
+            narrow_signal_questions.append(
+                {'question_id': question_id, 'meaningful_candidates': meaningful_candidates}
+            )
+    profiles = question_selection.question_signal_profiles(engine)
+    return {
+        'direct_result_name_mentions': direct_mentions,
+        'direct_result_name_mention_count': len(direct_mentions),
+        'missing_answer_frames': missing_answer_frames,
+        'missing_answer_frame_count': len(missing_answer_frames),
+        'narrow_signal_questions': narrow_signal_questions,
+        'cold_start_count': sum(profile['cold_start'] for profile in profiles.values()),
+        'needs_review_count': sum(profile['needs_review'] for profile in profiles.values()),
     }
 
 
@@ -343,10 +487,43 @@ def quality_failures(report, thresholds, baseline=None):
         ),
         ('adaptive_top3_rate_min', adaptive['top3_rate'], '>=', thresholds['adaptive_top3_rate_min']),
         (
+            'adaptive_average_questions_max',
+            adaptive['average_questions'],
+            '<=',
+            thresholds['adaptive_average_questions_max'],
+        ),
+        (
+            'adaptive_confidence_stop_leader_changes_max',
+            adaptive['confidence_stop_leader_changes'],
+            '<=',
+            thresholds['adaptive_confidence_stop_leader_changes_max'],
+        ),
+        (
+            'adaptive_hard_limit_share_max',
+            adaptive['stopping_reasons'].get('hard_limit', 0) / max(1, len(adaptive['rows'])),
+            '<=',
+            thresholds['adaptive_hard_limit_share_max'],
+        ),
+        (
             'result_distribution_max_share',
-            _max_distribution_share(transcript['result_distribution'], transcript['persona_count']),
+            _max_distribution_share(
+                transcript['result_distribution'],
+                transcript['accuracy_scored_persona_count'],
+            ),
             '<=',
             thresholds['result_distribution_max_share'],
+        ),
+        (
+            'question_design_direct_result_mentions_max',
+            report['question_design']['direct_result_name_mention_count'],
+            '<=',
+            thresholds['question_design_direct_result_mentions_max'],
+        ),
+        (
+            'question_design_missing_answer_frames_max',
+            report['question_design']['missing_answer_frame_count'],
+            '<=',
+            thresholds['question_design_missing_answer_frames_max'],
         ),
         ('diversity_exponent', report['diversity']['preserved'], '==', True),
         ('diversity_formula', report['diversity']['formula_matches'], '==', True),
@@ -366,6 +543,17 @@ def quality_failures(report, thresholds, baseline=None):
                     'reason': 'absolute quality threshold failed',
                 }
             )
+    required_scenarios = {'standard', 'idk_heavy', 'close_candidates', 'exclude_retry'}
+    missing_scenarios = sorted(required_scenarios - set(adaptive['scenario_coverage']))
+    if missing_scenarios:
+        failures.append(
+            {
+                'check': 'adaptive_scenario_coverage',
+                'actual': sorted(adaptive['scenario_coverage']),
+                'expected': sorted(required_scenarios),
+                'reason': f'missing boundary scenarios: {", ".join(missing_scenarios)}',
+            }
+        )
     if baseline:
         delta = numeric_delta(report, baseline)
         regression_checks = {
@@ -433,7 +621,7 @@ def main():
     args = parser.parse_args()
 
     fixture = json.loads(Path(args.personas).read_text(encoding='utf-8'))
-    if fixture.get('schema_version') != 1 or not fixture.get('personas'):
+    if fixture.get('schema_version') != 2 or not fixture.get('personas'):
         raise SystemExit('invalid gameplay persona fixture')
     random.seed(args.seed)
     engine = Engine()
@@ -445,6 +633,7 @@ def main():
         'transcript': evaluate_transcripts(engine, fixture['personas']),
         'adaptive': evaluate_adaptive(engine, fixture['personas'], args.max_questions),
         'diversity': evaluate_diversity(engine),
+        'question_design': evaluate_question_design(engine),
         'thresholds': DEFAULT_THRESHOLDS,
     }
     baseline = None
