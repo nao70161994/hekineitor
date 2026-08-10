@@ -78,10 +78,7 @@ def build(
 
     def raw_confidence_top_guess(engine_arg, answers, n=1):
         snapshot = confidence_snapshot(engine_arg, answers)
-        return [
-            (index, float(snapshot['probabilities'][index]))
-            for index in snapshot['ranked'][: max(1, int(n or 1))]
-        ]
+        return [(index, float(snapshot['probabilities'][index])) for index in snapshot['ranked'][: max(1, int(n or 1))]]
 
     def make_guess(answers):
         guess_context = context.game_guess(

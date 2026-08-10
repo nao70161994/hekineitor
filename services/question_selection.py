@@ -8,9 +8,7 @@ def raw_confidence_snapshot(engine, answers, *, exclude_ids=None):
     """Return an exposure-independent posterior summary for question flow."""
     probabilities = [max(0.0, float(value)) for value in engine.posteriors(answers)]
     excluded = {int(value) for value in (exclude_ids or ())}
-    included = [
-        index for index, fetish in enumerate(engine.fetishes) if fetish.get('id') not in excluded
-    ]
+    included = [index for index, fetish in enumerate(engine.fetishes) if fetish.get('id') not in excluded]
     if not included:
         included = list(range(len(probabilities)))
     total = sum(probabilities[index] for index in included)
@@ -27,11 +25,7 @@ def raw_confidence_snapshot(engine, answers, *, exclude_ids=None):
     entropy = -sum(value * math.log(value) for value in distribution if value > 0)
     effective_candidates = math.exp(entropy) if distribution else 0.0
     candidate_count = len(included)
-    concentration = (
-        1.0 - (effective_candidates - 1.0) / max(1.0, candidate_count - 1.0)
-        if candidate_count > 1
-        else 1.0
-    )
+    concentration = 1.0 - (effective_candidates - 1.0) / max(1.0, candidate_count - 1.0) if candidate_count > 1 else 1.0
     return {
         'probabilities': [normalized.get(index, 0.0) for index in range(len(probabilities))],
         'top_index': top_index,

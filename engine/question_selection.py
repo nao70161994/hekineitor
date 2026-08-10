@@ -21,13 +21,7 @@ def _weighted_mean_absolute_deviation(values, weights=None):
     if total_weight <= 0:
         return 0.0
     mean = sum(value * max(0.0, float(weight)) for value, weight in zip(values, weights)) / total_weight
-    return (
-        sum(
-            max(0.0, float(weight)) * abs(value - mean)
-            for value, weight in zip(values, weights)
-        )
-        / total_weight
-    )
+    return sum(max(0.0, float(weight)) * abs(value - mean) for value, weight in zip(values, weights)) / total_weight
 
 
 def question_signal_profile(engine, question_id):

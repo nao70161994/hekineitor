@@ -323,8 +323,7 @@ def evaluate_adaptive(engine, personas, max_questions):
                 'full_horizon_top_result_id': full_horizon_ranking[0],
                 'leader_changed_after_stop': ranking[0] != full_horizon_ranking[0],
                 'confidence_leader_changed_after_stop': (
-                    selected_state['stopping']['reason']
-                    not in {'hard_limit', 'idk_limit', 'questions_exhausted'}
+                    selected_state['stopping']['reason'] not in {'hard_limit', 'idk_limit', 'questions_exhausted'}
                     and ranking[0] != full_horizon_ranking[0]
                 ),
                 'effective_candidates_before': round(effective_candidates(start_probabilities), 4),
@@ -424,13 +423,10 @@ def evaluate_question_design(engine):
         if not str(question.get('answer_frame', '')).strip():
             missing_answer_frames.append(question_id)
         meaningful_candidates = sum(
-            abs(engine._prob(fetish_index, question_id) - 0.5) >= 0.10
-            for fetish_index in range(len(engine.fetishes))
+            abs(engine._prob(fetish_index, question_id) - 0.5) >= 0.10 for fetish_index in range(len(engine.fetishes))
         )
         if meaningful_candidates <= 1:
-            narrow_signal_questions.append(
-                {'question_id': question_id, 'meaningful_candidates': meaningful_candidates}
-            )
+            narrow_signal_questions.append({'question_id': question_id, 'meaningful_candidates': meaningful_candidates})
     profiles = question_selection.question_signal_profiles(engine)
     return {
         'direct_result_name_mentions': direct_mentions,
