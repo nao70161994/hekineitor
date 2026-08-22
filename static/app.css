@@ -536,7 +536,7 @@
   .modal-btns { display: flex; gap: 10px; }
   .modal-btns button { flex: 1; padding: 12px; border-radius: 10px; border: none; font-size: 0.95rem; cursor: pointer; font-weight: bold; }
   .modal-cancel { background: #333; color: #aaa; }
-  .modal-confirm { background: #e94560; color: #fff; }
+  .modal-confirm { background: var(--color-brand-strong); color: #fff; }
 
   .install-banner {
     position: fixed; bottom: 0; left: 0; right: 0;
@@ -625,7 +625,7 @@
   .compound-reason-empty { color:#777; font-size:0.74rem; }
 
   /* 機能3: 診断履歴 */
-  .history-btn { background:none; border:1px solid #333; color:#666; font-size:0.75rem; padding:5px 12px; border-radius:8px; cursor:pointer; margin-top:8px; position:relative; }
+  .history-btn { background:none; border:1px solid var(--color-border); color:var(--color-text-subtle); font-size:0.75rem; padding:5px 12px; border-radius:8px; cursor:pointer; margin-top:8px; position:relative; }
   .history-btn:hover { border-color:#888; color:#aaa; }
   .history-badge { position:absolute; top:-6px; right:-6px; background:#e94560; color:#fff; font-size:0.6rem; border-radius:99px; padding:1px 5px; min-width:16px; text-align:center; }
   .history-panel { margin-top:12px; border-top:1px solid #222; padding-top:10px; }

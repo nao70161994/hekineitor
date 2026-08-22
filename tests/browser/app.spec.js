@@ -22,6 +22,13 @@ async function completeDiagnosis(page) {
   const question = page.locator('#question-text');
   const yesButton = page.getByRole('button', {name: 'はい', exact: true});
   for (let attempt = 0; attempt < 30 && !(await result.isVisible()); attempt += 1) {
+    await page.waitForFunction(() => {
+      const resultScreen = document.querySelector('#result-screen');
+      const answer = document.querySelector('#question-screen [data-answer="1"]');
+      return !resultScreen?.classList.contains('hidden')
+        || (answer && !answer.disabled && answer.getClientRects().length > 0);
+    }, undefined, {timeout: 10_000});
+    if (await result.isVisible()) break;
     const previousQuestion = await question.textContent();
     await yesButton.click();
     await page.waitForFunction(
@@ -46,24 +53,7 @@ test('completes a diagnosis in a real browser', async ({page}) => {
   await expect(page.locator('#question-screen')).toBeVisible();
   await expect(page.locator('#question-text')).not.toHaveText('読み込み中…');
 
-  const result = page.locator('#result-screen');
-  const question = page.locator('#question-text');
-  const yesButton = page.getByRole('button', {name: 'はい', exact: true});
-  for (let attempt = 0; attempt < 30 && !(await result.isVisible()); attempt += 1) {
-    const previousQuestion = await question.textContent();
-    await yesButton.click();
-    await page.waitForFunction(
-      previous => {
-        const resultScreen = document.querySelector('#result-screen');
-        const questionText = document.querySelector('#question-text');
-        return !resultScreen?.classList.contains('hidden') || questionText?.textContent !== previous;
-      },
-      previousQuestion,
-      {timeout: 10_000},
-    );
-  }
-
-  await expect(result).toBeVisible();
+  await completeDiagnosis(page);
   await expect(page.locator('#result-name')).not.toBeEmpty();
 });
 
@@ -479,7 +469,7 @@ test('falls back to selectable share text and reaches the bottom on narrow layou
   await page.goto('/');
   await page.getByRole('button', {name: '診断をはじめる'}).click();
   await page.getByRole('button', {name: 'はい', exact: true}).click();
-  await page.getByRole('button', {name: '友達にも試してもらう'}).click();
+  await page.getByRole('button', {name: '共有する'}).click();
   await expect(page.locator('#modal-share-fallback')).toBeVisible();
   await expect(page.locator('#share-fallback-text')).toHaveValue(/本命 × 要素A × 要素B/);
   await page.getByRole('button', {name: '閉じる'}).click();
