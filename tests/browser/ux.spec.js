@@ -25,7 +25,9 @@ test('start experience is understandable, keyboard reachable, and accessible', a
   await expectNoSeriousAccessibilityViolations(page);
 
   await page.keyboard.press('Tab');
-  await expect(page.getByRole('link', {name: '診断へ移動'})).toBeFocused();
+  const skipLink = page.getByRole('link', {name: '診断へ移動'});
+  await expect(skipLink).toBeFocused();
+  await expect(skipLink).toBeInViewport();
   await page.keyboard.press('Enter');
   await expect(page.locator('#app-main')).toBeFocused();
 

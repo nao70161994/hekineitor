@@ -734,7 +734,7 @@
   font-weight: 800;
   transform: translateY(-160%);
 }
-.skip-link:focus { transform: translateY(0); }
+.skip-link:focus-visible { transform: translateY(0); }
 .site-header,
 .app-main,
 .site-footer {

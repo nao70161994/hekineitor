@@ -33,6 +33,12 @@ test.beforeEach(async ({page}) => {
   await page.route('**/api/share_event', route => route.fulfill({json: {status: 'ok'}}));
 });
 
+async function expectSkipLinkHidden(page) {
+  const box = await page.locator('.skip-link').boundingBox();
+  expect(box).not.toBeNull();
+  expect(box.y + box.height).toBeLessThanOrEqual(0);
+}
+
 test('mobile start screen', async ({page}) => {
   await page.setViewportSize({width: 375, height: 812});
   await page.goto('/');
@@ -44,6 +50,7 @@ test('mobile question screen', async ({page}) => {
   await page.route('**/api/start', route => route.fulfill({json: question}));
   await page.goto('/');
   await page.getByRole('button', {name: '診断をはじめる'}).click();
+  await expectSkipLinkHidden(page);
   await expect(page).toHaveScreenshot('question-mobile.png', {animations: 'disabled', fullPage: true});
 });
 
@@ -55,5 +62,6 @@ test('desktop result screen', async ({page}) => {
   await page.getByRole('button', {name: '診断をはじめる'}).click();
   await page.getByRole('button', {name: 'はい', exact: true}).click();
   await expect(page.locator('#result-prob')).toHaveText('推定一致度 72%');
+  await expectSkipLinkHidden(page);
   await expect(page).toHaveScreenshot('result-desktop.png', {animations: 'disabled', fullPage: true});
 });
