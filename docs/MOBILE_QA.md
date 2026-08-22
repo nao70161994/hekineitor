@@ -12,6 +12,7 @@
 - Start a new diagnosis.
 - Answer at least five questions.
 - Confirm progress messages are readable and do not push the main question off-screen.
+- Confirm the adaptive phase text does not promise a fixed remaining question count.
 - Use Back and confirm the previous question appears.
 - Leave mid-diagnosis, reload, and confirm resume banner behavior.
 
@@ -29,8 +30,8 @@
 
 ## Current Automation
 
-- Flask smoke covers result CTA markup, resume API, feedback API, manifest, service worker, and offline routes.
-- Real tap target size, native share sheet, and install prompt behavior remain manual QA items.
+- Flask/Vitest/Chromium cover result CTA markup, 48px target contracts, resume, feedback, manifest, service worker, offline, 320px overflow, 200%/400% text enlargement, axe, keyboard dialog, and visual baselines.
+- Native share sheet, OS install prompt, installed-PWA lifecycle, and physical-device screen-reader behavior remain manual QA items.
 
 ## Execution Log
 

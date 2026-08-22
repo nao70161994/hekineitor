@@ -359,6 +359,15 @@ def stats_page(ctx):
     )
 
 
+def privacy_page(ctx):
+    return ctx.render_template(
+        'privacy.html',
+        display_version=ctx.display_version,
+        app_version=ctx.app_version,
+        base_url=ctx.public_base_url(),
+    )
+
+
 def robots_txt(ctx):
     host = ctx.public_base_url()
     body = f"""User-agent: *
@@ -372,7 +381,7 @@ Sitemap: {host}/sitemap.xml
 
 def sitemap_xml(ctx):
     host = ctx.public_base_url()
-    urls = [host + '/', host + '/fetishes', host + '/stats']
+    urls = [host + '/', host + '/fetishes', host + '/stats', host + '/privacy']
     for fetish in ctx.engine.fetishes:
         if fetish['id'] < 10000:
             urls.append(f'{host}/fetish/{fetish["id"]}')
@@ -418,6 +427,10 @@ def create_blueprint(ctx_factory):
     @bp.route('/stats')
     def stats_page_route():
         return stats_page(ctx_factory())
+
+    @bp.route('/privacy')
+    def privacy_page_route():
+        return privacy_page(ctx_factory())
 
     @bp.route('/robots.txt')
     def robots_txt_route():

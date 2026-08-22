@@ -75,6 +75,23 @@ def build_report(base_url: str, expected_host: str, *, fetcher=_fetch) -> dict:
         raise RuntimeError('public health status is not ok')
     checks.append({'name': 'health', 'status': 'passed'})
 
+    status, headers, body = fetcher(f'{base_url}/', {'User-Agent': 'Mozilla/5.0', 'Accept': 'text/html'})
+    _require_response(status, headers, body, content_type='text/html')
+    home = body.decode('utf-8')
+    for marker in ('ひとつ、思い浮かべてください', '答えそのものを直接聞かず', 'href="/privacy"', '/static/performance.js'):
+        if marker not in home:
+            raise RuntimeError(f'public home is missing UI contract: {marker}')
+    if 'question-answer-frame' in home or '約20問' in home:
+        raise RuntimeError('public home contains a retired fixed-question UI contract')
+    checks.append({'name': 'home_ui_contract', 'status': 'passed'})
+
+    status, headers, body = fetcher(f'{base_url}/privacy', {'Accept': 'text/html'})
+    _require_response(status, headers, body, content_type='text/html')
+    privacy = body.decode('utf-8')
+    if 'データの扱い' not in privacy or '最大7日間' not in privacy or '90日' not in privacy:
+        raise RuntimeError('privacy page does not expose storage and retention contracts')
+    checks.append({'name': 'privacy', 'status': 'passed'})
+
     result_url = f'{base_url}/r?{RESULT_QUERY}'
     crawler_meta = {}
     for name, user_agent in (
@@ -127,6 +144,13 @@ def build_report(base_url: str, expected_host: str, *, fetcher=_fetch) -> dict:
         raise RuntimeError('service worker does not expose install/fetch/offline contracts')
     checks.append({'name': 'service_worker', 'status': 'passed'})
 
+    status, headers, body = fetcher(f'{base_url}/static/performance.js', {'Accept': 'application/javascript'})
+    _require_response(status, headers, body, content_type='application/javascript')
+    source = body.decode('utf-8')
+    if "event_name: 'web_vitals'" not in source or 'PerformanceObserver' not in source:
+        raise RuntimeError('public performance measurement contract is incomplete')
+    checks.append({'name': 'web_vitals', 'status': 'passed'})
+
     status, headers, body = fetcher(f'{base_url}/offline', {'Accept': 'text/html'})
     _require_response(status, headers, body, content_type='text/html')
     checks.append({'name': 'offline', 'status': 'passed'})
@@ -135,7 +159,12 @@ def build_report(base_url: str, expected_host: str, *, fetcher=_fetch) -> dict:
         'target_host': expected_host,
         'status': 'passed',
         'checks': checks,
-        'manual_boundaries': ['external_preview_rendering', 'native_share_sheet', 'installed_pwa_lifecycle'],
+        'manual_boundaries': [
+            'external_preview_rendering',
+            'native_share_sheet',
+            'installed_pwa_lifecycle',
+            'physical_screen_reader',
+        ],
     }
 
 

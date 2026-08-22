@@ -191,7 +191,7 @@ window.HekiFeedback = (() => {
       button.id = `ti-${fetish.id}`;
       button.setAttribute('aria-pressed', 'false');
       if (compact && index >= 3) button.classList.add('candidate-extra', 'hidden');
-      button.innerHTML = `<span>${escapeHtml(fetish.name)}${fetish.prob != null ? ` <span style="color:#888;font-size:0.78em">(${escapeHtml(fetish.prob)}%)</span>` : ''}</span>${fetish.desc ? `<span class="fetish-item-desc">${escapeHtml(fetish.desc)}</span>` : ''}`;
+      button.innerHTML = `<span>${escapeHtml(fetish.name)}${fetish.prob != null ? ` <span class="fetish-item-prob">(${escapeHtml(fetish.prob)}%)</span>` : ''}</span>${fetish.desc ? `<span class="fetish-item-desc">${escapeHtml(fetish.desc)}</span>` : ''}`;
       button.onclick = () => toggleTeachItem(fetish.id, fetish.name, button);
       list.appendChild(button);
     });
@@ -201,7 +201,7 @@ window.HekiFeedback = (() => {
       moreButton.setAttribute('aria-expanded', 'false');
       moreButton.textContent = 'ほかの候補を見る';
     }
-    document.getElementById('teach-submit-btn').style.display = '';
+    document.getElementById('teach-submit-btn').classList.remove('hidden');
     updateTeachSubmitBtn();
   }
 

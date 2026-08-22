@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ fetish_name }} — へきネイター {{ display_version }}</title>
 <meta name="robots" content="noindex,follow">
-<meta name="description" content="あなたの『癖』は…… {{ fetish_name }}{% if probability %} AI精度{{ probability }}%{% endif %}">
+<meta name="description" content="あなたの『癖』は…… {{ fetish_name }}{% if probability %} 推定一致度{{ probability }}%{% endif %}">
 <meta property="og:title" content="あなたの『癖』は…… {{ fetish_name }}">
-<meta property="og:description" content="{% if probability %}AI精度{{ probability }}%。{% endif %}次はあなたの番です……">
+<meta property="og:description" content="{% if probability %}推定一致度{{ probability }}%。{% endif %}次はあなたの番です……">
 <meta property="og:type" content="website">
 <meta property="og:url" content="{{ share_url }}">
 {% if og_image %}<meta property="og:image" content="{{ og_image }}">{% endif %}
@@ -16,7 +16,7 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="あなたの『癖』は…… {{ fetish_name }}">
-<meta name="twitter:description" content="{% if probability %}AI精度{{ probability }}%。{% endif %}次はあなたの番です……">
+<meta name="twitter:description" content="{% if probability %}推定一致度{{ probability }}%。{% endif %}次はあなたの番です……">
 {% if og_image %}<meta name="twitter:image" content="{{ og_image }}">{% endif %}
 <meta name="twitter:image:alt" content="へきネイター診断結果 {{ fetish_name }}">
 {% if adsense_client %}
@@ -68,7 +68,7 @@
   <div class="label">あなたの『癖』は……</div>
   {% if fetish_name %}
   <div class="name">{{ fetish_name }}</div>
-  {% if probability %}<div class="prob">AI精度{{ probability }}%</div>{% endif %}
+  {% if probability %}<div class="prob">推定一致度{{ probability }}%</div>{% endif %}
   {% if desc %}<div class="desc">{{ desc }}</div>{% endif %}
   <div class="share-box">{{ share_text }}</div>
   {% else %}

@@ -23,7 +23,7 @@ This document records the operational source of the start/completion funnel so a
 
 ## Versioned diagnosis summaries
 
-累積counterとは別に、schema version 2の匿名`diagnosis_summary`を診断終了時に1件だけ保存します。ブラウザsession内の一時状態は集計値を組み立てるためだけに使い、永続的なsession/run/user IDは発行しません。結果到達率、feedback完了率、再挑戦種別、続行、作品CTR、質問重複率の分母はこのsummary件数またはsummary内の結果到達件数です。
+累積counterとは別に、schema version 2の匿名`diagnosis_summary`を診断終了時に1件だけ保存します。ブラウザsession内の一時状態は集計値を組み立てるためだけに使い、永続的なsession/run/user IDは発行しません。結果到達率、feedback完了率、再挑戦種別、続行、作品CTR、質問重複、戻る、再照会、UIエラー、共有、所要時間の分母はこのsummary件数、回答数、またはsummary内の結果到達件数です。正確な定義は`docs/GAMEPLAY_METRICS.md`を正とします。
 
 `schema_version`のない過去イベントは`legacy`として分離し、新しい率の分母・分子には混ぜません。`release`別にも独立した分母で集計します。累積`start_count`/`completion_count`は長期互換用であり、release間のゲーム体験比較にはsummaryを使います。
 

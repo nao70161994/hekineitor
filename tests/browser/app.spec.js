@@ -41,7 +41,7 @@ test('completes a diagnosis in a real browser', async ({page}) => {
   await page.goto('/');
 
   await expect(page.getByRole('heading', {name: 'へきネイター'})).toBeVisible();
-  await page.getByRole('button', {name: 'スタート'}).click();
+  await page.getByRole('button', {name: '診断をはじめる'}).click();
 
   await expect(page.locator('#question-screen')).toBeVisible();
   await expect(page.locator('#question-text')).not.toHaveText('読み込み中…');
@@ -127,7 +127,7 @@ test('covers continue, feedback, history, and mobile transitions', async ({page}
   };
 
   await page.goto('/');
-  await page.getByRole('button', {name: 'スタート'}).click();
+  await page.getByRole('button', {name: '診断をはじめる'}).click();
   await expect(page.locator('#question-text')).toHaveText('最初の質問');
   await expect(page.locator('#question-text')).toBeInViewport();
   await page.getByRole('button', {name: 'はい', exact: true}).click();
@@ -159,9 +159,9 @@ test('covers continue, feedback, history, and mobile transitions', async ({page}
   expect(gameplayEvents.filter(event => event.event_name === 'work_impression').map(event => event.work_id).sort())
     .toEqual(['wrk_1', 'wrk_2', 'wrk_3', 'wrk_4', 'wrk_5']);
 
-  await page.getByRole('button', {name: '追加質問で精度を上げる'}).click();
+  await page.getByRole('button', {name: 'もう少し質問して絞り込む'}).click();
   await expect(page.locator('#question-text')).toHaveText('追加の質問');
-  await expect(page.locator('#question-stage-label')).toHaveText('追加質問 1/10');
+  await expect(page.locator('#question-stage-label')).toHaveText('質問 21・確信を確かめています');
   const savedPairs = await page.evaluate(() => JSON.parse(localStorage.getItem('heki_draft')).pairs);
   expect(savedPairs).toEqual([{q_id: 0, answer: 1}]);
 
@@ -228,7 +228,7 @@ test('retries an ambiguous answer with the same client request id', async ({page
   });
 
   await page.goto('/');
-  await page.getByRole('button', {name: 'スタート'}).click();
+  await page.getByRole('button', {name: '診断をはじめる'}).click();
   await page.getByRole('button', {name: 'はい', exact: true}).click();
   await expect(page.locator('#question-text')).toHaveText('次の質問');
   await expect.poll(() => payloads.length).toBe(2);
@@ -253,7 +253,7 @@ test('shows answer progress and locks an ambiguously failed answer for reconcili
   });
 
   await page.goto('/');
-  await page.getByRole('button', {name: 'スタート'}).click();
+  await page.getByRole('button', {name: '診断をはじめる'}).click();
   const yes = page.getByRole('button', {name: 'はい', exact: true});
   await yes.click();
   await expect(yes).toHaveAttribute('aria-pressed', 'true');
@@ -279,7 +279,7 @@ test('saves exclusions with title return and clears them only on discard', async
   }}));
 
   await page.goto('/');
-  await page.getByRole('button', {name: 'スタート'}).click();
+  await page.getByRole('button', {name: '診断をはじめる'}).click();
   await page.evaluate(() => window.HekiState.setExcludedIds([4, 7]));
   await page.getByRole('button', {name: 'はい', exact: true}).click();
   await page.getByRole('button', {name: 'タイトルへ'}).click();
@@ -364,7 +364,7 @@ test('stages compound detail feedback and finalizes one atomic batch', async ({p
   });
 
   await page.goto('/');
-  await page.getByRole('button', {name: 'スタート'}).click();
+  await page.getByRole('button', {name: '診断をはじめる'}).click();
   await page.getByRole('button', {name: 'はい', exact: true}).click();
   await expect(page.locator('.result-icon')).toBeInViewport();
   await expect(page.locator('#result-name')).toBeInViewport();
@@ -416,7 +416,7 @@ test('offers three near-miss corrections first and saves one correction atomical
   });
 
   await page.goto('/');
-  await page.getByRole('button', {name: 'スタート'}).click();
+  await page.getByRole('button', {name: '診断をはじめる'}).click();
   await page.getByRole('button', {name: 'はい', exact: true}).click();
   await page.getByRole('button', {name: '惜しい'}).click();
 
@@ -443,7 +443,7 @@ test('records feedback completion and a normal non-exclusion retry', async ({pag
   const retryBefore = gameplayEventCount('retry_started');
 
   await page.goto('/');
-  await page.getByRole('button', {name: 'スタート'}).click();
+  await page.getByRole('button', {name: '診断をはじめる'}).click();
   await completeDiagnosis(page);
   await page.getByRole('button', {name: '当たってる'}).click();
   await expect(page.locator('#quick-feedback-status')).toContainText('正解として学習しました');
@@ -453,7 +453,7 @@ test('records feedback completion and a normal non-exclusion retry', async ({pag
   const retryRequest = page.waitForRequest(request => (
     request.url().endsWith('/api/start') && request.method() === 'POST'
   ));
-  await page.getByRole('button', {name: 'スタート'}).click();
+  await page.getByRole('button', {name: '診断をはじめる'}).click();
   const request = await retryRequest;
   expect(request.postData()).toBeNull();
   await expect(page.locator('#question-screen')).toBeVisible();
@@ -477,7 +477,7 @@ test('falls back to selectable share text and reaches the bottom on narrow layou
 
   await page.setViewportSize({width: 320, height: 568});
   await page.goto('/');
-  await page.getByRole('button', {name: 'スタート'}).click();
+  await page.getByRole('button', {name: '診断をはじめる'}).click();
   await page.getByRole('button', {name: 'はい', exact: true}).click();
   await page.getByRole('button', {name: '友達にも試してもらう'}).click();
   await expect(page.locator('#modal-share-fallback')).toBeVisible();

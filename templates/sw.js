@@ -20,6 +20,7 @@ const STATIC = [
   '/static/feedback.js',
   '/static/share.js',
   '/static/pwa.js',
+  '/static/performance.js',
   '/static/events.js',
   '/offline',
 ];

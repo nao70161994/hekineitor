@@ -153,7 +153,7 @@ def _ogp_texts(name, prob, cjk_supported=True):
         return {
             'label': 'あなたの『癖』は……',
             'name': name or '???',
-            'prob': f'AI精度 {prob}%' if prob else '',
+            'prob': f'推定一致度 {prob}%' if prob else '',
             'title': '',
             'side': '次はあなたの番です……',
             'mark': 'AI',
@@ -303,7 +303,7 @@ def render_svg(name, prob):
   <text x="603" y="{y1 + 3}" text-anchor="middle" font-family="sans-serif" font-size="{fs_name}" font-weight="bold" fill="#2a0c16">{line1}</text>
   <text x="600" y="{y1}" text-anchor="middle" font-family="sans-serif" font-size="{fs_name}" font-weight="bold" fill="#fff8f2">{line1}</text>
   {'<text x="603" y="' + str(y2 + 3) + '" text-anchor="middle" font-family="sans-serif" font-size="' + str(fs_name) + '" font-weight="bold" fill="#2a0c16">' + line2 + '</text><text x="600" y="' + str(y2) + '" text-anchor="middle" font-family="sans-serif" font-size="' + str(fs_name) + '" font-weight="bold" fill="#fff8f2">' + line2 + '</text>' if line2 else ''}
-  {'<rect x="445" y="' + str((y2 if line2 else y1) + 44) + '" width="310" height="56" rx="18" fill="#24141c" stroke="#e94c60" stroke-width="2"/><text x="600" y="' + str((y2 if line2 else y1) + 84) + '" text-anchor="middle" font-family="sans-serif" font-size="42" fill="#f5a623">AI精度 ' + prob_text + '%</text>' if prob else ''}
+  {'<rect x="425" y="' + str((y2 if line2 else y1) + 44) + '" width="350" height="56" rx="18" fill="#24141c" stroke="#e94c60" stroke-width="2"/><text x="600" y="' + str((y2 if line2 else y1) + 84) + '" text-anchor="middle" font-family="sans-serif" font-size="38" fill="#f5a623">推定一致度 ' + prob_text + '%</text>' if prob else ''}
   <text x="600" y="525" text-anchor="middle" font-family="sans-serif" font-size="30" fill="#becadc">次はあなたの番です……</text>
   <text x="600" y="570" text-anchor="middle" font-family="sans-serif" font-size="18" fill="#5c6a80">hekineitor.onrender.com</text>
 </svg>'''

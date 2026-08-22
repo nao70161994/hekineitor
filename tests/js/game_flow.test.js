@@ -12,7 +12,6 @@ function questionDom() {
     <button class="btn-start" data-action="start-game">スタート</button>
     <button data-action="start-excluding"></button><button data-action="quick-retry"></button>
     <div id="resume-banner"></div><div id="question-text"></div>
-    <div id="question-answer-frame"></div>
     <div id="question-progress-message"></div>
     <div id="question-axis-tag"></div><div id="question-stage-label"></div>
     <div class="progress-bar"><div id="progress-fill"></div></div>
@@ -36,6 +35,7 @@ describe('HekiGameFlow', () => {
     });
     window.apiFetch = vi.fn();
     window.showToast = vi.fn();
+    window.trackGameplayEvent = vi.fn();
     window.show = vi.fn();
     window.setGenieState = vi.fn();
     window._clearDraft = vi.fn();
@@ -59,6 +59,12 @@ describe('HekiGameFlow', () => {
     expect(yes.getAttribute('aria-pressed')).toBe('true');
     expect(yes.disabled).toBe(true);
     expect(window.apiFetch).toHaveBeenCalledTimes(2);
+    expect(window.trackGameplayEvent).toHaveBeenCalledWith('answer_retried', {
+      source: 'question',
+      outcome: 'failure',
+      question_id: 1,
+      answered_count: 0,
+    });
     const firstPayload = window.apiFetch.mock.calls[0][1];
     const secondPayload = window.apiFetch.mock.calls[1][1];
     expect(firstPayload.answer_request_id).toBeTruthy();
@@ -121,7 +127,7 @@ describe('HekiGameFlow', () => {
     expect(window.show).toHaveBeenCalledWith('question-screen');
   });
 
-  it('shows the answer frame and progress without a question hint', () => {
+  it('uses the self-contained question and shows adaptive progress without a separate answer hint', () => {
     window.HekiGameFlow.showQuestion({
       question_id: 7,
       question: '安心できる場面より、緊張する場面の方が感覚が鋭くなる？',
@@ -131,22 +137,21 @@ describe('HekiGameFlow', () => {
       total: 20,
     });
 
-    expect(document.getElementById('question-answer-frame').textContent)
-      .toBe('回答の視点：普段の感覚・行動として');
+    expect(document.getElementById('question-answer-frame')).toBeNull();
     expect(document.getElementById('question-hint')).toBeNull();
     expect(window.HekiRenderers.setProgressMessage)
       .toHaveBeenCalledWith('答えが見えてきました…もう少しです');
   });
 
-  it('switches to an additional-question stage without moving progress backwards', () => {
+  it('describes adaptive phases without promising a fixed remaining question count', () => {
     window.HekiGameFlow.showQuestion({question_id: 1, question: 'Q', count: 19, total: 20});
-    expect(document.getElementById('progress-fill').style.width).toBe('95%');
-    expect(document.getElementById('question-stage-label').textContent).toBe('質問 20/20');
+    expect(document.getElementById('progress-fill').style.width).toBe('67%');
+    expect(document.getElementById('question-stage-label').textContent).toBe('質問 20・候補を比べています');
 
     window.HekiGameFlow.showQuestion({question_id: 2, question: 'Q2', count: 20, total: 30});
-    expect(document.getElementById('progress-fill').style.width).toBe('100%');
-    expect(document.getElementById('question-stage-label').textContent).toBe('追加質問 1/10');
-    expect(document.querySelector('.progress-bar').getAttribute('aria-valuetext')).toBe('追加質問 1/10');
+    expect(document.getElementById('progress-fill').style.width).toBe('74%');
+    expect(document.getElementById('question-stage-label').textContent).toBe('質問 21・確信を確かめています');
+    expect(document.getElementById('question-stage-label').textContent).not.toContain('/');
   });
 
   it('finalizes the anonymous summary on page exit after a result is shown', () => {

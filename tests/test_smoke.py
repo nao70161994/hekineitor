@@ -74,6 +74,7 @@ class TestSmoke(unittest.TestCase):
             '/static/feedback.js',
             '/static/share.js',
             '/static/pwa.js',
+            '/static/performance.js',
             '/static/events.js',
         ]
         positions = []
@@ -300,7 +301,13 @@ class TestSmoke(unittest.TestCase):
         with open(os.path.join(root, 'templates', 'sw.js'), 'rb') as f:
             sw = f.read()
         self.assertIn(b'const STATIC = [', sw)
-        for asset in (b"'/static/app.css'", b"'/static/app.js'", b"'/static/share.js'", b"'/static/pwa.js'"):
+        for asset in (
+            b"'/static/app.css'",
+            b"'/static/app.js'",
+            b"'/static/share.js'",
+            b"'/static/pwa.js'",
+            b"'/static/performance.js'",
+        ):
             self.assertIn(asset, sw)
         self.assertIn(b"url.pathname.includes('/admin')", sw)
         self.assertIn(b"caches.match('/offline')", sw)

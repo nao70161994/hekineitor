@@ -47,6 +47,29 @@ class GameplayEventTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'unknown gameplay outcome'):
             gameplay_events.build_event('result_shown', outcome='free form')
 
+    def test_web_vitals_are_bounded_and_aggregated_by_release(self):
+        events = [
+            gameplay_events.build_event(
+                'web_vitals', lcp_ms=value, inp_ms=value // 10, cls_milli=value // 20, release='release-a'
+            )
+            for value in (1000, 2000, 3000, 4000)
+        ]
+        events.append(
+            gameplay_events.build_event(
+                'web_vitals', lcp_ms=999999, inp_ms=999999, cls_milli=999999, release='release-b'
+            )
+        )
+
+        report = gameplay_events.event_report(events=events)
+
+        self.assertEqual(report['performance_by_release']['release-a']['sample_total'], 4)
+        self.assertEqual(report['performance_by_release']['release-a']['lcp_p75_ms'], 3000)
+        self.assertEqual(report['performance_by_release']['release-a']['inp_p75_ms'], 300)
+        self.assertEqual(report['performance_by_release']['release-a']['cls_p75'], 0.15)
+        self.assertEqual(report['performance_by_release']['release-b']['lcp_p75_ms'], 120000)
+        self.assertEqual(report['performance_by_release']['release-b']['inp_p75_ms'], 60000)
+        self.assertEqual(report['performance_by_release']['release-b']['cls_p75'], 10.0)
+
     def test_jsonl_round_trip_and_safe_recorder(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'gameplay.jsonl')
@@ -114,6 +137,13 @@ class GameplayEventTests(unittest.TestCase):
                 work_impressions=2,
                 work_clicks=1,
                 question_repeats=1,
+                back_count=1,
+                answer_retries=2,
+                ui_errors=1,
+                duration_seconds=180,
+                time_to_result_seconds=120,
+                share_attempted=True,
+                share_completed=True,
             ),
             gameplay_events.build_event(
                 'diagnosis_summary',
@@ -121,6 +151,7 @@ class GameplayEventTests(unittest.TestCase):
                 retry_kind='exclude_retry',
                 result_reached=True,
                 answered_count=10,
+                duration_seconds=60,
             ),
         ]
 
@@ -132,6 +163,14 @@ class GameplayEventTests(unittest.TestCase):
         self.assertEqual(report['metrics']['feedback_completion_rate'], 50.0)
         self.assertEqual(report['metrics']['work_click_rate'], 50.0)
         self.assertEqual(report['metrics']['question_repeat_rate'], 5.0)
+        self.assertEqual(report['metrics']['back_usage_rate'], 50.0)
+        self.assertEqual(report['metrics']['answer_retry_rate'], 10.0)
+        self.assertEqual(report['metrics']['ui_error_session_rate'], 50.0)
+        self.assertEqual(report['metrics']['ui_errors_per_100_answers'], 5.0)
+        self.assertEqual(report['metrics']['share_attempt_rate'], 50.0)
+        self.assertEqual(report['metrics']['share_completion_rate'], 100.0)
+        self.assertEqual(report['metrics']['average_duration_seconds'], 120.0)
+        self.assertEqual(report['metrics']['average_time_to_result_seconds'], 120.0)
         self.assertTrue(report['invariants']['valid'])
 
     def test_report_keeps_release_denominators_separate(self):
@@ -193,17 +232,25 @@ class GameplayEventTests(unittest.TestCase):
     def test_summary_lifecycle_has_no_player_identifier_and_is_finalized_once(self):
         session = {}
         recorded = []
-        gameplay_events.begin_summary(session, retry_kind='new')
-        gameplay_events.update_summary(session, 'result_shown', result_id=3, answered_count=12)
+        with patch.object(gameplay_events.time, 'time', return_value=1000):
+            gameplay_events.begin_summary(session, retry_kind='new')
+        with patch.object(gameplay_events.time, 'time', return_value=1120):
+            gameplay_events.update_summary(session, 'result_shown', result_id=3, answered_count=12)
         gameplay_events.update_summary(session, 'feedback_completed', outcome='maybe', correction_count=1)
         gameplay_events.update_summary(session, 'work_impression')
         gameplay_events.update_summary(session, 'work_click')
+        gameplay_events.update_summary(session, 'back_used')
+        gameplay_events.update_summary(session, 'answer_retried')
+        gameplay_events.update_summary(session, 'ui_error')
+        gameplay_events.update_summary(session, 'share_button_click')
+        gameplay_events.update_summary(session, 'copy_success')
 
         def record(event_name, **fields):
             recorded.append(gameplay_events.build_event(event_name, **fields))
             return recorded[-1]
 
-        first = gameplay_events.finalize_summary(session, 'completed', record)
+        with patch.object(gameplay_events.time, 'time', return_value=1180):
+            first = gameplay_events.finalize_summary(session, 'completed', record)
         second = gameplay_events.finalize_summary(session, 'completed', record)
 
         self.assertIsNotNone(first)
@@ -211,7 +258,33 @@ class GameplayEventTests(unittest.TestCase):
         self.assertEqual(first['feedback_outcome'], 'maybe')
         self.assertEqual(first['correction_count'], 1)
         self.assertEqual(first['work_clicks'], 1)
+        self.assertEqual(first['back_count'], 1)
+        self.assertEqual(first['answer_retries'], 1)
+        self.assertEqual(first['ui_errors'], 1)
+        self.assertEqual(first['duration_seconds'], 180)
+        self.assertEqual(first['time_to_result_seconds'], 120)
+        self.assertTrue(first['share_attempted'])
+        self.assertTrue(first['share_completed'])
+        self.assertFalse(any(key.startswith('_') for key in first))
         self.assertFalse({'session_id', 'run_id', 'ip', 'user_agent'} & set(first))
+
+    def test_summary_invariants_reject_impossible_share_and_duration_states(self):
+        invalid = gameplay_events.build_event(
+            'diagnosis_summary',
+            summary_status='abandoned',
+            result_reached=False,
+            share_attempted=False,
+            share_completed=True,
+            time_to_result_seconds=30,
+        )
+
+        report = gameplay_events.event_report(events=[invalid])
+
+        self.assertFalse(report['invariants']['valid'])
+        self.assertEqual(
+            report['invariants']['violations'],
+            ['share_completed_without_attempt', 'result_duration_without_result'],
+        )
 
     def test_report_separates_legacy_events_and_detects_invalid_summary(self):
         invalid = gameplay_events.build_event(

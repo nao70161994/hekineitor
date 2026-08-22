@@ -456,6 +456,14 @@ def back(ctx):
     else:
         q_data = ctx.engine.questions[previous_q]
         payload = question_payload(ctx.engine, previous_q, q_data['text'], count, ctx.question_total_for_count(count))
+    if not ctx.learning_disabled():
+        ctx.record_gameplay_event(
+            'back_used',
+            source='question',
+            outcome='success',
+            question_id=previous_q,
+            answered_count=len(answers),
+        )
     return ctx.jsonify(payload)
 
 
@@ -1233,6 +1241,11 @@ def share_event(ctx):
         edition_id=data.get('edition_id', ''),
         page=data.get('page', ''),
     )
+    if event:
+        ctx.update_gameplay_summary(
+            data.get('event_name', ''),
+            success=data.get('success') if 'success' in data else None,
+        )
     return ctx.jsonify({'status': 'ok', 'recorded': bool(event)})
 
 
@@ -1252,6 +1265,9 @@ def gameplay_event(ctx):
         answered_count=data.get('answered_count'),
         work_id=data.get('work_id', ''),
         edition_id=data.get('edition_id', ''),
+        lcp_ms=data.get('lcp_ms'),
+        inp_ms=data.get('inp_ms'),
+        cls_milli=data.get('cls_milli'),
     )
     if not event:
         return ctx.jsonify({'status': 'error', 'message': '不正な gameplay event です'}), 400

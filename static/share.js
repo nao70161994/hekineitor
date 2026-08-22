@@ -45,7 +45,7 @@ window.HekiShare = (() => {
       '',
       `『${name || '???'}』`,
     ];
-    if (probability !== '') lines.push('', `AI精度${probability}%`);
+    if (probability !== '') lines.push('', `推定一致度 ${probability}%`);
     lines.push('', '次はあなたの番です……');
     return lines.join('\n');
   }

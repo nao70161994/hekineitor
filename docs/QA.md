@@ -13,7 +13,7 @@ sh scripts/check.sh
 npm run test:e2e
 ```
 
-`scripts/check.sh`はPython compile、既存の安全性check、Ruff lint/format、段階導入したmypy、Python testとcoverage最低基準、ESLint、Vitestに加え、固定seedのゲームプレイ評価gateを実行します。評価のpersona、指標、baselineは[`GAMEPLAY_EVALUATION.md`](GAMEPLAY_EVALUATION.md)を参照してください。PlaywrightのChromium E2Eは、診断完走、manifest/offline、回答待機と通信失敗復帰、中断復帰、通常・除外再挑戦、追加質問、簡易・複合詳細feedbackと完了event、対抗候補との差・複合説明、理由付き作品表示とclick計測、共有失敗fallback、履歴再閲覧、320px/横向きでの最下部到達をCIの専用stepで検証します。
+`scripts/check.sh`はPython compile、既存の安全性check、Ruff lint/format、段階導入したmypy、Python testとcoverage最低基準、ESLint、Vitestに加え、固定seedのゲームプレイ評価gateを実行します。評価のpersona、指標、baselineは[`GAMEPLAY_EVALUATION.md`](GAMEPLAY_EVALUATION.md)を参照してください。PlaywrightのChromium E2Eは、診断完走、manifest/offline、回答待機と通信失敗復帰、中断復帰、通常・除外再挑戦、追加質問、簡易・複合詳細feedbackと完了event、対抗候補との差・複合説明、理由付き作品表示とclick計測、共有失敗fallback、履歴再閲覧に加え、axe WCAG 2.2 AA、keyboard dialog、320px、200%/400%文字拡大をCIの専用stepで検証します。
 
 個別に問題を切り分ける場合は次を使います。
 
@@ -28,10 +28,13 @@ npm run test:js       # ESLint + Vitest
 npm run test:static   # 静的asset・AdSense smoke
 npm run test:pwa      # service worker・share/OGP/PWA contract
 npm run test:e2e      # Chromium browser E2E
+npm run test:visual   # Linux Chromiumの開始・質問・結果visual回帰
 PYTHONPATH=. python scripts/public_experience_check.py  # 本番のcrawler meta・OGP・PWA resource（read-only）
 ```
 
 設定のsource of truthは`pyproject.toml`、`package.json`、`playwright.config.js`です。対象や閾値を変更した場合は、CIと`scripts/check.sh`も同じ変更で更新します。
+
+visual基準画像はLinux Chromiumでのみ更新します。意図したUI変更時は`Update visual baselines` workflowを手動実行し、artifactのPNGを目視してから`tests/visual/visual.spec.js-snapshots/`へ取り込みます。通常CIで自動更新して差分を承認したことにはしません。
 
 ## Manual checks
 

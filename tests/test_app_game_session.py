@@ -18,6 +18,27 @@ class TestGameSessionFlow(APITestCase):
         rejected = self.client.post('/api/gameplay_event', json={'event_name': 'arbitrary', 'source': 'history'})
         self.assertEqual(rejected.status_code, 400)
 
+    def test_gameplay_event_endpoint_records_only_bounded_web_vitals(self):
+        with patch('services.gameplay_events.safe_record_event') as record:
+            record.side_effect = lambda event_name, **fields: gameplay_events_service.build_event(event_name, **fields)
+            response = self.client.post(
+                '/api/gameplay_event',
+                json={
+                    'event_name': 'web_vitals',
+                    'source': 'system',
+                    'outcome': 'success',
+                    'lcp_ms': 2300,
+                    'inp_ms': 180,
+                    'cls_milli': 75,
+                    'url': 'https://should-not-be-recorded.test/private',
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        fields = record.call_args.kwargs
+        self.assertEqual((fields['lcp_ms'], fields['inp_ms'], fields['cls_milli']), (2300, 180, 75))
+        self.assertNotIn('url', fields)
+
     def test_expired_draft_finalizes_the_anonymous_summary_as_expired(self):
         def recorded(event_name, **fields):
             return {'event_name': event_name, **fields}
@@ -134,6 +155,9 @@ class TestGameSessionFlow(APITestCase):
         data = res.get_json()
         self.assertIn('question_id', data)
         self.assertIn('question', data)
+        with self.client.session_transaction() as session:
+            summary = session[gameplay_events_service.SUMMARY_SESSION_KEY]
+            self.assertEqual(summary['back_count'], 1)
 
     def test_back_no_duplicate_question(self):
         start = self._start()

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#17132d">
+<title>データの扱い — へきネイター</title>
+<meta name="description" content="へきネイターが保存するデータと、その利用目的・保持期間について説明します。">
+<link rel="canonical" href="{{ base_url }}/privacy">
+<link rel="stylesheet" href="/static/app.css{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}">
+</head>
+<body class="document-page">
+<a class="skip-link" href="#privacy-main">本文へ移動</a>
+<header class="site-header">
+  <p class="document-brand"><a href="/">へきネイター</a></p>
+  <h1>データの扱い</h1>
+</header>
+<main id="privacy-main" class="document-card" tabindex="-1">
+  <p class="document-summary">診断に必要な範囲だけを保存し、個人を識別するためには使いません。</p>
+
+  <section>
+    <h2>この端末に保存するもの</h2>
+    <p>途中の回答と除外した候補を、診断を再開できるようブラウザのlocalStorageへ最大7日間保存します。診断履歴もこの端末内に保存されます。タイトル画面からいつでも破棄できます。</p>
+  </section>
+
+  <section>
+    <h2>サーバーへ送るもの</h2>
+    <p>質問への回答、結果が当たったかどうか、診断の開始・完了・離脱、再挑戦、共有、作品リンクの表示・クリック、表示速度・レイアウトの安定性・操作応答の数値など、診断改善と不具合検知に必要なイベントを送ります。</p>
+    <p>氏名やメールアドレスの入力は求めず、端末内の診断履歴は送信しません。新しい性癖名や説明を任意で登録した場合、その入力内容は診断候補としてサーバーへ送られます。運用イベントにはIPアドレス、User-Agent、session識別子を保存しません。</p>
+  </section>
+
+  <section>
+    <h2>利用目的と保持</h2>
+    <p>回答から推定モデルを改善し、質問や結果の偏り、離脱、通信エラー、作品推薦の品質を集計するために利用します。運用イベントの標準保持期間は90日です。集計値は個人へ戻せない形で残る場合があります。</p>
+  </section>
+
+  <section>
+    <h2>外部サービス</h2>
+    <p>共有を選んだ場合は端末の共有機能またはXの投稿画面へ移動します。作品リンクを選んだ場合は外部販売サイトへ移動します。広告が有効な環境では広告配信事業者がCookie等を利用する場合があります。</p>
+  </section>
+
+  <p class="document-actions"><a class="btn btn-start" href="/">診断に戻る</a></p>
+</main>
+<footer class="site-footer"><span>へきネイター {{ display_version }}</span><a href="/fetishes">性癖一覧</a><a href="/stats">診断統計</a></footer>
+</body>
+</html>

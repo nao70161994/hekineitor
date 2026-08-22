@@ -28,7 +28,7 @@ def result_share_text(name, prob):
         f'『{name or "???"}』',
     ]
     if prob:
-        lines.extend(['', f'AI精度{prob}%'])
+        lines.extend(['', f'推定一致度{prob}%'])
     lines.extend(['', '次はあなたの番です……'])
     return '\n'.join(lines)
 
@@ -36,7 +36,7 @@ def result_share_text(name, prob):
 def result_tagline(name, prob):
     if not name:
         return ''
-    return f'AI精度{prob}%' if prob else '観測済み'
+    return f'推定一致度{prob}%' if prob else '観測済み'
 
 
 def public_base_url(environ, request):

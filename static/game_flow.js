@@ -107,39 +107,26 @@ function showQuestion(data) {
       progressEl.classList.toggle('hidden', !progressMessage);
     }
   }
-  const frameEl = document.getElementById('question-answer-frame');
-  const answerFrame = String(data.answer_frame || '').trim();
-  if (frameEl) {
-    frameEl.textContent = answerFrame ? `回答の視点：${answerFrame}` : '';
-    frameEl.classList.toggle('hidden', !answerFrame);
-  }
   const axisEl = document.getElementById('question-axis-tag');
   if (data.axis && axisLabels[data.axis]) {
     axisEl.textContent = axisLabels[data.axis];
     axisEl.className = 'axis-tag ' + data.axis;
-    axisEl.style.display = '';
+    axisEl.classList.remove('hidden');
   } else {
-    axisEl.style.display = 'none';
+    axisEl.classList.add('hidden');
   }
-  const total = Math.max(1, Number(data.total || 1));
-  const softTotal = Math.min(20, total);
-  const isExtended = total > softTotal && answeredCount >= softTotal;
-  const pct = isExtended ? 100 : Math.round((answeredCount / total) * 100);
+  const questionNumber = answeredCount + 1;
+  const phase = answeredCount < 12
+    ? {label: '手がかりを集めています', start: 8, span: 34, length: 12}
+    : answeredCount < 20
+      ? {label: '候補を比べています', start: 46, span: 24, length: 8}
+      : {label: '確信を確かめています', start: 74, span: 18, length: 10};
+  const phaseOffset = answeredCount < 12 ? answeredCount : answeredCount < 20 ? answeredCount - 12 : answeredCount - 20;
+  const pct = Math.min(92, Math.round(phase.start + (phaseOffset / phase.length) * phase.span));
   const progressFill = document.getElementById('progress-fill');
-  const progressBar = progressFill?.parentElement;
   const stageLabel = document.getElementById('question-stage-label');
   if (progressFill) progressFill.style.width = pct + '%';
-  if (progressBar) {
-    progressBar.setAttribute('aria-valuenow', String(pct));
-    progressBar.setAttribute('aria-valuetext', isExtended
-      ? `追加質問 ${Math.min(total - softTotal, answeredCount - softTotal + 1)}/${total - softTotal}`
-      : `質問 ${Math.min(total, answeredCount + 1)}/${total}`);
-  }
-  if (stageLabel) {
-    stageLabel.textContent = isExtended
-      ? `追加質問 ${Math.min(total - softTotal, answeredCount - softTotal + 1)}/${total - softTotal}`
-      : `質問 ${Math.min(total, answeredCount + 1)}/${total}`;
-  }
+  if (stageLabel) stageLabel.textContent = `質問 ${questionNumber}・${phase.label}`;
   document.getElementById('btn-back').style.visibility = data.count > 0 ? 'visible' : 'hidden';
   show('question-screen');
   setGenieState('idle');
@@ -194,8 +181,8 @@ async function submitPendingAnswer(maxAttempts) {
   if (!pendingAnswerRequest) return;
   let lastError = null;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const request = pendingAnswerRequest;
     try {
-      const request = pendingAnswerRequest;
       const data = await apiFetch('/api/answer', {
         question_id: request.questionId,
         answer: request.answer,
@@ -220,8 +207,14 @@ async function submitPendingAnswer(maxAttempts) {
         return;
       }
       const status = document.getElementById('answer-status');
-      if (attempt + 1 < maxAttempts && status) {
-        status.textContent = '応答を確認できません。同じ回答IDで状態を照会しています…';
+      if (attempt + 1 < maxAttempts) {
+        if (status) status.textContent = '応答を確認できません。同じ回答IDで状態を照会しています…';
+        window.trackGameplayEvent?.('answer_retried', {
+          source: 'question',
+          outcome: 'failure',
+          question_id: request.questionId,
+          answered_count: answeredCount,
+        });
       }
     }
   }

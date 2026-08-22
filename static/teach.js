@@ -1,4 +1,8 @@
 window.HekiTeach = (() => {
+  function setVisible(id, visible) {
+    document.getElementById(id)?.classList.toggle('hidden', !visible);
+  }
+
   function testPlayMessage(data, normalMessage) {
     return data && data.learning_disabled ? '✓ 保存せず確認しました。' : normalMessage;
   }
@@ -109,7 +113,7 @@ window.HekiTeach = (() => {
       show('done-screen');
     } finally {
       setFetching(false);
-      if (btn && document.getElementById('teach-screen')?.style.display !== 'none') {
+      if (btn && !document.getElementById('teach-screen')?.classList.contains('hidden')) {
         btn.textContent = previousText;
       }
     }
@@ -126,14 +130,15 @@ window.HekiTeach = (() => {
         const list = document.getElementById('add-similar-list');
         list.innerHTML = '';
         data.candidates.forEach(fetish => {
-          const div = document.createElement('div');
-          div.className = 'fetish-item';
-          div.textContent = fetish.name;
-          div.onclick = () => pickSimilar(fetish.id, fetish.name);
-          list.appendChild(div);
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'fetish-item';
+          button.textContent = fetish.name;
+          button.onclick = () => pickSimilar(fetish.id, fetish.name);
+          list.appendChild(button);
         });
-        document.getElementById('add-step1').style.display = 'none';
-        document.getElementById('add-step-similar').style.display = '';
+        setVisible('add-step1', false);
+        setVisible('add-step-similar', true);
       } else if (data.status === 'needs_desc') {
         showDescStep(name);
       } else {
@@ -150,15 +155,15 @@ window.HekiTeach = (() => {
 
   function addFetishConfirmNew() {
     const name = document.getElementById('new-fetish-name').value.trim();
-    document.getElementById('add-step-similar').style.display = 'none';
+    setVisible('add-step-similar', false);
     showDescStep(name);
   }
 
   function showDescStep(name) {
     document.getElementById('add-confirmed-name').textContent = name;
     document.getElementById('new-fetish-desc').value = '';
-    document.getElementById('add-step1').style.display = 'none';
-    document.getElementById('add-step2').style.display = '';
+    setVisible('add-step1', false);
+    setVisible('add-step2', true);
   }
 
   async function addFetishStep2(skip) {
@@ -178,15 +183,15 @@ window.HekiTeach = (() => {
     if (!window._addedItems) window._addedItems = [];
     window._addedItems.push({id: data.fetish_id, name: data.fetish_name, is_new: !!data.is_new});
 
-    document.getElementById('add-step1').style.display = 'none';
-    document.getElementById('add-step-similar').style.display = 'none';
-    document.getElementById('add-step2').style.display = 'none';
+    setVisible('add-step1', false);
+    setVisible('add-step-similar', false);
+    setVisible('add-step2', false);
     document.getElementById('new-fetish-name').value = '';
 
     if (window._addedItems.length < 3) {
       renderAddedList();
-      document.getElementById('add-step-more').style.display = '';
-      document.getElementById('add-skip-btn').style.display = 'none';
+      setVisible('add-step-more', true);
+      setVisible('add-skip-btn', false);
     } else {
       addFetishDone();
     }
@@ -197,12 +202,14 @@ window.HekiTeach = (() => {
     container.innerHTML = '';
     (window._addedItems || []).forEach(item => {
       const row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:4px;';
+      row.className = 'teach-added-row';
       const name = document.createElement('span');
-      name.style.cssText = 'flex:1;font-size:0.82rem;color:#27ae60;';
+      name.className = 'teach-added-name';
       name.textContent = `✓ ${item.name}`;
       const btn = document.createElement('button');
-      btn.style.cssText = 'background:none;border:1px solid #555;color:#888;border-radius:4px;padding:2px 8px;font-size:0.75rem;cursor:pointer;';
+      btn.type = 'button';
+      btn.className = 'teach-added-delete';
+      btn.setAttribute('aria-label', `${item.name}を取り消す`);
       btn.textContent = '×';
       btn.onclick = () => deleteAddedItem(item.id);
       row.append(name, btn);
@@ -223,9 +230,9 @@ window.HekiTeach = (() => {
       }
       window._addedItems = (window._addedItems || []).filter(candidate => candidate.id !== id);
       if (window._addedItems.length === 0) {
-        document.getElementById('add-step-more').style.display = 'none';
-        document.getElementById('add-step1').style.display = '';
-        document.getElementById('add-skip-btn').style.display = '';
+        setVisible('add-step-more', false);
+        setVisible('add-step1', true);
+        setVisible('add-skip-btn', true);
       } else {
         renderAddedList();
       }
@@ -235,9 +242,9 @@ window.HekiTeach = (() => {
   }
 
   function addFetishMore() {
-    document.getElementById('add-step-more').style.display = 'none';
-    document.getElementById('add-step1').style.display = '';
-    document.getElementById('add-skip-btn').style.display = '';
+    setVisible('add-step-more', false);
+    setVisible('add-step1', true);
+    setVisible('add-skip-btn', true);
   }
 
   async function addFetishDone() {
@@ -254,9 +261,9 @@ window.HekiTeach = (() => {
       }
     }
     window._addedItems = [];
-    document.getElementById('add-step-more').style.display = 'none';
-    document.getElementById('add-step1').style.display = '';
-    document.getElementById('add-skip-btn').style.display = '';
+    setVisible('add-step-more', false);
+    setVisible('add-step1', true);
+    setVisible('add-skip-btn', true);
     const names = items.map(item => item.name);
     if (window.setConfirmedIds) window.setConfirmedIds(items.map(item => item.id));
     document.getElementById('done-msg').textContent = testPlayMessage(finalizeData, `✓「${names.join('」「')}」を学習しました！`);

@@ -9,9 +9,10 @@ const source = readFileSync(resolve(testDir, '../../static/renderers.js'), 'utf8
 describe('HekiRenderers screen transitions', () => {
   beforeEach(() => {
     document.body.innerHTML = `
-      <div id="start-screen"></div><div id="question-screen" class="hidden"><h2 id="question-text" tabindex="-1">Q</h2></div>
+      <div id="start-screen"><h2 id="start-title" tabindex="-1">S</h2></div><div id="question-screen" class="hidden"><h2 id="question-text" tabindex="-1">Q</h2></div>
       <div id="result-screen" class="hidden"><h2 id="result-name" tabindex="-1">R</h2></div>
-      <div id="teach-screen"></div><div id="done-screen"></div>`;
+      <div id="teach-screen"><h2 id="teach-label" tabindex="-1">T</h2></div>
+      <div id="done-screen"><h2 id="done-msg" tabindex="-1">D</h2></div>`;
     vi.stubGlobal('requestAnimationFrame', callback => callback());
     Element.prototype.scrollIntoView = vi.fn();
     window.trackGameplayEvent = vi.fn();
@@ -54,6 +55,7 @@ describe('HekiRenderers screen transitions', () => {
     document.body.innerHTML += `
       <div id="result-kicker"></div><div id="result-badges"></div>
       <div id="result-rival" class="hidden"></div><div id="result-desc"></div>
+      <div id="top-chart"></div>
       <section id="reasons-section" class="hidden">
         <div class="reasons-label">決め手になった回答</div>
         <div id="reasons-list"></div>
@@ -69,7 +71,10 @@ describe('HekiRenderers screen transitions', () => {
         reasons: [{text: '本命そのものの決め手', ans: 0.5}],
         compound_explanation: '本命と要素Aの傾向が同時に表れました。',
         compound: [{fetish_id: 2, fetish_name: '要素A', fetish_desc: '要素Aの説明'}],
-        profile: [], related: [], works: [], cross_works: [], top_chart: [],
+        profile: [], related: [], works: [], cross_works: [], top_chart: [
+          {fetish_name: '本命', probability: 72},
+          {fetish_name: '対抗候補', probability: 63},
+        ],
       },
       {escapeHtml: String, safeExternalUrl: String},
     );
@@ -80,6 +85,10 @@ describe('HekiRenderers screen transitions', () => {
     expect(document.getElementById('contrastive-reasons-section').textContent)
       .toContain('対抗候補との差になった回答');
     expect(document.getElementById('reasons-section').textContent).toContain('本命そのものの決め手');
+    const chart = document.getElementById('top-chart');
+    expect(chart.querySelectorAll('progress')).toHaveLength(2);
+    expect(chart.querySelector('progress').value).toBe(100);
+    expect(chart.querySelector('progress').getAttribute('aria-label')).toContain('本命');
   });
 
   it('renders stable work identity attributes', () => {
@@ -93,8 +102,11 @@ describe('HekiRenderers screen transitions', () => {
   });
 
   it.each([
+    ['start-screen', 'start-title', 'start-title'],
     ['question-screen', 'question-text', 'question-text'],
     ['result-screen', 'result-name', 'result-screen'],
+    ['teach-screen', 'teach-label', 'teach-label'],
+    ['done-screen', 'done-msg', 'done-msg'],
   ])('scrolls to the intended content and focuses the main heading for %s', (screenId, headingId, scrollTargetId) => {
     window.HekiRenderers.showScreen(screenId);
     const heading = document.getElementById(headingId);

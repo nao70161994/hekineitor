@@ -13,7 +13,7 @@ window.HekiPwa = (() => {
   function dismissInstall() {
     if (!banner) return;
     banner.classList.add('hidden');
-    storageSet('install-dismissed', '1');
+    if (banner.dataset.mode !== 'update') storageSet('install-dismissed', '1');
   }
 
   function showUpdateBanner(swReg) {
@@ -21,9 +21,16 @@ window.HekiPwa = (() => {
     const btn = document.getElementById('btn-install');
     const installBanner = document.getElementById('install-banner');
     if (!msg || !btn || !installBanner) return;
+    installBanner.dataset.mode = 'update';
     msg.textContent = '新しいバージョンがあります';
     btn.textContent = '今すぐ更新';
+    btn.style.display = '';
     btn.onclick = () => {
+      if (window.gameState?.fetching) {
+        showToast('回答の送信が終わってから更新してください', '#7c4a03', 5000);
+        return;
+      }
+      window._saveDraft?.();
       if (swReg && swReg.waiting) swReg.waiting.postMessage({type: 'SKIP_WAITING'});
     };
     installBanner.classList.remove('hidden');
@@ -34,6 +41,7 @@ window.HekiPwa = (() => {
     window.addEventListener('beforeinstallprompt', event => {
       event.preventDefault();
       deferredPrompt = event;
+      banner.dataset.mode = 'install';
       if (!storageGet('install-dismissed')) banner.classList.remove('hidden');
     });
 
@@ -61,6 +69,7 @@ window.HekiPwa = (() => {
       const btn = document.getElementById('btn-install');
       if (msg) msg.textContent = 'ホーム画面に追加：Safari の 共有ボタン → "ホーム画面に追加"';
       if (btn) btn.style.display = 'none';
+      banner.dataset.mode = 'install';
       banner.classList.remove('hidden');
     }
   }
@@ -94,6 +103,12 @@ window.HekiPwa = (() => {
   function init() {
     bindInstallPrompt();
     registerServiceWorker();
+    window.addEventListener('offline', () => {
+      showToast('オフラインです。途中回答は端末に保存されます', '#7c4a03', 6000);
+    });
+    window.addEventListener('online', () => {
+      showToast('接続が戻りました。操作を再試行できます', '#167a43', 5000);
+    });
   }
 
   init();

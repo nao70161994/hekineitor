@@ -52,9 +52,13 @@ window.HekiRenderers = (() => {
     void target.offsetWidth;
     target.classList.add('screen-in');
     if (typeof onShown === 'function') onShown(id);
-    const focusTargetId = id === 'question-screen'
-      ? 'question-text'
-      : (id === 'result-screen' ? 'result-name' : null);
+    const focusTargetId = {
+      'start-screen': 'start-title',
+      'question-screen': 'question-text',
+      'result-screen': 'result-name',
+      'teach-screen': 'teach-label',
+      'done-screen': 'done-msg',
+    }[id];
     const focusTarget = focusTargetId ? document.getElementById(focusTargetId) : null;
     if (focusTarget) {
       requestAnimationFrame(() => {
@@ -109,16 +113,8 @@ window.HekiRenderers = (() => {
     const card = document.getElementById('result-screen')?.closest('.card');
     if (card) {
       const probability = data.probability;
-      if (probability >= 75) {
-        card.style.boxShadow = '0 0 24px rgba(245,166,35,0.45), 0 8px 32px rgba(0,0,0,0.4)';
-        card.style.border = '1.5px solid rgba(245,166,35,0.6)';
-      } else if (probability >= 50) {
-        card.style.boxShadow = '0 0 16px rgba(233,69,96,0.25), 0 8px 32px rgba(0,0,0,0.4)';
-        card.style.border = '1.5px solid rgba(233,69,96,0.35)';
-      } else {
-        card.style.boxShadow = '0 8px 32px rgba(0,0,0,0.4)';
-        card.style.border = '1.5px solid rgba(255,255,255,0.08)';
-      }
+      card.classList.remove('confidence-high', 'confidence-medium', 'confidence-low');
+      card.classList.add(probability >= 75 ? 'confidence-high' : probability >= 50 ? 'confidence-medium' : 'confidence-low');
     }
 
     animateProbability(data.probability);
@@ -147,7 +143,7 @@ window.HekiRenderers = (() => {
       ? (data.provisional_message || 'まだ読み切れません。今の回答から見える暫定結果です。')
       : 'あなたの『癖』は……';
     if (badges) {
-      badges.innerHTML = `<span>AI精度 ${escapeHtml(data.probability)}%</span>`;
+      badges.innerHTML = `<span>推定一致度 ${escapeHtml(data.probability)}%</span>`;
     }
     if (rival) {
       if (data.provisional) {
@@ -168,7 +164,7 @@ window.HekiRenderers = (() => {
     const step = Math.max(1, Math.round(target / 30));
     const timer = setInterval(() => {
       current = Math.min(current + step, target);
-      probEl.textContent = `AI精度 ${current}%`;
+      probEl.textContent = `推定一致度 ${current}%`;
       if (current >= target) clearInterval(timer);
     }, 30);
   }
@@ -180,20 +176,14 @@ window.HekiRenderers = (() => {
       const maxP = items[0].probability;
       chartEl.innerHTML = items.map((item, index) => {
         const targetW = Math.round(item.probability / maxP * 100);
-        const bg = index === 0 ? 'linear-gradient(90deg,#e94560,#f5a623)' : '#1a4a8a';
-        return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-          <div style="width:90px;font-size:0.72rem;color:${index===0?'#e94560':'#888'};text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${index===0?'本命 ':''}${escapeHtml(item.fetish_name)}</div>
-          <div style="flex:1;background:#0f3460;border-radius:3px;height:10px;overflow:hidden;">
-            <div class="chart-bar" data-w="${targetW}" style="height:100%;border-radius:3px;width:0%;background:${bg};transition:width 0.6s ease;"></div>
-          </div>
-          <div style="width:38px;font-size:0.72rem;color:#aaa;">${escapeHtml(item.probability)}%</div>
+        const primaryClass = index === 0 ? ' chart-row-primary' : '';
+        const name = escapeHtml(item.fetish_name);
+        return `<div class="chart-row${primaryClass}">
+          <div class="chart-name" title="${name}">${index === 0 ? '本命 ' : ''}${name}</div>
+          <progress class="chart-progress" aria-label="${name}の相対一致度" max="100" value="${targetW}">${targetW}%</progress>
+          <div class="chart-value">${escapeHtml(item.probability)}%</div>
         </div>`;
       }).join('');
-      requestAnimationFrame(() => {
-        chartEl.querySelectorAll('.chart-bar').forEach(el => {
-          el.style.width = el.dataset.w + '%';
-        });
-      });
     } else {
       chartEl.innerHTML = '';
     }

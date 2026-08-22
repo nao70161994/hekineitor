@@ -30,7 +30,7 @@ class TestShareAndSEO(APITestCase):
         self.assertIn('NTR', body)
         self.assertIn('82', body)
         self.assertIn('あなたの『癖』は……', body)
-        self.assertIn('AI精度82%', body)
+        self.assertIn('推定一致度82%', body)
         self.assertIn('次はあなたの番です……', body)
         self.assertNotIn('称号', body)
         self.assertNotIn('レア度', body)
@@ -72,7 +72,7 @@ class TestShareAndSEO(APITestCase):
                 self.assertEqual(res.status_code, 200)
                 body = res.data.decode('utf-8')
                 self.assertIn('感覚遮断落とし穴', body)
-                self.assertIn('AI精度93%', body)
+                self.assertIn('推定一致度93%', body)
                 self.assertIn(f'/r/{data["share_id"]}', body)
                 self.assertIn(
                     '/ogp.png?f=%E6%84%9F%E8%A6%9A%E9%81%AE%E6%96%AD%E8%90%BD%E3%81%A8%E3%81%97%E7%A9%B4&amp;p=93', body
@@ -98,7 +98,7 @@ class TestShareAndSEO(APITestCase):
         self.assertEqual(res.status_code, 200)
         body = res.data.decode('utf-8')
         self.assertIn('旧リンク結果', body)
-        self.assertIn('AI精度71%', body)
+        self.assertIn('推定一致度71%', body)
 
     def test_result_share_by_id_rate_limit_can_be_enforced(self):
         import app as app_module
@@ -165,14 +165,14 @@ class TestShareAndSEO(APITestCase):
         texts = ogp_service._ogp_texts('眼鏡', '88', cjk_supported=True)
         self.assertEqual(texts['label'], 'あなたの『癖』は……')
         self.assertEqual(texts['name'], '眼鏡')
-        self.assertEqual(texts['prob'], 'AI精度 88%')
+        self.assertEqual(texts['prob'], '推定一致度 88%')
         self.assertEqual(texts['mark'], 'AI')
         self.assertEqual(texts['mark_sub'], '観測ログ')
 
     def test_legacy_svg_ogp_uses_ai_badge_instead_of_question_mark(self):
         svg = ogp_service.render_svg('眼鏡', '88')
         self.assertIn('>あなたの『癖』は……</text>', svg)
-        self.assertIn('>AI精度 88%</text>', svg)
+        self.assertIn('>推定一致度 88%</text>', svg)
         self.assertNotIn('>?</text>', svg)
 
     def test_result_share_clamps_probability(self):
@@ -181,7 +181,7 @@ class TestShareAndSEO(APITestCase):
             with patch.dict(os.environ, {'SHARE_LINKS_PATH': path}):
                 res = self.client.get('/r?f=NTR&p=999&d=テスト')
         body = res.data.decode('utf-8')
-        self.assertIn('AI精度100%', body)
+        self.assertIn('推定一致度100%', body)
         self.assertIn('/ogp.png?f=NTR&amp;p=100', body)
         self.assertIn('/r?f=NTR&amp;p=100&amp;d=', body)
 
@@ -211,6 +211,10 @@ class TestShareAndSEO(APITestCase):
         self.assertNotIn('ip', event)
         self.assertNotIn('user_agent', event)
         self.assertNotIn('session', event)
+        with self.client.session_transaction() as session:
+            summary = session[gameplay_events_service.SUMMARY_SESSION_KEY]
+            self.assertTrue(summary['share_attempted'])
+            self.assertFalse(summary['share_completed'])
 
     def test_share_event_api_records_work_click_without_personal_data(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -303,6 +307,17 @@ class TestShareAndSEO(APITestCase):
         self.assertIn('property="og:url"', body)
         self.assertIn('href="/fetishes"', body)
         self.assertIn('href="/stats"', body)
+        self.assertIn('href="/privacy"', body)
+
+    def test_privacy_page_explains_local_and_server_data(self):
+        res = self.client.get('/privacy')
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        self.assertIn('<link rel="canonical"', body)
+        self.assertIn('最大7日間', body)
+        self.assertIn('標準保持期間は90日', body)
+        self.assertIn('IPアドレス、User-Agent、session識別子を保存しません', body)
+        self.assertIn('新しい性癖名や説明を任意で登録した場合', body)
 
     def test_fetish_index_page(self):
         res = self.client.get('/fetishes')
@@ -365,6 +380,7 @@ class TestShareAndSEO(APITestCase):
         body = res.data.decode('utf-8')
         self.assertIn('/fetishes', body)
         self.assertIn('/stats', body)
+        self.assertIn('/privacy', body)
         self.assertIn('/fetish/0', body)
         self.assertNotIn('/admin', body)
         self.assertNotIn('/api/', body)

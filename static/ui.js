@@ -1,6 +1,15 @@
 window.HekiUi = (() => {
 let activeModal = null;
 let modalReturnFocus = null;
+const modalBackgroundSelector = '.site-header, .app-main, .site-footer, .install-banner';
+
+function setModalBackgroundInert(inert) {
+  document.querySelectorAll(modalBackgroundSelector).forEach(element => {
+    element.inert = inert;
+    if (inert) element.setAttribute('aria-hidden', 'true');
+    else element.removeAttribute('aria-hidden');
+  });
+}
 function show(id) {
   if (window.HekiRenderers?.showScreen) {
     window.HekiRenderers.showScreen(id, shownId => {
@@ -88,9 +97,13 @@ function confirmRestart() {
 }
 
 function closeModal(id) {
-  document.getElementById(id)?.classList.add('hidden');
+  const modal = document.getElementById(id);
+  if (!modal || modal !== activeModal) return;
+  modal.classList.add('hidden');
   activeModal = null;
-  modalReturnFocus?.focus();
+  setModalBackgroundInert(false);
+  const returnTarget = modalReturnFocus?.isConnected ? modalReturnFocus : document.getElementById('app-main');
+  returnTarget?.focus({preventScroll: true});
   modalReturnFocus = null;
 }
 
@@ -116,8 +129,9 @@ function openModal(id) {
   if (!modal) return;
   modalReturnFocus = document.activeElement;
   activeModal = modal;
+  setModalBackgroundInert(true);
   modal.classList.remove('hidden');
-  requestAnimationFrame(() => modal.querySelector('button, textarea, [tabindex="-1"]')?.focus());
+  requestAnimationFrame(() => modal.querySelector('[role="dialog"]')?.focus({preventScroll: true}));
 }
 
 function handleModalKeydown(event) {
@@ -134,7 +148,10 @@ function handleModalKeydown(event) {
   if (!focusable.length) return;
   const first = focusable[0];
   const last = focusable.at(-1);
-  if (event.shiftKey && document.activeElement === first) {
+  if (!activeModal.contains(document.activeElement)) {
+    event.preventDefault();
+    (event.shiftKey ? last : first).focus();
+  } else if (event.shiftKey && document.activeElement === first) {
     event.preventDefault();
     last.focus();
   } else if (!event.shiftKey && document.activeElement === last) {

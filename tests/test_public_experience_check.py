@@ -14,6 +14,16 @@ def _fake_fetcher(url, _headers):
     base = 'https://example.com'
     if url == f'{base}/health':
         return _response('application/json', b'{"status":"ok"}')
+    if url == f'{base}/':
+        return _response(
+            'text/html',
+            (
+                '<h1>ひとつ、思い浮かべてください</h1>答えそのものを直接聞かず'
+                '<a href="/privacy">data</a><script src="/static/performance.js"></script>'
+            ).encode(),
+        )
+    if url == f'{base}/privacy':
+        return _response('text/html', 'データの扱い 最大7日間 90日'.encode())
     if url.startswith(f'{base}/r?'):
         image = f'{base}/ogp.png?f=%E7%9C%BC%E9%8F%A1&amp;p=88'
         tags = {
@@ -50,6 +60,8 @@ def _fake_fetcher(url, _headers):
         return _response('application/manifest+json', body)
     if url == f'{base}/sw.js':
         return _response('application/javascript', b"install; fetch; '/offline'")
+    if url == f'{base}/static/performance.js':
+        return _response('application/javascript', b"PerformanceObserver; event_name: 'web_vitals'")
     if url == f'{base}/offline':
         return _response('text/html', b'<h1>offline</h1>')
     raise AssertionError(url)
@@ -65,16 +77,20 @@ def test_public_experience_report_covers_crawlers_ogp_and_pwa():
     assert report['status'] == 'passed'
     assert [row['name'] for row in report['checks']] == [
         'health',
+        'home_ui_contract',
+        'privacy',
         'crawler_metadata',
         'ogp_png',
         'manifest',
         'service_worker',
+        'web_vitals',
         'offline',
     ]
     assert report['manual_boundaries'] == [
         'external_preview_rendering',
         'native_share_sheet',
         'installed_pwa_lifecycle',
+        'physical_screen_reader',
     ]
 
 
