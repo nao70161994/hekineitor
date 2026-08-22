@@ -11,9 +11,10 @@ python -m pip install -r requirements-dev.txt
 npm ci
 sh scripts/check.sh
 npm run test:e2e
+npm run test:visual
 ```
 
-`scripts/check.sh`はPython compile、既存の安全性check、Ruff lint/format、段階導入したmypy、Python testとcoverage最低基準、ESLint、Vitestに加え、固定seedのゲームプレイ評価gateを実行します。評価のpersona、指標、baselineは[`GAMEPLAY_EVALUATION.md`](GAMEPLAY_EVALUATION.md)を参照してください。PlaywrightのChromium E2Eは、診断完走、manifest/offline、回答待機と通信失敗復帰、中断復帰、通常・除外再挑戦、追加質問、簡易・複合詳細feedbackと完了event、対抗候補との差・複合説明、理由付き作品表示とclick計測、共有失敗fallback、履歴再閲覧に加え、axe WCAG 2.2 AA、keyboard dialog、320px、200%/400%文字拡大をCIの専用stepで検証します。
+`scripts/check.sh`はPython compile、既存の安全性check、Ruff lint/format、段階導入したmypy、Python testとcoverage最低基準、ESLint、Vitestに加え、固定seedのゲームプレイ評価gateを実行します。評価のpersona、指標、baselineは[`GAMEPLAY_EVALUATION.md`](GAMEPLAY_EVALUATION.md)を参照してください。PlaywrightのChromium E2Eは、診断完走、manifest/offline、回答待機と通信失敗復帰、中断復帰、通常・除外再挑戦、追加質問、簡易・複合詳細feedbackと完了event、対抗候補との差・複合説明、理由付き作品表示とclick計測、共有失敗fallback、履歴再閲覧に加え、axe WCAG 2.2 AA、keyboard dialog、320px、200%/400%文字拡大を検証します。承認済みLinux Chromium画像とのvisual回帰も通常CIの必須stepです。
 
 個別に問題を切り分ける場合は次を使います。
 
@@ -44,7 +45,7 @@ visual基準画像はLinux Chromiumでのみ更新します。意図したUI変�
 - 公開URLを使ったX、LINE、DiscordのOGP preview
 - 実browser profileでのPWA install/update/offline lifecycle
 
-`scripts/public_experience_check.py`は本番hostをHTTPS rootへ固定し、通常browser・Twitterbot・Discordbotのmeta一致、1200×630 PNG、manifest、service worker、offline routeを変更なしで検査します。2026-08-10の実行は全項目passedで、日本語OGPも`眼鏡`が読めることを画像で確認しました。外部アプリが実際に描画したpreview、OS native share sheet、インストール済みPWAの更新lifecycleは引き続き[`MANUAL_DEVICE_QA.md`](MANUAL_DEVICE_QA.md)の境界です。
+`scripts/public_experience_check.py`は本番hostをHTTPS rootへ固定し、通常browser・Twitterbot・Discordbotのmeta一致、1200×630 PNG、公開UI・privacy、manifest、service worker、offline、Web Vitals scriptを変更なしで検査します。日本語OGPは`眼鏡`が読めることも画像で確認します。外部アプリが実際に描画したpreview、OS native share sheet、インストール済みPWAの更新lifecycleは引き続き[`MANUAL_DEVICE_QA.md`](MANUAL_DEVICE_QA.md)の境界です。
 
 ## ゲーム体験回帰
 

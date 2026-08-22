@@ -4,9 +4,9 @@ This checklist is only for items that cannot be fully verified by HTTP smoke tes
 
 Production base URL: `https://hekineitor.onrender.com`
 
-## Automated boundary (2026-08-10)
+## Automated boundary (2026-08-22)
 
-`PYTHONPATH=. python scripts/public_experience_check.py`で、公開health、通常UA・Twitterbot・Discordbotのmeta一致、HTTPS PNG参照、1200×630 PNG、manifest、service worker、offline routeを確認済みです。PNGは`眼鏡`を含む日本語が読めることも目視済みで、本番のCJKフォント設定は正常です。以下には、外部アプリの実描画、OSのshare sheet、実browser profileのinstall/update状態など、自動HTTP・Chromium検証で代替できない項目だけを記録します。
+`PYTHONPATH=. python scripts/public_experience_check.py`で、公開health、UI・privacy契約、通常UA・Twitterbot・Discordbotのmeta一致、HTTPS PNG参照、1200×630 PNG、manifest、service worker、offline、Web Vitals scriptを検査します。Linux Chromiumではaxe、keyboard、320px、400%文字拡大、offline/resume/share fallbackと開始・質問・結果のvisual baselineを検査します。PNGは`眼鏡`を含む日本語が読めることも目視済みです。以下には、外部アプリの実描画、OSのshare sheet、実browser profileのinstall/update状態、物理端末のscreen readerなど、自動HTTP・Chromium検証で代替できない項目だけを記録します。
 
 ## X OGP Card
 
@@ -149,12 +149,13 @@ Production base URL: `https://hekineitor.onrender.com`
 - Steps:
   1. Complete a diagnosis on iPhone and Android.
   2. Stop on the result screen.
-  3. Take a screenshot without scrolling.
-  4. Confirm the result name, title/rarity, AI match rate, and share CTA are visible.
+  3. Take one screenshot without scrolling, then scroll through the full result.
+  4. Confirm the result name, description, 推定一致度, quick feedback, reasons, and later share CTA appear in that order.
 - Expected result:
   - The result is understandable at a glance.
   - Text does not overlap.
-  - The share CTA is visible or very near the first viewport.
+  - Result interpretation and feedback are visible before sharing actions.
+  - The share CTA is easy to find after the evidence sections; it does not displace the result explanation.
   - The card looks acceptable as a social screenshot.
 - Possible causes if NG:
   - Result name is too long.

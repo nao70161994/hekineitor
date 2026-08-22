@@ -28,6 +28,8 @@
 - Visual: 375pxの開始・質問、1280pxの結果をLinux Chromium PNG baselineと比較
 - 公開read-only QA: health、crawler meta、1200×630 PNG、manifest、service worker、offline
 
+baselineは2026-08-22に3画面を目視承認しました。画面切替時のskip link誤露出、非実データ形式fixtureによる重複名・空の割合表示を画像から検出して修正し、通常CIで差分を失敗扱いにします。
+
 ## 実利用データの扱い
 
 UI変更の評価はrelease別sampleで行います。十分な実利用baselineがない状態で、離脱率や所要時間を推測して質問数・停止条件・強い分散設計を変更しません。イベントはURL、IP、User-Agent、永続user/session/run ID、自由記述、回答値を含めません。新しい性癖名・説明を利用者が任意登録する導線だけは、その入力内容を明示的にserverへ送ります。
