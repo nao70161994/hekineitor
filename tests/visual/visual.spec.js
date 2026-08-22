@@ -11,15 +11,15 @@ const question = {
 
 const result = {
   fetish_id: 65,
-  fetish_name: '静かな共同生活 × 穏やかな信頼',
+  fetish_name: '静かな共同生活',
   fetish_desc: '言葉よりも、日々の小さな積み重ねに惹かれる傾向です。',
   probability: 72,
-  compound: [{fetish_id: 12, fetish_name: '穏やかな信頼', fetish_desc: '安心できる関係を大切にします。'}],
+  compound: [{fetish_id: 12, fetish_name: '穏やかな信頼', fetish_desc: '安心できる関係を大切にします。', probability: 63}],
   top_chart: [
     {fetish_id: 65, fetish_name: '静かな共同生活', probability: 72},
     {fetish_id: 12, fetish_name: '穏やかな信頼', probability: 63},
   ],
-  profile: [{label: '距離感', value: 'ゆっくり近づく'}],
+  profile: [{fetish_name: '日常の余韻', probability: 41}],
   related: [{fetish_id: 4, fetish_name: '日常の余韻'}],
   reasons: [{text: '静かな場所では、細かな変化に気づきやすい？', ans: 1}],
   works: [],

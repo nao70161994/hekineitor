@@ -78,7 +78,12 @@ def build_report(base_url: str, expected_host: str, *, fetcher=_fetch) -> dict:
     status, headers, body = fetcher(f'{base_url}/', {'User-Agent': 'Mozilla/5.0', 'Accept': 'text/html'})
     _require_response(status, headers, body, content_type='text/html')
     home = body.decode('utf-8')
-    for marker in ('ひとつ、思い浮かべてください', '答えそのものを直接聞かず', 'href="/privacy"', '/static/performance.js'):
+    for marker in (
+        'ひとつ、思い浮かべてください',
+        '答えそのものを直接聞かず',
+        'href="/privacy"',
+        '/static/performance.js',
+    ):
         if marker not in home:
             raise RuntimeError(f'public home is missing UI contract: {marker}')
     if 'question-answer-frame' in home or '約20問' in home:

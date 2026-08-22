@@ -61,11 +61,11 @@ window.HekiRenderers = (() => {
     }[id];
     const focusTarget = focusTargetId ? document.getElementById(focusTargetId) : null;
     if (focusTarget) {
-      requestAnimationFrame(() => {
-        const scrollTarget = id === 'result-screen' ? (target.closest('.card') || target) : focusTarget;
-        scrollTarget.scrollIntoView({block: 'start', behavior: 'auto'});
-        focusTarget.focus({preventScroll: true});
-      });
+      // Move focus before the browser repairs focus for the now-hidden control.
+      // Deferring this by one frame can briefly focus and expose the skip link.
+      const scrollTarget = id === 'result-screen' ? (target.closest('.card') || target) : focusTarget;
+      scrollTarget.scrollIntoView({block: 'start', behavior: 'auto'});
+      focusTarget.focus({preventScroll: true});
     }
   }
 

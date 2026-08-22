@@ -430,9 +430,7 @@ def _summary_metrics(summaries):
     errors = sum(int(event.get('ui_errors') or 0) for event in summaries)
     durations = [int(event['duration_seconds']) for event in summaries if event.get('duration_seconds') is not None]
     result_durations = [
-        int(event['time_to_result_seconds'])
-        for event in summaries
-        if event.get('time_to_result_seconds') is not None
+        int(event['time_to_result_seconds']) for event in summaries if event.get('time_to_result_seconds') is not None
     ]
     share_attempts = sum(bool(event.get('share_attempted')) for event in summaries)
     share_completions = sum(bool(event.get('share_completed')) for event in summaries)
@@ -449,9 +447,7 @@ def _summary_metrics(summaries):
         'question_repeat_rate': _rate(repeats, answered),
         'back_usage_rate': _rate(sum(int(event.get('back_count') or 0) > 0 for event in summaries), summary_count),
         'answer_retry_rate': _rate(retries, answered),
-        'ui_error_session_rate': _rate(
-            sum(int(event.get('ui_errors') or 0) > 0 for event in summaries), summary_count
-        ),
+        'ui_error_session_rate': _rate(sum(int(event.get('ui_errors') or 0) > 0 for event in summaries), summary_count),
         'ui_errors_per_100_answers': _rate(errors, answered),
         'share_attempt_rate': _rate(share_attempts, results),
         'share_completion_rate': _rate(share_completions, share_attempts),
