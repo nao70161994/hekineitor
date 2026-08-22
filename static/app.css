@@ -45,12 +45,6 @@
     margin-bottom: 8px;
     text-align: center;
   }
-  .subtitle {
-    color: var(--color-text-muted);
-    font-size: 0.85rem;
-    margin-bottom: 32px;
-    text-align: center;
-  }
 
   .adsense-slot {
     width: 100%;
@@ -741,16 +735,9 @@
   width: 100%;
   max-width: var(--content-width);
 }
-.site-header { text-align: center; }
-.site-header h1 { letter-spacing: 0.03em; }
+.site-header { margin-bottom: 32px; text-align: center; }
+.site-header h1 { margin-bottom: 0; letter-spacing: 0.03em; }
 .app-main { display: block; }
-.eyebrow {
-  margin-bottom: 8px;
-  color: var(--color-accent);
-  font-size: 0.76rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
 .screen-title {
   margin-bottom: 12px;
   color: var(--color-text);
@@ -1109,7 +1096,7 @@
 @media (max-height: 520px) and (orientation: landscape) {
   body { align-items:stretch; }
   body > * { margin-left:auto; margin-right:auto; width:100%; max-width:480px; }
-  .subtitle { margin-bottom:8px; }
+  .site-header { margin-bottom:8px; }
   .genie-wrap { height:72px; margin-bottom:6px; overflow:hidden; }
   #genie { width:64px; height:96px; transform-origin:50% 50%; }
   .card { margin-bottom:env(safe-area-inset-bottom); }

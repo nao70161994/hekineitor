@@ -13,7 +13,7 @@
 | P0 | 実際は12〜30問の適応終了なのに「約20問」「x/20」と断言 | 残り問数を約束せず現在の推論段階を示す | 「手がかり収集・候補比較・確信確認」と現在問数へ変更。JS unit/E2Eで固定分母がないことを検証 |
 | P0 | 曖昧な通信失敗で回答済みか不明なまま再操作できる | 同じrequest IDでのみ再照会し、二重回答しない | 回答ボタンlock、状態文、明示再照会、server replay契約、unit/Chromium E2E |
 | P0 | 結果理解より共有CTAが先行 | 結果名、説明、一致度の意味、feedback、根拠、作品の後に共有 | 結果情報階層を再配置し、DOM位置とaxeをE2E検証 |
-| P1 | 導入がゲームの考え方・所要時間・間接質問を説明しない | 1画面内で短く理解でき、再訪者は即開始できる | 導入文、3〜5分、IDK、戻る/7日保存、プライバシー導線を追加 |
+| P1 | 導入がゲームの考え方を伝えず、特定の性癖を一つ思い浮かべる遊びだと誤認させ得る | 普段の嗜好全体を基準に答えることが短く伝わり、再訪者は即開始できる | 一つの対象への誘導と重複説明を除去し、簡潔な導入、3〜5分、IDK、戻る/7日保存、プライバシー導線を整備 |
 | P1 | 質問の補助ヒントが本文と重複し、質問文だけで理解する方針と不一致 | 表示上の質問は自己完結した本文のみ | `answer_frame`表示を廃止。axisと進捗は回答内容を誘導しない補助情報に限定 |
 | P1 | 小画面、拡大、safe-area、dialog、focus、contrastの保証不足 | WCAG 2.2 AA目標、320px、400%、keyboard-onlyで操作可能 | semantic section/headings、skip link、48px target、focus trap/restore、inert、tokens、forced-colors/reduced-motion、axe E2E |
 | P1 | offline・SW更新時に回答喪失や行き止まりの説明不足 | 下書きを保ち、更新中断と再試行方法を明示 | 7日draft、更新前保存、送信中の更新延期、online/offline toast、retryable error文、PWA unit |

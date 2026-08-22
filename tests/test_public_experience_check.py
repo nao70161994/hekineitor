@@ -18,7 +18,7 @@ def _fake_fetcher(url, _headers):
         return _response(
             'text/html',
             (
-                '<h1>ひとつ、思い浮かべてください</h1>答えそのものを直接聞かず'
+                '<h1>あなたの「好き」、見抜けるかも</h1>普段の感覚で、直感的に答えてください。'
                 '<a href="/privacy">data</a><script src="/static/performance.js"></script>'
             ).encode(),
         )

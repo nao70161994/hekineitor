@@ -34,7 +34,6 @@
 <a class="skip-link" href="#app-main">診断へ移動</a>
 <header class="site-header">
   <h1>へきネイター</h1>
-  <p class="subtitle">あなたの「好き」の輪郭を、質問から読み解きます</p>
 </header>
 {% if learning_disabled %}
 <div class="test-play-banner" role="status">🧪 テストプレイ中：この診断は学習に反映されません</div>
@@ -137,10 +136,9 @@
 
   <!-- スタート画面 -->
   <section id="start-screen" aria-labelledby="start-title">
-    <p class="eyebrow">間接質問で読み解く性癖診断</p>
-    <h2 id="start-title" class="screen-title">ひとつ、思い浮かべてください</h2>
+    <h2 id="start-title" class="screen-title">あなたの「好き」、見抜けるかも</h2>
     <p class="start-lead">
-      好きな関係性やシチュエーションをひとつ思い浮かべ、直感で答えてください。答えそのものを直接聞かず、普段の感覚や選び方から推理します。
+      普段の感覚で、直感的に答えてください。
     </p>
     <div class="play-guide" aria-label="診断について">
       <strong>多くの場合20〜30問・3〜5分</strong>
@@ -179,7 +177,7 @@
     <h2 class="question-text" id="question-text" tabindex="-1">読み込み中…</h2>
     <div id="question-progress-message" class="question-progress-message hidden" aria-live="polite"></div>
     <div id="contradiction-hint" class="contradiction-hint hidden"></div>
-    <p class="answer-guide" id="answer-guide">思い浮かべた好みに近いほど「はい」、違うほど「いいえ」</p>
+    <p class="answer-guide" id="answer-guide">自分の好みに当てはまるほど「はい」、違うほど「いいえ」</p>
     <div class="btn-group" role="group" aria-labelledby="answer-guide">
       <button class="btn btn-yes"      data-action="send-answer" data-answer="1" aria-pressed="false">はい</button>
       <button class="btn btn-prob-yes" data-action="send-answer" data-answer="0.5" aria-pressed="false">どちらかといえばはい</button>

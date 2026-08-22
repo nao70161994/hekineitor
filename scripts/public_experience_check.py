@@ -81,8 +81,8 @@ def build_report(base_url: str, expected_host: str, *, fetcher=_fetch) -> dict:
     _require_response(status, headers, body, content_type='text/html')
     home = body.decode('utf-8')
     for marker in (
-        'ひとつ、思い浮かべてください',
-        '答えそのものを直接聞かず',
+        'あなたの「好き」、見抜けるかも',
+        '普段の感覚で、直感的に答えてください。',
         'href="/privacy"',
         '/static/performance.js',
     ):

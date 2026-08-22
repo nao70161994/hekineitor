@@ -18,8 +18,8 @@ test('start experience is understandable, keyboard reachable, and accessible', a
   }}));
   await page.goto('/');
 
-  await expect(page.getByRole('heading', {name: 'ひとつ、思い浮かべてください'})).toBeVisible();
-  await expect(page.getByText('答えそのものを直接聞かず')).toBeVisible();
+  await expect(page.getByRole('heading', {name: 'あなたの「好き」、見抜けるかも'})).toBeVisible();
+  await expect(page.getByText('普段の感覚で、直感的に答えてください。')).toBeVisible();
   await expect(page.getByText('多くの場合20〜30問・3〜5分')).toBeVisible();
   await expect(page.getByRole('link', {name: 'データの扱いを見る'})).toHaveAttribute('href', '/privacy');
   await expectNoSeriousAccessibilityViolations(page);
