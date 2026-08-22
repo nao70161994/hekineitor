@@ -723,7 +723,7 @@
 
 /* Public experience foundation */
 .skip-link {
-  position: fixed;
+  position: absolute;
   top: 8px;
   left: 8px;
   z-index: 2000;
