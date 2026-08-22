@@ -61,7 +61,7 @@ def _fake_fetcher(url, _headers):
     if url == f'{base}/sw.js':
         return _response('application/javascript', b"install; fetch; '/offline'")
     if url == f'{base}/static/performance.js':
-        return _response('application/javascript', b"PerformanceObserver; event_name: 'web_vitals'")
+        return _response('text/javascript', b"PerformanceObserver; event_name: 'web_vitals'")
     if url == f'{base}/offline':
         return _response('text/html', b'<h1>offline</h1>')
     raise AssertionError(url)

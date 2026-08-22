@@ -58,8 +58,10 @@ def _require_response(status, headers, body, *, content_type):
     if status != 200:
         raise RuntimeError(f'expected HTTP 200, received {status}')
     actual_type = headers.get('content-type', '').split(';', 1)[0].strip().lower()
-    if actual_type != content_type:
-        raise RuntimeError(f'expected {content_type}, received {actual_type or "missing content type"}')
+    expected_types = (content_type,) if isinstance(content_type, str) else tuple(content_type)
+    if actual_type not in expected_types:
+        expected = ' or '.join(expected_types)
+        raise RuntimeError(f'expected {expected}, received {actual_type or "missing content type"}')
     if not body:
         raise RuntimeError('response body is empty')
 
@@ -143,14 +145,14 @@ def build_report(base_url: str, expected_host: str, *, fetcher=_fetch) -> dict:
     checks.append({'name': 'manifest', 'status': 'passed'})
 
     status, headers, body = fetcher(f'{base_url}/sw.js', {'Accept': 'application/javascript'})
-    _require_response(status, headers, body, content_type='application/javascript')
+    _require_response(status, headers, body, content_type=('application/javascript', 'text/javascript'))
     source = body.decode('utf-8')
     if '/offline' not in source or 'fetch' not in source or 'install' not in source:
         raise RuntimeError('service worker does not expose install/fetch/offline contracts')
     checks.append({'name': 'service_worker', 'status': 'passed'})
 
     status, headers, body = fetcher(f'{base_url}/static/performance.js', {'Accept': 'application/javascript'})
-    _require_response(status, headers, body, content_type='application/javascript')
+    _require_response(status, headers, body, content_type=('application/javascript', 'text/javascript'))
     source = body.decode('utf-8')
     if "event_name: 'web_vitals'" not in source or 'PerformanceObserver' not in source:
         raise RuntimeError('public performance measurement contract is incomplete')
