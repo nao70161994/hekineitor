@@ -469,7 +469,7 @@ test('falls back to selectable share text and reaches the bottom on narrow layou
   await page.goto('/');
   await page.getByRole('button', {name: '診断をはじめる'}).click();
   await page.getByRole('button', {name: 'はい', exact: true}).click();
-  await page.getByRole('button', {name: '共有する'}).click();
+  await page.getByRole('button', {name: '共有する', exact: true}).click();
   await expect(page.locator('#modal-share-fallback')).toBeVisible();
   await expect(page.locator('#share-fallback-text')).toHaveValue(/本命 × 要素A × 要素B/);
   await page.getByRole('button', {name: '閉じる'}).click();
