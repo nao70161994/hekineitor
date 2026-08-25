@@ -21,7 +21,7 @@ test('start experience is understandable, keyboard reachable, and accessible', a
   await expect(page.getByRole('heading', {name: 'あなたの「好き」、見抜けるかも'})).toBeVisible();
   await expect(page.getByRole('button', {name: '診断をはじめる'})).toBeVisible();
   await expect(page.getByText('20〜30問・約3〜5分')).toBeVisible();
-  await expect(page.getByRole('link', {name: 'データの扱いを見る'})).toHaveAttribute('href', '/privacy');
+  await expect(page.getByRole('link', {name: 'データの扱い', exact: true})).toHaveAttribute('href', '/privacy');
   await expectNoSeriousAccessibilityViolations(page);
 
   await page.keyboard.press('Tab');

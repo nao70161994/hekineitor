@@ -277,7 +277,7 @@ test('saves exclusions with title return and clears them only on discard', async
   await page.getByRole('button', {name: '診断をはじめる'}).click();
   await page.evaluate(() => window.HekiState.setExcludedIds([4, 7]));
   await page.getByRole('button', {name: 'はい', exact: true}).click();
-  await page.getByRole('button', {name: 'タイトルへ'}).click();
+  await page.getByRole('button', {name: '中断', exact: true}).click();
   await expect(page.locator('#modal-restart-desc')).toContainText('除外リスト（2件）も失われます');
   await page.getByRole('button', {name: '保存してタイトルへ'}).click();
   await expect(page.locator('#resume-banner')).toBeVisible();
@@ -323,7 +323,7 @@ test('resumes a saved diagnosis and excludes every shown result on retry', async
   await expect(page.locator('#resume-count')).toHaveText('1');
   await expect(page.locator('#resume-updated-at')).not.toBeEmpty();
   await expect(page.locator('#resume-expires-at')).not.toBeEmpty();
-  await page.getByRole('button', {name: '続行する'}).click();
+  await page.getByRole('button', {name: '続きから遊ぶ'}).click();
   await expect(page.locator('#question-text')).toHaveText('復帰後の質問');
   expect(resumeBody.exclude_ids).toEqual([8, 9]);
   await page.getByRole('button', {name: 'はい', exact: true}).click();
@@ -480,6 +480,7 @@ test('falls back to selectable share text and reaches the bottom on narrow layou
   await expect(page.locator('#modal-share-fallback')).toBeVisible();
   await expect(page.locator('#share-fallback-text')).toHaveValue(/本命 × 要素A × 要素B/);
   await page.getByRole('button', {name: '閉じる'}).click();
+  await page.getByRole('button', {name: 'もう一度遊ぶ'}).click();
   const home = page.getByRole('button', {name: 'タイトルに戻る'}).first();
   await home.scrollIntoViewIfNeeded();
   await expect(home).toBeInViewport();
