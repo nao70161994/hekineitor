@@ -32,7 +32,7 @@
 - [x] 320px、200%/400%拡大、長い結果名で横overflow・重なりがない（2026-08-22）
 - [x] 開始・質問・結果のvisual baseline差分を目視承認し、`npm run test:visual`が成功（2026-08-22）
 - [x] offline、回答再照会、resume、共有取消/失敗fallbackで回答と操作導線を失わない（2026-08-22）
-- [ ] 開始・質問・結果の段階的開示、条件付き履歴/再開、完走後install、単一共有CTAをDOM/unit/Chromium/visualで確認（2026-08-26変更）
+- [x] 開始・質問・結果の段階的開示、条件付き履歴/再開、完走後install、単一共有CTAをDOM/unit/Chromium/visualで確認（visual workflow `32877647927`、3画面目視承認）
 - [ ] `/api/admin/gameplay_events`のWeb Vitals p75、UI error/retry、所要時間のrelease別sampleを確認
 - [ ] 公開URLで開始から結果・追加質問・再挑戦・共有fallbackまでtest-playし、health/OGP/PWA検査が成功
 - [ ] iOS/Android native share、実screen reader、installed PWA、外部SNS previewは`MANUAL_DEVICE_QA.md`へ記録

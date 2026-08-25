@@ -39,7 +39,7 @@ PWAインストールは完走済みの端末でだけ提示し、service worker
 - Visual: 375pxの開始・質問、1280pxの結果をLinux Chromium PNG baselineと比較
 - 公開read-only QA: health、crawler meta、1200×630 PNG、manifest、service worker、offline
 
-2026-08-26の変更では3画面のbaselineを更新・目視承認してから通常CIへ取り込みます。画面切替時のskip link誤露出、非実データ形式fixtureによる重複名・空の割合表示を画像から検出して修正し、通常CIで差分を失敗扱いにします。
+2026-08-26の3画面baselineはLinux Chromium workflow `32877647927`で生成し、開始の最小構成、375px質問のviewport内表示、結果の段階的開示、文字欠けがないことを目視承認しました。画面切替時のskip link誤露出、非実データ形式fixtureによる重複名・空の割合表示を画像から検出して修正し、通常CIで差分を失敗扱いにします。
 
 ## 実利用データの扱い
 
