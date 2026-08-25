@@ -298,7 +298,7 @@ class TestShareAndSEO(APITestCase):
         self.assertIn('data-action="quick-feedback" data-feedback="no"', body)
         self.assertIn('detail-feedback-panel hidden', body)
         self.assertIn('各結果を詳しく評価する', body)
-        result_section = body[body.index('id="result-screen"'):body.index('id="teach-screen"')]
+        result_section = body[body.index('id="result-screen"') : body.index('id="teach-screen"')]
         self.assertEqual(result_section.count('data-action="share-result"'), 1)
         self.assertIn('result-details hidden', body)
         self.assertIn('result-more-actions hidden', body)
