@@ -328,6 +328,7 @@ test('resumes a saved diagnosis and excludes every shown result on retry', async
   expect(resumeBody.exclude_ids).toEqual([8, 9]);
   await page.getByRole('button', {name: 'はい', exact: true}).click();
   await expect(page.locator('#result-name')).toHaveText('本命 × 要素A × 要素B');
+  await page.getByRole('button', {name: 'もう一度遊ぶ'}).click();
   await page.getByRole('button', {name: '当て直す'}).click();
   await expect(page.locator('#question-text')).toHaveText('除外後の質問');
   expect(retryBody.exclude_ids.sort((a, b) => a - b)).toEqual([1, 2, 3, 8, 9]);
