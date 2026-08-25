@@ -34,7 +34,8 @@
 - [x] offline、回答再照会、resume、共有取消/失敗fallbackで回答と操作導線を失わない（2026-08-22）
 - [x] 開始・質問・結果の段階的開示、条件付き履歴/再開、完走後install、単一共有CTAをDOM/unit/Chromium/visualで確認（visual workflow `32877647927`、3画面目視承認）
 - [ ] `/api/admin/gameplay_events`のWeb Vitals p75、UI error/retry、所要時間のrelease別sampleを確認
-- [ ] 公開URLで開始から結果・追加質問・再挑戦・共有fallbackまでtest-playし、health/OGP/PWA検査が成功
+- [x] 公開URLで30問を完走し、結果・詳細payload・最新文言とhealth/OGP/PWAを確認（2026-08-26）
+- [x] 戻る、再開、feedback、共有fallback、追加質問、再挑戦、offlineをChromium E2Eで確認（CI `32880548709`）
 - [ ] iOS/Android native share、実screen reader、installed PWA、外部SNS previewは`MANUAL_DEVICE_QA.md`へ記録
 
 ## Work catalog inline retirement
