@@ -1029,7 +1029,7 @@ body[data-screen="question-screen"] .btn-group .btn { min-height: 48px; padding:
 .answer-status:empty { display: none; }
 
 body[data-screen="result-screen"] .site-header { margin-bottom: 4px; }
-body[data-screen="result-screen"] .genie-wrap { height: 78px; margin-bottom: 6px; overflow: hidden; }
+body[data-screen="result-screen"] .genie-wrap { height: 60px; margin-bottom: 6px; overflow: hidden; }
 body[data-screen="result-screen"] #genie { width: 60px; height: 95px; transform-origin: 50% 50%; }
 body[data-screen="result-screen"] .card { padding-top: 20px; }
 body[data-screen="result-screen"] .result-icon { margin-bottom: 2px; font-size: 2.2rem; }
