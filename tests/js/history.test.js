@@ -14,15 +14,18 @@ describe('HekiHistory', () => {
       getItem: key => storage.get(key) ?? null,
       setItem: (key, value) => storage.set(key, String(value)),
     });
-    document.body.innerHTML = '<span id="history-badge" class="hidden"></span><div id="history-panel" class="hidden"></div>';
+    document.body.innerHTML = "<button id=history-btn class=hidden aria-expanded=false></button><span id=history-badge class=hidden></span><div id=history-panel class=hidden></div>";
     window.escapeHtml = value => String(value);
     window.startGame = vi.fn();
     window.showGuess = vi.fn();
     window._trackShareEvent = vi.fn();
     window.trackGameplayEvent = vi.fn();
+    window.HekiPwa = {markGameCompleted: vi.fn()};
     window._excludedIds = [];
     window.HekiState = {setExcludedIds: vi.fn(ids => { window._excludedIds = ids; })};
     window.eval(source);
+    window.HekiHistory.updateHistoryBadge();
+    expect(document.getElementById("history-btn").classList.contains("hidden")).toBe(true);
   });
   it('reopens a stored result without adding a duplicate history item', () => {
     const result = {fetish_id: 3, fetish_name: '主結果', fetish_desc: '説明', probability: 70, compound: [], works: []};

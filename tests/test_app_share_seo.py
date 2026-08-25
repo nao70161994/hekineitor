@@ -297,7 +297,16 @@ class TestShareAndSEO(APITestCase):
         self.assertIn('data-action="quick-feedback" data-feedback="maybe"', body)
         self.assertIn('data-action="quick-feedback" data-feedback="no"', body)
         self.assertIn('detail-feedback-panel hidden', body)
-        self.assertIn('詳細に○△×を付ける', body)
+        self.assertIn('各結果を詳しく評価する', body)
+        result_section = body[body.index('id="result-screen"'):body.index('id="teach-screen"')]
+        self.assertEqual(result_section.count('data-action="share-result"'), 1)
+        self.assertIn('result-details hidden', body)
+        self.assertIn('result-more-actions hidden', body)
+        self.assertNotIn('id="question-axis-tag"', body)
+        self.assertNotIn('id="progress-fill"', body)
+        self.assertNotIn('href="/admin"', body)
+        if 'adsense-slot-start' in body:
+            self.assertLess(body.index('data-action="start-game"'), body.index('adsense-slot-start'))
 
     def test_public_index_links_to_crawlable_pages(self):
         res = self.client.get('/')

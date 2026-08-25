@@ -16,6 +16,9 @@ npm run test:visual
 
 `scripts/check.sh`はPython compile、既存の安全性check、Ruff lint/format、段階導入したmypy、Python testとcoverage最低基準、ESLint、Vitestに加え、固定seedのゲームプレイ評価gateを実行します。評価のpersona、指標、baselineは[`GAMEPLAY_EVALUATION.md`](GAMEPLAY_EVALUATION.md)を参照してください。PlaywrightのChromium E2Eは、診断完走、manifest/offline、回答待機と通信失敗復帰、中断復帰、通常・除外再挑戦、追加質問、簡易・複合詳細feedbackと完了event、対抗候補との差・複合説明、理由付き作品表示とclick計測、共有失敗fallback、履歴再閲覧に加え、axe WCAG 2.2 AA、keyboard dialog、320px、200%/400%文字拡大を検証します。承認済みLinux Chromium画像とのvisual回帰も通常CIの必須stepです。
 
+UI情報階層の契約では、開始画面の主CTAが広告より前にあること、質問画面に固定分母・内部axis・進捗バーがないこと、結果詳細と再プレイ方法が初期状態で閉じていること、結果画面の共有主CTAが1つであることをPython、Vitest、Chromiumで検証します。履歴、再開、PWA案内は保存状態に応じた条件表示をunit testで固定します。
+
+
 個別に問題を切り分ける場合は次を使います。
 
 ```sh

@@ -10,6 +10,16 @@ window.HekiDraft = (() => {
   function formatDateTime(timestamp) {
     return new Intl.DateTimeFormat('ja-JP', {dateStyle: 'medium', timeStyle: 'short'}).format(new Date(timestamp));
   }
+  function setResumeVisible(visible) {
+    document.getElementById("resume-banner")?.classList.toggle("hidden", !visible);
+    document.getElementById("start-screen")?.classList.toggle("has-resume", visible);
+    const startButton = document.querySelector('[data-action="start-game"]');
+    if (startButton) {
+      startButton.textContent = visible ? "最初から始める" : "診断をはじめる";
+      startButton.classList.toggle("btn-start-secondary", visible);
+    }
+  }
+
 
   function validPair(pair) {
     if (!pair || pair.q_id === undefined) return false;
@@ -90,6 +100,7 @@ window.HekiDraft = (() => {
   }
 
   function clearDraft() {
+    setResumeVisible(false);
     draftPairs = [];
     try {
       localStorage.removeItem(DRAFT_KEY);
@@ -102,7 +113,6 @@ window.HekiDraft = (() => {
   function discardDraft() {
     clearDraft();
     restoreExcludeIds([]);
-    document.getElementById('resume-banner')?.classList.add('hidden');
     if (window.showToast) showToast('途中経過を破棄しました', '#555');
     if (window.trackGameplayEvent) {
       window.trackGameplayEvent('draft_discarded', {source: 'draft', outcome: 'discarded'});
@@ -110,6 +120,7 @@ window.HekiDraft = (() => {
   }
 
   function checkDraft() {
+    setResumeVisible(false);
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
       if (!raw) return;
@@ -146,7 +157,7 @@ window.HekiDraft = (() => {
         expiresEl.textContent = formatDateTime(expiresAt);
         expiresEl.dateTime = new Date(expiresAt).toISOString();
       }
-      document.getElementById('resume-banner').classList.remove('hidden');
+      setResumeVisible(true);
     } catch {}
   }
 
@@ -159,6 +170,7 @@ window.HekiDraft = (() => {
       const excludeIds = currentExcludeIds();
       const data = await apiFetch('/api/resume', {pairs, exclude_ids: excludeIds});
       restoreExcludeIds(excludeIds);
+      setResumeVisible(false);
       document.getElementById('resume-banner').classList.add('hidden');
       if (data.action === 'question') {
         draftPairs = pairs;
@@ -172,7 +184,7 @@ window.HekiDraft = (() => {
     } catch {
       draftPairs = pairs;
       saveDraft();
-      document.getElementById('resume-banner').classList.remove('hidden');
+      setResumeVisible(true);
     } finally {
       setFetching(false);
     }

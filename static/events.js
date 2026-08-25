@@ -40,6 +40,8 @@ window.HekiEvents = (() => {
     else if (action === 'submit-confirm') submitConfirm();
     else if (action === 'quick-feedback') quickFeedback(el.dataset.feedback);
     else if (action === 'toggle-detail-feedback') toggleDetailFeedback();
+    else if (action === 'toggle-result-details') window.HekiRenderers?.toggleResultDetails(el);
+    else if (action === 'toggle-result-actions') window.HekiRenderers?.toggleResultActions(el);
     else if (action === 'continue-game') continueGame();
     else if (action === 'show-start') showStart();
     else if (action === 'start-excluding') startExcluding();
@@ -58,7 +60,7 @@ window.HekiEvents = (() => {
     else if (action === 'do-restart') doRestart();
     else if (action === 'discard-restart') discardRestart();
     else if (action === 'toggle-more-works') window.HekiRenderers?.toggleMoreWorks(el);
-    else if (action === 'select-share-fallback') window.HekiShare?.selectFallbackText();
+    else if (action === 'copy-share-fallback') window.HekiShare?.copyFallbackText();
     else if (action === 'dismiss-install') dismissInstall();
     else if (action === 'set-item-state') setItemState(parseInt(el.dataset.id, 10), el.dataset.state, el);
     else if (action === 'retry-excluding') retryExcluding(parseInt(el.dataset.index, 10));

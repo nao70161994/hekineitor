@@ -30,7 +30,7 @@
 <meta name="twitter:image" content="{{ base_url }}/ogp.png?f=%E3%81%B8%E3%81%8D%E3%83%8D%E3%82%A4%E3%82%BF%E3%83%BC">
 <link rel="stylesheet" href="/static/app.css{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}">
 </head>
-<body>
+<body data-screen="start-screen">
 <a class="skip-link" href="#app-main">診断へ移動</a>
 <header class="site-header">
   <h1>へきネイター</h1>
@@ -137,53 +137,36 @@
   <!-- スタート画面 -->
   <section id="start-screen" aria-labelledby="start-title">
     <h2 id="start-title" class="screen-title">あなたの「好き」、見抜けるかも</h2>
-    <p class="start-lead">
-      普段の感覚で、直感的に答えてください。
-    </p>
-    <div class="play-guide" aria-label="診断について">
-      <strong>多くの場合20〜30問・3〜5分</strong>
-      <span>「わからない」も有効な手がかりです</span>
-      <span>回答は戻って修正でき、途中経過はこの端末だけに7日間保存されます</span>
-    </div>
-    {% include '_adsense_slot.html' with context %}
     <button class="btn btn-start" data-action="start-game">診断をはじめる</button>
-    <p class="start-privacy">開始すると匿名の回答傾向が診断改善に使われます。個人を識別する情報は収集しません。<a href="/privacy">データの扱いを見る</a></p>
-    <a class="catalog-link" href="/fetishes">性癖一覧を見る</a>
-    <button class="history-btn" id="history-btn" data-action="toggle-history" aria-expanded="false" aria-controls="history-panel">📜 診断履歴<span id="history-badge" class="history-badge hidden"></span></button>
+    <p class="start-meta">20〜30問・約3〜5分</p>
+    <button class="history-btn hidden" id="history-btn" data-action="toggle-history" aria-expanded="false" aria-controls="history-panel">診断履歴<span id="history-badge" class="history-badge hidden"></span></button>
     <div id="history-panel" class="history-panel hidden" aria-live="polite"></div>
     <div id="resume-banner" class="resume-banner hidden">
       <p><strong><span id="resume-count">0</span>問回答済みの診断があります</strong></p>
       <p class="resume-meta">最終回答: <time id="resume-updated-at"></time><br>保存期限: <time id="resume-expires-at"></time></p>
       <div class="resume-actions">
-        <button class="btn btn-idk" data-action="resume-game">続行する</button>
+        <button class="btn btn-start" data-action="resume-game">続きから遊ぶ</button>
         <button class="btn btn-quiet" data-action="discard-draft">破棄する</button>
       </div>
     </div>
+    {% include '_adsense_slot.html' with context %}
   </section>
 
   <!-- 質問画面 -->
   <section id="question-screen" class="hidden" aria-labelledby="question-text">
-    <div id="question-stage-label" class="question-stage-label" role="status" aria-live="polite">質問 1・手がかりを集めています</div>
-    <div class="progress-bar" aria-hidden="true">
-      <div class="progress-fill" id="progress-fill"></div>
-    </div>
     <nav class="question-nav" aria-label="診断の操作">
       <button class="btn-back" id="btn-back" data-action="go-back">← 戻る</button>
-      <button class="btn-back" data-action="confirm-restart">タイトルへ</button>
+      <span id="question-stage-label" class="question-stage-label" aria-live="polite">質問 1</span>
+      <button class="btn-exit" data-action="confirm-restart">中断</button>
     </nav>
-    <div class="question-axis-wrap">
-      <span id="question-axis-tag" class="axis-tag hidden"></span>
-    </div>
     <h2 class="question-text" id="question-text" tabindex="-1">読み込み中…</h2>
-    <div id="question-progress-message" class="question-progress-message hidden" aria-live="polite"></div>
-    <div id="contradiction-hint" class="contradiction-hint hidden"></div>
     <p class="answer-guide" id="answer-guide">自分の好みに当てはまるほど「はい」、違うほど「いいえ」</p>
-    <div class="btn-group" role="group" aria-labelledby="answer-guide">
-      <button class="btn btn-yes"      data-action="send-answer" data-answer="1" aria-pressed="false">はい</button>
+    <div class="btn-group" role="group" aria-label="回答">
+      <button class="btn btn-yes" data-action="send-answer" data-answer="1" aria-pressed="false">はい</button>
       <button class="btn btn-prob-yes" data-action="send-answer" data-answer="0.5" aria-pressed="false">どちらかといえばはい</button>
-      <button class="btn btn-idk"      data-action="send-answer" data-answer="0" aria-pressed="false">わからない</button>
-      <button class="btn btn-prob-no"  data-action="send-answer" data-answer="-0.5" aria-pressed="false">どちらかといえばいいえ</button>
-      <button class="btn btn-no"       data-action="send-answer" data-answer="-1" aria-pressed="false">いいえ</button>
+      <button class="btn btn-idk" data-action="send-answer" data-answer="0" aria-pressed="false">わからない</button>
+      <button class="btn btn-prob-no" data-action="send-answer" data-answer="-0.5" aria-pressed="false">どちらかといえばいいえ</button>
+      <button class="btn btn-no" data-action="send-answer" data-answer="-1" aria-pressed="false">いいえ</button>
     </div>
     <div id="answer-status" class="answer-status" role="status" aria-live="polite"></div>
     <button id="answer-reconcile" class="btn btn-idk answer-reconcile hidden" data-action="retry-pending-answer">同じ回答IDで状態を確認する</button>
@@ -195,10 +178,7 @@
     <div class="result-kicker" id="result-kicker"></div>
     <h2 class="result-name" id="result-name" tabindex="-1"></h2>
     <div class="result-badges" id="result-badges"></div>
-    <div class="result-rival hidden" id="result-rival"></div>
     <div class="result-desc" id="result-desc"></div>
-    <div class="result-prob" id="result-prob"></div>
-    <p class="result-prob-note">推定一致度は回答との近さを表す参考値です。同じ結果に偏りすぎないよう、最終候補の露出も調整しています。</p>
     <div class="quick-feedback" id="quick-feedback">
       <div class="quick-feedback-label">この結果、どうでしたか？</div>
       <div class="quick-feedback-actions">
@@ -208,44 +188,50 @@
       </div>
       <div class="quick-feedback-status hidden" id="quick-feedback-status" aria-live="polite"></div>
     </div>
-    <div class="reasons-section hidden" id="reasons-section">
-      <div class="reasons-label">決め手になった回答</div>
-      <div id="reasons-list"></div>
-    </div>
-    <div class="compound-reasons-section hidden" id="compound-reasons-section" aria-labelledby="compound-reasons-label">
-      <div class="reasons-label" id="compound-reasons-label">組み合わせごとの決め手</div>
-      <div id="compound-reasons-list"></div>
-    </div>
-    <div id="top-chart" class="top-chart" aria-label="近い候補の比較"></div>
-    <div class="profile-section hidden" id="profile-section">
-      <div class="profile-label">他に該当しそうなジャンル</div>
-      <div id="profile-list"></div>
-    </div>
-    <div class="related-section hidden" id="related-section">
-      <div class="related-label">関連ジャンル</div>
-      <div class="related-tags" id="related-tags"></div>
-    </div>
-    <div class="works-section hidden" id="works-section">
-      <div class="works-label" id="works-label">おすすめ作品</div>
-      <div class="works-tags cross-works-tags" id="cross-works-tags"></div>
-      <div class="works-tags" id="works-tags"></div>
+    <button class="result-details-toggle" data-action="toggle-result-details" aria-expanded="false" aria-controls="result-details">結果を詳しく見る</button>
+    <div class="result-details hidden" id="result-details">
+      <div class="result-rival hidden" id="result-rival"></div>
+      <div class="result-detail-desc" id="result-detail-desc"></div>
+      <div id="fetish-detail-link-slot"></div>
+      <p class="result-prob-note">一致度は回答との近さを表す参考値です。表示結果の偏りを抑える調整も行っています。</p>
+      <div class="reasons-section hidden" id="reasons-section">
+        <div class="reasons-label">決め手になった回答</div>
+        <div id="reasons-list"></div>
+      </div>
+      <div class="compound-reasons-section hidden" id="compound-reasons-section" aria-labelledby="compound-reasons-label">
+        <div class="reasons-label" id="compound-reasons-label">組み合わせごとの決め手</div>
+        <div id="compound-reasons-list"></div>
+      </div>
+      <div id="top-chart" class="top-chart" aria-label="近い候補の比較"></div>
+      <div class="profile-section hidden" id="profile-section">
+        <div class="profile-label">他に該当しそうなジャンル</div>
+        <div id="profile-list"></div>
+      </div>
+      <div class="related-section hidden" id="related-section">
+        <div class="related-label">関連ジャンル</div>
+        <div class="related-tags" id="related-tags"></div>
+      </div>
+      <div class="works-section hidden" id="works-section">
+        <div class="works-label" id="works-label">おすすめ作品</div>
+        <div class="works-tags cross-works-tags" id="cross-works-tags"></div>
+        <div class="works-tags" id="works-tags"></div>
+      </div>
+      <button class="detail-feedback-toggle" data-action="toggle-detail-feedback" aria-expanded="false">各結果を詳しく評価する</button>
+      <div class="detail-feedback-panel hidden" id="detail-feedback-panel">
+        <div class="confirm-label">各項目の正解を教えてください</div>
+        <div id="confirm-items"></div>
+        <button class="btn btn-correct confirm-submit" data-action="submit-confirm">確定して学習</button>
+      </div>
     </div>
     <div class="result-share-cta" aria-label="結果を共有">
-      <p>結果を残す・友達と比べる</p>
       <button class="btn-share btn-share-primary" data-action="share-result">共有する</button>
-      <button class="btn-share btn-share-secondary" data-action="share-x-result">Xで共有する</button>
     </div>
-    <button class="detail-feedback-toggle" data-action="toggle-detail-feedback" aria-expanded="false">詳細に○△×を付ける</button>
-    <div class="detail-feedback-panel hidden" id="detail-feedback-panel">
-      <div class="confirm-label">各項目の正解を教えてください</div>
-      <div id="confirm-items"></div>
-      <button class="btn btn-correct confirm-submit" data-action="submit-confirm">確定して学習</button>
-    </div>
-    <div class="result-primary-actions" aria-label="次にすること">
+    <button class="btn btn-retry-result result-again-toggle" data-action="toggle-result-actions" aria-expanded="false" aria-controls="result-more-actions">もう一度遊ぶ</button>
+    <div class="result-more-actions hidden" id="result-more-actions" aria-label="もう一度遊ぶ方法">
       <button class="btn btn-continue" data-action="continue-game">もう少し質問して絞り込む</button>
       <button id="btn-quick-retry" class="btn btn-retry-result btn-exclude" data-action="quick-retry">当て直す</button>
+      <button class="result-home-link" data-action="show-start">タイトルに戻る</button>
     </div>
-    <button class="result-home-link" data-action="show-start">タイトルに戻る</button>
     {% set placement = 'result' %}
     {% include '_adsense_slot.html' with context %}
   </section>
@@ -288,7 +274,7 @@
   <section id="done-screen" class="hidden" aria-labelledby="done-msg">
     <h2 class="msg" id="done-msg" tabindex="-1"></h2>
     <br>
-    <button class="btn-share" data-action="share-result">結果をXで見せる / コピー</button>
+    <button class="btn-share" data-action="share-result">結果を共有する</button>
     <button class="btn btn-retry" data-action="show-start">タイトルに戻る</button>
     <button class="btn btn-idk btn-exclude done-exclude" data-action="start-excluding">別の性癖を探す →</button>
   </section>
@@ -317,7 +303,8 @@
     <textarea id="share-fallback-text" rows="7" readonly></textarea>
     <div class="modal-btns">
       <button class="modal-cancel" data-action="close-modal" data-modal-id="modal-share-fallback">閉じる</button>
-      <button class="modal-save" data-action="select-share-fallback">テキストを選択</button>
+      <button class="modal-save" data-action="copy-share-fallback">コピー</button>
+      <button class="modal-save" data-action="share-x-result">Xで共有</button>
     </div>
   </div>
 </div>
@@ -326,7 +313,6 @@
   <a href="/fetishes">性癖一覧</a>
   <a href="/stats">診断統計</a>
   <a href="/privacy">データの扱い</a>
-  <a href="/admin" rel="nofollow">管理</a>
 </footer>
 
 <div class="install-banner hidden" id="install-banner" role="status" aria-live="polite" data-mode="install">

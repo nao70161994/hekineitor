@@ -107,6 +107,8 @@ test('covers continue, feedback, history, and mobile transitions', async ({page}
     return route.fulfill({json: {status: 'ok'}});
   });
   const revealFeaturedImpressions = async expectedOccurrences => {
+    const detailsButton = page.getByRole("button", {name: "結果を詳しく見る"});
+    if (await detailsButton.getAttribute("aria-expanded") === "false") await detailsButton.click();
     const cards = page.locator('.work-recommendation.featured');
     await expect(cards).toHaveCount(3);
     for (let index = 0; index < 3; index += 1) {
@@ -123,6 +125,7 @@ test('covers continue, feedback, history, and mobile transitions', async ({page}
   await page.getByRole('button', {name: 'はい', exact: true}).click();
   await expect(page.locator('#result-name')).toHaveText('NTR（寝取られ）');
   await expect(page.locator('#result-name')).toBeInViewport();
+  await page.getByRole("button", {name: "結果を詳しく見る"}).click();
   const featuredWorks = page.locator('.work-recommendation.featured');
   await expect(featuredWorks).toHaveCount(3);
   for (let index = 0; index < 3; index += 1) {
@@ -149,9 +152,10 @@ test('covers continue, feedback, history, and mobile transitions', async ({page}
   expect(gameplayEvents.filter(event => event.event_name === 'work_impression').map(event => event.work_id).sort())
     .toEqual(['wrk_1', 'wrk_2', 'wrk_3', 'wrk_4', 'wrk_5']);
 
+  await page.getByRole("button", {name: "もう一度遊ぶ"}).click();
   await page.getByRole('button', {name: 'もう少し質問して絞り込む'}).click();
   await expect(page.locator('#question-text')).toHaveText('追加の質問');
-  await expect(page.locator('#question-stage-label')).toHaveText('質問 21・確信を確かめています');
+  await expect(page.locator('#question-stage-label')).toHaveText('質問 21');
   const savedPairs = await page.evaluate(() => JSON.parse(localStorage.getItem('heki_draft')).pairs);
   expect(savedPairs).toEqual([{q_id: 0, answer: 1}]);
 
@@ -162,6 +166,7 @@ test('covers continue, feedback, history, and mobile transitions', async ({page}
   await page.getByRole('button', {name: '当たってる'}).click();
   await expect(page.locator('#quick-feedback-status')).toContainText('正解として学習しました');
 
+  await page.getByRole("button", {name: "もう一度遊ぶ"}).click();
   await page.getByRole('button', {name: 'タイトルに戻る'}).click();
   await page.getByRole('button', {name: /診断履歴/}).click();
   await expect(page.locator('#history-panel')).toContainText('NTR（寝取られ）');
@@ -356,12 +361,13 @@ test('stages compound detail feedback and finalizes one atomic batch', async ({p
   await page.goto('/');
   await page.getByRole('button', {name: '診断をはじめる'}).click();
   await page.getByRole('button', {name: 'はい', exact: true}).click();
+  await page.getByRole("button", {name: "結果を詳しく見る"}).click();
   await expect(page.locator('.result-icon')).toBeInViewport();
   await expect(page.locator('#result-name')).toBeInViewport();
   await expect(page.getByRole('region', {name: '対抗候補「対抗候補」との差になった回答'}))
     .toContainText('対抗候補との差になった決め手');
   await expect(page.locator('#result-rival')).toContainText('対抗候補「対抗候補」');
-  await expect(page.locator('#result-desc')).toContainText('本命と二つの要素が同時に表れました。');
+  await expect(page.locator('#result-detail-desc')).toContainText('本命と二つの要素が同時に表れました。');
   await expect(page.locator('#compound-reasons-section')).toContainText('要素Aの決め手');
   await expect(page.locator('.work-recommendation').first()).toContainText('複合要素が重なる理由');
   await page.evaluate(() => document.addEventListener('click', event => {
@@ -370,7 +376,7 @@ test('stages compound detail feedback and finalizes one atomic batch', async ({p
   await page.locator('a[data-work-title="複合作品"]').click();
   await expect.poll(() => shareEvents.some(event => event.event_name === 'work_click' && event.work_title === '複合作品')).toBe(true);
 
-  await page.getByRole('button', {name: '詳細に○△×を付ける'}).click();
+  await page.getByRole('button', {name: '各結果を詳しく評価する'}).click();
   await page.getByRole('button', {name: '本命: 当たっている'}).click();
   await page.getByRole('button', {name: '要素A: 惜しい'}).click();
   await page.getByRole('button', {name: '要素B: 違う'}).click();
@@ -439,6 +445,7 @@ test('records feedback completion and a normal non-exclusion retry', async ({pag
   await expect(page.locator('#quick-feedback-status')).toContainText('正解として学習しました');
   await expect.poll(() => gameplayEventCount('feedback_completed')).toBeGreaterThan(feedbackBefore);
 
+  await page.getByRole("button", {name: "もう一度遊ぶ"}).click();
   await page.getByRole('button', {name: 'タイトルに戻る'}).click();
   const retryRequest = page.waitForRequest(request => (
     request.url().endsWith('/api/start') && request.method() === 'POST'

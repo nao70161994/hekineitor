@@ -13,6 +13,7 @@ describe('HekiShare', () => {
     Object.defineProperty(navigator, 'share', {value: undefined, configurable: true});
     Object.defineProperty(navigator, 'clipboard', {value: {writeText}, configurable: true});
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ok: false}));
+    document.body.innerHTML = "<div id=modal-share-fallback class=hidden><textarea id=share-fallback-text></textarea></div>";
     window.open = vi.fn();
     window.showToast = vi.fn();
     window.trackGameplayEvent = vi.fn();
@@ -20,7 +21,7 @@ describe('HekiShare', () => {
     window.eval(source);
     window.HekiShare.setDiagnosedName('NTR');
   });
-  it('falls back to clipboard when native sharing fails', async () => {
+  it('offers explicit fallback choices when native sharing fails', async () => {
     Object.defineProperty(navigator, 'share', {
       value: vi.fn().mockRejectedValue(new Error('share failed')),
       configurable: true,
@@ -28,13 +29,18 @@ describe('HekiShare', () => {
     window.HekiShare.shareResult();
     await Promise.resolve();
     await Promise.resolve();
+    expect(document.getElementById("modal-share-fallback").classList.contains("hidden")).toBe(false);
+    expect(writeText).not.toHaveBeenCalled();
+    window.HekiShare.copyFallbackText();
+    await Promise.resolve();
     expect(writeText).toHaveBeenCalledOnce();
   });
 
-  it('copies through the secondary share action without opening X', async () => {
+  it('opens fallback choices without opening X when native sharing is unavailable', async () => {
     window.HekiShare.shareResult();
     await Promise.resolve();
-    expect(writeText).toHaveBeenCalledOnce();
+    expect(document.getElementById("modal-share-fallback").classList.contains("hidden")).toBe(false);
+    expect(writeText).not.toHaveBeenCalled();
     expect(window.open).not.toHaveBeenCalled();
   });
 

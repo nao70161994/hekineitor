@@ -6,13 +6,6 @@ window.HekiRenderers = (() => {
     if (el) el.textContent = value == null ? '' : String(value);
   }
 
-  function setProgressMessage(message) {
-    const el = document.getElementById('question-progress-message');
-    if (!el) return;
-    el.textContent = message || '';
-    el.classList.toggle('hidden', !message);
-  }
-
   function renderWorkTag(work, extraClass = '', helpers = {}) {
     const escapeHtml = helpers.escapeHtml || (value => String(value));
     const safeExternalUrl = helpers.safeExternalUrl || (value => value || null);
@@ -47,6 +40,7 @@ window.HekiRenderers = (() => {
       });
     const target = document.getElementById(id);
     if (!target) return;
+    document.body.dataset.screen = id;
     target.classList.remove('hidden');
     target.setAttribute('aria-hidden', 'false');
     void target.offsetWidth;
@@ -89,25 +83,27 @@ window.HekiRenderers = (() => {
       : data.fetish_name;
     setText('result-name', displayName);
     const compoundDetails = (data.compound || [])
-      .map(item => `${item.fetish_name}: ${item.fetish_desc || ''}`)
+      .map(item => `${item.fetish_name}: ${item.fetish_desc || ""}`)
       .filter(Boolean)
-      .join('\n');
+      .join("\n");
+    setText("result-desc", data.fetish_desc || "");
     setText(
-      'result-desc',
-      [data.fetish_desc, data.compound_explanation, compoundDetails].filter(Boolean).join('\n'),
+      "result-detail-desc",
+      [data.compound_explanation, compoundDetails].filter(Boolean).join("\n"),
     );
     renderResultDrama(data, displayName, escapeHtml);
 
-    const existingLink = document.getElementById('fetish-detail-link');
-    if (existingLink) existingLink.remove();
-    if (data.fetish_id != null) {
-      const detailLink = document.createElement('a');
-      detailLink.id = 'fetish-detail-link';
-      detailLink.className = 'fetish-detail-link';
+    const detailSlot = document.getElementById("fetish-detail-link-slot");
+    if (detailSlot) detailSlot.innerHTML = "";
+    if (detailSlot && data.fetish_id != null) {
+      const detailLink = document.createElement("a");
+      detailLink.id = "fetish-detail-link";
+      detailLink.className = "fetish-detail-link";
       detailLink.href = `/fetish/${data.fetish_id}`;
-      detailLink.target = '_blank';
-      detailLink.textContent = '📖 この性癖の詳細ページ';
-      document.getElementById('result-desc')?.after(detailLink);
+      detailLink.target = "_blank";
+      detailLink.rel = "noopener";
+      detailLink.textContent = "この性癖の詳細ページ";
+      detailSlot.append(detailLink);
     }
 
     const card = document.getElementById('result-screen')?.closest('.card');
@@ -143,7 +139,7 @@ window.HekiRenderers = (() => {
       ? (data.provisional_message || 'まだ読み切れません。今の回答から見える暫定結果です。')
       : 'あなたの『癖』は……';
     if (badges) {
-      badges.innerHTML = `<span>推定一致度 ${escapeHtml(data.probability)}%</span>`;
+      badges.innerHTML = `<span id="result-prob">推定一致度 ${escapeHtml(data.probability)}%</span>`;
     }
     if (rival) {
       if (data.provisional) {
@@ -190,21 +186,26 @@ window.HekiRenderers = (() => {
   }
 
   function resetFeedbackControls() {
-    const quickFeedback = document.getElementById('quick-feedback');
-    const quickFeedbackStatus = document.getElementById('quick-feedback-status');
-    if (quickFeedback) quickFeedback.querySelectorAll('button').forEach(btn => { btn.disabled = false; });
+    const quickFeedback = document.getElementById("quick-feedback");
+    const quickFeedbackStatus = document.getElementById("quick-feedback-status");
+    if (quickFeedback) quickFeedback.querySelectorAll("button").forEach(btn => { btn.disabled = false; });
     if (quickFeedbackStatus) {
-      quickFeedbackStatus.textContent = '';
-      quickFeedbackStatus.classList.add('hidden');
+      quickFeedbackStatus.textContent = "";
+      quickFeedbackStatus.classList.add("hidden");
     }
-    const detailPanel = document.getElementById('detail-feedback-panel');
-    const detailToggle = document.querySelector('[data-action="toggle-detail-feedback"]');
-    if (detailPanel) detailPanel.classList.add('hidden');
-    if (detailToggle) {
-      detailToggle.setAttribute('aria-expanded', 'false');
-      detailToggle.textContent = '詳細に○△×を付ける';
-      detailToggle.disabled = false;
-    }
+    const controls = [
+      ["result-details", '[data-action="toggle-result-details"]', "結果を詳しく見る"],
+      ["result-more-actions", '[data-action="toggle-result-actions"]', "もう一度遊ぶ"],
+      ["detail-feedback-panel", '[data-action="toggle-detail-feedback"]', "各結果を詳しく評価する"],
+    ];
+    controls.forEach(([panelId, selector, label]) => {
+      document.getElementById(panelId)?.classList.add("hidden");
+      const toggle = document.querySelector(selector);
+      if (!toggle) return;
+      toggle.setAttribute("aria-expanded", "false");
+      toggle.textContent = label;
+      toggle.disabled = false;
+    });
   }
 
   function renderConfirmItems(data, escapeHtml) {
@@ -454,16 +455,36 @@ window.HekiRenderers = (() => {
     }
     button.textContent = expanded ? `ほか${more.children.length}作品を見る` : 'おすすめ作品を閉じる';
   }
+  function toggleResultDetails(button) {
+    const panel = document.getElementById("result-details");
+    if (!panel || !button) return;
+    const expanded = button.getAttribute("aria-expanded") === "true";
+    button.setAttribute("aria-expanded", String(!expanded));
+    button.textContent = expanded ? "結果を詳しく見る" : "詳細を閉じる";
+    panel.classList.toggle("hidden", expanded);
+    if (!expanded) trackFeaturedWorks(window._guessData);
+  }
+
+  function toggleResultActions(button) {
+    const panel = document.getElementById("result-more-actions");
+    if (!panel || !button) return;
+    const expanded = button.getAttribute("aria-expanded") === "true";
+    button.setAttribute("aria-expanded", String(!expanded));
+    button.textContent = expanded ? "もう一度遊ぶ" : "閉じる";
+    panel.classList.toggle("hidden", expanded);
+  }
+
 
   return {
     setText,
-    setProgressMessage,
     renderWorkTag,
     showScreen,
     showToast,
     renderGuess,
     trackFeaturedWorks,
     toggleMoreWorks,
+    toggleResultDetails,
+    toggleResultActions,
     renderContrastiveReasons,
     renderCompoundReasons,
     renderWorks,

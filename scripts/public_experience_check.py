@@ -82,7 +82,7 @@ def build_report(base_url: str, expected_host: str, *, fetcher=_fetch) -> dict:
     home = body.decode('utf-8')
     for marker in (
         'あなたの「好き」、見抜けるかも',
-        '普段の感覚で、直感的に答えてください。',
+        '20〜30問・約3〜5分',
         'href="/privacy"',
         '/static/performance.js',
     ):

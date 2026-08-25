@@ -1,6 +1,8 @@
 window.HekiPwa = (() => {
   let deferredPrompt = null;
   const banner = document.getElementById('install-banner');
+  let iosInstallAvailable = false;
+  const COMPLETED_GAME_KEY = 'heki-game-completed';
 
   function storageGet(key) {
     try { return localStorage.getItem(key); } catch { return null; }
@@ -42,7 +44,7 @@ window.HekiPwa = (() => {
       event.preventDefault();
       deferredPrompt = event;
       banner.dataset.mode = 'install';
-      if (!storageGet('install-dismissed')) banner.classList.remove('hidden');
+      if (storageGet(COMPLETED_GAME_KEY) && !storageGet('install-dismissed')) banner.classList.remove('hidden');
     });
 
     const installBtn = document.getElementById('btn-install');
@@ -64,14 +66,21 @@ window.HekiPwa = (() => {
 
     const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-    if (isIos && !isStandalone && !storageGet('install-dismissed')) {
-      const msg = document.getElementById('install-msg');
-      const btn = document.getElementById('btn-install');
-      if (msg) msg.textContent = 'ホーム画面に追加：Safari の 共有ボタン → "ホーム画面に追加"';
-      if (btn) btn.style.display = 'none';
-      banner.dataset.mode = 'install';
-      banner.classList.remove('hidden');
+    iosInstallAvailable = isIos && !isStandalone;
+    if (iosInstallAvailable) {
+      const msg = document.getElementById("install-msg");
+      const btn = document.getElementById("btn-install");
+      if (msg) msg.textContent = "ホーム画面に追加：Safari の共有ボタン → ホーム画面に追加";
+      if (btn) btn.style.display = "none";
+      banner.dataset.mode = "install";
+      if (storageGet(COMPLETED_GAME_KEY) && !storageGet("install-dismissed")) banner.classList.remove("hidden");
     }
+  }
+
+  function markGameCompleted() {
+    storageSet(COMPLETED_GAME_KEY, "1");
+    if (!banner || storageGet("install-dismissed") || banner.dataset.mode === "update") return;
+    if (deferredPrompt || iosInstallAvailable) banner.classList.remove("hidden");
   }
 
   function registerServiceWorker() {
@@ -112,7 +121,7 @@ window.HekiPwa = (() => {
   }
 
   init();
-  return {dismissInstall};
+  return {dismissInstall, markGameCompleted};
 })();
 
 window.dismissInstall = () => window.HekiPwa.dismissInstall();

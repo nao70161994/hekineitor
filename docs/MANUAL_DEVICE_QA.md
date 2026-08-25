@@ -4,7 +4,7 @@ This checklist is only for items that cannot be fully verified by HTTP smoke tes
 
 Production base URL: `https://hekineitor.onrender.com`
 
-## Automated boundary (2026-08-22)
+## Automated boundary (2026-08-26)
 
 `PYTHONPATH=. python scripts/public_experience_check.py`で、公開health、UI・privacy契約、通常UA・Twitterbot・Discordbotのmeta一致、HTTPS PNG参照、1200×630 PNG、manifest、service worker、offline、Web Vitals scriptを検査します。Linux Chromiumではaxe、keyboard、320px、400%文字拡大、offline/resume/share fallbackと開始・質問・結果のvisual baselineを検査します。PNGは`眼鏡`を含む日本語が読めることも目視済みです。以下には、外部アプリの実描画、OSのshare sheet、実browser profileのinstall/update状態、物理端末のscreen readerなど、自動HTTP・Chromium検証で代替できない項目だけを記録します。
 
@@ -149,14 +149,14 @@ Production base URL: `https://hekineitor.onrender.com`
 - Steps:
   1. Complete a diagnosis on iPhone and Android.
   2. Stop on the result screen.
-  3. Take one screenshot without scrolling, then scroll through the full result.
-  4. Confirm the result name, description, 推定一致度, quick feedback, reasons, and later share CTA appear in that order.
+  3. 初期表示で結果名、短い説明、一致度、quick feedback、共有、再プレイが読み取れることを確認する。
+  4. 「結果を詳しく見る」を開き、根拠、候補比較、関連ジャンル、おすすめ作品、詳細評価を確認する。
+  5. 「もう一度遊ぶ」を開き、追加質問、当て直し、タイトルへ戻るを確認する。
 - Expected result:
-  - The result is understandable at a glance.
-  - Text does not overlap.
-  - Result interpretation and feedback are visible before sharing actions.
-  - The share CTA is easy to find after the evidence sections; it does not displace the result explanation.
-  - The card looks acceptable as a social screenshot.
+  - 初期表示だけで結果を理解・評価でき、詳細情報は閉じている。
+  - 展開ボタンはkeyboardで操作でき、`aria-expanded`と表示状態が一致する。
+  - 共有CTAは1つだけで、詳細を開かなくても見つかる。
+  - 320〜375px幅で文字や操作が重ならない。
 - Possible causes if NG:
   - Result name is too long.
   - Viewport-specific spacing pushes CTA too low.
@@ -209,17 +209,17 @@ Production base URL: `https://hekineitor.onrender.com`
   - `https://hekineitor.onrender.com/offline`
   - `https://hekineitor.onrender.com/`
 - Steps:
-  1. Open the app in Android Chrome.
-  2. Confirm install prompt or browser install option is available.
-  3. Install the PWA where possible.
-  4. Open the installed PWA, then enable airplane mode.
+  1. Open the app in Android Chrome or iOS Safari.
+  2. 初回開始前にアプリ内install bannerが表示されないことを確認する。
+  3. 診断を完走し、その後にinstall案内が表示されることを確認する。
+  4. Install the PWA where possible, then enable airplane mode.
   5. Navigate or reload and confirm the offline page or cached app behavior is acceptable.
   6. After a deploy, reopen and confirm update/reload behavior does not trap the old version.
 - Expected result:
-  - Manifest is accepted by the browser.
-  - Service worker registers.
-  - Offline route is usable.
-  - Update does not leave the app in a broken mixed-version state.
+  - Manifest is accepted and the service worker registers.
+  - Install案内はゲーム開始を妨げず、完走後だけ現れる。
+  - Service workerの更新通知は完走前でも安全に表示される。
+  - Offline route is usable and update does not leave a mixed-version state.
 - Possible causes if NG:
   - Browser does not meet install criteria yet.
   - Service worker cache did not update.

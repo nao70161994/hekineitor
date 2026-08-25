@@ -19,8 +19,8 @@ test('start experience is understandable, keyboard reachable, and accessible', a
   await page.goto('/');
 
   await expect(page.getByRole('heading', {name: 'あなたの「好き」、見抜けるかも'})).toBeVisible();
-  await expect(page.getByText('普段の感覚で、直感的に答えてください。')).toBeVisible();
-  await expect(page.getByText('多くの場合20〜30問・3〜5分')).toBeVisible();
+  await expect(page.getByRole('button', {name: '診断をはじめる'})).toBeVisible();
+  await expect(page.getByText('20〜30問・約3〜5分')).toBeVisible();
   await expect(page.getByRole('link', {name: 'データの扱いを見る'})).toHaveAttribute('href', '/privacy');
   await expectNoSeriousAccessibilityViolations(page);
 
@@ -34,7 +34,7 @@ test('start experience is understandable, keyboard reachable, and accessible', a
   await page.getByRole('button', {name: '診断をはじめる'}).focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('#question-text')).toBeFocused();
-  await expect(page.locator('#question-stage-label')).toHaveText('質問 1・手がかりを集めています');
+  await expect(page.locator('#question-stage-label')).toHaveText('質問 1');
   await expect(page.locator('#question-answer-frame')).toHaveCount(0);
   await expectNoSeriousAccessibilityViolations(page);
 });
@@ -74,7 +74,7 @@ test('restart dialog traps keyboard focus, hides the background, and restores th
   }}));
   await page.goto('/');
   await page.getByRole('button', {name: '診断をはじめる'}).click();
-  const trigger = page.getByRole('button', {name: 'タイトルへ', exact: true});
+  const trigger = page.getByRole('button', {name: '中断', exact: true});
   await trigger.click();
 
   const dialog = page.getByRole('dialog', {name: 'タイトルへ戻りますか？'});
@@ -114,9 +114,11 @@ test('result hierarchy explains confidence before offering share actions', async
   await page.getByRole('button', {name: 'はい', exact: true}).click();
 
   await expect(page.getByRole('heading', {name: '静かな共同生活'})).toBeFocused();
-  await expect(page.getByText('推定一致度は回答との近さ')).toBeVisible();
+  await expect(page.locator("#result-details")).toBeHidden();
   const descriptionBox = await page.locator('#result-desc').boundingBox();
   const shareBox = await page.getByRole('button', {name: '共有する', exact: true}).boundingBox();
   expect(descriptionBox.y).toBeLessThan(shareBox.y);
+  await page.getByRole("button", {name: "結果を詳しく見る"}).click();
+  await expect(page.getByText("一致度は回答との近さを表す参考値です。表示結果の偏りを抑える調整も行っています。")).toBeVisible();
   await expectNoSeriousAccessibilityViolations(page);
 });

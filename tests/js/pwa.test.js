@@ -74,4 +74,13 @@ describe('HekiPwa', () => {
       2, '接続が戻りました。操作を再試行できます', '#167a43', 5000,
     );
   });
+  it("shows the install invitation only after a completed game", () => {
+    const promptEvent = {preventDefault: vi.fn(), prompt: vi.fn(), userChoice: Promise.resolve({outcome: "dismissed"})};
+    windowListeners.get("beforeinstallprompt")(promptEvent);
+    expect(promptEvent.preventDefault).toHaveBeenCalledOnce();
+    expect(document.getElementById("install-banner").classList.contains("hidden")).toBe(true);
+    window.HekiPwa.markGameCompleted();
+    expect(localStorage.getItem("heki-game-completed")).toBe("1");
+    expect(document.getElementById("install-banner").classList.contains("hidden")).toBe(false);
+  });
 });

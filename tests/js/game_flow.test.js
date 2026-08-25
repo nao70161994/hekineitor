@@ -12,10 +12,8 @@ function questionDom() {
     <button class="btn-start" data-action="start-game">スタート</button>
     <button data-action="start-excluding"></button><button data-action="quick-retry"></button>
     <div id="resume-banner"></div><div id="question-text"></div>
-    <div id="question-progress-message"></div>
-    <div id="question-axis-tag"></div><div id="question-stage-label"></div>
-    <div class="progress-bar"><div id="progress-fill"></div></div>
-    <button id="btn-back"></button><div id="contradiction-hint"></div>
+    <div id="question-stage-label"></div><p id="answer-guide"></p>
+    <button id="btn-back"></button>
     <div id="question-screen"><div class="btn-group"><button class="btn" data-action="send-answer" data-answer="1" aria-pressed="false">はい</button></div>
     <div id="answer-status"></div>
     <button id="answer-reconcile" class="btn btn-idk answer-reconcile hidden"></button>
@@ -44,7 +42,6 @@ describe('HekiGameFlow', () => {
     window._pauseDraft = vi.fn();
     window.HekiRenderers = {
       setText: (id, value) => { document.getElementById(id).textContent = value; },
-      setProgressMessage: vi.fn(),
     };
     window.eval(source);
   });
@@ -127,31 +124,16 @@ describe('HekiGameFlow', () => {
     expect(window.show).toHaveBeenCalledWith('question-screen');
   });
 
-  it('uses the self-contained question and shows adaptive progress without a separate answer hint', () => {
-    window.HekiGameFlow.showQuestion({
-      question_id: 7,
-      question: '安心できる場面より、緊張する場面の方が感覚が鋭くなる？',
-      hint: '答えが見えてきました…もう少しです',
-      answer_frame: '普段の感覚・行動として',
-      count: 5,
-      total: 20,
-    });
-
-    expect(document.getElementById('question-answer-frame')).toBeNull();
-    expect(document.getElementById('question-hint')).toBeNull();
-    expect(window.HekiRenderers.setProgressMessage)
-      .toHaveBeenCalledWith('答えが見えてきました…もう少しです');
-  });
-
-  it('describes adaptive phases without promising a fixed remaining question count', () => {
-    window.HekiGameFlow.showQuestion({question_id: 1, question: 'Q', count: 19, total: 20});
-    expect(document.getElementById('progress-fill').style.width).toBe('67%');
-    expect(document.getElementById('question-stage-label').textContent).toBe('質問 20・候補を比べています');
-
-    window.HekiGameFlow.showQuestion({question_id: 2, question: 'Q2', count: 20, total: 30});
-    expect(document.getElementById('progress-fill').style.width).toBe('74%');
-    expect(document.getElementById('question-stage-label').textContent).toBe('質問 21・確信を確かめています');
-    expect(document.getElementById('question-stage-label').textContent).not.toContain('/');
+  it("shows only the current count and limits the answer guide to the first question", () => {
+    window.HekiGameFlow.showQuestion({question_id: 7, question: "安心できる場面より、緊張する場面の方が感覚が鋭くなる？", count: 0, total: 20});
+    expect(document.getElementById("question-stage-label").textContent).toBe("質問 1");
+    expect(document.getElementById("answer-guide").classList.contains("hidden")).toBe(false);
+    window.HekiGameFlow.showQuestion({question_id: 8, question: "Q2", count: 20, total: 30});
+    expect(document.getElementById("question-stage-label").textContent).toBe("質問 21");
+    expect(document.getElementById("question-stage-label").textContent).not.toContain("/");
+    expect(document.getElementById("answer-guide").classList.contains("hidden")).toBe(true);
+    expect(document.getElementById("question-axis-tag")).toBeNull();
+    expect(document.getElementById("progress-fill")).toBeNull();
   });
 
   it('finalizes the anonymous summary on page exit after a result is shown', () => {

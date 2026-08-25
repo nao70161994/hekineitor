@@ -54,7 +54,7 @@ describe('HekiRenderers screen transitions', () => {
   it('renders runner-up evidence and the compound explanation in separate regions', () => {
     document.body.innerHTML += `
       <div id="result-kicker"></div><div id="result-badges"></div>
-      <div id="result-rival" class="hidden"></div><div id="result-desc"></div>
+      <div id="result-rival" class="hidden"></div><div id="result-desc"></div><div id="result-detail-desc"></div><div id="fetish-detail-link-slot"></div>
       <div id="top-chart"></div>
       <section id="reasons-section" class="hidden">
         <div class="reasons-label">決め手になった回答</div>
@@ -80,7 +80,7 @@ describe('HekiRenderers screen transitions', () => {
     );
 
     expect(document.getElementById('result-rival').textContent).toContain('対抗候補「対抗候補」');
-    expect(document.getElementById('result-desc').textContent)
+    expect(document.getElementById('result-detail-desc').textContent)
       .toContain('本命と要素Aの傾向が同時に表れました。');
     expect(document.getElementById('contrastive-reasons-section').textContent)
       .toContain('対抗候補との差になった回答');
@@ -113,6 +113,8 @@ describe('HekiRenderers screen transitions', () => {
     const scrollTarget = document.getElementById(scrollTargetId);
     expect(scrollTarget.scrollIntoView).toHaveBeenCalledWith({block: 'start', behavior: 'auto'});
 
+    expect(document.body.dataset.screen).toBe(screenId);
+    expect(document.body.dataset.screen).toBe(screenId);
     expect(document.activeElement).toBe(heading);
 
   });
@@ -258,5 +260,17 @@ describe('HekiRenderers screen transitions', () => {
       window.HekiRenderers.trackFeaturedWorks(data);
     }).not.toThrow();
     expect(document.querySelector('.work-recommendation').textContent).toContain('作品');
+  });
+  it("keeps secondary result information collapsed until requested", () => {
+    document.body.insertAdjacentHTML("beforeend", `<button data-action="toggle-result-details" aria-expanded="false">結果を詳しく見る</button><div id="result-details" class="hidden"></div><button data-action="toggle-result-actions" aria-expanded="false">もう一度遊ぶ</button><div id="result-more-actions" class="hidden"></div>`);
+    window._guessData = {};
+    const detailsButton = document.querySelector(`[data-action="toggle-result-details"]`);
+    window.HekiRenderers.toggleResultDetails(detailsButton);
+    expect(detailsButton.getAttribute("aria-expanded")).toBe("true");
+    expect(document.getElementById("result-details").classList.contains("hidden")).toBe(false);
+    const actionsButton = document.querySelector(`[data-action="toggle-result-actions"]`);
+    window.HekiRenderers.toggleResultActions(actionsButton);
+    expect(actionsButton.getAttribute("aria-expanded")).toBe("true");
+    expect(document.getElementById("result-more-actions").classList.contains("hidden")).toBe(false);
   });
 });

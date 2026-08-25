@@ -5,7 +5,6 @@ window.HekiGameFlow = (() => {
   let dropoffSent = false;
   let pendingAnswerRequest = null;
   let pendingAnswerTimer = null;
-  const axisLabels = {content: 'コンテンツ軸', abstract: '抽象軸', personality: 'パーソナリティ軸'};
 
 
 function resetAnswerPending(failed = false) {
@@ -95,50 +94,17 @@ function showQuestion(data) {
   currentQuestionId = data.question_id;
   answeredCount = Number(data.count || 0);
   resultShown = false;
-  const progressMessage = data.progress_message || data.hint || '';
-  if (window.HekiRenderers) {
-    window.HekiRenderers.setText('question-text', data.question);
-    window.HekiRenderers.setProgressMessage(progressMessage);
-  } else {
-    document.getElementById('question-text').textContent = data.question;
-    const progressEl = document.getElementById('question-progress-message');
-    if (progressEl) {
-      progressEl.textContent = progressMessage;
-      progressEl.classList.toggle('hidden', !progressMessage);
-    }
-  }
-  const axisEl = document.getElementById('question-axis-tag');
-  if (data.axis && axisLabels[data.axis]) {
-    axisEl.textContent = axisLabels[data.axis];
-    axisEl.className = 'axis-tag ' + data.axis;
-    axisEl.classList.remove('hidden');
-  } else {
-    axisEl.classList.add('hidden');
-  }
+  if (window.HekiRenderers) window.HekiRenderers.setText("question-text", data.question);
+  else document.getElementById("question-text").textContent = data.question;
+
   const questionNumber = answeredCount + 1;
-  const phase = answeredCount < 12
-    ? {label: '手がかりを集めています', start: 8, span: 34, length: 12}
-    : answeredCount < 20
-      ? {label: '候補を比べています', start: 46, span: 24, length: 8}
-      : {label: '確信を確かめています', start: 74, span: 18, length: 10};
-  const phaseOffset = answeredCount < 12 ? answeredCount : answeredCount < 20 ? answeredCount - 12 : answeredCount - 20;
-  const pct = Math.min(92, Math.round(phase.start + (phaseOffset / phase.length) * phase.span));
-  const progressFill = document.getElementById('progress-fill');
-  const stageLabel = document.getElementById('question-stage-label');
-  if (progressFill) progressFill.style.width = pct + '%';
-  if (stageLabel) stageLabel.textContent = `質問 ${questionNumber}・${phase.label}`;
-  document.getElementById('btn-back').style.visibility = data.count > 0 ? 'visible' : 'hidden';
-  show('question-screen');
-  setGenieState('idle');
-  const contEl = document.getElementById('contradiction-hint');
-  if (data.contradictions && data.contradictions.length) {
-    const c = data.contradictions[0];
-    const ansTxt = {1:'はい', 0.5:'どちらかといえばはい', '-0.5':'どちらかといえばいいえ', '-1':'いいえ'};
-    contEl.textContent = `💡「${c.q1}→${ansTxt[c.a1]}」と「${c.q2}→${ansTxt[c.a2]}」は矛盾しているかもしれません`;
-    contEl.classList.remove('hidden');
-  } else {
-    contEl.classList.add('hidden');
-  }
+  const stageLabel = document.getElementById("question-stage-label");
+  if (stageLabel) stageLabel.textContent = `質問 ${questionNumber}`;
+  const answerGuide = document.getElementById("answer-guide");
+  answerGuide?.classList.toggle("hidden", answeredCount > 0);
+  document.getElementById("btn-back").style.visibility = answeredCount > 0 ? "visible" : "hidden";
+  show("question-screen");
+  setGenieState("idle");
 }
 
 async function goBack() {
@@ -284,7 +250,7 @@ function showGuess(data) {
   if (window.HekiShare?.prepareSharePayload) window.HekiShare.prepareSharePayload();
   if (!data._historyReplay) saveHistory(renderedName, data.probability, data.fetish_id, window._compoundIds, data);
   show('result-screen');
-  window.HekiRenderers?.trackFeaturedWorks?.(data);
+  if (!data._historyReplay) window.HekiPwa?.markGameCompleted?.();
 }
 
 

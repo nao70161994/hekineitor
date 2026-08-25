@@ -45,13 +45,17 @@ window.HekiHistory = (() => {
 
   function updateHistoryBadge() {
     const history = load();
-    const badge = document.getElementById('history-badge');
-    if (!badge) return;
-    if (history.length > 0) {
-      badge.textContent = history.length;
-      badge.classList.remove('hidden');
-    } else {
-      badge.classList.add('hidden');
+    const badge = document.getElementById("history-badge");
+    const button = document.getElementById("history-btn");
+    if (!badge || !button) return;
+    const hasHistory = history.length > 0;
+    button.classList.toggle("hidden", !hasHistory);
+    badge.classList.toggle("hidden", !hasHistory);
+    badge.textContent = hasHistory ? history.length : "";
+    if (hasHistory) window.HekiPwa?.markGameCompleted?.();
+    if (!hasHistory) {
+      document.getElementById("history-panel")?.classList.add("hidden");
+      button.setAttribute("aria-expanded", "false");
     }
   }
 

@@ -15,7 +15,7 @@ describe('HekiDraft', () => {
       removeItem: key => storage.delete(key),
       clear: () => storage.clear(),
     });
-    document.body.innerHTML = '<div id="resume-banner" class="hidden"></div><span id="resume-count"></span><time id="resume-updated-at"></time><time id="resume-expires-at"></time>';
+    document.body.innerHTML = "<section id=start-screen><button class=btn-start data-action=start-game>診断をはじめる</button><div id=resume-banner class=hidden></div><span id=resume-count></span><time id=resume-updated-at></time><time id=resume-expires-at></time></section>";
     window.gameState = {fetching: false};
     window._excludedIds = [];
     window.HekiState = {
@@ -34,6 +34,8 @@ describe('HekiDraft', () => {
     localStorage.setItem('heki_draft', JSON.stringify({pairs: [{q_id: 4, answer: 1}], ts: updatedAt}));
     window.HekiDraft.checkDraft();
     expect(document.getElementById('resume-banner').classList.contains('hidden')).toBe(false);
+    expect(document.querySelector("[data-action=start-game]").textContent).toBe("最初から始める");
+    expect(document.querySelector("[data-action=start-game]").classList.contains("btn-start-secondary")).toBe(true);
     expect(document.getElementById('resume-updated-at').dateTime).toBe(new Date(updatedAt).toISOString());
     expect(document.getElementById('resume-expires-at').dateTime).toBe(new Date(updatedAt + 7 * 24 * 3600 * 1000).toISOString());
   });

@@ -38,7 +38,7 @@ window.HekiFeedback = (() => {
     const willOpen = panel.classList.contains('hidden');
     panel.classList.toggle('hidden', !willOpen);
     toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-    toggle.textContent = willOpen ? '詳細FBを閉じる' : '詳細に○△×を付ける';
+    toggle.textContent = willOpen ? '評価を閉じる' : '各結果を詳しく評価する';
   }
 
   async function quickFeedback(kind) {
