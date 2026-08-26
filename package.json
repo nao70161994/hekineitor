@@ -11,12 +11,12 @@
     "test:pwa": "python -m pytest tests/test_smoke.py::TestSmoke::test_service_worker_keeps_static_and_offline_cache_paths tests/test_smoke.py::TestSmoke::test_share_ogp_and_pwa_static_contracts tests/test_e2e_smoke.py::TestE2ESmoke::test_feedback_share_and_pwa_browser_paths -q"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.10.2",
+    "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "10.0.1",
-    "@playwright/test": "1.61.1",
-    "eslint": "10.7.0",
-    "globals": "17.7.0",
-    "jsdom": "29.1.1",
-    "vitest": "4.1.10"
+    "@playwright/test": "1.62.1",
+    "eslint": "10.9.0",
+    "globals": "17.11.0",
+    "jsdom": "30.0.1",
+    "vitest": "4.1.11"
   }
 }
