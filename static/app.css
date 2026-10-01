@@ -664,7 +664,7 @@
 .modal-save { background: #1a4a8a; color:#fff; }
 .btn-continue { background:linear-gradient(135deg,#e94560,#b83280); color:#fff; }
 .btn-retry-result { background:#1a4a8a; color:#fff; }
-.result-home-link { display:block; margin:12px auto 0; padding:9px; border:0; background:transparent; color:#8b98ad; text-decoration:underline; cursor:pointer; }
+.result-home-link { display:inline-flex; align-items:center; justify-content:center; margin:12px auto 0; padding:9px; border:0; background:transparent; color:#8b98ad; text-decoration:underline; cursor:pointer; }
 .history-item .h-retry, .history-item .h-view { font-size:0.7rem; background:none; border:1px solid #444; color:#aaa; border-radius:6px; padding:5px 7px; cursor:pointer; white-space:nowrap; min-height:32px; }
 .work-recommendation { width:100%; padding:9px; border-radius:10px; background:rgba(255,255,255,0.62); text-align:left; }
 .work-recommendation.featured { border:1px solid rgba(245,158,11,0.22); }
@@ -897,9 +897,9 @@
   line-height: 1.55;
 }
 .result-share-cta {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--color-border);
+  margin-top: 12px;
+  padding-top: 0;
+  border-top: 0;
 }
 .card.confidence-high {
   border-color: rgba(255, 192, 92, 0.62);
@@ -915,11 +915,9 @@
 .detail-feedback-toggle,
 .works-more-toggle,
 .history-btn,
-.result-home-link,
 .related-tag,
 .fetish-detail-link { min-height: 44px; }
-.fetish-detail-link,
-.result-home-link {
+.fetish-detail-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1055,7 +1053,6 @@ body[data-screen="result-screen"] .result-icon { margin-bottom: 2px; font-size: 
 .result-detail-desc { margin: 10px 0; color: var(--color-text-muted); line-height: 1.65; white-space: pre-line; }
 .result-details { margin-top: 10px; padding-top: 6px; border-top: 1px solid var(--color-border); }
 .result-details-toggle, .result-again-toggle { width: 100%; min-height: var(--tap-target); margin-top: 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); font: inherit; cursor: pointer; }
-.result-share-cta { margin-top: 12px; padding-top: 0; border-top: 0; }
 .result-share-cta .btn-share { width: 100%; }
 .result-more-actions { display: grid; gap: 8px; margin-top: 8px; }
 .result-more-actions.hidden, .result-details.hidden { display: none; }

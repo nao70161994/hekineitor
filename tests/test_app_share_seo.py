@@ -2,6 +2,8 @@
 
 from tests._app_test_support import *
 
+ENCODED_NTR_RESULT = 'NTR%EF%BC%88%E5%AF%9D%E5%8F%96%E3%82%89%E3%82%8C%EF%BC%89'
+
 
 class TestShareAndSEO(APITestCase):
     def test_sw_js_served(self):
@@ -35,10 +37,10 @@ class TestShareAndSEO(APITestCase):
         self.assertNotIn('称号', body)
         self.assertNotIn('レア度', body)
         self.assertIn('og:url', body)
-        self.assertIn('/r?f=NTR%EF%BC%88&amp;p=82&amp;d=', body)
+        self.assertIn(f'/r?f={ENCODED_NTR_RESULT}&amp;p=82&amp;d=', body)
         self.assertNotRegex(body, r'https?://[^" ]+/r/[0-9A-Za-z]{4,12}')
         self.assertIn('あなたの『癖』は…… NTR（寝取られ）', body)
-        self.assertIn('/ogp.png?f=NTR%EF%BC%88&amp;p=82', body)
+        self.assertIn(f'/ogp.png?f={ENCODED_NTR_RESULT}&amp;p=82', body)
         self.assertEqual(res.headers.get('X-Robots-Tag'), 'noindex, follow')
         self.assertIn('name="robots" content="noindex,follow"', body)
 
@@ -85,7 +87,7 @@ class TestShareAndSEO(APITestCase):
                 self.assertEqual(res.status_code, 200)
                 body = res.data.decode('utf-8')
                 self.assertIn(result_name, body)
-                self.assertIn(f"推定一致度{guess['probability']:g}%", body)
+                self.assertIn(f'推定一致度{guess["probability"]:g}%', body)
                 self.assertNotIn('不正な差し替え文字列', body)
                 self.assertIn(f'/r/{data["share_id"]}', body)
                 self.assertIn('/ogp.png?f=', body)
@@ -152,7 +154,9 @@ class TestShareAndSEO(APITestCase):
         app.config['RATE_LIMIT_OVERRIDES'] = {'ogp_png': (1, 60)}
         app_module._RATE_LIMIT_BUCKETS.clear()
         try:
-            self.assertEqual(self.client.get('/ogp.png', query_string={'f': 'NTR（寝取られ）', 'p': '82'}).status_code, 200)
+            self.assertEqual(
+                self.client.get('/ogp.png', query_string={'f': 'NTR（寝取られ）', 'p': '82'}).status_code, 200
+            )
             limited = self.client.get('/ogp.png', query_string={'f': 'NTR（寝取られ）', 'p': '82'})
             self.assertEqual(limited.status_code, 429)
             self.assertIn('Retry-After', limited.headers)
@@ -194,8 +198,8 @@ class TestShareAndSEO(APITestCase):
                 res = self.client.get('/r', query_string={'f': 'NTR（寝取られ）', 'p': '999', 'd': 'テスト'})
         body = res.data.decode('utf-8')
         self.assertIn('推定一致度100%', body)
-        self.assertIn('/ogp.png?f=NTR%EF%BC%88&amp;p=100', body)
-        self.assertIn('/r?f=NTR%EF%BC%88&amp;p=100&amp;d=', body)
+        self.assertIn(f'/ogp.png?f={ENCODED_NTR_RESULT}&amp;p=100', body)
+        self.assertIn(f'/r?f={ENCODED_NTR_RESULT}&amp;p=100&amp;d=', body)
 
     def test_share_event_api_records_minimal_event(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,0 +1,491 @@
+{% if player_fetishes %}
+<h2 style="color:#f5a623;font-size:1rem;margin-top:32px;margin-bottom:8px;">プレイヤーが追加した性癖（{{ player_fetishes|length }}件）</h2>
+<table>
+  <tr><th>ID</th><th>名前</th><th>説明</th><th>作品</th><th></th></tr>
+  {% for f in player_fetishes %}
+  <tr id="pfrow-{{ f.id }}">
+    <td style="color:#666;font-size:0.8rem">{{ f.id }}</td>
+    <td id="pfname-{{ f.id }}">{{ f.name }}</td>
+    <td style="color:#888;font-size:0.82rem" id="pfdesc-{{ f.id }}">{{ f.desc }}</td>
+    <td style="color:#4a9;font-size:0.75rem" id="pfworks-{{ f.id }}">{{ f.works | join(', ') if f.works else '（なし）' }}</td>
+    <td style="display:flex;gap:4px;flex-wrap:wrap;">
+      <button class="btn-toggle" data-action="promote-player-fetish" data-fid="{{ f.id }}" title="シード性癖に格上げ">↑格上げ</button>
+      <button class="btn-toggle" data-action="edit-fetish" data-fid="{{ f.id }}">編集</button>
+      <button class="btn-toggle" data-action="delete-player-fetish" data-fid="{{ f.id }}">削除</button>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p style="color:#555;font-size:0.85rem;margin-top:32px;">プレイヤーが追加した性癖はまだありません。</p>
+{% endif %}
+
+<details style="margin-top:16px;" id="seed-edit-section">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">シード性癖を編集</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">性癖IDを指定して名前・説明文・作品リストを変更します。</p>
+<div style="display:flex;flex-direction:column;gap:6px;max-width:420px;">
+  <input id="ef-id" type="number" placeholder="性癖ID" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+  <input id="ef-name" type="text" placeholder="名前（変更する場合のみ）" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+  <input id="ef-desc" type="text" placeholder="説明文（変更する場合のみ）" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+  <input id="ef-works" type="text" placeholder="作品（カンマ区切り。URL付きは「作品名|URL」形式）" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+  <p style="color:#555;font-size:0.72rem;margin:0;">例: <code style="color:#888;">君が望む永遠|https://amzn.to/xxx, ヤンデレ彼女</code></p>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button class="btn-action" data-action="edit-fetish-by-id">保存</button>
+    <span id="ef-msg" style="font-size:0.8rem;"></span>
+  </div>
+</div>
+</details>
+
+<details style="margin-top:40px;" id="q-section">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">質問の識別力（低い順、展開で表示）</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">識別力 = 各性癖でP(yes)が0.5からどれだけ離れているかの平均（0〜0.5。低いほど全性癖に均等で区別しにくい）</p>
+
+{# ── 問題質問サマリー ───────────────────────── #}
+{% set avg_ask = (question_stats | sum(attribute='ask_count') / [question_stats|length,1]|max) | round(1) %}
+{% set low_disc_qs  = question_stats | selectattr('disc','lt',0.03) | selectattr('disabled','eq',false) | list %}
+{% set unused_qs    = question_stats | selectattr('ask_count','lt',[avg_ask*0.25,0.5]|max) | selectattr('disabled','eq',false) | list %}
+{% set overused_qs  = question_stats | selectattr('ask_count','gt',avg_ask*4.0) | list %}
+{% if low_disc_qs or unused_qs or overused_qs %}
+<div style="background:#1a0d0d;border-radius:8px;padding:10px 14px;margin-bottom:12px;border:1px solid #3a1515;">
+  <div style="font-size:0.8rem;color:#e74c3c;margin-bottom:6px;">⚠ 要確認の質問</div>
+  {% if low_disc_qs %}
+  <div style="font-size:0.75rem;color:#c0392b;margin-bottom:4px;">識別力 &lt;0.03（無効化を検討）: {{ low_disc_qs|map(attribute='id')|list|join(', ') }}</div>
+  {% endif %}
+  {% if unused_qs %}
+  <div style="font-size:0.75rem;color:#8b6914;margin-bottom:4px;">使用量が平均の25%未満（UCBが機能しているか確認）: {{ unused_qs|map(attribute='id')|list|join(', ') }}</div>
+  {% endif %}
+  {% if overused_qs %}
+  <div style="font-size:0.75rem;color:#8b6914;margin-bottom:0;">使用量が平均の4倍超（特定質問に偏りあり）: {{ overused_qs|map(attribute='id')|list|join(', ') }}</div>
+  {% endif %}
+</div>
+{% else %}
+<div style="background:#0d2010;border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:0.78rem;color:#27ae60;border:1px solid #1a4a1a;">✓ 問題のある質問なし（avg_ask={{ avg_ask }}）</div>
+{% endif %}
+<table id="q-table" style="margin-top:8px;">
+  <tr><th>QID</th><th>質問</th><th data-action="sort-q-table" style="cursor:pointer;user-select:none;">識別力 ↕</th><th></th><th style="color:#888;font-size:0.75rem;white-space:nowrap;" title="UCB使用回数（学習累計）">使用量</th><th style="color:#888;font-size:0.75rem;white-space:nowrap;" title="バリアント（別表現）の数">Var</th><th>操作</th></tr>
+  {% set max_d = [question_stats[-1].disc, 0.01] | max if question_stats else 0.01 %}
+  {% for q in question_stats %}
+  <tr id="qrow-{{ q.id }}" style="{% if q.disabled %}opacity:0.4{% elif q.disc < 0.03 %}background:#1a0a0a{% elif q.ask_count < avg_ask*0.25 and avg_ask > 1 %}background:#1a1500{% endif %}">
+    <td style="color:#666;font-size:0.78rem">{{ q.id }}</td>
+    <td id="qtext-{{ q.id }}" style="font-size:0.82rem;max-width:260px">{{ q.text }}{% if q.disc < 0.05 %}<span class="tag-low">低識別力</span>{% endif %}</td>
+    <td>
+      <div class="bar-wrap" style="width:100px;">
+        <div class="bar-fill" style="width: {{ [[(q.disc / max_d * 100)|int, 2]|max, 100]|min }}%;background:linear-gradient(90deg,#0f3460,#e94560);"></div>
+      </div>
+    </td>
+    <td style="color:#888;font-size:0.78rem">{{ q.disc }}</td>
+    <td style="color:#{% if q.ask_count < 10 %}e74c3c{% elif q.ask_count < 50 %}f5a623{% else %}555{% endif %};font-size:0.75rem;text-align:right;">{{ q.ask_count | int }}</td>
+    <td style="color:#{% if q.variants_count > 0 %}7af0a0{% else %}555{% endif %};font-size:0.75rem;text-align:center;">{{ q.variants_count }}</td>
+    <td style="display:flex;gap:4px;">
+      <button class="btn-toggle {% if q.disabled %}disabled{% endif %}" id="qtoggle-{{ q.id }}"
+          data-action="toggle-question" data-qid="{{ q.id }}">{% if q.disabled %}無効{% else %}有効{% endif %}</button>
+      <button class="btn-toggle" data-action="edit-question" data-qid="{{ q.id }}">編集</button>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+</details>
+
+<details style="margin-top:24px;" id="perf-section">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">診断ログ・パフォーマンス概要（展開で表示）</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">guessed=診断回数 / correct=正解FB / wrong=外れFB / FB正解率=correct/(correct+wrong)。未FB診断は別表示です。</p>
+
+{# ── パフォーマンスサマリー ──────────────────────────────────── #}
+{% set all_rows = fetish_log_rows %}
+{% set diagnosed = all_rows | selectattr('guessed', 'gt', 0) | list %}
+{% set total_guessed = diagnosed | sum(attribute='guessed') %}
+{% set total_correct = diagnosed | sum(attribute='correct') %}
+{% set total_feedback = diagnosed | sum(attribute='feedback_total') %}
+{% set total_unfeedback = diagnosed | sum(attribute='unfeedback') %}
+{% set undiagnosed_count = (all_rows | length) - (diagnosed | length) %}
+{% set ranked = all_rows | selectattr('feedback_total', 'ge', 3) | selectattr('acc', 'ne', none) | list %}
+{% set top_acc = ranked | sort(attribute='acc', reverse=true) %}
+{% set bot_acc = ranked | sort(attribute='acc') %}
+
+<div style="background:#0d1b2a;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:16px;">
+  <div style="text-align:center;min-width:60px;">
+    <div style="font-size:1.3rem;font-weight:bold;color:#e94560;">{{ diagnosed|length }}</div>
+    <div style="font-size:0.7rem;color:#666;">診断済み性癖</div>
+  </div>
+  <div style="text-align:center;min-width:60px;">
+    <div style="font-size:1.3rem;font-weight:bold;color:#f5a623;">{{ total_guessed }}</div>
+    <div style="font-size:0.7rem;color:#666;">総診断回数</div>
+  </div>
+  <div style="text-align:center;min-width:60px;">
+    <div style="font-size:1.3rem;font-weight:bold;color:#27ae60;">{% if total_feedback > 0 %}{{ ((total_correct / total_feedback) * 100)|int }}%{% else %}—{% endif %}</div>
+    <div style="font-size:0.7rem;color:#666;">FB正解率</div>
+  </div>
+  <div style="text-align:center;min-width:60px;">
+    <div style="font-size:1.3rem;font-weight:bold;color:#888;">{{ total_unfeedback }}</div>
+    <div style="font-size:0.7rem;color:#666;">未FB診断</div>
+  </div>
+  <div style="text-align:center;min-width:60px;">
+    <div style="font-size:1.3rem;font-weight:bold;color:#555;">{{ undiagnosed_count }}</div>
+    <div style="font-size:0.7rem;color:#666;">未診断性癖</div>
+  </div>
+</div>
+
+{% if ranked %}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+  <div style="background:#0d2010;border-radius:8px;padding:10px 12px;">
+    <p style="color:#27ae60;font-size:0.75rem;margin-bottom:6px;">✓ FB正解率 TOP5（3FB以上)</p>
+    {% for r in top_acc[:5] %}
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+      <div style="width:80px;font-size:0.72rem;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ r.name }}">{{ r.name }}</div>
+      <div style="flex:1;background:#0f3460;border-radius:3px;height:8px;overflow:hidden;">
+        <div style="height:100%;border-radius:3px;background:#27ae60;width:{{ r.acc }}%;"></div>
+      </div>
+      <div style="font-size:0.7rem;color:#27ae60;min-width:34px;text-align:right;">{{ r.acc }}%</div>
+    </div>
+    {% endfor %}
+  </div>
+  <div style="background:#2a1010;border-radius:8px;padding:10px 12px;">
+    <p style="color:#e74c3c;font-size:0.75rem;margin-bottom:6px;">✗ 要改善 BOTTOM5（3FB以上)</p>
+    {% for r in bot_acc[:5] %}
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+      <div style="width:80px;font-size:0.72rem;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ r.name }}">{{ r.name }}</div>
+      <div style="flex:1;background:#0f3460;border-radius:3px;height:8px;overflow:hidden;">
+        <div style="height:100%;border-radius:3px;background:#e74c3c;width:{{ [r.acc, 1]|max }}%;"></div>
+      </div>
+      <div style="font-size:0.7rem;color:#e74c3c;min-width:34px;text-align:right;">{{ r.acc }}%<span style="color:#555;font-size:0.65rem;">({{ r.guessed }})</span></div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% set low_exposure = all_rows | sort(attribute='guessed') %}
+{% set low_sample = low_exposure[:10] %}
+{% if low_sample %}
+<div style="margin-bottom:16px;">
+  <p style="color:#888;font-size:0.78rem;margin-bottom:6px;">診断結果として提示が少ない性癖 TOP{{ low_sample|length }}</p>
+  {% for r in low_sample %}
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+    <div style="width:120px;font-size:0.72rem;color:#aaa;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="ID {{ r.id }}: {{ r.name }}">{{ r.name }}</div>
+    <div style="flex:1;max-width:200px;background:#111;border-radius:3px;height:10px;overflow:hidden;">
+      <div style="height:100%;border-radius:3px;width:{{ [[r.guessed * 10, 2]|max, 100]|min }}%;background:{% if r.guessed == 0 %}#555{% else %}#5b8dd9{% endif %};"></div>
+    </div>
+    <div style="font-size:0.72rem;color:#666;min-width:34px;">{{ r.guessed }}</div>
+    <div style="font-size:0.68rem;color:#555;min-width:58px;">ID {{ r.id }}</div>
+  </div>
+  {% endfor %}
+  <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="/api/admin/low_exposure_fetishes?threshold=3&limit=50" class="btn-action" style="font-size:0.72rem;padding:3px 10px;text-decoration:none;">低提示JSON</a>
+    <a href="/api/admin/fetish_log_rows?sort=guessed&order=asc&per_page=50" class="btn-action" style="font-size:0.72rem;padding:3px 10px;text-decoration:none;">一覧JSON</a>
+  </div>
+</div>
+{% endif %}
+
+{% set top10 = fetish_log_rows[:10] %}
+{% if top10 and top10[0].guessed > 0 %}
+<div style="margin-bottom:16px;">
+  <p style="color:#888;font-size:0.78rem;margin-bottom:6px;">診断回数 TOP{{ top10|length }}</p>
+  {% set max_g = [top10[0].guessed, 1] | max %}
+  {% for r in top10 %}
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+    <div style="width:90px;font-size:0.72rem;color:#aaa;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ r.name }}">{{ r.name }}</div>
+    <div style="flex:1;max-width:200px;background:#0f3460;border-radius:3px;height:10px;overflow:hidden;">
+      <div style="height:100%;border-radius:3px;width:{{ [[((r.guessed / max_g) * 100)|int, 2]|max, 100]|min }}%;background:{% if loop.index == 1 %}linear-gradient(90deg,#e94560,#f5a623){% else %}#1a4a8a{% endif %};"></div>
+    </div>
+    <div style="font-size:0.72rem;color:#666;min-width:28px;">{{ r.guessed }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
+  <a href="/api/admin/export_log" class="btn-action" style="font-size:0.78rem;padding:4px 12px;text-decoration:none;">CSVエクスポート</a>
+  <a href="/api/admin/export_matrix" class="btn-action" style="font-size:0.78rem;padding:4px 12px;text-decoration:none;">Matrix JSONエクスポート</a>
+  <a href="/api/admin/audit_log?format=csv" class="btn-action" style="font-size:0.78rem;padding:4px 12px;text-decoration:none;">監査ログCSV</a>
+  <a href="/api/admin/preflight" class="btn-action" style="font-size:0.78rem;padding:4px 12px;text-decoration:none;">Preflight</a>
+  <a href="/api/admin/performance" class="btn-action" style="font-size:0.78rem;padding:4px 12px;text-decoration:none;">Performance</a>
+  <a href="/api/admin/works_review" target="_blank" class="btn-action" style="font-size:0.78rem;padding:4px 12px;text-decoration:none;">作品リンク確認</a>
+</div>
+<details style="margin-bottom:16px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">作品URL修正キュー</summary>
+<p style="color:#555;font-size:0.78rem;margin:8px 0;">URLなし、Amazon検索URL、ASINなしの作品を一覧化します。</p>
+<button class="btn-action" data-action="load-works-link-queue" style="font-size:0.76rem;padding:3px 10px;">キュー確認</button>
+<div id="works-link-queue-result" style="font-size:0.8rem;color:#aaa;margin-top:8px;"></div>
+</details>
+<details style="margin-bottom:16px;">
+<summary style="color:#f5a623;font-size:0.85rem;cursor:pointer;">Matrix JSONインポート</summary>
+<p style="color:#555;font-size:0.78rem;margin:8px 0;">先にdry-runで検証してから本インポートします。本インポート時は現在のmatrixを自動バックアップします。</p>
+<input id="matrix-import-file" type="file" accept="application/json,.json"
+  style="display:block;margin-bottom:8px;color:#aaa;font-size:0.8rem;">
+<textarea id="matrix-import-json" placeholder="export_matrix のJSONを貼り付け"
+  style="width:100%;max-width:680px;min-height:120px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:8px 10px;border-radius:6px;font-size:0.8rem;"></textarea>
+<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+  <button class="btn-action" data-action="dry-run-matrix-import">dry-run検証</button>
+  <button class="btn-save" data-action="import-matrix" style="margin-top:0;">本インポート</button>
+  <span id="matrix-import-msg" style="font-size:0.8rem;color:#aaa;"></span>
+</div>
+</details>
+<details style="margin-bottom:16px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">Matrixバックアップ復元</summary>
+<p style="color:#555;font-size:0.78rem;margin:8px 0;">import/restore 前に作成されたバックアップです。復元時も現在のmatrixを退避します。</p>
+<button class="btn-action" data-action="refresh-matrix-backups" style="font-size:0.76rem;padding:3px 10px;margin-bottom:8px;">一覧更新</button>
+<div id="matrix-backup-list" style="font-size:0.8rem;color:#aaa;">
+  {% for b in matrix_backups[:10] %}
+  <div style="display:flex;gap:8px;align-items:center;border-top:1px solid #222;padding:6px 0;flex-wrap:wrap;">
+    <code style="color:#ccc;">{{ b.name }}</code>
+    <span style="color:#666;">{{ b.size }} bytes</span>
+    <button class="btn-toggle" data-action="restore-matrix-backup" data-name="{{ b.name }}">復元</button>
+  </div>
+  {% else %}
+  <p style="color:#555;">バックアップはまだありません。</p>
+  {% endfor %}
+</div>
+<span id="matrix-restore-msg" style="font-size:0.8rem;color:#aaa;"></span>
+</details>
+<details style="margin-bottom:16px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">Preflightチェック</summary>
+<p style="color:#555;font-size:0.78rem;margin:8px 0;">本番起動前に確認したい設定・保存状態をチェックします。</p>
+<button class="btn-action" data-action="load-preflight" style="font-size:0.76rem;padding:3px 10px;">チェック実行</button>
+<div id="preflight-result" style="font-size:0.8rem;color:#aaa;margin-top:8px;"></div>
+</details>
+<details style="margin-bottom:16px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">Performance計測</summary>
+<p style="color:#555;font-size:0.78rem;margin:8px 0;">管理集計と推論の代表処理時間を計測します。</p>
+<button class="btn-action" data-action="load-performance" style="font-size:0.76rem;padding:3px 10px;">計測実行</button>
+<div id="performance-result" style="font-size:0.8rem;color:#aaa;margin-top:8px;"></div>
+</details>
+<details style="margin-bottom:16px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">管理操作ログ</summary>
+<div style="font-size:0.78rem;color:#aaa;margin-top:8px;">
+  {% for row in audit_rows %}
+  <div style="border-top:1px solid #222;padding:6px 0;">
+    <code style="color:{% if row.status == 'ok' %}#27ae60{% else %}#e74c3c{% endif %};">{{ row.status }}</code>
+    <span style="color:#ccc;">{{ row.action }}</span>
+    <span style="color:#666;">{{ row.ts }}</span>
+    <span style="color:#666;">{{ row.path or '' }}</span>
+  </div>
+  {% else %}
+  <p style="color:#555;">操作ログはまだありません。</p>
+  {% endfor %}
+</div>
+</details>
+<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
+  <label for="log-search" class="sr-only">性癖名で絞り込み</label>
+  <input id="log-search" type="text" placeholder="名前で絞り込み" data-action="filter-log"
+    style="flex:1;min-width:120px;max-width:200px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:4px 10px;border-radius:6px;font-size:0.82rem;">
+  <label for="log-min-guessed" class="sr-only">最小診断数</label>
+  <select id="log-min-guessed" data-action="filter-log" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:4px 8px;border-radius:6px;font-size:0.82rem;">
+    <option value="0">診断数 すべて</option>
+    <option value="3">3回以上</option>
+    <option value="10">10回以上</option>
+  </select>
+  <label for="log-acc-filter" class="sr-only">正解率フィルター</label>
+  <select id="log-acc-filter" data-action="filter-log" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:4px 8px;border-radius:6px;font-size:0.82rem;">
+    <option value="all">FB正解率 すべて</option>
+    <option value="low">FB正解率 低い（&lt;50%）</option>
+    <option value="high">FB正解率 高い（≥70%）</option>
+    <option value="none">未FB</option>
+  </select>
+</div>
+<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap;">
+  <button class="btn-toggle" data-action="log-page-prev">前へ</button>
+  <span id="log-page-info" style="font-size:0.78rem;color:#888;">{{ fetish_log_page.page }} / {{ fetish_log_page.pages }}（{{ fetish_log_page.total }}件）</span>
+  <button class="btn-toggle" data-action="log-page-next">次へ</button>
+</div>
+<table id="log-table" style="margin-top:8px;">
+  <thead>
+  <tr>
+    <th>順位</th>
+    <th>ID</th>
+    <th data-action="sort-log" data-col="1" style="cursor:pointer;user-select:none;">性癖 ↕</th>
+    <th data-action="sort-log" data-col="2" style="cursor:pointer;user-select:none;">診断 ↕</th>
+    <th data-action="sort-log" data-col="3" style="cursor:pointer;user-select:none;">正解 ↕</th>
+    <th data-action="sort-log" data-col="4" style="cursor:pointer;user-select:none;">外れ ↕</th>
+    <th data-action="sort-log" data-col="5" style="cursor:pointer;user-select:none;">FB正解率 ↕</th>
+    <th>未FB</th>
+    <th></th>
+  </tr>
+  </thead>
+  <tbody id="log-table-body">
+  {% for r in fetish_log_page.rows %}
+  <tr id="logrow-{{ r.id }}"{% if r.acc is not none and r.acc < 40 and r.feedback_total >= 3 %} style="background:#2a1010"{% endif %}
+      data-name="{{ r.name }}" data-guessed="{{ r.guessed }}" data-acc="{{ r.acc if r.acc is not none else -1 }}">
+    <td style="color:#666;font-size:0.75rem">{{ loop.index + ((fetish_log_page.page - 1) * fetish_log_page.per_page) }}</td>
+    <td style="color:#666;font-size:0.75rem">{{ r.id }}</td>
+    <td style="font-size:0.82rem">{{ r.name }}{% if r.acc is not none and r.acc < 40 and r.feedback_total >= 3 %}<span class="tag-low" title="FB正解率40%未満">⚠</span>{% endif %}</td>
+    <td style="color:#aaa;font-size:0.8rem" data-val="{{ r.guessed }}">{{ r.guessed }}</td>
+    <td style="color:#27ae60;font-size:0.8rem" data-val="{{ r.correct }}">{{ r.correct }}</td>
+    <td style="color:#e74c3c;font-size:0.8rem" data-val="{{ r.wrong }}">{{ r.wrong }}</td>
+    <td style="font-size:0.8rem;{% if r.acc is not none and r.acc < 50 %}color:#e74c3c{% elif r.acc is not none %}color:#27ae60{% else %}color:#555{% endif %}"
+        data-val="{{ r.acc if r.acc is not none else -1 }}">
+      {% if r.acc is not none %}{{ r.acc }}%{% else %}—{% endif %}
+    </td>
+    <td style="color:#888;font-size:0.8rem" data-val="{{ r.unfeedback }}">{{ r.unfeedback }}</td>
+    <td><button class="btn-toggle" data-action="toggle-fetish-history" data-fid="{{ r.id }}" style="font-size:0.72rem;padding:2px 8px;">履歴</button></td>
+  </tr>
+  <tr id="logrow-hist-{{ r.id }}" style="display:none;">
+    <td colspan="9" style="padding:8px 4px 12px;">
+      <div id="logrow-hist-content-{{ r.id }}" style="font-size:0.78rem;color:#888;"></div>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</details>
+
+<details style="margin-top:24px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">性癖別・重要質問サジェスト（DOMAIN_PRIORS整備用、展開で表示）</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">現在の学習済みmatrixから P(yes) が高い/低い質問を表示。DOMAIN_PRIORS と乖離していれば更新を検討。</p>
+{% for f in domain_suggestions %}
+<details style="margin-bottom:4px;">
+  <summary style="color:#aaa;font-size:0.82rem;cursor:pointer;">{{ f.fetish_name }} (id={{ f.fetish_id }})</summary>
+  <div style="display:flex;gap:16px;margin:6px 0 8px;flex-wrap:wrap;">
+    <div>
+      <p style="color:#27ae60;font-size:0.75rem;margin-bottom:4px;">P(yes) 高い質問</p>
+      {% for q in f.high %}
+      <div style="font-size:0.75rem;color:#aaa;">Q{{ q.q_id }}: {{ q.text }} <span style="color:#27ae60">{{ q.p }}</span></div>
+      {% endfor %}
+    </div>
+    <div>
+      <p style="color:#e74c3c;font-size:0.75rem;margin-bottom:4px;">P(yes) 低い質問</p>
+      {% for q in f.low %}
+      <div style="font-size:0.75rem;color:#aaa;">Q{{ q.q_id }}: {{ q.text }} <span style="color:#e74c3c">{{ q.p }}</span></div>
+      {% endfor %}
+    </div>
+  </div>
+</details>
+{% endfor %}
+</details>
+
+<details style="margin-top:24px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">質問間の相関（類似ペア上位30、展開で表示）</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">コサイン類似度が高いペアは情報が重複している可能性あり。|cos|≥0.8 は要検討。</p>
+<table style="margin-top:8px;">
+  <tr><th>順位</th><th>Q1</th><th>Q2</th><th>cos</th></tr>
+  {% for p in corr_stats %}
+  <tr style="{% if p.cos|abs >= 0.8 %}color:#e74c3c{% elif p.cos|abs >= 0.6 %}color:#f5a623{% else %}color:#aaa{% endif %}">
+    <td style="font-size:0.75rem;color:#555">{{ loop.index }}</td>
+    <td style="font-size:0.78rem;max-width:220px">Q{{ p.q1_id }}: {{ p.q1_text }}</td>
+    <td style="font-size:0.78rem;max-width:220px">Q{{ p.q2_id }}: {{ p.q2_text }}</td>
+    <td style="font-size:0.8rem;min-width:48px">{{ p.cos }}</td>
+  </tr>
+  {% endfor %}
+</table>
+</details>
+
+<details style="margin-top:24px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">Matrix ヒートマップ（上位20性癖×20質問、展開で表示）</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">P(yes) の色: 青=低 / 白=0.5 / 赤=高。学習データが多い性癖ほど上に表示。</p>
+<div style="overflow-x:auto;">
+<table id="heatmap-table" style="border-collapse:collapse;font-size:0.65rem;white-space:nowrap;">
+  <tr>
+    <th style="color:#555;padding:2px 4px;min-width:80px;"></th>
+    {% for lbl in matrix_heatmap.q_labels %}
+    <th style="color:#666;padding:2px 3px;writing-mode:vertical-rl;height:60px;vertical-align:bottom;" title="{{ matrix_heatmap.q_texts[loop.index0] }}">{{ lbl }}</th>
+    {% endfor %}
+  </tr>
+  {% for row in matrix_heatmap.rows %}
+  <tr>
+    <td style="color:#aaa;padding:2px 4px;max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="{{ row.name }}">{{ row.name }}</td>
+    {% for p in row.cells %}
+    {% set r = (p * 2 - 1) if p > 0.5 else 0 %}
+    {% set b = (1 - p * 2) if p < 0.5 else 0 %}
+    <td style="background:rgb({{ (r*180)|int }},{{ (40*(1-r-b))|int }},{{ (b*180)|int }});width:18px;height:16px;text-align:center;color:{% if p < 0.25 or p > 0.75 %}#fff{% else %}#000{% endif %};font-size:0.6rem;" title="{{ p }}">{{ (p*100)|int }}</td>
+    {% endfor %}
+  </tr>
+  {% endfor %}
+</table>
+</div>
+</details>
+
+<details style="margin-top:24px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">質問軸バランス（コンテンツ/抽象/パーソナリティ軸サマリー）</summary>
+<table style="width:100%;border-collapse:collapse;font-size:0.82rem;margin-top:8px;">
+  <tr style="color:#aaa;border-bottom:1px solid #333;">
+    <th style="text-align:left;padding:4px 8px;">軸</th>
+    <th style="padding:4px 8px;">質問数</th>
+    <th style="padding:4px 8px;">平均識別力</th>
+    <th style="padding:4px 8px;">無効化数</th>
+  </tr>
+  {% for ax in axis_stats %}
+  <tr style="border-bottom:1px solid #1a1a2e;">
+    <td style="padding:4px 8px;color:#eee;">{{ ax.name }}</td>
+    <td style="padding:4px 8px;text-align:center;color:#aaa;">{{ ax.count }}</td>
+    <td style="padding:4px 8px;text-align:center;color:{% if ax.avg_disc >= 0.15 %}#27ae60{% elif ax.avg_disc >= 0.08 %}#f5a623{% else %}#e94560{% endif %};">{{ ax.avg_disc }}</td>
+    <td style="padding:4px 8px;text-align:center;color:{% if ax.disabled > 0 %}#e94560{% else %}#555{% endif %};">{{ ax.disabled }}</td>
+  </tr>
+  {% endfor %}
+</table>
+</details>
+
+<datalist id="fetish-list">
+  {% for f in stats %}<option value="{{ f.name }} ({{ f.id }})">{% endfor %}
+</datalist>
+
+<details style="margin-top:24px;" id="compound-works-section">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;" data-action="load-compound-works">複合診断の特化作品（展開で表示・編集）</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">2つの性癖IDペアに両方の要素を持つ作品を登録します。複合診断時に金色タグで優先表示されます。</p>
+<div style="display:flex;flex-direction:column;gap:6px;max-width:520px;margin-bottom:12px;">
+  <div style="display:flex;gap:8px;">
+    <input list="fetish-list" id="cw-a-name" placeholder="性癖A（名前で検索）" data-action="fill-id" data-target="cw-a" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <input id="cw-a" type="number" placeholder="ID" style="width:60px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 8px;border-radius:6px;font-size:0.85rem;">
+  </div>
+  <div style="display:flex;gap:8px;">
+    <input list="fetish-list" id="cw-b-name" placeholder="性癖B（名前で検索）" data-action="fill-id" data-target="cw-b" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <input id="cw-b" type="number" placeholder="ID" style="width:60px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 8px;border-radius:6px;font-size:0.85rem;">
+  </div>
+  <input id="cw-works" type="text" placeholder="作品（カンマ区切り。URL付きは「作品名|URL」形式）" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+  <p style="color:#555;font-size:0.72rem;margin:0;">例: <code style="color:#888;">ミライニッキ|https://amzn.to/xxx, School Days</code></p>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button class="btn-action" data-action="save-compound-works">追加・更新</button>
+    <span id="cw-msg" style="font-size:0.8rem;"></span>
+  </div>
+</div>
+<div id="cw-list" style="font-size:0.82rem;"></div>
+</details>
+
+<details style="margin-top:24px;" id="work-catalog-section">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;" data-action="load-work-catalog">作品catalog（master・販売版・別名・review）</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">安定ID付き作品を編集します。更新競合は自動的に拒否され、再読込できます。</p>
+<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+  <input id="wc-title" type="text" maxlength="200" placeholder="新しい作品の正式タイトル" style="min-width:240px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;">
+  <input id="wc-media" type="text" maxlength="40" placeholder="種別（任意）" style="width:140px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;">
+  <button class="btn-action" data-action="catalog-create-master">master追加</button>
+  <button class="btn-toggle" data-action="catalog-refresh">再読込</button>
+</div>
+<p id="wc-msg" style="font-size:0.78rem;color:#888;"></p>
+<div id="wc-list" style="font-size:0.78rem;overflow-x:auto;"></div>
+</details>
+
+
+<details style="margin-top:24px;" id="similarity-section">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">性癖類似度チェック（2つの性癖IDを比較）</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">matrixベースのコサイン類似度と、2性癖の差異が大きい質問TOP5を表示します。</p>
+<div style="display:flex;flex-direction:column;gap:6px;max-width:420px;">
+  <div style="display:flex;gap:8px;">
+    <input list="fetish-list" id="sim-a-name" placeholder="性癖A（名前で検索）" data-action="fill-id" data-target="sim-a" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <input id="sim-a" type="number" placeholder="ID" style="width:60px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 8px;border-radius:6px;font-size:0.85rem;">
+  </div>
+  <div style="display:flex;gap:8px;">
+    <input list="fetish-list" id="sim-b-name" placeholder="性癖B（名前で検索）" data-action="fill-id" data-target="sim-b" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <input id="sim-b" type="number" placeholder="ID" style="width:60px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 8px;border-radius:6px;font-size:0.85rem;">
+  </div>
+  <div><button class="btn-action" data-action="check-similarity">比較</button></div>
+  <div id="sim-result" style="font-size:0.82rem;"></div>
+</div>
+</details>
+
+<details style="margin-top:24px;">
+<summary style="color:#888;font-size:0.85rem;cursor:pointer;">性癖を統合（2つの性癖のmatrixを合算して1つに）</summary>
+<p style="color:#555;font-size:0.78rem;margin:6px 0 8px;">id_keep の matrix に id_remove の matrix を加算し、id_remove を削除します。取り消し不可。</p>
+<div style="display:flex;flex-direction:column;gap:6px;max-width:420px;">
+  <div style="display:flex;gap:8px;">
+    <input list="fetish-list" id="mg-keep-name" placeholder="残す性癖（名前で検索）" data-action="fill-id" data-target="mg-keep" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <input id="mg-keep" type="number" placeholder="ID" style="width:60px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 8px;border-radius:6px;font-size:0.85rem;">
+  </div>
+  <div style="display:flex;gap:8px;">
+    <input list="fetish-list" id="mg-rm-name" placeholder="削除する性癖（名前で検索）" data-action="fill-id" data-target="mg-rm" style="flex:1;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+    <input id="mg-rm" type="number" placeholder="ID" style="width:60px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 8px;border-radius:6px;font-size:0.85rem;">
+  </div>
+  <input id="mg-name" type="text"   placeholder="新しい名前（省略可）" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+  <input id="mg-desc" type="text"   placeholder="新しい説明文（省略可）" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;font-size:0.85rem;">
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button class="btn-action" data-action="merge-fetishes">統合する</button>
+    <span id="mg-msg" style="font-size:0.8rem;"></span>
+  </div>
+</div>
+</details>

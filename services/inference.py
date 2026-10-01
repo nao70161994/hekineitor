@@ -298,7 +298,8 @@ def make_guess(ctx, answers):
     share_name = ' × '.join([result['fetish_name']] + [item['fetish_name'] for item in result.get('compound', [])])
     share_probability = clean_probability(result.get('probability'))
     share_description = '\n'.join(
-        value for value in [result.get('fetish_desc', '')]
+        value
+        for value in [result.get('fetish_desc', '')]
         + [item.get('fetish_desc', '') for item in result.get('compound', [])]
         if value
     )

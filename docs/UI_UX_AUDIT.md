@@ -30,6 +30,8 @@
 
 PWAインストールは完走済みの端末でだけ提示し、service worker更新通知はこの制限を受けません。共有は主CTAを1つにし、native shareが使えない場合または失敗時にcopyとXの選択dialogを表示します。
 
+簡易feedbackは学習回答を集める主要導線なので、結果詳細の折りたたみ外に表示します。露出による回答率の変化は、管理画面の直近7日・30日のfeedback率とgameplay summaryのrelease別`feedback_completion_rate`で確認します。過去分は新しい露出条件の対照群ではないため、率の差だけで因果効果を断定しません。
+
 
 ## 自動検証範囲
 

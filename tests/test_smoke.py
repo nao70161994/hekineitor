@@ -45,6 +45,7 @@ class TestSmoke(unittest.TestCase):
         self.assertIn(b'/static/admin.js', res.data)
         self.assertIn(b'class="skip-link"', res.data)
         self.assertIn(b'id="log-page-info"', res.data)
+        self.assertIn('30日FB率'.encode(), res.data)
         self.assertNotIn(b'onclick=', res.data)
         self.assertNotIn(b'oninput=', res.data)
         self.assertNotIn(b'onchange=', res.data)
@@ -82,6 +83,18 @@ class TestSmoke(unittest.TestCase):
             self.assertIn(script, body)
             positions.append(body.index(script))
         self.assertEqual(positions, sorted(positions))
+
+    def test_quick_feedback_stays_visible_outside_result_details(self):
+        res = self.client.get('/')
+        self.assertEqual(res.status_code, 200)
+        body = res.data.decode('utf-8')
+        result_screen = body.split('id="result-screen"', 1)[1].split('</section>', 1)[0]
+        feedback_position = result_screen.index('id="quick-feedback"')
+        details_position = result_screen.index('id="result-details"')
+        self.assertLess(feedback_position, details_position)
+        self.assertIn('data-feedback="yes"', result_screen)
+        self.assertIn('data-feedback="maybe"', result_screen)
+        self.assertIn('data-feedback="no"', result_screen)
 
     def test_adsense_hidden_without_client(self):
         with patch.dict(os.environ, {}, clear=True):
