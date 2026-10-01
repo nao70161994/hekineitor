@@ -15,29 +15,29 @@
   <strong>{% if test_play_active %}学習OFFテストプレイ中{% else %}通常モード{% endif %}</strong>
   <span>{% if test_play_active %}このセッションの診断は学習に反映されません。{% else %}通常プレイは従来通り学習ONです。{% endif %}</span>
   {% if test_play_active %}
-  <button type="button" class="btn-action" data-action="test-play-stop" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">テストプレイ終了</button>
+  <button type="button" class="btn-action" data-action="test-play-stop" class="btn-action admin-action-button--compact">テストプレイ終了</button>
   {% else %}
-  <button type="button" class="btn-action" data-action="test-play-start" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">学習OFFでテストプレイ開始</button>
+  <button type="button" class="btn-action" data-action="test-play-start" class="btn-action admin-action-button--compact">学習OFFでテストプレイ開始</button>
   {% endif %}
 </div>
 {% if test_play_audit_rows %}
 <details style="margin-bottom:20px;background:#101622;border:1px solid #263244;border-radius:8px;padding:10px 12px;">
 <summary style="color:#f5c542;font-size:0.86rem;cursor:pointer;">テストプレイ開始/終了履歴</summary>
-<div style="font-size:0.78rem;color:#aaa;margin-top:8px;">
+<div class="admin-help-text--offset">
   {% for row in test_play_audit_rows %}
   <div style="display:flex;gap:10px;align-items:center;border-top:1px solid #222;padding:6px 0;flex-wrap:wrap;">
     <code style="color:{% if row.mode == 'learning_off' %}#f5c542{% else %}#27ae60{% endif %};">{{ row.event_name }}</code>
-    <span style="color:#ccc;">{% if row.mode == 'learning_off' %}学習OFFテストプレイ中へ変更{% else %}通常モードへ変更{% endif %}</span>
-    <span style="color:#666;">{{ row.timestamp }}</span>
+    <span class="admin-text-light">{% if row.mode == 'learning_off' %}学習OFFテストプレイ中へ変更{% else %}通常モードへ変更{% endif %}</span>
+    <span class="admin-muted">{{ row.timestamp }}</span>
   </div>
   {% endfor %}
 </div>
 </details>
 {% endif %}
 
-<details style="margin-bottom:24px;">
-<summary style="color:#f5a623;font-size:0.9rem;cursor:pointer;margin-bottom:8px;">推論パラメータ設定</summary>
-<p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">変更は即座に反映・永続化されます。デフォルト値は括弧内。</p>
+<details class="admin-section-gap">
+<summary class="admin-section-toggle--warning">推論パラメータ設定</summary>
+<p class="admin-help-text--section">変更は即座に反映・永続化されます。デフォルト値は括弧内。</p>
 {% set param_labels = {
   'guess_threshold': '診断確定閾値 (0.75)',
   'compound_ratio':  '複合判定比率 (0.55)',
@@ -56,51 +56,51 @@
 <span id="param-msg" style="color:#27ae60;font-size:0.8rem;margin-left:10px;"></span>
 </details>
 
-<details style="margin-bottom:24px;">
-<summary style="color:#888;font-size:0.9rem;cursor:pointer;">学習済みPriorsのキャプチャ</summary>
-<p style="color:#555;font-size:0.78rem;margin:8px 0;">現在の学習済みmatrixから各性癖の P(yes) を <code>learned_priors.json</code> に保存します。<br>matrix.jsonをリセットして再構築する際に DOMAIN_PRIORS の代わりに使用されます。</p>
+<details class="admin-section-gap">
+<summary class="admin-section-toggle--muted">学習済みPriorsのキャプチャ</summary>
+<p class="admin-help-text">現在の学習済みmatrixから各性癖の P(yes) を <code>learned_priors.json</code> に保存します。<br>matrix.jsonをリセットして再構築する際に DOMAIN_PRIORS の代わりに使用されます。</p>
 <button class="btn-action" data-action="capture-priors">現在のmatrixをpriorとして保存</button>
-<span id="capture-msg" style="color:#aaa;font-size:0.8rem;margin-left:10px;"></span>
+<span id="capture-msg" class="admin-feedback-message"></span>
 </details>
 
-<details style="margin-bottom:24px;">
-<summary style="color:#f5a623;font-size:0.9rem;cursor:pointer;margin-bottom:8px;">性癖を手動追加</summary>
-<p style="color:#555;font-size:0.78rem;margin:6px 0 12px;">管理者が直接性癖を追加できます。追加後は「学習データ量」欄に新しく表示されます。</p>
+<details class="admin-section-gap">
+<summary class="admin-section-toggle--warning">性癖を手動追加</summary>
+<p class="admin-help-text--section">管理者が直接性癖を追加できます。追加後は「学習データ量」欄に新しく表示されます。</p>
 <div class="param-row">
   <label>名前</label>
   <input type="text" id="af-name" placeholder="例：眼鏡っ娘" style="width:180px;">
 </div>
 <div class="param-row">
   <label>説明</label>
-  <input type="text" id="af-desc" placeholder="省略可（省略時は名前を使用）" style="width:260px;">
+  <input type="text" id="af-desc" placeholder="省略可（省略時は名前を使用）" class="admin-input--wide">
 </div>
 <button class="btn-save" data-action="admin-add-fetish">追加</button>
 <span id="af-msg" style="font-size:0.8rem;margin-left:10px;"></span>
 </details>
 
-<details style="margin-bottom:24px;">
-<summary style="color:#f5a623;font-size:0.9rem;cursor:pointer;margin-bottom:8px;">昇格済み性癖のランキング履歴修復</summary>
+<details class="admin-section-gap">
+<summary class="admin-section-toggle--warning">昇格済み性癖のランキング履歴修復</summary>
 <p style="color:#555;font-size:0.78rem;margin:6px 0 12px;line-height:1.6;">プレイヤー追加性癖を格上げする前のランキング履歴を、格上げ後の正式IDへ移します。まずdry-runで件数を確認してください。</p>
 <div class="param-row">
   <label>昇格前ID</label>
-  <input type="number" id="repair-old-id" min="10000" step="1" placeholder="例: 10000" style="width:120px;" data-action="lookup-fetish-id" data-lookup-target="repair-old-name">
-  <span id="repair-old-name" style="font-size:0.78rem;color:#888;"></span>
+  <input type="number" id="repair-old-id" min="10000" step="1" placeholder="例: 10000" class="admin-input--medium" data-action="lookup-fetish-id" data-lookup-target="repair-old-name">
+  <span id="repair-old-name" class="admin-meta--muted"></span>
 </div>
 <div class="param-row">
   <label>昇格後ID</label>
-  <input type="number" id="repair-new-id" min="0" step="1" placeholder="例: 128" style="width:120px;" data-action="lookup-fetish-id" data-lookup-target="repair-new-name">
-  <span id="repair-new-name" style="font-size:0.78rem;color:#888;"></span>
+  <input type="number" id="repair-new-id" min="0" step="1" placeholder="例: 128" class="admin-input--medium" data-action="lookup-fetish-id" data-lookup-target="repair-new-name">
+  <span id="repair-new-name" class="admin-meta--muted"></span>
 </div>
 <div class="param-row">
   <label>確認文字列</label>
-  <input type="text" id="repair-confirm-text" placeholder="適用時のみ REPAIR_PROMOTED_STATS" style="width:260px;">
+  <input type="text" id="repair-confirm-text" placeholder="適用時のみ REPAIR_PROMOTED_STATS" class="admin-input--wide">
 </div>
-<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+<div class="admin-action-row">
   <button class="btn-action" data-action="repair-promoted-stats-dry-run">dry-run</button>
-  <button class="btn-save" data-action="repair-promoted-stats-apply" style="margin-top:0;">確認して適用</button>
-  <span id="repair-promoted-stats-msg" style="font-size:0.8rem;color:#aaa;"></span>
+  <button class="btn-save admin-action--flush" data-action="repair-promoted-stats-apply">確認して適用</button>
+  <span id="repair-promoted-stats-msg" class="admin-meta--subtle-large"></span>
 </div>
-<div id="repair-promoted-stats-result" style="margin-top:10px;font-size:0.78rem;color:#aaa;line-height:1.6;"></div>
+<div id="repair-promoted-stats-result" class="admin-result-preview"></div>
 <hr style="border:0;border-top:1px solid #263244;margin:16px 0;">
 <p style="color:#e74c3c;font-size:0.78rem;margin:6px 0 10px;line-height:1.6;">上級: 正式ID同士でランキング履歴だけを移動します。IDを間違えた時の補正用です。性癖マスタや推論データは変更しません。</p>
 <div class="param-row" style="align-items:flex-start;">
@@ -113,33 +113,33 @@
 </div>
 <div class="param-row">
   <label>確認文字列</label>
-  <input type="text" id="move-stats-history-confirm" placeholder="適用時のみ MOVE_STATS_HISTORY" style="width:260px;">
+  <input type="text" id="move-stats-history-confirm" placeholder="適用時のみ MOVE_STATS_HISTORY" class="admin-input--wide">
 </div>
-<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+<div class="admin-action-row">
   <button class="btn-action" data-action="move-stats-history-dry-run">ID移動dry-run</button>
-  <button class="btn-save" data-action="move-stats-history-apply" style="margin-top:0;">ID移動を適用</button>
-  <span id="move-stats-history-msg" style="font-size:0.8rem;color:#aaa;"></span>
+  <button class="btn-save admin-action--flush" data-action="move-stats-history-apply">ID移動を適用</button>
+  <span id="move-stats-history-msg" class="admin-meta--subtle-large"></span>
 </div>
 <div id="move-stats-history-preview" style="margin-top:8px;font-size:0.78rem;color:#888;line-height:1.6;"></div>
-<div id="move-stats-history-result" style="margin-top:10px;font-size:0.78rem;color:#aaa;line-height:1.6;"></div>
+<div id="move-stats-history-result" class="admin-result-preview"></div>
 </details>
 
-<details style="margin-bottom:24px;">
-<summary style="color:#888;font-size:0.9rem;cursor:pointer;">セッション管理</summary>
-<p style="color:#555;font-size:0.78rem;margin:8px 0;">期限切れセッションはリクエスト時に自動削除（1%確率）されますが、手動で全掃除もできます。</p>
+<details class="admin-section-gap">
+<summary class="admin-section-toggle--muted">セッション管理</summary>
+<p class="admin-help-text">期限切れセッションはリクエスト時に自動削除（1%確率）されますが、手動で全掃除もできます。</p>
 <button class="btn-action" data-action="cleanup-sessions">期限切れセッションを削除</button>
-<span id="cleanup-msg" style="color:#aaa;font-size:0.8rem;margin-left:10px;"></span>
+<span id="cleanup-msg" class="admin-feedback-message"></span>
 </details>
 
 {% set alert_fetishes = fetish_log_rows | selectattr('guessed', 'ge', 10) | selectattr('acc', 'ne', None) | selectattr('acc', 'lt', 40) | list %}
 {% if alert_fetishes %}
 <div style="background:#2a0a0a;border:1px solid #e74c3c;border-radius:10px;padding:14px 16px;margin-bottom:20px;">
-  <strong style="color:#e74c3c;">⚠️ 要確認: 正解率が低い性癖</strong>
+  <strong class="admin-status--danger">⚠️ 要確認: 正解率が低い性癖</strong>
   <p style="color:#aaa;font-size:0.82rem;margin:6px 0 10px;">正解率40%未満・診断数10件以上。DOMAIN_PRIORSや性癖の説明を見直してください。</p>
   {% for f in alert_fetishes %}
   <div style="display:flex;justify-content:space-between;font-size:0.85rem;padding:3px 0;border-bottom:1px solid #3a1515;">
-    <span style="color:#eee;">{{ f.name }}</span>
-    <span style="color:#e74c3c;">正解率 {{ f.acc }}%（{{ f.guessed }}件）</span>
+    <span class="admin-text-primary">{{ f.name }}</span>
+    <span class="admin-status--danger">正解率 {{ f.acc }}%（{{ f.guessed }}件）</span>
   </div>
   {% endfor %}
 </div>

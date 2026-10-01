@@ -25,6 +25,16 @@ The main page loads classic scripts with `defer`. The browser runs them in docum
 
 `catalog.js` is loaded only by the catalog page. `admin.js` and `admin_ops.js` belong to the administration page. Keep compatibility aliases at the module boundary while templates and older flows still call them; new cross-module behavior should use the owning `Heki*` API.
 
+## Stylesheet boundaries
+
+| Stylesheet | Responsibility | Loaded by |
+| --- | --- | --- |
+| `app.css` | Shared/base styles and legacy component rules | Main and privacy pages |
+| `public_experience.css` | Screen state, focused gameplay, and responsive public UI rules | Main and privacy pages, after `app.css` |
+| `admin.css` | Admin layout, controls, and reusable admin presentation classes | Admin page |
+
+Keep the public stylesheet order when moving rules: `public_experience.css` contains later overrides that intentionally follow the base rules. Add new public styles to the narrowest fitting file and keep admin presentation in `admin.css` instead of template `style` attributes.
+
 ## Change guidance
 
 - A module may call only an API provided earlier in the main-page load order, unless it uses an explicit optional check (`?.`).

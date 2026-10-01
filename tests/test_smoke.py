@@ -25,6 +25,8 @@ class TestSmoke(unittest.TestCase):
         res = self.client.get('/')
         self.assertEqual(res.status_code, 200)
         self.assertIn(b'/static/app.css?v=', res.data)
+        self.assertIn(b'/static/public_experience.css?v=', res.data)
+        self.assertLess(res.data.index(b'/static/app.css?v='), res.data.index(b'/static/public_experience.css?v='))
         self.assertIn(b'/static/app.js?v=', res.data)
         self.assertIn(b'window.APP_CONFIG', res.data)
         self.assertNotIn(b'onclick=', res.data)
@@ -36,6 +38,9 @@ class TestSmoke(unittest.TestCase):
             self.assertIn(b'window.setLastFetishName', f.read())
         with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'app.css'), 'rb') as f:
             self.assertIn(b'.btn-start', f.read())
+        public_css = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'public_experience.css')
+        with open(public_css, 'rb') as f:
+            self.assertIn(b'.question-nav', f.read())
 
     def test_admin_loads_static_admin_js_without_inline_handlers(self):
         res = self.client.get('/admin', headers=self._admin_headers())

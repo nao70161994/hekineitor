@@ -13,30 +13,30 @@
 </p>
 
 {% if completion_metrics %}
-<div style="background:#0d1b2a;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:16px;">
-  <div style="text-align:center;min-width:72px;">
+<div class="admin-summary-card">
+  <div class="admin-cell-center">
     <div style="font-size:1.35rem;font-weight:bold;color:#7af0a0;">{{ completion_metrics.start_count }}</div>
-    <div style="font-size:0.7rem;color:#777;">開始数（新計測）</div>
+    <div class="admin-caption">開始数（新計測）</div>
   </div>
-  <div style="text-align:center;min-width:72px;">
+  <div class="admin-cell-center">
     <div style="font-size:1.35rem;font-weight:bold;color:#f5a623;">{{ completion_metrics.completion_count }}</div>
-    <div style="font-size:0.7rem;color:#777;">結果到達（新計測）</div>
+    <div class="admin-caption">結果到達（新計測）</div>
   </div>
-  <div style="text-align:center;min-width:72px;">
+  <div class="admin-cell-center">
     <div style="font-size:1.35rem;font-weight:bold;color:#5b8dd9;">{{ completion_metrics.completion_rate if completion_metrics.completion_rate is not none else '—' }}{% if completion_metrics.completion_rate is not none %}%{% endif %}</div>
-    <div style="font-size:0.7rem;color:#777;">完走率（新計測）{% if not completion_metrics.completion_rate_reliable %}・参考不可{% endif %}</div>
+    <div class="admin-caption">完走率（新計測）{% if not completion_metrics.completion_rate_reliable %}・参考不可{% endif %}</div>
   </div>
-  <div style="text-align:center;min-width:72px;">
+  <div class="admin-cell-center">
     <div style="font-size:1.35rem;font-weight:bold;color:#e74c3c;">{{ completion_metrics.estimated_dropoff_count }}</div>
-    <div style="font-size:0.7rem;color:#777;">未完走推定</div>
+    <div class="admin-caption">未完走推定</div>
   </div>
-  <div style="text-align:center;min-width:72px;">
+  <div class="admin-cell-center">
     <div style="font-size:1.35rem;font-weight:bold;color:#aaa;">{{ completion_metrics.recent_7_days.feedback_rate if completion_metrics.recent_7_days.feedback_rate is not none else '—' }}{% if completion_metrics.recent_7_days.feedback_rate is not none %}%{% endif %}</div>
-    <div style="font-size:0.7rem;color:#777;">7日FB率</div>
+    <div class="admin-caption">7日FB率</div>
   </div>
-  <div style="text-align:center;min-width:72px;">
+  <div class="admin-cell-center">
     <div style="font-size:1.35rem;font-weight:bold;color:#aaa;">{{ completion_metrics.recent_30_days.feedback_rate if completion_metrics.recent_30_days.feedback_rate is not none else '—' }}{% if completion_metrics.recent_30_days.feedback_rate is not none %}%{% endif %}</div>
-    <div style="font-size:0.7rem;color:#777;">30日FB率</div>
+    <div class="admin-caption">30日FB率</div>
   </div>
 </div>
 {% if completion_metrics.completion_rate_note %}
@@ -60,7 +60,7 @@
 {% endif %}
 
 {% if stats_history %}
-<div style="margin-bottom:24px;">
+<div class="admin-section-gap">
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
     <p style="color:#888;font-size:0.8rem;flex:1;" id="chart-label">過去30日間の推移</p>
     <button data-action="render-stats" data-days="7" id="chart-btn-7" style="font-size:0.72rem;padding:2px 8px;background:#0f3460;border:1px solid #444;color:#aaa;border-radius:4px;cursor:pointer;">7日</button>
@@ -77,7 +77,7 @@
   </div>
 </div>
 
-<div style="margin-bottom:24px;">
+<div class="admin-section-gap">
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
     <p style="color:#888;font-size:0.8rem;flex:1;" id="recent-rank-label">最近の診断ランキング（7日）</p>
     <button data-action="recent-ranking" data-days="7"  id="rank-btn-7"  style="font-size:0.72rem;padding:2px 8px;background:#e94560;border:1px solid #e94560;color:#fff;border-radius:4px;cursor:pointer;">7日</button>
@@ -103,7 +103,7 @@ window.ADMIN_CONFIG = {
   {% set max_w = [stats[-1].data_weight, 1] | max if stats else 1 %}
   {% for s in stats %}
   <tr>
-    <td style="color:#666;font-size:0.8rem">{{ s.id }}</td>
+    <td class="admin-caption--muted">{{ s.id }}</td>
     <td>{{ s.name }}{% if s.data_weight < 10 %}<span class="tag-low">要学習</span>{% endif %}</td>
     <td>
       <div class="bar-wrap">
