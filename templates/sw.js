@@ -6,6 +6,7 @@ const STATIC = [
   '/static/icon-192.png',
   '/static/icon-512.png',
   '/static/app.css',
+  '/static/public_experience.css',
   '/static/game_state.js',
   '/static/api_client.js',
   '/static/utils.js',

@@ -1,168 +1,168 @@
 {% if quality_report %}
-<details open style="margin-bottom:24px;background:#111827;border:1px solid #263244;border-radius:8px;padding:12px 14px;">
-<summary style="color:#7af0a0;font-size:0.9rem;cursor:pointer;">診断品質チェック</summary>
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:12px;">
+<details open class="admin-section--default-91f7a43">
+<summary class="admin-section-toggle--positive-d28d0e2">診断品質チェック</summary>
+<div class="admin-layout-grid--default-32c5b95">
   <div>
-    <div style="font-size:1.3rem;color:#f5a623;font-weight:bold;">{{ quality_report.low_questions|length }}</div>
-    <div style="font-size:0.72rem;color:#888;margin-bottom:6px;">低識別力の質問</div>
-    <div style="font-size:0.74rem;color:#aaa;">{{ quality_report.low_questions[:5]|map(attribute='id')|list|join(', ') or 'なし' }}</div>
+    <div class="admin-metric--warning">{{ quality_report.low_questions|length }}</div>
+    <div class="admin-meta--spaced">低識別力の質問</div>
+    <div class="admin-meta--subtle">{{ quality_report.low_questions[:5]|map(attribute='id')|list|join(', ') or 'なし' }}</div>
   </div>
   <div>
-    <div style="font-size:1.3rem;color:#e94560;font-weight:bold;">{{ quality_report.high_correlation_questions|length }}</div>
-    <div style="font-size:0.72rem;color:#888;margin-bottom:6px;">重複度が高い質問ペア</div>
-    <div style="font-size:0.74rem;color:#aaa;">
+    <div class="admin-metric--danger-28e95f4">{{ quality_report.high_correlation_questions|length }}</div>
+    <div class="admin-meta--spaced">重複度が高い質問ペア</div>
+    <div class="admin-meta--subtle">
       {% for p in quality_report.high_correlation_questions[:3] %}Q{{ p.q1_id }}-Q{{ p.q2_id }}{% if not loop.last %}, {% endif %}{% else %}なし{% endfor %}
     </div>
   </div>
   <div>
-    <div style="font-size:1.3rem;color:#e74c3c;font-weight:bold;">{{ quality_report.weak_fetishes|length }}</div>
-    <div style="font-size:0.72rem;color:#888;margin-bottom:6px;">改善候補の性癖</div>
-    <div style="font-size:0.74rem;color:#aaa;">
+    <div class="admin-metric--danger-90d5ad5">{{ quality_report.weak_fetishes|length }}</div>
+    <div class="admin-meta--spaced">改善候補の性癖</div>
+    <div class="admin-meta--subtle">
       {% for f in quality_report.weak_fetishes[:3] %}{{ f.fetish_name }}{% if not loop.last %}, {% endif %}{% else %}なし{% endfor %}
     </div>
   </div>
   <div>
-    <div style="font-size:1.3rem;color:#7af0a0;font-weight:bold;">{{ quality_report.feedback_summary.accuracy if quality_report.feedback_summary.accuracy is not none else '—' }}{% if quality_report.feedback_summary.accuracy is not none %}%{% endif %}</div>
-    <div style="font-size:0.72rem;color:#888;margin-bottom:6px;">フィードバック正解率</div>
-    <div style="font-size:0.74rem;color:#aaa;">外れ {{ quality_report.feedback_summary.wrong }} / FB {{ quality_report.feedback_summary.feedback_total }}</div>
+    <div class="admin-metric--positive-4ab821e">{{ quality_report.feedback_summary.accuracy if quality_report.feedback_summary.accuracy is not none else '—' }}{% if quality_report.feedback_summary.accuracy is not none %}%{% endif %}</div>
+    <div class="admin-meta--spaced">フィードバック正解率</div>
+    <div class="admin-meta--subtle">外れ {{ quality_report.feedback_summary.wrong }} / FB {{ quality_report.feedback_summary.feedback_total }}</div>
   </div>
   <div>
-    <div style="font-size:1.3rem;color:#5b8dd9;font-weight:bold;">{{ quality_report.low_confidence_summary.low_confidence_accuracy if quality_report.low_confidence_summary.low_confidence_accuracy is not none else '—' }}{% if quality_report.low_confidence_summary.low_confidence_accuracy is not none %}%{% endif %}</div>
-    <div style="font-size:0.72rem;color:#888;margin-bottom:6px;">接戦追加後の正解率</div>
-    <div style="font-size:0.74rem;color:#aaa;">{{ quality_report.low_confidence_summary.low_confidence_feedback_total }}件 / 追加{{ quality_report.low_confidence_summary.additional_questions_asked }}問</div>
+    <div class="admin-metric--info-fbfee89">{{ quality_report.low_confidence_summary.low_confidence_accuracy if quality_report.low_confidence_summary.low_confidence_accuracy is not none else '—' }}{% if quality_report.low_confidence_summary.low_confidence_accuracy is not none %}%{% endif %}</div>
+    <div class="admin-meta--spaced">接戦追加後の正解率</div>
+    <div class="admin-meta--subtle">{{ quality_report.low_confidence_summary.low_confidence_feedback_total }}件 / 追加{{ quality_report.low_confidence_summary.additional_questions_asked }}問</div>
   </div>
   <div>
-    <div style="font-size:1.3rem;color:#f5a623;font-weight:bold;">{{ quality_report.feedback_summary.no_feedback_rate if quality_report.feedback_summary.no_feedback_rate is not none else '—' }}{% if quality_report.feedback_summary.no_feedback_rate is not none %}%{% endif %}</div>
-    <div style="font-size:0.72rem;color:#888;margin-bottom:6px;">未FB診断率</div>
-    <div style="font-size:0.74rem;color:#aaa;">{{ quality_report.feedback_summary.no_feedback_guesses }} / {{ quality_report.feedback_summary.guessed }}</div>
+    <div class="admin-metric--warning">{{ quality_report.feedback_summary.no_feedback_rate if quality_report.feedback_summary.no_feedback_rate is not none else '—' }}{% if quality_report.feedback_summary.no_feedback_rate is not none %}%{% endif %}</div>
+    <div class="admin-meta--spaced">未FB診断率</div>
+    <div class="admin-meta--subtle">{{ quality_report.feedback_summary.no_feedback_guesses }} / {{ quality_report.feedback_summary.guessed }}</div>
   </div>
 </div>
 {% if quality_report.action_items %}
-<div style="margin-top:10px;border-top:1px solid #263244;padding-top:8px;">
+<div class="admin-content--default-f65ec62">
   {% for item in quality_report.action_items[:3] %}
-  <div style="font-size:0.76rem;color:{% if item.severity == 'warning' %}#f5a623{% else %}#aaa{% endif %};margin-bottom:3px;">{{ item.message }}</div>
+  <div class="admin-severity-label{% if item.severity == 'warning' %} is-warning{% else %} is-muted{% endif %}">{{ item.message }}</div>
   {% endfor %}
 </div>
 {% endif %}
-<div style="margin-top:10px;"><a href="/api/admin/quality_report" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">JSONで確認</a></div>
+<div class="admin-content--default-81d3dfd"><a href="/api/admin/quality_report" class="btn-action admin-action-button--compact" >JSONで確認</a></div>
 </details>
 {% endif %}
 
 {% if analysis_logs %}
-<details open style="margin-bottom:24px;background:#101622;border:1px solid #263244;border-radius:8px;padding:12px 14px;">
-<summary style="color:#f5a623;font-size:0.9rem;cursor:pointer;">分析ログ蓄積状況</summary>
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:12px;">
-  <div><div style="font-size:1.25rem;color:#aaa;font-weight:bold;">{{ analysis_logs.stats_history_count }}</div><div style="font-size:0.72rem;color:#888;">stats_history有効日数</div><div style="font-size:0.68rem;color:#666;">取得元: {{ analysis_logs.sources.result_distribution }}</div></div>
-  <div><div style="font-size:1.25rem;color:{% if analysis_logs.share_ready %}#7af0a0{% else %}#f5a623{% endif %};font-weight:bold;">{{ analysis_logs.share_event_count }}</div><div style="font-size:0.72rem;color:#888;">share_events行数</div><div style="font-size:0.68rem;color:#666;">取得元: {{ analysis_logs.sources.share_analytics }}</div></div>
-  <div><div style="font-size:1.25rem;color:{% if analysis_logs.question_ready %}#7af0a0{% else %}#f5a623{% endif %};font-weight:bold;">{{ analysis_logs.question_event_count }}</div><div style="font-size:0.72rem;color:#888;">question_events行数</div><div style="font-size:0.68rem;color:#666;">取得元: {{ analysis_logs.sources.question_analytics }}</div></div>
-  <div><div style="font-size:1.25rem;color:#aaa;font-weight:bold;">{{ analysis_logs.question_event_loaded }} / {{ analysis_logs.share_event_loaded }}</div><div style="font-size:0.72rem;color:#888;">管理画面読込 Q/S</div><div style="font-size:0.68rem;color:#666;">取得元: {{ analysis_logs.sources.feedback }}</div></div>
-  <div><div style="font-size:1.25rem;color:{% if analysis_logs.share_invalid_result_events %}#f5a623{% else %}#7af0a0{% endif %};font-weight:bold;">{{ analysis_logs.share_invalid_result_events }}</div><div style="font-size:0.72rem;color:#888;">無効結果名イベント</div><div style="font-size:0.68rem;color:#666;">ランキング集計から除外</div></div>
+<details open class="admin-card">
+<summary class="admin-section-toggle--warning">分析ログ蓄積状況</summary>
+<div class="admin-metric-grid">
+  <div><div class="admin-metric--muted">{{ analysis_logs.stats_history_count }}</div><div class="admin-meta">stats_history有効日数</div><div class="admin-footnote">取得元: {{ analysis_logs.sources.result_distribution }}</div></div>
+  <div><div class="admin-data-metric{% if analysis_logs.share_ready %} is-positive{% else %} is-warning{% endif %}">{{ analysis_logs.share_event_count }}</div><div class="admin-meta">share_events行数</div><div class="admin-footnote">取得元: {{ analysis_logs.sources.share_analytics }}</div></div>
+  <div><div class="admin-data-metric{% if analysis_logs.question_ready %} is-positive{% else %} is-warning{% endif %}">{{ analysis_logs.question_event_count }}</div><div class="admin-meta">question_events行数</div><div class="admin-footnote">取得元: {{ analysis_logs.sources.question_analytics }}</div></div>
+  <div><div class="admin-metric--muted">{{ analysis_logs.question_event_loaded }} / {{ analysis_logs.share_event_loaded }}</div><div class="admin-meta">管理画面読込 Q/S</div><div class="admin-footnote">取得元: {{ analysis_logs.sources.feedback }}</div></div>
+  <div><div class="admin-data-metric{% if analysis_logs.share_invalid_result_events %} is-warning{% else %} is-positive{% endif %}">{{ analysis_logs.share_invalid_result_events }}</div><div class="admin-meta">無効結果名イベント</div><div class="admin-footnote">ランキング集計から除外</div></div>
 </div>
 {% if not analysis_logs.question_ready or not analysis_logs.share_ready %}
-<div style="margin-top:10px;border:1px solid #5a3320;background:#21150f;border-radius:8px;padding:8px 10px;line-height:1.6;">
-  {% if not analysis_logs.question_ready %}<div style="font-size:0.76rem;color:#f5a623;">question_events が少ないため、質問別離脱率・YES/NO偏り・結果寄与ランキングはまだ分析不可です。目安: 50行以上。</div>{% endif %}
-  {% if not analysis_logs.share_ready %}<div style="font-size:0.76rem;color:#f5a623;">share_events が少ないため、結果別シェア率・チャネル別評価はまだ分析不可です。目安: 20行以上。</div>{% endif %}
+<div class="admin-panel--default-1a146dd">
+  {% if not analysis_logs.question_ready %}<div class="admin-status--warning">question_events が少ないため、質問別離脱率・YES/NO偏り・結果寄与ランキングはまだ分析不可です。目安: 50行以上。</div>{% endif %}
+  {% if not analysis_logs.share_ready %}<div class="admin-status--warning">share_events が少ないため、結果別シェア率・チャネル別評価はまだ分析不可です。目安: 20行以上。</div>{% endif %}
 </div>
 {% endif %}
-<div style="margin-top:8px;font-size:0.72rem;color:#777;line-height:1.6;">
+<div class="admin-copy--muted-01a60e5">
   result distribution / feedback は Engine の stats_history・fetish_log、share analytics / question analytics は本番Postgresの analytics_events、またはローカルJSONLを参照します。
 </div>
-<div style="margin-top:12px;border-top:1px solid #263244;padding-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-  <span style="font-size:0.76rem;color:#aaa;">分散ボーナス初期化</span>
-  <label style="font-size:0.7rem;color:#777;">max_events
-    <input id="result-exposure-backfill-max" type="number" min="1" max="5000" value="1000" style="width:82px;background:#1a1a2e;color:#eee;border:1px solid #444;border-radius:4px;padding:3px 6px;">
+<div class="admin-layout-flex--default-aa68a00">
+  <span class="admin-copy--muted-7568f24">分散ボーナス初期化</span>
+  <label class="admin-caption">max_events
+    <input id="result-exposure-backfill-max" type="number" min="1" max="5000" value="1000" class="admin-field--default-c2d0cf5">
   </label>
-  <button type="button" class="btn-action" data-action="preview-result-exposure-backfill" style="font-size:0.74rem;padding:3px 10px;">backfill確認</button>
-  <button type="button" class="btn-save" data-action="apply-result-exposure-backfill" style="font-size:0.74rem;padding:3px 10px;margin-top:0;">確認して適用</button>
-  <span id="result-exposure-backfill-msg" style="font-size:0.76rem;color:#888;"></span>
+  <button type="button" class="btn-action admin-action--default-e1e4421" data-action="preview-result-exposure-backfill">backfill確認</button>
+  <button type="button" class="btn-save admin-action--default-94581fc" data-action="apply-result-exposure-backfill">確認して適用</button>
+  <span id="result-exposure-backfill-msg" class="admin-copy--muted-519b57b"></span>
 </div>
-<div id="result-exposure-backfill-result" style="margin-top:8px;font-size:0.74rem;color:#888;line-height:1.6;"></div>
+<div id="result-exposure-backfill-result" class="admin-copy--muted-4d038f1"></div>
 </details>
 {% endif %}
 
 {% if question_events %}
-<details open style="margin-bottom:24px;background:#101622;border:1px solid #263244;border-radius:8px;padding:12px 14px;">
-<summary style="color:#b38cff;font-size:0.9rem;cursor:pointer;">質問分析ダッシュボード</summary>
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-top:12px;">
-  <div><div style="font-size:1.35rem;color:#f5a623;font-weight:bold;">{{ question_events.metrics.shown }}</div><div style="font-size:0.72rem;color:#888;">質問表示</div></div>
-  <div><div style="font-size:1.35rem;color:#7af0a0;font-weight:bold;">{{ question_events.metrics.answered }}</div><div style="font-size:0.72rem;color:#888;">回答</div></div>
-  <div><div style="font-size:1.35rem;color:#e74c3c;font-weight:bold;">{{ question_events.metrics.dropoffs }}</div><div style="font-size:0.72rem;color:#888;">離脱記録</div></div>
-  <div><div style="font-size:1.35rem;color:#5b8dd9;font-weight:bold;">{{ question_events.metrics.contributions }}</div><div style="font-size:0.72rem;color:#888;">結果寄与</div></div>
-  <div><div style="font-size:1.35rem;color:#b38cff;font-weight:bold;">{{ question_events.metrics.feedback_learning }}</div><div style="font-size:0.72rem;color:#888;">FB学習回答</div></div>
-  <div><div style="font-size:1.35rem;color:{% if question_events.cold_start_summary.needs_review %}#e74c3c{% else %}#7af0a0{% endif %};font-weight:bold;">{{ question_events.cold_start_summary.needs_review }}</div><div style="font-size:0.72rem;color:#888;">未学習質問 要確認</div></div>
-  <div><div style="font-size:1.35rem;color:{% if question_events.metrics.relation_attachment_share >= 55 %}#e74c3c{% else %}#aaa{% endif %};font-weight:bold;">{{ question_events.metrics.relation_attachment_share }}%</div><div style="font-size:0.72rem;color:#888;">relation/attachment比率</div></div>
+<details open class="admin-card">
+<summary class="admin-section-toggle--accent-c2228d7">質問分析ダッシュボード</summary>
+<div class="admin-metric-grid--compact">
+  <div><div class="admin-metric--warning-large">{{ question_events.metrics.shown }}</div><div class="admin-meta">質問表示</div></div>
+  <div><div class="admin-metric--positive">{{ question_events.metrics.answered }}</div><div class="admin-meta">回答</div></div>
+  <div><div class="admin-metric--danger">{{ question_events.metrics.dropoffs }}</div><div class="admin-meta">離脱記録</div></div>
+  <div><div class="admin-metric--info">{{ question_events.metrics.contributions }}</div><div class="admin-meta">結果寄与</div></div>
+  <div><div class="admin-metric--accent-1860b4e">{{ question_events.metrics.feedback_learning }}</div><div class="admin-meta">FB学習回答</div></div>
+  <div><div class="admin-data-metric admin-data-metric--large{% if question_events.cold_start_summary.needs_review %} is-danger{% else %} is-positive{% endif %}">{{ question_events.cold_start_summary.needs_review }}</div><div class="admin-meta">未学習質問 要確認</div></div>
+  <div><div class="admin-data-metric admin-data-metric--large{% if question_events.metrics.relation_attachment_share >= 55 %} is-danger{% else %} is-muted{% endif %}">{{ question_events.metrics.relation_attachment_share }}%</div><div class="admin-meta">relation/attachment比率</div></div>
 </div>
 {% if question_events.warnings %}
-<div style="margin-top:10px;border:1px solid #5a3320;background:#21150f;border-radius:8px;padding:8px 10px;">
-  {% for warning in question_events.warnings %}<div style="font-size:0.76rem;color:#f5a623;">{{ warning.message }}</div>{% endfor %}
+<div class="admin-panel--default-4dcfa99">
+  {% for warning in question_events.warnings %}<div class="admin-status--warning">{{ warning.message }}</div>{% endfor %}
 </div>
 {% endif %}
-<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-  <a href="/api/admin/question_events" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">JSON</a>
-  <a href="/api/admin/question_events/questions.csv" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">質問CSV</a>
-  <a href="/api/admin/question_events/category.csv" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">カテゴリCSV</a>
+<div class="admin-layout-flex--default-edf786e">
+  <a href="/api/admin/question_events" class="btn-action admin-action-button--compact" >JSON</a>
+  <a href="/api/admin/question_events/questions.csv" class="btn-action admin-action-button--compact" >質問CSV</a>
+  <a href="/api/admin/question_events/category.csv" class="btn-action admin-action-button--compact" >カテゴリCSV</a>
 </div>
-<h3 style="font-size:0.82rem;color:#ddd;margin:14px 0 6px;">質問ランキング</h3>
-<table style="width:100%;border-collapse:collapse;font-size:0.74rem;">
-<tr style="color:#888;border-bottom:1px solid #263244;"><th style="text-align:left;padding:4px;">Q</th><th style="text-align:left;padding:4px;">カテゴリ</th><th style="text-align:left;padding:4px;">質問</th><th style="text-align:right;padding:4px;">表示</th><th style="text-align:right;padding:4px;">YES</th><th style="text-align:right;padding:4px;">NO</th><th style="text-align:right;padding:4px;">未回答</th><th style="text-align:right;padding:4px;">離脱</th></tr>
+<h3 class="admin-subheading">質問ランキング</h3>
+<table class="admin-table--compact">
+<tr class="admin-table-heading"><th class="admin-cell-label">Q</th><th class="admin-cell-label">カテゴリ</th><th class="admin-cell-label">質問</th><th class="admin-cell-number">表示</th><th class="admin-cell-number">YES</th><th class="admin-cell-number">NO</th><th class="admin-cell-number">未回答</th><th class="admin-cell-number">離脱</th></tr>
 {% for row in question_events.questions[:10] %}
-<tr style="border-bottom:1px solid #1f2937;">
-  <td style="padding:4px;color:#888;">{{ row.question_id }}</td>
-  <td style="padding:4px;color:#b38cff;">{{ row.category }}</td>
-  <td style="padding:4px;color:#ddd;max-width:360px;">{{ row.question_text }}</td>
-  <td style="padding:4px;text-align:right;color:#eee;">{{ row.shown }}</td>
-  <td style="padding:4px;text-align:right;color:#7af0a0;">{{ row.yes_rate }}%</td>
-  <td style="padding:4px;text-align:right;color:#7ab7ff;">{{ row.no_rate }}%</td>
-  <td style="padding:4px;text-align:right;color:#aaa;">{{ row.unanswered_rate }}%</td>
-  <td style="padding:4px;text-align:right;color:{% if row.dropoff_rate >= 25 %}#e74c3c{% else %}#aaa{% endif %};">{{ row.dropoff_rate }}%</td>
+<tr class="admin-divider-row">
+  <td class="admin-cell-muted">{{ row.question_id }}</td>
+  <td class="admin-cell-accent">{{ row.category }}</td>
+  <td class="admin-cell-description">{{ row.question_text }}</td>
+  <td class="admin-cell-number--primary">{{ row.shown }}</td>
+  <td class="admin-cell-number--positive">{{ row.yes_rate }}%</td>
+  <td class="admin-cell-number--info-f252978">{{ row.no_rate }}%</td>
+  <td class="admin-cell-number--muted">{{ row.unanswered_rate }}%</td>
+  <td class="admin-cell-number admin-tone--{% if row.dropoff_rate >= 25 %}danger{% else %}muted{% endif %}">{{ row.dropoff_rate }}%</td>
 </tr>
 {% endfor %}
 </table>
 {% if question_events.cold_start_questions %}
-<h3 style="font-size:0.82rem;color:#ddd;margin:14px 0 6px;">未学習質問の成熟度</h3>
-<div style="font-size:0.7rem;color:#777;margin-bottom:5px;">20回未満のフィードバックは収集中として扱い、識別力が低くても警告しません。</div>
-<table style="width:100%;border-collapse:collapse;font-size:0.74rem;">
-<tr style="color:#888;border-bottom:1px solid #263244;"><th style="text-align:left;padding:4px;">Q</th><th style="text-align:left;padding:4px;">質問</th><th style="text-align:right;padding:4px;">表示</th><th style="text-align:right;padding:4px;">FB</th><th style="text-align:right;padding:4px;">正解FB</th><th style="text-align:right;padding:4px;">識別力</th><th style="text-align:right;padding:4px;">FB後推移</th><th style="text-align:left;padding:4px;">状態</th></tr>
+<h3 class="admin-subheading">未学習質問の成熟度</h3>
+<div class="admin-copy--muted-51ba91e">20回未満のフィードバックは収集中として扱い、識別力が低くても警告しません。</div>
+<table class="admin-table--compact">
+<tr class="admin-table-heading"><th class="admin-cell-label">Q</th><th class="admin-cell-label">質問</th><th class="admin-cell-number">表示</th><th class="admin-cell-number">FB</th><th class="admin-cell-number">正解FB</th><th class="admin-cell-number">識別力</th><th class="admin-cell-number">FB後推移</th><th class="admin-cell-label">状態</th></tr>
 {% for row in question_events.cold_start_questions[:30] %}
-<tr style="border-bottom:1px solid #1f2937;">
-  <td style="padding:4px;color:#888;">{{ row.question_id }}</td>
-  <td style="padding:4px;color:#ddd;max-width:360px;">{{ row.question_text }}</td>
-  <td style="padding:4px;text-align:right;color:#eee;">{{ row.shown }}</td>
-  <td style="padding:4px;text-align:right;color:#b38cff;">{{ row.feedback }}</td>
-  <td style="padding:4px;text-align:right;color:#7af0a0;">{{ row.positive_feedback }}</td>
-  <td style="padding:4px;text-align:right;color:#aaa;">{{ row.discrimination }}</td>
-  <td style="padding:4px;text-align:right;color:#aaa;">{% if row.feedback_discrimination_delta is not none %}{{ '%+.3f'|format(row.feedback_discrimination_delta) }}{% else %}-{% endif %}</td>
-  <td style="padding:4px;color:{% if row.maturity == 'needs_review' %}#e74c3c{% elif row.maturity == 'mature' %}#7af0a0{% else %}#f5a623{% endif %};">{{ row.maturity }}</td>
+<tr class="admin-divider-row">
+  <td class="admin-cell-muted">{{ row.question_id }}</td>
+  <td class="admin-cell-description">{{ row.question_text }}</td>
+  <td class="admin-cell-number--primary">{{ row.shown }}</td>
+  <td class="admin-cell-number--accent-755e830">{{ row.feedback }}</td>
+  <td class="admin-cell-number--positive">{{ row.positive_feedback }}</td>
+  <td class="admin-cell-number--muted">{{ row.discrimination }}</td>
+  <td class="admin-cell-number--muted">{% if row.feedback_discrimination_delta is not none %}{{ '%+.3f'|format(row.feedback_discrimination_delta) }}{% else %}-{% endif %}</td>
+  <td class="admin-cell-padding admin-tone--{% if row.maturity == 'needs_review' %}danger{% elif row.maturity == 'mature' %}positive{% else %}warning{% endif %}">{{ row.maturity }}</td>
 </tr>
 {% endfor %}
 </table>
 {% endif %}
-<h3 style="font-size:0.82rem;color:#ddd;margin:14px 0 6px;">離脱率順</h3>
-<table style="width:100%;border-collapse:collapse;font-size:0.74rem;">
-<tr style="color:#888;border-bottom:1px solid #263244;"><th style="text-align:left;padding:4px;">Q</th><th style="text-align:left;padding:4px;">カテゴリ</th><th style="text-align:left;padding:4px;">質問</th><th style="text-align:right;padding:4px;">表示</th><th style="text-align:right;padding:4px;">離脱率</th></tr>
+<h3 class="admin-subheading">離脱率順</h3>
+<table class="admin-table--compact">
+<tr class="admin-table-heading"><th class="admin-cell-label">Q</th><th class="admin-cell-label">カテゴリ</th><th class="admin-cell-label">質問</th><th class="admin-cell-number">表示</th><th class="admin-cell-number">離脱率</th></tr>
 {% for row in question_events.dropoff_ranking[:8] %}
-<tr style="border-bottom:1px solid #1f2937;"><td style="padding:4px;color:#888;">{{ row.question_id }}</td><td style="padding:4px;color:#b38cff;">{{ row.category }}</td><td style="padding:4px;color:#ddd;">{{ row.question_text }}</td><td style="padding:4px;text-align:right;color:#eee;">{{ row.shown }}</td><td style="padding:4px;text-align:right;color:{% if row.dropoff_rate >= 25 %}#e74c3c{% else %}#aaa{% endif %};">{{ row.dropoff_rate }}%</td></tr>
+<tr class="admin-divider-row"><td class="admin-cell-muted">{{ row.question_id }}</td><td class="admin-cell-accent">{{ row.category }}</td><td class="admin-cell-description">{{ row.question_text }}</td><td class="admin-cell-number--primary">{{ row.shown }}</td><td class="admin-cell-number admin-tone--{% if row.dropoff_rate >= 25 %}danger{% else %}muted{% endif %}">{{ row.dropoff_rate }}%</td></tr>
 {% endfor %}
 </table>
-<h3 style="font-size:0.82rem;color:#ddd;margin:14px 0 6px;">カテゴリ別ヒートマップ</h3>
-<table style="width:100%;border-collapse:collapse;font-size:0.74rem;">
-<tr style="color:#888;border-bottom:1px solid #263244;"><th style="text-align:left;padding:4px;">カテゴリ</th><th style="text-align:right;padding:4px;">出現率</th><th style="text-align:right;padding:4px;">YES率</th><th style="text-align:right;padding:4px;">離脱率</th><th style="padding:4px;">分布</th></tr>
+<h3 class="admin-subheading">カテゴリ別ヒートマップ</h3>
+<table class="admin-table--compact">
+<tr class="admin-table-heading"><th class="admin-cell-label">カテゴリ</th><th class="admin-cell-number">出現率</th><th class="admin-cell-number">YES率</th><th class="admin-cell-number">離脱率</th><th class="admin-cell-padding">分布</th></tr>
 {% for row in question_events.categories %}
-<tr style="border-bottom:1px solid #1f2937;">
-  <td style="padding:4px;color:#b38cff;">{{ row.category }}</td>
-  <td style="padding:4px;text-align:right;color:#eee;">{{ row.shown_share }}%</td>
-  <td style="padding:4px;text-align:right;color:#7af0a0;">{{ row.yes_rate }}%</td>
-  <td style="padding:4px;text-align:right;color:#aaa;">{{ row.dropoff_rate }}%</td>
-  <td style="padding:4px;"><div style="height:7px;background:#263244;border-radius:999px;overflow:hidden;"><div style="height:7px;width:{{ row.shown_share }}%;background:{% if row.category in ['relation','attachment'] %}#e74c3c{% else %}#5b8dd9{% endif %};"></div></div></td>
+<tr class="admin-divider-row">
+  <td class="admin-cell-accent">{{ row.category }}</td>
+  <td class="admin-cell-number--primary">{{ row.shown_share }}%</td>
+  <td class="admin-cell-number--positive">{{ row.yes_rate }}%</td>
+  <td class="admin-cell-number--muted">{{ row.dropoff_rate }}%</td>
+  <td class="admin-cell-padding"><div class="admin-content--default-f9ae490"><div class="admin-progress--category{% if row.category in ['relation','attachment'] %} is-related{% else %} is-general{% endif %}" style="width:{{ row.shown_share }}%;"></div></div></td>
 </tr>
 {% endfor %}
 </table>
 {% if question_events.contribution_ranking %}
-<h3 style="font-size:0.82rem;color:#ddd;margin:14px 0 6px;">結果寄与ランキング</h3>
-<table style="width:100%;border-collapse:collapse;font-size:0.74rem;">
-<tr style="color:#888;border-bottom:1px solid #263244;"><th style="text-align:left;padding:4px;">Q</th><th style="text-align:left;padding:4px;">質問</th><th style="text-align:right;padding:4px;">寄与</th><th style="text-align:left;padding:4px;">押し上げた結果</th></tr>
+<h3 class="admin-subheading">結果寄与ランキング</h3>
+<table class="admin-table--compact">
+<tr class="admin-table-heading"><th class="admin-cell-label">Q</th><th class="admin-cell-label">質問</th><th class="admin-cell-number">寄与</th><th class="admin-cell-label">押し上げた結果</th></tr>
 {% for row in question_events.contribution_ranking[:8] %}
-<tr style="border-bottom:1px solid #1f2937;"><td style="padding:4px;color:#888;">{{ row.question_id }}</td><td style="padding:4px;color:#ddd;">{{ row.question_text }}</td><td style="padding:4px;text-align:right;color:#f5a623;">{{ row.contribution }}</td><td style="padding:4px;color:#aaa;">{% for item in row.top_results %}{{ item.result_name }}({{ item.count }}){% if not loop.last %}, {% endif %}{% else %}—{% endfor %}</td></tr>
+<tr class="admin-divider-row"><td class="admin-cell-muted">{{ row.question_id }}</td><td class="admin-cell-description">{{ row.question_text }}</td><td class="admin-cell-number--warning-be1b9d2">{{ row.contribution }}</td><td class="admin-cell--muted-0b9e566">{% for item in row.top_results %}{{ item.result_name }}({{ item.count }}){% if not loop.last %}, {% endif %}{% else %}—{% endfor %}</td></tr>
 {% endfor %}
 </table>
 {% endif %}
@@ -170,81 +170,81 @@
 {% endif %}
 
 {% if share_events %}
-<details open style="margin-bottom:24px;background:#101622;border:1px solid #263244;border-radius:8px;padding:12px 14px;">
-<summary style="color:#7ab7ff;font-size:0.9rem;cursor:pointer;">拡散イベント</summary>
-<form method="get" action="/admin" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:10px;margin-bottom:4px;">
-  <label style="font-size:0.72rem;color:#888;">days<br><input name="days" type="number" min="1" max="366" value="{{ share_event_filters.days or '' }}" style="width:70px;background:#1a1a2e;color:#eee;border:1px solid #444;border-radius:4px;padding:3px 6px;"></label>
-  <label style="font-size:0.72rem;color:#888;">since<br><input name="since" type="date" value="{{ share_event_filters.since or '' }}" style="background:#1a1a2e;color:#eee;border:1px solid #444;border-radius:4px;padding:3px 6px;"></label>
-  <label style="font-size:0.72rem;color:#888;">until<br><input name="until" type="date" value="{{ share_event_filters.until or '' }}" style="background:#1a1a2e;color:#eee;border:1px solid #444;border-radius:4px;padding:3px 6px;"></label>
-  <label style="font-size:0.72rem;color:#888;">比較since<br><input name="compare_since" type="date" value="{{ share_event_filters.compare_since or '' }}" style="background:#1a1a2e;color:#eee;border:1px solid #444;border-radius:4px;padding:3px 6px;"></label>
-  <label style="font-size:0.72rem;color:#888;">比較until<br><input name="compare_until" type="date" value="{{ share_event_filters.compare_until or '' }}" style="background:#1a1a2e;color:#eee;border:1px solid #444;border-radius:4px;padding:3px 6px;"></label>
-  <button class="btn-action" style="font-size:0.74rem;padding:4px 10px;">期間適用</button>
-  <a href="/admin" class="btn-action" style="font-size:0.74rem;padding:4px 10px;text-decoration:none;">解除</a>
+<details open class="admin-card">
+<summary class="admin-section-toggle--info-19009da">拡散イベント</summary>
+<form method="get" action="/admin" class="admin-layout-flex--default-05e8091">
+  <label class="admin-meta">days<br><input name="days" type="number" min="1" max="366" value="{{ share_event_filters.days or '' }}" class="admin-field--default-1b96ed5"></label>
+  <label class="admin-meta">since<br><input name="since" type="date" value="{{ share_event_filters.since or '' }}" class="admin-filter-input"></label>
+  <label class="admin-meta">until<br><input name="until" type="date" value="{{ share_event_filters.until or '' }}" class="admin-filter-input"></label>
+  <label class="admin-meta">比較since<br><input name="compare_since" type="date" value="{{ share_event_filters.compare_since or '' }}" class="admin-filter-input"></label>
+  <label class="admin-meta">比較until<br><input name="compare_until" type="date" value="{{ share_event_filters.compare_until or '' }}" class="admin-filter-input"></label>
+  <button class="btn-action admin-action--default-53adbb1">期間適用</button>
+  <a href="/admin" class="btn-action admin-action--default-52920b0">解除</a>
 </form>
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-top:12px;">
+<div class="admin-metric-grid--compact">
   <div>
-    <div style="font-size:1.35rem;color:#f5a623;font-weight:bold;">{{ share_events.metrics.share_button_clicks }}</div>
-    <div style="font-size:0.72rem;color:#888;">共有ボタン押下</div>
+    <div class="admin-metric--warning-large">{{ share_events.metrics.share_button_clicks }}</div>
+    <div class="admin-meta">共有ボタン押下</div>
   </div>
   <div>
-    <div style="font-size:1.35rem;color:#7af0a0;font-weight:bold;">{{ share_events.metrics.web_share_successes }}</div>
-    <div style="font-size:0.72rem;color:#888;">Web Share成功</div>
+    <div class="admin-metric--positive">{{ share_events.metrics.web_share_successes }}</div>
+    <div class="admin-meta">Web Share成功</div>
   </div>
   <div>
-    <div style="font-size:1.35rem;color:#7af0a0;font-weight:bold;">{{ share_events.metrics.copy_successes }}</div>
-    <div style="font-size:0.72rem;color:#888;">コピー成功</div>
+    <div class="admin-metric--positive">{{ share_events.metrics.copy_successes }}</div>
+    <div class="admin-meta">コピー成功</div>
   </div>
   <div>
-    <div style="font-size:1.35rem;color:#5b8dd9;font-weight:bold;">{{ share_events.metrics.x_clicks }}</div>
-    <div style="font-size:0.72rem;color:#888;">Xクリック</div>
+    <div class="admin-metric--info">{{ share_events.metrics.x_clicks }}</div>
+    <div class="admin-meta">Xクリック</div>
   </div>
   <div>
-    <div style="font-size:1.35rem;color:#e94560;font-weight:bold;">{{ share_events.metrics.ogp_views }}</div>
-    <div style="font-size:0.72rem;color:#888;">OGP表示</div>
+    <div class="admin-metric--accent">{{ share_events.metrics.ogp_views }}</div>
+    <div class="admin-meta">OGP表示</div>
   </div>
   <div>
-    <div style="font-size:1.35rem;color:#e94560;font-weight:bold;">{{ share_events.metrics.result_page_views }}</div>
-    <div style="font-size:0.72rem;color:#888;">結果ページ表示</div>
+    <div class="admin-metric--accent">{{ share_events.metrics.result_page_views }}</div>
+    <div class="admin-meta">結果ページ表示</div>
   </div>
   <div>
-    <div style="font-size:1.35rem;color:#f59e0b;font-weight:bold;">{{ share_events.metrics.work_clicks }}</div>
-    <div style="font-size:0.72rem;color:#888;">作品クリック</div>
+    <div class="admin-metric--warning-c59c87f">{{ share_events.metrics.work_clicks }}</div>
+    <div class="admin-meta">作品クリック</div>
   </div>
   <div>
-    <div style="font-size:1.35rem;color:#e74c3c;font-weight:bold;">{{ share_events.success['false'] }}</div>
-    <div style="font-size:0.72rem;color:#888;">失敗/キャンセル</div>
+    <div class="admin-metric--danger">{{ share_events.success['false'] }}</div>
+    <div class="admin-meta">失敗/キャンセル</div>
   </div>
   <div>
-    <div style="font-size:1.35rem;color:#aaa;font-weight:bold;">{{ share_events.total }}</div>
-    <div style="font-size:0.72rem;color:#888;">読込対象イベント</div>
+    <div class="admin-metric--muted-75f2892">{{ share_events.total }}</div>
+    <div class="admin-meta">読込対象イベント</div>
   </div>
 </div>
 
 {% if share_events.comparison.enabled %}
 {% set c = share_events.comparison.metrics %}
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-top:12px;border-top:1px solid #263244;padding-top:10px;">
+<div class="admin-layout-grid--default-b4d324f">
   {% for key, label in [('total','総イベント'),('share_actions','共有アクション'),('share_successes','共有成功'),('ogp_views','OGP表示'),('result_page_views','結果表示')] %}
   <div>
-    <div style="font-size:1.1rem;color:{% if c[key].delta >= 0 %}#7af0a0{% else %}#e74c3c{% endif %};font-weight:bold;">{{ c[key].delta }}{% if c[key].growth_rate is not none %} / {{ c[key].growth_rate }}%{% endif %}</div>
-    <div style="font-size:0.72rem;color:#888;">{{ label }} 前期間比</div>
-    <div style="font-size:0.7rem;color:#666;">今 {{ c[key].current }} / 前 {{ c[key].previous }}</div>
+    <div class="admin-data-metric admin-data-metric--delta{% if c[key].delta >= 0 %} is-positive{% else %} is-danger{% endif %}">{{ c[key].delta }}{% if c[key].growth_rate is not none %} / {{ c[key].growth_rate }}%{% endif %}</div>
+    <div class="admin-meta">{{ label }} 前期間比</div>
+    <div class="admin-footnote--small">今 {{ c[key].current }} / 前 {{ c[key].previous }}</div>
   </div>
   {% endfor %}
 </div>
 {% if share_events.comparison.sample_warning %}
-<div style="margin-top:8px;font-size:0.74rem;color:#f5a623;">サンプルが少ないため、前期間比は参考値です。</div>
+<div class="admin-copy--warning-ea23cd0">サンプルが少ないため、前期間比は参考値です。</div>
 {% endif %}
 {% endif %}
 
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:14px;">
+<div class="admin-layout-grid--default-a51924e">
   <div>
-    <div style="font-size:0.78rem;color:#aaa;margin-bottom:6px;">日次イベント</div>
-    <table style="width:100%;border-collapse:collapse;font-size:0.74rem;">
-      <thead><tr style="color:#666;text-align:left;"><th>日付</th><th>合計</th><th>結果</th><th>OGP</th><th>X</th><th>Web</th><th>コピー</th><th>作品</th></tr></thead>
+    <div class="admin-help-text--small">日次イベント</div>
+    <table class="admin-table--compact">
+      <thead><tr class="admin-cell-label--muted"><th>日付</th><th>合計</th><th>結果</th><th>OGP</th><th>X</th><th>Web</th><th>コピー</th><th>作品</th></tr></thead>
       <tbody>
       {% for row in share_events.daily[-7:] %}
-      <tr style="border-top:1px solid #222;color:#aaa;">
-        <td>{{ row.date }}<div style="height:4px;background:#263244;border-radius:2px;margin-top:2px;"><span style="display:block;height:4px;background:#7ab7ff;border-radius:2px;width:{{ [row.total * 10, 100] | min }}%;"></span></div></td>
+      <tr class="admin-log-entry">
+        <td>{{ row.date }}<div class="admin-content--default-600a21f"><span class="admin-progress--daily-total" style="width:{{ [row.total * 10, 100] | min }}%;"></span></div></td>
         <td>{{ row.total }}</td>
         <td>{{ row.result_page_views }}</td>
         <td>{{ row.ogp_views }}</td>
@@ -254,53 +254,53 @@
         <td>{{ row.work_clicks }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="8" style="color:#555;padding-top:6px;">まだイベントがありません</td></tr>
+      <tr><td colspan="8" class="admin-help-text--top">まだイベントがありません</td></tr>
       {% endfor %}
       </tbody>
     </table>
   </div>
   <div>
-    <div style="font-size:0.78rem;color:#aaa;margin-bottom:6px;">チャネル別</div>
-    <table style="width:100%;border-collapse:collapse;font-size:0.74rem;">
-      <thead><tr style="color:#666;text-align:left;"><th>チャネル</th><th>件数</th></tr></thead>
+    <div class="admin-help-text--small">チャネル別</div>
+    <table class="admin-table--compact">
+      <thead><tr class="admin-cell-label--muted"><th>チャネル</th><th>件数</th></tr></thead>
       <tbody>
       {% for channel, count in share_events.by_channel.items() %}
-      <tr style="border-top:1px solid #222;color:#aaa;"><td>{{ channel }}</td><td>{{ count }}</td></tr>
+      <tr class="admin-log-entry"><td>{{ channel }}</td><td>{{ count }}</td></tr>
       {% else %}
-      <tr><td colspan="2" style="color:#555;padding-top:6px;">データなし</td></tr>
+      <tr><td colspan="2" class="admin-help-text--top">データなし</td></tr>
       {% endfor %}
       </tbody>
     </table>
-    <div style="margin-top:10px;font-size:0.73rem;color:#666;line-height:1.5;">
+    <div class="admin-copy--muted-0e0ecb6">
       成功 {{ share_events.success['true'] }} / 失敗 {{ share_events.success['false'] }} / 不明 {{ share_events.success['unknown'] }}<br>
       OGP内訳 PNG {{ share_events.metrics.ogp_png_views }} / SVG {{ share_events.metrics.ogp_svg_views }}
     </div>
   </div>
 </div>
 {% if share_events.work_ranking %}
-<div style="margin-top:14px;">
-  <div style="font-size:0.78rem;color:#aaa;margin-bottom:6px;">作品クリックランキング</div>
-  <table style="width:100%;border-collapse:collapse;font-size:0.74rem;">
-    <thead><tr style="color:#666;text-align:left;"><th>作品</th><th>結果</th><th>ページ</th><th style="text-align:right;">クリック</th></tr></thead>
+<div class="admin-subsection-gap">
+  <div class="admin-help-text--small">作品クリックランキング</div>
+  <table class="admin-table--compact">
+    <thead><tr class="admin-cell-label--muted"><th>作品</th><th>結果</th><th>ページ</th><th class="admin-cell-number--default-e2b0e2a">クリック</th></tr></thead>
     <tbody>
     {% for row in share_events.work_ranking[:10] %}
-    <tr style="border-top:1px solid #222;color:#aaa;"><td style="color:#eee;">{{ row.work_title }}</td><td>{{ row.result_name or '—' }}</td><td>{{ row.channel }}</td><td style="text-align:right;color:#f59e0b;">{{ row.clicks }}</td></tr>
+    <tr class="admin-log-entry"><td class="admin-text-primary">{{ row.work_title }}</td><td>{{ row.result_name or '—' }}</td><td>{{ row.channel }}</td><td class="admin-cell-number--warning-42baf1a">{{ row.clicks }}</td></tr>
     {% endfor %}
     </tbody>
   </table>
 </div>
 {% endif %}
 {% if share_events.ranking %}
-<div style="margin-top:14px;">
-  <div style="font-size:0.78rem;color:#aaa;margin-bottom:6px;">結果別シェアランキング</div>
-  <div style="font-size:0.72rem;color:#666;margin-bottom:6px;">改善メモには個人情報を残さず、OGP文言・称号・CTA仮説だけを記録してください。</div>
-  <div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:0.74rem;min-width:980px;">
-      <thead><tr style="color:#666;text-align:left;"><th>結果名</th><th>合計</th><th>共有</th><th>伸び</th><th>結果</th><th>OGP</th><th>X</th><th>Web</th><th>コピー</th><th>作品</th><th>結果→共有</th><th>共有成功</th><th>改善メモ</th></tr></thead>
+<div class="admin-subsection-gap">
+  <div class="admin-help-text--small">結果別シェアランキング</div>
+  <div class="admin-copy--muted-53c4dfc">改善メモには個人情報を残さず、OGP文言・称号・CTA仮説だけを記録してください。</div>
+  <div class="admin-overflow-container">
+    <table class="admin-copy--default-91f4812">
+      <thead><tr class="admin-cell-label--muted"><th>結果名</th><th>合計</th><th>共有</th><th>伸び</th><th>結果</th><th>OGP</th><th>X</th><th>Web</th><th>コピー</th><th>作品</th><th>結果→共有</th><th>共有成功</th><th>改善メモ</th></tr></thead>
       <tbody>
       {% for row in share_events.ranking[:10] %}
-      <tr style="border-top:1px solid #222;color:#aaa;">
-        <td style="color:#eee;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ row.result_name }}">{{ row.result_name }}</td>
+      <tr class="admin-log-entry">
+        <td title="{{ row.result_name }}" class="admin-cell--default-b2aa1c3">{{ row.result_name }}</td>
         <td>{{ row.total }}</td>
         <td>{{ row.share_button_clicks }}</td>
         <td>{% if row.share_actions_delta is defined %}{{ row.share_actions_delta }}{% if row.share_actions_growth_rate is not none %} / {{ row.share_actions_growth_rate }}%{% endif %}{% else %}—{% endif %}</td>
@@ -313,12 +313,12 @@
         <td>{% if row.result_to_share_rate is not none %}{{ row.result_to_share_rate }}%{% else %}—{% endif %}</td>
         <td>{% if row.share_success_rate is not none %}{{ row.share_success_rate }}%{% else %}—{% endif %}</td>
         {% set note = share_notes.get(row.result_name, {}) %}
-        <td style="min-width:220px;max-width:280px;">
-          {% if note.note %}<div style="display:inline-block;margin-bottom:4px;color:#7af0a0;font-size:0.68rem;">改善メモあり</div>{% endif %}
-          <textarea id="share-note-{{ loop.index }}" maxlength="500" rows="2" style="width:100%;box-sizing:border-box;background:#1a1a2e;color:#eee;border:1px solid #333;border-radius:4px;padding:4px 6px;font-size:0.72rem;resize:vertical;max-height:120px;" placeholder="OGP文言・称号・CTA仮説">{{ note.note or '' }}</textarea>
-          <div style="display:flex;gap:6px;align-items:center;margin-top:3px;">
-            <button class="btn-toggle" data-action="save-share-note" data-result="{{ row.result_name }}" data-target="share-note-{{ loop.index }}" style="font-size:0.68rem;padding:2px 8px;">保存</button>
-            <span id="share-note-{{ loop.index }}-msg" style="font-size:0.68rem;color:#666;"></span>
+        <td class="admin-cell--default-eec5fa6">
+          {% if note.note %}<div class="admin-copy--positive-3ab407e">改善メモあり</div>{% endif %}
+          <textarea id="share-note-{{ loop.index }}" maxlength="500" rows="2" placeholder="OGP文言・称号・CTA仮説" class="admin-field--default-88e4f2c">{{ note.note or '' }}</textarea>
+          <div class="admin-layout-flex--default-8a10831">
+            <button class="btn-toggle admin-action--default-3aba27f" data-action="save-share-note" data-result="{{ row.result_name }}" data-target="share-note-{{ loop.index }}">保存</button>
+            <span id="share-note-{{ loop.index }}-msg" class="admin-footnote"></span>
           </div>
         </td>
       </tr>
@@ -328,32 +328,32 @@
   </div>
 </div>
 {% endif %}
-<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;"><a href="/api/admin/share_events{% if share_event_query %}?{{ share_event_query }}{% endif %}" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">JSONで確認</a><a href="/api/admin/share_events/ranking.csv{% if share_event_query %}?{{ share_event_query }}{% endif %}" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">ランキングCSV</a><a href="/api/admin/share_events/daily.csv{% if share_event_query %}?{{ share_event_query }}{% endif %}" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">日次CSV</a><a href="/api/admin/share_events/comparison.csv{% if share_event_query %}?{{ share_event_query }}{% endif %}" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">比較CSV</a></div>
+<div class="admin-action-row--offset"><a href="/api/admin/share_events{% if share_event_query %}?{{ share_event_query }}{% endif %}" class="btn-action admin-action-button--compact" >JSONで確認</a><a href="/api/admin/share_events/ranking.csv{% if share_event_query %}?{{ share_event_query }}{% endif %}" class="btn-action admin-action-button--compact" >ランキングCSV</a><a href="/api/admin/share_events/daily.csv{% if share_event_query %}?{{ share_event_query }}{% endif %}" class="btn-action admin-action-button--compact" >日次CSV</a><a href="/api/admin/share_events/comparison.csv{% if share_event_query %}?{{ share_event_query }}{% endif %}" class="btn-action admin-action-button--compact" >比較CSV</a></div>
 </details>
 {% endif %}
 
 {% if maintenance_checklist %}
-<details open style="margin-bottom:24px;background:#101622;border:1px solid #263244;border-radius:8px;padding:12px 14px;">
-<summary style="color:#f5a623;font-size:0.9rem;cursor:pointer;">メンテナンスチェックリスト</summary>
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:12px;">
+<details open class="admin-card">
+<summary class="admin-section-toggle--warning">メンテナンスチェックリスト</summary>
+<div class="admin-metric-grid">
   {% for item in maintenance_checklist.checklist %}
-  <div style="border:1px solid #263244;border-radius:6px;padding:8px 10px;background:#111827;">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-      <span style="font-size:0.78rem;color:#aaa;">{{ item.label }}</span>
-      <strong style="color:{% if item.severity == 'ok' %}#27ae60{% else %}#f5a623{% endif %};">{{ item.count }}</strong>
+  <div class="admin-panel--default-c1569de">
+    <div class="admin-layout-flex--default-f24ff87">
+      <span class="admin-copy--muted-f175e4c">{{ item.label }}</span>
+      <strong class="admin-tone--{% if item.severity == 'ok' %}positive{% else %}warning{% endif %}">{{ item.count }}</strong>
     </div>
-    <div style="font-size:0.7rem;color:#666;margin-top:4px;">{{ item.next_action }}</div>
+    <div class="admin-copy--muted-323252d">{{ item.next_action }}</div>
   </div>
   {% endfor %}
 </div>
 
 {% if maintenance_checklist.weak_fetishes %}
-<div style="margin-top:14px;">
-  <div style="font-size:0.78rem;color:#e74c3c;margin-bottom:6px;">改善候補の性癖</div>
+<div class="admin-subsection-gap">
+  <div class="admin-copy--danger-ff83f9c">改善候補の性癖</div>
   {% for f in maintenance_checklist.weak_fetishes[:5] %}
-  <div style="display:flex;align-items:center;gap:8px;border-top:1px solid #222;padding:6px 0;flex-wrap:wrap;">
-    <span style="color:#eee;font-size:0.82rem;min-width:120px;">{{ f.fetish_name }} <span style="color:#666;">ID {{ f.fetish_id }}</span></span>
-    <span style="color:#aaa;font-size:0.75rem;">正解率 {{ f.accuracy if f.accuracy is not none else '—' }}% / wrong {{ f.wrong_rate }}%</span>
+  <div class="admin-layout-flex--default-c6eb1fd">
+    <span class="admin-copy--default-1689e7d">{{ f.fetish_name }} <span class="admin-muted">ID {{ f.fetish_id }}</span></span>
+    <span class="admin-copy--muted-f421b49">正解率 {{ f.accuracy if f.accuracy is not none else '—' }}% / wrong {{ f.wrong_rate }}%</span>
     <button class="btn-toggle" data-action="maintenance-edit-fetish" data-fid="{{ f.fetish_id }}">編集へ</button>
     {% if f.nearest_similar %}
     <button class="btn-toggle" data-action="maintenance-compare-fetish" data-fid="{{ f.fetish_id }}" data-other-id="{{ f.nearest_similar.fetish_id }}">
@@ -368,28 +368,28 @@
 {% endif %}
 
 {% if maintenance_checklist.duplicate_questions %}
-<div style="margin-top:14px;">
-  <div style="font-size:0.78rem;color:#f5a623;margin-bottom:6px;">重複度が高い質問</div>
+<div class="admin-subsection-gap">
+  <div class="admin-copy--warning-3178f90">重複度が高い質問</div>
   {% for p in maintenance_checklist.duplicate_questions[:4] %}
-  <div style="border-top:1px solid #222;padding:6px 0;font-size:0.76rem;color:#aaa;">
-    <span style="color:#eee;">Q{{ p.q1_id }} / Q{{ p.q2_id }}</span>
-    <span style="color:#666;">cos={{ p.cos }}</span>
-    <span style="color:#f5a623;">{{ p.suggested_action }}</span>
+  <div class="admin-copy--muted-7eff886">
+    <span class="admin-text-primary">Q{{ p.q1_id }} / Q{{ p.q2_id }}</span>
+    <span class="admin-muted">cos={{ p.cos }}</span>
+    <span class="admin-copy--warning-962e4f3">{{ p.suggested_action }}</span>
   </div>
   {% endfor %}
 </div>
 {% endif %}
 
 {% if maintenance_checklist.works.missing_work_fetish_count or maintenance_checklist.works.missing_url_work_count or maintenance_checklist.works.unsafe_url_work_count %}
-<div style="margin-top:14px;font-size:0.76rem;color:#aaa;border-top:1px solid #222;padding-top:8px;">
+<div class="admin-copy--muted-8fc331b">
   作品なし {{ maintenance_checklist.works.missing_work_fetish_count }}件 /
   URLなし {{ maintenance_checklist.works.missing_url_work_count }}件 /
   不正URL {{ maintenance_checklist.works.unsafe_url_work_count }}件
-  <a href="{{ maintenance_checklist.works.works_review_url }}" target="_blank" class="btn-action" style="font-size:0.72rem;padding:2px 10px;text-decoration:none;margin-left:8px;">作品リンク確認</a>
+  <a href="{{ maintenance_checklist.works.works_review_url }}" target="_blank" class="btn-action admin-action--default-80c7b1f">作品リンク確認</a>
 </div>
 {% endif %}
-<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-  <a href="/api/admin/maintenance_checklist" class="btn-action" style="font-size:0.74rem;padding:3px 10px;text-decoration:none;">JSONで確認</a>
+<div class="admin-action-row--offset">
+  <a href="/api/admin/maintenance_checklist" class="btn-action admin-action-button--compact" >JSONで確認</a>
 </div>
 </details>
 {% endif %}

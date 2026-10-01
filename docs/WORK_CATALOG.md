@@ -14,6 +14,8 @@
 - `compound_work_links`
 - `review_queue`
 
+実装は互換APIを`engine.work_catalog`に保ちながら、edition identifierの正規化を`engine.work_catalog_identifiers`、schema upgradeと構造validationを`engine.work_catalog_validation`へ分けています。新しい処理を分離するときも、catalog関数間の依存を循環importにせず、安定した入力/出力境界を保ってください。
+
 ローカル/seedではこのファイルが正規化catalogのsnapshotです。PostgreSQLでは同じcollectionを外部キー付きtableへ初回起動時に決定的に移行します。移行判定と全catalog writeは共通のtransaction advisory lockで直列化され、既存catalogがある場合は起動時に置換しません。
 
 schema v2は版名と出版社を`work_editions.edition_title` / `publisher`へ分離し、ASIN以外の識別子を`work_edition_identifiers`へ保持します。ASINは後方互換のため`work_editions.asin`に残し、子tableへの重複登録を拒否します。ISBN-10/13はchecksumを検証し、ISBN-10は正しいISBN-13へ正規化します。v1 backupは空の版名・出版社・identifier配列へだけupgradeし、ISBNを推測backfillしません。

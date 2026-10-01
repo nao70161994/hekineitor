@@ -1,5 +1,10 @@
 # Release Checklist
 
+## Main branch guard
+
+- [x] Require passing `test` and `postgres-integration` checks before main updates; enforce for admins and require PRs (review count 0)
+- [ ] Confirm the branch protection still lists both current CI job names after workflow changes
+
 ## Game quality and analytics
 
 - [ ] `sh scripts/check.sh`で固定persona評価を含む全gateが成功
