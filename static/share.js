@@ -40,14 +40,10 @@ window.HekiShare = (() => {
   }
 
   function buildShareText(name, probability, guessData = {}) {
-    const lines = [
-      'あなたの『癖』は……',
-      '',
-      `『${name || '???'}』`,
-    ];
-    if (probability !== '') lines.push('', `推定一致度 ${probability}%`);
-    lines.push('', '次はあなたの番です……');
-    return lines.join('\n');
+    if (guessData.share_text) return guessData.share_text;
+    const result = name ? `『${name}』` : '診断結果';
+    const score = probability !== '' && probability != null ? ` (${probability}%)` : '';
+    return `へきネイターの観測結果: ${result}${score}`;
   }
 
   function legacyShareUrl(name, probability, desc) {

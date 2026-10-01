@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="へきネイター">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/static/icon-192.png">
-{% if adsense_client %}
+{% if adsense_client and (adsense_slots.get('home') or adsense_slots.get('result')) %}
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ adsense_client }}"
      crossorigin="anonymous"></script>
 {% endif %}
@@ -149,6 +149,8 @@
         <button class="btn btn-quiet" data-action="discard-draft">破棄する</button>
       </div>
     </div>
+    {% set placement = 'home' %}
+    {% set ad_slot = adsense_slots.get('home', '') %}
     {% include '_adsense_slot.html' with context %}
   </section>
 
@@ -179,17 +181,17 @@
     <h2 class="result-name" id="result-name" tabindex="-1"></h2>
     <div class="result-badges" id="result-badges"></div>
     <div class="result-desc" id="result-desc"></div>
-    <div class="quick-feedback" id="quick-feedback">
-      <div class="quick-feedback-label">この結果、どうでしたか？</div>
-      <div class="quick-feedback-actions">
-        <button class="quick-feedback-btn quick-feedback-yes" data-action="quick-feedback" data-feedback="yes">当たってる</button>
-        <button class="quick-feedback-btn quick-feedback-maybe" data-action="quick-feedback" data-feedback="maybe">惜しい</button>
-        <button class="quick-feedback-btn quick-feedback-no" data-action="quick-feedback" data-feedback="no">違う</button>
-      </div>
-      <div class="quick-feedback-status hidden" id="quick-feedback-status" aria-live="polite"></div>
-    </div>
     <button class="result-details-toggle" data-action="toggle-result-details" aria-expanded="false" aria-controls="result-details">結果を詳しく見る</button>
     <div class="result-details hidden" id="result-details">
+      <div class="quick-feedback" id="quick-feedback">
+        <div class="quick-feedback-label">この結果、どうでしたか？</div>
+        <div class="quick-feedback-actions">
+          <button class="quick-feedback-btn quick-feedback-yes" data-action="quick-feedback" data-feedback="yes">当たってる</button>
+          <button class="quick-feedback-btn quick-feedback-maybe" data-action="quick-feedback" data-feedback="maybe">惜しい</button>
+          <button class="quick-feedback-btn quick-feedback-no" data-action="quick-feedback" data-feedback="no">違う</button>
+        </div>
+        <div class="quick-feedback-status hidden" id="quick-feedback-status" aria-live="polite"></div>
+      </div>
       <div class="result-rival hidden" id="result-rival"></div>
       <div class="result-detail-desc" id="result-detail-desc"></div>
       <div id="fetish-detail-link-slot"></div>
@@ -233,6 +235,7 @@
       <button class="result-home-link" data-action="show-start">タイトルに戻る</button>
     </div>
     {% set placement = 'result' %}
+    {% set ad_slot = adsense_slots.get('result', '') %}
     {% include '_adsense_slot.html' with context %}
   </section>
 
@@ -324,6 +327,7 @@
 <script>
 window.APP_CONFIG = {amazonAssociateId: {{ amazon_associate_id | tojson }}};
 </script>
+<!-- defer scripts execute in document order; dependency notes live in docs/CLIENT_ARCHITECTURE.md. -->
 <script src="/static/game_state.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
 <script src="/static/api_client.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>
 <script src="/static/utils.js{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}" defer></script>

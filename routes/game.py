@@ -1196,11 +1196,13 @@ def create_share_link(ctx):
     if limited:
         return limited
     data = ctx.request.get_json(silent=True) or {}
-    name = str(data.get('name') or data.get('result_name') or data.get('fetish') or data.get('f') or '')[:60]
-    probability = share.clean_probability(data.get('probability') or data.get('percent') or data.get('p') or '')
-    desc = str(data.get('desc') or data.get('d') or '')[:120]
-    if not name:
-        return ctx.jsonify({'status': 'error', 'message': 'name is required'}), 400
+    requested_name = str(data.get('name') or data.get('result_name') or data.get('fetish') or data.get('f') or '')[:180]
+    result = ctx.session.get('last_share_result')
+    if not isinstance(result, dict) or requested_name != result.get('name'):
+        return ctx.jsonify({'status': 'error', 'message': '共有できる診断結果が見つかりません'}), 409
+    name = result['name']
+    probability = result.get('probability', '')
+    desc = result.get('desc', '')
     try:
         share_id, payload = share_links.create_link(
             {
@@ -1209,6 +1211,7 @@ def create_share_link(ctx):
                 'desc': desc,
                 'title': share.result_title(probability),
                 'rank': share.result_rarity(probability),
+                'verified': True,
             },
             environ=ctx.environ,
         )

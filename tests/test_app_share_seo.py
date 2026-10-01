@@ -24,7 +24,7 @@ class TestShareAndSEO(APITestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'share_links.json')
             with patch.dict(os.environ, {'SHARE_LINKS_PATH': path}):
-                res = self.client.get('/r?f=NTR&p=82&d=テスト')
+                res = self.client.get('/r', query_string={'f': 'NTR（寝取られ）', 'p': '82', 'd': 'テスト'})
         self.assertEqual(res.status_code, 200)
         body = res.data.decode('utf-8')
         self.assertIn('NTR', body)
@@ -35,10 +35,10 @@ class TestShareAndSEO(APITestCase):
         self.assertNotIn('称号', body)
         self.assertNotIn('レア度', body)
         self.assertIn('og:url', body)
-        self.assertIn('/r?f=NTR&amp;p=82&amp;d=', body)
+        self.assertIn('/r?f=NTR%EF%BC%88&amp;p=82&amp;d=', body)
         self.assertNotRegex(body, r'https?://[^" ]+/r/[0-9A-Za-z]{4,12}')
-        self.assertIn('あなたの『癖』は…… NTR', body)
-        self.assertIn('/ogp.png?f=NTR&amp;p=82', body)
+        self.assertIn('あなたの『癖』は…… NTR（寝取られ）', body)
+        self.assertIn('/ogp.png?f=NTR%EF%BC%88&amp;p=82', body)
         self.assertEqual(res.headers.get('X-Robots-Tag'), 'noindex, follow')
         self.assertIn('name="robots" content="noindex,follow"', body)
 
@@ -46,7 +46,7 @@ class TestShareAndSEO(APITestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'share_links.json')
             with patch.dict(os.environ, {'SHARE_LINKS_PATH': path}):
-                res = self.client.get('/r?f=NTR&p=82&d=テスト')
+                res = self.client.get('/r', query_string={'f': 'NTR（寝取られ）', 'p': '82', 'd': 'テスト'})
                 self.assertEqual(res.status_code, 200)
                 self.assertFalse(os.path.exists(path))
 
@@ -54,12 +54,25 @@ class TestShareAndSEO(APITestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'share_links.json')
             with patch.dict(os.environ, {'SHARE_LINKS_PATH': path}):
+                started = self.client.post('/api/start').get_json()
+                question_id = started['question_id']
+                guess = None
+                for _ in range(35):
+                    payload = self.client.post('/api/answer', json={'question_id': question_id, 'answer': 1}).get_json()
+                    if payload.get('action') == 'guess':
+                        guess = payload
+                        break
+                    question_id = payload['question_id']
+                self.assertIsNotNone(guess)
+                result_name = ' × '.join(
+                    [guess['fetish_name']] + [item['fetish_name'] for item in guess.get('compound', [])]
+                )
                 created = self.client.post(
                     '/api/share_link',
                     json={
-                        'fetish': '感覚遮断落とし穴',
-                        'percent': '93',
-                        'desc': 'テスト説明',
+                        'fetish': result_name,
+                        'percent': '1',
+                        'desc': '不正な差し替え文字列',
                     },
                 )
                 self.assertEqual(created.status_code, 200)
@@ -71,12 +84,11 @@ class TestShareAndSEO(APITestCase):
                 res = self.client.get(data['share_url'])
                 self.assertEqual(res.status_code, 200)
                 body = res.data.decode('utf-8')
-                self.assertIn('感覚遮断落とし穴', body)
-                self.assertIn('推定一致度93%', body)
+                self.assertIn(result_name, body)
+                self.assertIn(f"推定一致度{guess['probability']:g}%", body)
+                self.assertNotIn('不正な差し替え文字列', body)
                 self.assertIn(f'/r/{data["share_id"]}', body)
-                self.assertIn(
-                    '/ogp.png?f=%E6%84%9F%E8%A6%9A%E9%81%AE%E6%96%AD%E8%90%BD%E3%81%A8%E3%81%97%E7%A9%B4&amp;p=93', body
-                )
+                self.assertIn('/ogp.png?f=', body)
 
     def test_legacy_four_character_share_link_still_resolves(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -85,7 +97,7 @@ class TestShareAndSEO(APITestCase):
                 json.dump(
                     {
                         'Ab12': {
-                            'name': '旧リンク結果',
+                            'name': '白衣',
                             'probability': '71',
                             'desc': '旧形式',
                         },
@@ -97,7 +109,7 @@ class TestShareAndSEO(APITestCase):
                 res = self.client.get('/r/Ab12')
         self.assertEqual(res.status_code, 200)
         body = res.data.decode('utf-8')
-        self.assertIn('旧リンク結果', body)
+        self.assertIn('白衣', body)
         self.assertIn('推定一致度71%', body)
 
     def test_result_share_by_id_rate_limit_can_be_enforced(self):
@@ -110,7 +122,7 @@ class TestShareAndSEO(APITestCase):
             with tempfile.TemporaryDirectory() as tmp:
                 path = os.path.join(tmp, 'share_links.json')
                 with open(path, 'w', encoding='utf-8') as file_obj:
-                    json.dump({'Ab12Cd34': {'name': '共有結果', 'probability': '88'}}, file_obj, ensure_ascii=False)
+                    json.dump({'Ab12Cd34': {'name': '白衣', 'probability': '88'}}, file_obj, ensure_ascii=False)
                 with patch.dict(os.environ, {'SHARE_LINKS_PATH': path}):
                     self.assertEqual(self.client.get('/r/Ab12Cd34').status_code, 200)
                     limited = self.client.get('/r/Ab12Cd34')
@@ -123,10 +135,10 @@ class TestShareAndSEO(APITestCase):
 
     def test_share_link_api_rejects_missing_name(self):
         res = self.client.post('/api/share_link', json={'probability': '88'})
-        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.status_code, 409)
 
     def test_ogp_png_image(self):
-        res = self.client.get('/ogp.png?f=NTR&p=82')
+        res = self.client.get('/ogp.png', query_string={'f': 'NTR（寝取られ）', 'p': '82'})
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.mimetype, 'image/png')
         self.assertTrue(res.data.startswith(b'\x89PNG\r\n\x1a\n'))
@@ -140,8 +152,8 @@ class TestShareAndSEO(APITestCase):
         app.config['RATE_LIMIT_OVERRIDES'] = {'ogp_png': (1, 60)}
         app_module._RATE_LIMIT_BUCKETS.clear()
         try:
-            self.assertEqual(self.client.get('/ogp.png?f=NTR&p=82').status_code, 200)
-            limited = self.client.get('/ogp.png?f=NTR&p=82')
+            self.assertEqual(self.client.get('/ogp.png', query_string={'f': 'NTR（寝取られ）', 'p': '82'}).status_code, 200)
+            limited = self.client.get('/ogp.png', query_string={'f': 'NTR（寝取られ）', 'p': '82'})
             self.assertEqual(limited.status_code, 429)
             self.assertIn('Retry-After', limited.headers)
         finally:
@@ -179,11 +191,11 @@ class TestShareAndSEO(APITestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'share_links.json')
             with patch.dict(os.environ, {'SHARE_LINKS_PATH': path}):
-                res = self.client.get('/r?f=NTR&p=999&d=テスト')
+                res = self.client.get('/r', query_string={'f': 'NTR（寝取られ）', 'p': '999', 'd': 'テスト'})
         body = res.data.decode('utf-8')
         self.assertIn('推定一致度100%', body)
-        self.assertIn('/ogp.png?f=NTR&amp;p=100', body)
-        self.assertIn('/r?f=NTR&amp;p=100&amp;d=', body)
+        self.assertIn('/ogp.png?f=NTR%EF%BC%88&amp;p=100', body)
+        self.assertIn('/r?f=NTR%EF%BC%88&amp;p=100&amp;d=', body)
 
     def test_share_event_api_records_minimal_event(self):
         with tempfile.TemporaryDirectory() as tmp:

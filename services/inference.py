@@ -1,3 +1,6 @@
+from services.share import clean_probability, result_share_text
+
+
 def posteriors(engine, answers):
     return engine.posteriors(answers)
 
@@ -292,6 +295,14 @@ def _record_result_contributions(ctx, result):
 
 def make_guess(ctx, answers):
     result = compute_guess(ctx.inference_context(), answers)
+    share_name = ' × '.join([result['fetish_name']] + [item['fetish_name'] for item in result.get('compound', [])])
+    share_probability = clean_probability(result.get('probability'))
+    share_description = '\n'.join(
+        value for value in [result.get('fetish_desc', '')]
+        + [item.get('fetish_desc', '') for item in result.get('compound', [])]
+        if value
+    )
+    result['share_text'] = result_share_text(share_name, share_probability)
     if ctx.session.get('provisional_result'):
         result.update(
             {
@@ -308,6 +319,12 @@ def make_guess(ctx, answers):
     ctx.session['completion_recorded'] = True
     ctx.session['last_guess_fetish_id'] = result['fetish_id']
     ctx.session['last_guess_compound_ids'] = [item['fetish_id'] for item in result.get('compound', [])]
+    ctx.session['last_share_result'] = {
+        'name': share_name,
+        'probability': share_probability,
+        'desc': share_description[:120],
+        'share_text': result['share_text'],
+    }
     ctx.session.pop('feedback_status', None)
     ctx.session.pop('last_finalize_added', None)
     ctx.session['completed'] = True

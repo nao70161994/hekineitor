@@ -1,6 +1,6 @@
 # AdSense Setup
 
-AdSense 審査コードと最小広告枠は導入済みです。
+AdSense client scriptは `ADSENSE_CLIENT` で設定します。広告slotはページごとにIDを設定した場所だけ表示します。
 
 - 対象: `templates/index.html` / `templates/result_share.html` の `<head>` 内
 - client: 環境変数 `ADSENSE_CLIENT` (`ca-pub-8683516545883768`)
@@ -37,13 +37,13 @@ Render 環境変数:
 ADSENSE_CLIENT=ca-pub-8683516545883768
 ```
 
-`ADSENSE_CLIENT` 未設定時は広告 script / slot は出力されません。
+`ADSENSE_CLIENT` 未設定時は広告 script / slot は出力されません。clientだけ設定してslot IDがない場合も、広告scriptと枠は出ません。
 
 CSP では AdSense の所有権確認と広告表示に必要な `https://pagead2.googlesyndication.com`、`https://ep1.adtrafficquality.google` / `https://ep2.adtrafficquality.google`、`https://www.google.com` などの最小ドメインを許可します。
 
 ## Minimal Ad Slots
 
-`ADSENSE_CLIENT` が設定されている場合のみ、`templates/_adsense_slot.html` を通じて最小広告枠を表示します。未設定時は script も slot も出力しません。
+`ADSENSE_CLIENT` と対応する広告ユニットIDが設定されている場合のみ、`templates/_adsense_slot.html` を通じて広告枠を表示します。slot IDは数字のみ受け付け、未設定や `0000000000` は無効として扱います。
 
 配置:
 
@@ -51,6 +51,14 @@ CSP では AdSense の所有権確認と広告表示に必要な `https://pagead
 - 診断結果画面の下部
 - 共有結果ページのCTA下部
 
+Renderでは実際に作成した広告ユニットIDを、使用する場所ごとに設定してください。
+
+```text
+ADSENSE_SLOT_HOME=<トップページのslot ID>
+ADSENSE_SLOT_RESULT=<診断結果画面のslot ID>
+ADSENSE_SLOT_SHARE=<共有結果ページのslot ID>
+```
+
 質問中・回答ボタン付近には表示しません。
 
-AdSense の広告ユニットIDが確定したら、`templates/_adsense_slot.html` の placeholder `data-ad-slot="0000000000"` を差し替えてください。
+広告slotを使わない場所は対応する環境変数を設定しないでください。slot IDをテンプレートへ直接書き込む必要はありません。

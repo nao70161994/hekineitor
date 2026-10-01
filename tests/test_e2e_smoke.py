@@ -112,13 +112,14 @@ class TestE2ESmoke(unittest.TestCase):
         self.assertEqual(feedback.status_code, 200)
         self.assertEqual(feedback.get_json().get('status'), 'wrong')
 
+        result_name = ' × '.join([guess['fetish_name']] + [item['fetish_name'] for item in guess.get('compound', [])])
         with tempfile.TemporaryDirectory() as tmp:
             with patch.dict(os.environ, {'SHARE_LINKS_PATH': os.path.join(tmp, 'share_links.json')}):
-                share = self.client.get('/r?f=Browser&p=88&d=E2E')
+                share = self.client.get('/r', query_string={'f': result_name, 'p': '88', 'd': 'E2E'})
         self.assertEqual(share.status_code, 200)
-        self.assertIn(b'/ogp.png?f=Browser', share.data)
+        self.assertIn(b'/ogp.png?f=', share.data)
 
-        ogp = self.client.get('/ogp.png?f=Browser&p=88')
+        ogp = self.client.get('/ogp.png', query_string={'f': result_name, 'p': '88'})
         self.assertEqual(ogp.status_code, 200)
         self.assertEqual(ogp.mimetype, 'image/png')
 

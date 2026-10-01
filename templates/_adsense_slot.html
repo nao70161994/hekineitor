@@ -1,4 +1,4 @@
-{% if adsense_client %}
+{% if adsense_client and ad_slot and ad_slot != '0000000000' %}
 <div class="adsense-slot adsense-slot-{{ placement|default('inline') }}" aria-label="広告">
   <ins class="adsbygoogle"
        style="display:block"

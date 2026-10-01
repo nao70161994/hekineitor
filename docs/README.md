@@ -6,6 +6,7 @@
 
 - [`APP_BOOTSTRAP.md`](APP_BOOTSTRAP.md): Flask composition rootと依存関係の組み立て
 - [`ENGINE_FACADE_CONTRACT.md`](ENGINE_FACADE_CONTRACT.md): `engine` packageの公開互換性と状態所有権
+- [`CLIENT_ARCHITECTURE.md`](CLIENT_ARCHITECTURE.md): ブラウザーscriptの実行順とグローバル依存
 - [`QA.md`](QA.md): 自動検証コマンドと手動QAの現行方針
 - [`adr/`](adr/README.md): 変更時にも維持するアーキテクチャ判断
 

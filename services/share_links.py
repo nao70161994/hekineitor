@@ -132,7 +132,7 @@ def valid_share_id(value):
 
 def clean_payload(payload):
     payload = payload or {}
-    name = str(payload.get('name') or payload.get('fetish') or payload.get('result_name') or '').strip()[:60]
+    name = str(payload.get('name') or payload.get('fetish') or payload.get('result_name') or '').strip()[:180]
     probability = str(payload.get('probability') or payload.get('percent') or '').strip()[:5]
     desc = str(payload.get('desc') or payload.get('description') or '').strip()[:120]
     title = str(payload.get('title') or '').strip()[:80]
@@ -146,6 +146,7 @@ def clean_payload(payload):
         'title': title,
         'rank': rank,
         'created_at': created_at,
+        'verified': payload.get('verified') is True,
     }
 
 

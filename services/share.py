@@ -33,6 +33,24 @@ def result_share_text(name, prob):
     return '\n'.join(lines)
 
 
+def canonical_result_name(engine, raw_name):
+    """Accept only a single known result name or a known compound result."""
+    available = {str(item.get('name') or '').strip() for item in getattr(engine, 'fetishes', [])}
+    parts = [part.strip() for part in str(raw_name or '').split(' × ')]
+    if not parts or len(parts) > 3 or any(not part or part not in available for part in parts):
+        return None
+    return ' × '.join(parts)
+
+
+def canonical_result_description(engine, name):
+    available = {
+        str(item.get('name') or '').strip(): str(item.get('desc') or '').strip()
+        for item in getattr(engine, 'fetishes', [])
+    }
+    parts = [part.strip() for part in str(name or '').split(' × ')]
+    return '\n'.join(available[part] for part in parts if part in available and available[part])
+
+
 def result_tagline(name, prob):
     if not name:
         return ''

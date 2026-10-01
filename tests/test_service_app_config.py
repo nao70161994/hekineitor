@@ -154,13 +154,13 @@ class TestServiceAppConfig(unittest.TestCase):
         for path in expected:
             self.assertIn(path, app_meta.APP_VERSION_PATHS)
 
-    def test_app_bootstrap_canonicalizes_legacy_adsense_client(self):
+    def test_app_bootstrap_preserves_configured_adsense_client(self):
         config = bootstrap.app_bootstrap(
             base_dir='/app',
             environ={'ADSENSE_CLIENT': 'ca-pub-8835165458837368'},
             app_version_fn=lambda base_dir: 'version',
         )
-        self.assertEqual(config.adsense_client, 'ca-pub-8683516545883768')
+        self.assertEqual(config.adsense_client, 'ca-pub-8835165458837368')
 
     def test_app_bootstrap_groups_static_config(self):
         config = bootstrap.app_bootstrap(

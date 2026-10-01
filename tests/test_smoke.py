@@ -96,11 +96,14 @@ class TestSmoke(unittest.TestCase):
         with patch.dict(os.environ, {'ADSENSE_CLIENT': 'ca-pub-test', 'SECRET_KEY': 'test_secret_key_for_testing'}):
             import app as app_module
 
+            original_slots = app_module.BOOTSTRAP.adsense_slots
+            app_module.BOOTSTRAP.adsense_slots = {'home': '1234567890', 'result': '2345678901', 'share': ''}
             app_module.BOOTSTRAP.adsense_client = 'ca-pub-test'
             try:
                 res = self.client.get('/')
             finally:
                 app_module.BOOTSTRAP.adsense_client = ''
+                app_module.BOOTSTRAP.adsense_slots = original_slots
         self.assertEqual(res.status_code, 200)
         body = res.data.decode('utf-8')
         src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-test'
@@ -110,7 +113,7 @@ class TestSmoke(unittest.TestCase):
         head = body.split('</head>', 1)[0]
         self.assertIn(src, head)
         self.assertEqual(body.count('class="adsbygoogle"'), 2)
-        self.assertIn('adsense-slot-inline', body)
+        self.assertIn('adsense-slot-home', body)
         self.assertIn('adsense-slot-result', body)
 
     def test_index_uses_png_og_image(self):
@@ -124,22 +127,22 @@ class TestSmoke(unittest.TestCase):
     def test_result_share_uses_png_og_image(self):
         with tempfile.TemporaryDirectory() as tmp:
             with patch.dict(os.environ, {'SHARE_LINKS_PATH': os.path.join(tmp, 'share_links.json')}):
-                res = self.client.get('/r?f=Test&p=88&d=desc')
+                res = self.client.get('/r?f=白衣&p=88&d=desc')
         self.assertEqual(res.status_code, 200)
         body = res.data.decode('utf-8')
-        self.assertIn('/ogp.png?f=Test&amp;p=88', body)
-        self.assertNotIn('/ogp?f=Test&amp;p=88', body)
+        self.assertIn('/ogp.png?f=%E7%99%BD%E8%A1%A3&amp;p=88', body)
+        self.assertNotIn('/ogp?f=%E7%99%BD%E8%A1%A3&amp;p=88', body)
 
     def test_legacy_svg_ogp_endpoint_still_works(self):
-        res = self.client.get('/ogp?f=SvgTest&p=77')
+        res = self.client.get('/ogp?f=白衣&p=77')
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.mimetype, 'image/svg+xml')
-        self.assertIn(b'SvgTest', res.data)
+        self.assertIn('白衣'.encode(), res.data)
 
     def test_share_page_keeps_social_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:
             with patch.dict(os.environ, {'SHARE_LINKS_PATH': os.path.join(tmp, 'share_links.json')}):
-                res = self.client.get('/r?f=ShareTest&p=91&d=hello')
+                res = self.client.get('/r?f=白衣&p=91&d=hello')
         self.assertEqual(res.status_code, 200)
         body = res.data.decode('utf-8')
         self.assertIn('property="og:image"', body)

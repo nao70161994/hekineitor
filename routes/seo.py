@@ -3,7 +3,7 @@ import urllib.parse
 
 from flask import Blueprint
 
-from services import share_links
+from services import share, share_links
 
 FETISH_CATEGORY_LABELS = {
     'role': '役割',
@@ -37,6 +37,7 @@ def index(ctx):
         app_version=ctx.app_version,
         amazon_associate_id=ctx.amazon_associate_id,
         adsense_client=ctx.adsense_client,
+        adsense_slots=ctx.adsense_slots,
         base_url=base_url,
         public_fetish_count=public_fetish_count,
         learning_disabled=ctx.learning_disabled(),
@@ -242,6 +243,7 @@ def _render_result_share(ctx, *, name, probability, desc, share_url):
         result_title=ctx.result_title(probability),
         result_rarity=ctx.result_rarity(probability),
         adsense_client=ctx.adsense_client,
+        adsense_slot=ctx.adsense_slots.get('share', ''),
     )
     return ctx.Response(body, headers={'X-Robots-Tag': 'noindex, follow'})
 
@@ -259,9 +261,14 @@ def _legacy_result_share_url(ctx, *, name, probability, desc):
 
 
 def result_share(ctx):
-    name = ctx.request.args.get('f', '')[:60]
+    name = share.canonical_result_name(ctx.engine, ctx.request.args.get('f', '')[:180])
+    if not name:
+        return (
+            ctx.error_page.format(title='見つかりません', emoji='🔍', code='404', message='診断結果が見つかりません。'),
+            404,
+        )
     probability = ctx.clean_probability(ctx.request.args.get('p', ''))
-    desc = ctx.request.args.get('d', '')[:120]
+    desc = share.canonical_result_description(ctx.engine, name)[:120]
     ctx.record_share_event('result_page_view', result_name=name, channel='result_page', success=True)
     share_url = _legacy_result_share_url(ctx, name=name, probability=probability, desc=desc)
     return _render_result_share(ctx, name=name, probability=probability, desc=desc, share_url=share_url)
@@ -281,9 +288,19 @@ def result_share_by_id(ctx, share_id):
             ),
             404,
         )
-    name = payload.get('name', '')[:60]
+    stored_name = payload.get('name', '')[:180]
+    name = stored_name if payload.get('verified') is True else share.canonical_result_name(ctx.engine, stored_name)
+    if not name:
+        return (
+            ctx.error_page.format(title='見つかりません', emoji='🔍', code='404', message='診断結果が見つかりません。'),
+            404,
+        )
     probability = ctx.clean_probability(payload.get('probability', ''))
-    desc = payload.get('desc', '')[:120]
+    desc = (
+        payload.get('desc', '')[:120]
+        if payload.get('verified') is True
+        else share.canonical_result_description(ctx.engine, name)[:120]
+    )
     ctx.record_share_event('result_page_view', result_name=name, channel='result_page', success=True)
     return _render_result_share(
         ctx,
@@ -298,7 +315,15 @@ def ogp_png_image(ctx):
     limited = ctx.rate_limit('ogp_png', 120)
     if limited:
         return limited
-    name = ctx.request.args.get('f', '???')[:30]
+    requested_name = ctx.request.args.get('f', '???')[:180]
+    name = (
+        requested_name
+        if requested_name in {'へきネイター', '???'}
+        else share.canonical_result_name(ctx.engine, requested_name)
+    )
+    if not name:
+        return ctx.jsonify({'status': 'error', 'message': '診断結果が見つかりません'}), 404
+    name = name[:30]
     probability = ctx.clean_probability(ctx.request.args.get('p', ''))
     ctx.record_share_event('ogp_png_view', result_name=name, channel='ogp', success=True)
     body = ctx.generate_ogp_png(name, probability)
@@ -306,8 +331,16 @@ def ogp_png_image(ctx):
 
 
 def ogp_svg_image(ctx):
-    name = ctx.request.args.get('f', '???')[:30]
-    probability = ctx.request.args.get('p', '')[:5]
+    requested_name = ctx.request.args.get('f', '???')[:180]
+    name = (
+        requested_name
+        if requested_name in {'へきネイター', '???'}
+        else share.canonical_result_name(ctx.engine, requested_name)
+    )
+    if not name:
+        return ctx.jsonify({'status': 'error', 'message': '診断結果が見つかりません'}), 404
+    name = name[:30]
+    probability = ctx.clean_probability(ctx.request.args.get('p', ''))
     ctx.record_share_event('ogp_svg_view', result_name=name, channel='ogp', success=True)
     body = ctx.render_ogp_svg(name, probability)
     return ctx.Response(body, mimetype='image/svg+xml', headers=ogp_cache_headers())

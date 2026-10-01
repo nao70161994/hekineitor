@@ -28,8 +28,10 @@ When PostgreSQL is configured, share links are stored in the `share_links` table
 
 - Result share pages loaded through legacy `/r?...` create a short link and use it for `og:url` and the X share button.
 - The game client calls `POST /api/share_link` before Web Share / X share and falls back to the legacy URL if short-link creation fails.
-- `/r/<share_id>` renders the same result share template and OGP image as `/r?...`.
+- `/r/<share_id>` renders the saved result snapshot and OGP image. New server-verified snapshots keep working if a catalog item is later renamed or retired.
+- Short-link creation accepts only the exact result saved in the current game session. Legacy URLs and stored links must resolve to one to three current fetish names; descriptions are rebuilt from the catalog.
+- OGP result images accept catalog result names (plus the site title and empty-result placeholder), so arbitrary query strings cannot brand a share card.
 
 ## Compatibility
 
-Existing `/r?...`, `/ogp.png?...`, and `/ogp?...` routes remain available. Share analytics continue to record `result_page_view`, OGP views, X clicks, Web Share outcomes, and copy outcomes using the result name.
+Existing `/r?...`, `/ogp.png?...`, and `/ogp?...` routes remain available for known results. Share analytics continue to record `result_page_view`, OGP views, X clicks, Web Share outcomes, and copy outcomes using the result name.

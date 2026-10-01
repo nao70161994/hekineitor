@@ -147,6 +147,7 @@ def _seo_context():
         safe_work_url=safe_work_url,
         amazon_associate_id=BOOTSTRAP.amazon_associate_id,
         adsense_client=BOOTSTRAP.adsense_client,
+        adsense_slots=BOOTSTRAP.adsense_slots,
         fetish_relations=FETISH_RELATIONS,
         error_page=system_routes.ERROR_PAGE,
         record_share_event=_record_valid_share_event,
