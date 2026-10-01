@@ -7,26 +7,26 @@
 <title>へきネイター 管理</title>
 <link rel="stylesheet" href="/static/admin.css{% if app_version is defined %}?v={{ app_version|urlencode }}{% endif %}">
 </head>
-<body>
+<body class="admin-page">
 <a class="skip-link" href="#perf-section">診断ログへ移動</a>
 <h1>管理画面</h1>
 <p class="sub"><a href="/">← ゲームに戻る</a></p>
-<div style="margin:8px 0 20px;padding:10px 12px;border:1px solid {% if test_play_active %}#f5c542{% else %}#263244{% endif %};background:{% if test_play_active %}#2a250f{% else %}#101622{% endif %};border-radius:8px;color:{% if test_play_active %}#f5c542{% else %}#aaa{% endif %};font-size:0.82rem;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+<div class="admin-test-play-banner{% if test_play_active %} is-active{% endif %}">
   <strong>{% if test_play_active %}学習OFFテストプレイ中{% else %}通常モード{% endif %}</strong>
   <span>{% if test_play_active %}このセッションの診断は学習に反映されません。{% else %}通常プレイは従来通り学習ONです。{% endif %}</span>
   {% if test_play_active %}
-  <button type="button" class="btn-action" data-action="test-play-stop" class="btn-action admin-action-button--compact">テストプレイ終了</button>
+  <button type="button" class="btn-action admin-action-button--compact" data-action="test-play-stop" >テストプレイ終了</button>
   {% else %}
-  <button type="button" class="btn-action" data-action="test-play-start" class="btn-action admin-action-button--compact">学習OFFでテストプレイ開始</button>
+  <button type="button" class="btn-action admin-action-button--compact" data-action="test-play-start" >学習OFFでテストプレイ開始</button>
   {% endif %}
 </div>
 {% if test_play_audit_rows %}
-<details style="margin-bottom:20px;background:#101622;border:1px solid #263244;border-radius:8px;padding:10px 12px;">
-<summary style="color:#f5c542;font-size:0.86rem;cursor:pointer;">テストプレイ開始/終了履歴</summary>
+<details class="admin-section--default-29f8533">
+<summary class="admin-section-toggle--warning-f4c9336">テストプレイ開始/終了履歴</summary>
 <div class="admin-help-text--offset">
   {% for row in test_play_audit_rows %}
-  <div style="display:flex;gap:10px;align-items:center;border-top:1px solid #222;padding:6px 0;flex-wrap:wrap;">
-    <code style="color:{% if row.mode == 'learning_off' %}#f5c542{% else %}#27ae60{% endif %};">{{ row.event_name }}</code>
+  <div class="admin-layout-flex--default-2cf0c81">
+    <code class="admin-tone--{% if row.mode == 'learning_off' %}warning{% else %}positive{% endif %}">{{ row.event_name }}</code>
     <span class="admin-text-light">{% if row.mode == 'learning_off' %}学習OFFテストプレイ中へ変更{% else %}通常モードへ変更{% endif %}</span>
     <span class="admin-muted">{{ row.timestamp }}</span>
   </div>
@@ -53,7 +53,7 @@
 </div>
 {% endfor %}
 <button class="btn-save" data-action="save-params">保存</button>
-<span id="param-msg" style="color:#27ae60;font-size:0.8rem;margin-left:10px;"></span>
+<span id="param-msg" class="admin-copy--positive-ebe5c63"></span>
 </details>
 
 <details class="admin-section-gap">
@@ -68,19 +68,19 @@
 <p class="admin-help-text--section">管理者が直接性癖を追加できます。追加後は「学習データ量」欄に新しく表示されます。</p>
 <div class="param-row">
   <label>名前</label>
-  <input type="text" id="af-name" placeholder="例：眼鏡っ娘" style="width:180px;">
+  <input type="text" id="af-name" placeholder="例：眼鏡っ娘" class="admin-field--default-4d9108f">
 </div>
 <div class="param-row">
   <label>説明</label>
   <input type="text" id="af-desc" placeholder="省略可（省略時は名前を使用）" class="admin-input--wide">
 </div>
 <button class="btn-save" data-action="admin-add-fetish">追加</button>
-<span id="af-msg" style="font-size:0.8rem;margin-left:10px;"></span>
+<span id="af-msg" class="admin-copy--default-89ee83b"></span>
 </details>
 
 <details class="admin-section-gap">
 <summary class="admin-section-toggle--warning">昇格済み性癖のランキング履歴修復</summary>
-<p style="color:#555;font-size:0.78rem;margin:6px 0 12px;line-height:1.6;">プレイヤー追加性癖を格上げする前のランキング履歴を、格上げ後の正式IDへ移します。まずdry-runで件数を確認してください。</p>
+<p class="admin-copy--muted-4b08e40">プレイヤー追加性癖を格上げする前のランキング履歴を、格上げ後の正式IDへ移します。まずdry-runで件数を確認してください。</p>
 <div class="param-row">
   <label>昇格前ID</label>
   <input type="number" id="repair-old-id" min="10000" step="1" placeholder="例: 10000" class="admin-input--medium" data-action="lookup-fetish-id" data-lookup-target="repair-old-name">
@@ -101,15 +101,15 @@
   <span id="repair-promoted-stats-msg" class="admin-meta--subtle-large"></span>
 </div>
 <div id="repair-promoted-stats-result" class="admin-result-preview"></div>
-<hr style="border:0;border-top:1px solid #263244;margin:16px 0;">
-<p style="color:#e74c3c;font-size:0.78rem;margin:6px 0 10px;line-height:1.6;">上級: 正式ID同士でランキング履歴だけを移動します。IDを間違えた時の補正用です。性癖マスタや推論データは変更しません。</p>
-<div class="param-row" style="align-items:flex-start;">
+<hr class="admin-divider--default-3479481">
+<p class="admin-copy--danger-ee2c512">上級: 正式ID同士でランキング履歴だけを移動します。IDを間違えた時の補正用です。性癖マスタや推論データは変更しません。</p>
+<div class="param-row admin-content--default-c38c04e">
   <label>移動ペア</label>
   <textarea id="move-stats-history-mappings" rows="4" placeholder="例:
 129,128
 130,129
 131,130
-132,131" style="width:min(360px,100%);background:#0f3460;border:1px solid #333;color:#eee;border-radius:4px;padding:6px 8px;font-size:0.82rem;"></textarea>
+132,131" class="admin-field--info-126694a"></textarea>
 </div>
 <div class="param-row">
   <label>確認文字列</label>
@@ -120,7 +120,7 @@
   <button class="btn-save admin-action--flush" data-action="move-stats-history-apply">ID移動を適用</button>
   <span id="move-stats-history-msg" class="admin-meta--subtle-large"></span>
 </div>
-<div id="move-stats-history-preview" style="margin-top:8px;font-size:0.78rem;color:#888;line-height:1.6;"></div>
+<div id="move-stats-history-preview" class="admin-copy--muted-a91909e"></div>
 <div id="move-stats-history-result" class="admin-result-preview"></div>
 </details>
 
@@ -133,11 +133,11 @@
 
 {% set alert_fetishes = fetish_log_rows | selectattr('guessed', 'ge', 10) | selectattr('acc', 'ne', None) | selectattr('acc', 'lt', 40) | list %}
 {% if alert_fetishes %}
-<div style="background:#2a0a0a;border:1px solid #e74c3c;border-radius:10px;padding:14px 16px;margin-bottom:20px;">
+<div class="admin-panel--danger-0cef44c">
   <strong class="admin-status--danger">⚠️ 要確認: 正解率が低い性癖</strong>
-  <p style="color:#aaa;font-size:0.82rem;margin:6px 0 10px;">正解率40%未満・診断数10件以上。DOMAIN_PRIORSや性癖の説明を見直してください。</p>
+  <p class="admin-copy--muted-3ae93a0">正解率40%未満・診断数10件以上。DOMAIN_PRIORSや性癖の説明を見直してください。</p>
   {% for f in alert_fetishes %}
-  <div style="display:flex;justify-content:space-between;font-size:0.85rem;padding:3px 0;border-bottom:1px solid #3a1515;">
+  <div class="admin-layout-flex--default-b8deb83">
     <span class="admin-text-primary">{{ f.name }}</span>
     <span class="admin-status--danger">正解率 {{ f.acc }}%（{{ f.guessed }}件）</span>
   </div>

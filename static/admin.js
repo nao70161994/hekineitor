@@ -4,6 +4,21 @@ function escapeHtml(value) {
   }[ch]));
 }
 
+function setAdminTone(element, color) {
+  if (!element) return;
+  element.classList.remove(
+    'admin-tone--muted', 'admin-tone--quiet', 'admin-tone--subtle',
+    'admin-tone--positive', 'admin-tone--warning', 'admin-tone--danger',
+    'admin-tone--inverted', 'admin-tone--brand'
+  );
+  const tones = {
+    '#aaa': 'muted', '#555': 'quiet', '#888': 'subtle', '#27ae60': 'positive',
+    '#f5a623': 'warning', '#e74c3c': 'danger', '#fff': 'inverted', '#e94560': 'brand',
+  };
+  const tone = tones[String(color).toLowerCase()];
+  if (tone) element.classList.add(`admin-tone--${tone}`);
+}
+
 
 async function setTestPlayMode(action) {
   const url = action === 'start' ? '/admin/test_play/start' : '/admin/test_play/stop';
@@ -22,33 +37,29 @@ async function loadRecentRanking(days) {
   const label = document.getElementById('recent-rank-label');
   const el = document.getElementById('recent-rank-chart');
   if (!rank7 || !rank30 || !label || !el) return;
-  rank7.style.background  = days===7  ? '#e94560' : '#0f3460';
-  rank7.style.borderColor = days===7  ? '#e94560' : '#444';
-  rank7.style.color       = days===7  ? '#fff'    : '#aaa';
-  rank30.style.background  = days===30 ? '#e94560' : '#0f3460';
-  rank30.style.borderColor = days===30 ? '#e94560' : '#444';
-  rank30.style.color       = days===30 ? '#fff'    : '#aaa';
+  rank7.classList.toggle('is-active', days === 7);
+  rank30.classList.toggle('is-active', days === 30);
   const resp = await fetch(`/api/admin/recent_fetish_ranking?days=${days}&top_n=10`);
   const json = await resp.json();
   const rows = json.ranking || [];
   const fallback = json.source === 'all_time_fallback';
   label.textContent = fallback ? '診断回数ランキング（累計）' : `最近の診断ランキング（${days}日）`;
-  if (!rows.length) { el.innerHTML = '<p style="color:#555;font-size:0.78rem;">データなし（診断結果が蓄積されると表示されます）</p>'; return; }
+  if (!rows.length) { el.innerHTML = '<p class="admin-copy--muted-6ae3ce1">データなし（診断結果が蓄積されると表示されます）</p>'; return; }
   const maxT = Math.max(...rows.map(r => r.guessed || r.total || 0), 1);
-  const note = fallback ? '<div style="color:#666;font-size:0.7rem;margin-bottom:5px;">過去の日次診断データがないため、累計診断回数で表示しています。</div>' : '';
+  const note = fallback ? '<div class="admin-copy--muted-fee951f">過去の日次診断データがないため、累計診断回数で表示しています。</div>' : '';
   el.innerHTML = note + rows.map(r => {
     const guessed = r.guessed || r.total || 0;
     const feedbackTotal = r.feedback_total != null ? r.feedback_total : (r.correct || 0) + (r.wrong || 0);
     const acc = r.acc != null ? r.acc : null;
-    const accStr = acc != null ? `<span style="color:${acc>=60?'#27ae60':'#e74c3c'};min-width:38px;text-align:right;">FB ${acc}%</span>` : '<span style="color:#555;min-width:38px;text-align:right;">FB —</span>';
+    const accStr = acc != null ? `<span class="admin-inline-feedback admin-tone--${acc >= 60 ? 'positive' : 'danger'}">FB ${acc}%</span>` : '<span class="admin-copy--muted-6364ee1">FB —</span>';
     const width = Math.max(Math.round(guessed / maxT * 160), guessed > 0 ? 2 : 0);
-    return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-      <div style="width:112px;font-size:0.72rem;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;" title="ID ${Number.parseInt(r.fetish_id, 10)}: ${escapeHtml(r.fetish_name)}">${escapeHtml(r.fetish_name)} <span style="color:#555;">ID ${Number.parseInt(r.fetish_id, 10)}</span></div>
-      <div style="height:10px;border-radius:3px;overflow:hidden;flex:1;max-width:200px;background:#111;">
-        <div style="width:${width}px;height:10px;background:#5b8dd9;"></div>
+    return `<div class="admin-layout-flex--default-b6a6e4e">
+      <div title="ID ${Number.parseInt(r.fetish_id, 10)}: ${escapeHtml(r.fetish_name)}" class="admin-copy--muted-0e60c99">${escapeHtml(r.fetish_name)} <span class="admin-copy--muted-2915f89">ID ${Number.parseInt(r.fetish_id, 10)}</span></div>
+      <div class="admin-content--default-28c339d">
+        <div class="admin-ranking-bar" style="--bar-width:${width}px;"></div>
       </div>
-      <div style="font-size:0.7rem;color:#aaa;min-width:34px;">${guessed}</div>
-      <div style="font-size:0.7rem;color:#666;min-width:34px;">FB ${feedbackTotal}</div>
+      <div class="admin-copy--muted-0e42f7b">${guessed}</div>
+      <div class="admin-copy--muted-97b0da8">FB ${feedbackTotal}</div>
       ${accStr}
     </div>`;
   }).join('');
@@ -62,12 +73,8 @@ function renderStatsChart(days) {
   const data = (window.ADMIN_STATS_HISTORY || []).slice(-days);
   const maxV = Math.max(1, ...data.map(r => Math.max(r.start || 0, r.completion || 0, r.play || 0, r.learn || 0)));
   label.textContent = `過去${days}日間の推移`;
-  btn7.style.background  = days === 7  ? '#e94560' : '#0f3460';
-  btn7.style.borderColor = days === 7  ? '#e94560' : '#444';
-  btn7.style.color       = days === 7  ? '#fff'    : '#aaa';
-  btn30.style.background  = days === 30 ? '#e94560' : '#0f3460';
-  btn30.style.borderColor = days === 30 ? '#e94560' : '#444';
-  btn30.style.color       = days === 30 ? '#fff'    : '#aaa';
+  btn7.classList.toggle('is-active', days === 7);
+  btn30.classList.toggle('is-active', days === 30);
   chart.innerHTML = data.map(r => {
     const sh = Math.round((r.start || 0) / maxV * 48);
     const ph = Math.round((r.completion || r.play || 0) / maxV * 48);
@@ -77,12 +84,12 @@ function renderStatsChart(days) {
     const fb = (r.correct || 0) + (r.wrong || 0);
     const accStr = fb > 0 ? ` 正答率:${Math.round((r.correct || 0)/fb*100)}%` : '';
     const completionRate = r.start > 0 ? ` 完走率:${Math.round((r.completion || 0)/r.start*100)}%` : '';
-    return `<div style="flex:1;min-width:7px;display:flex;flex-direction:column;align-items:center;gap:1px;height:100%;justify-content:flex-end;" title="${r.date}\n開始:${r.start || 0} 結果到達:${r.completion || 0}${completionRate}\n旧プレイ:${r.play || 0} 学習:${r.learn || 0}\n正解:${r.correct || 0} 外れ:${r.wrong || 0} 離脱:${r.dropoff || 0}${accStr}">
-      <div style="width:100%;background:#7af0a0;border-radius:2px 2px 0 0;height:${sh}px;"></div>
-      <div style="width:100%;background:#f5a623;border-radius:2px 2px 0 0;height:${ph}px;"></div>
-      <div style="width:100%;background:#5b8dd9;border-radius:2px 2px 0 0;height:${lh}px;"></div>
-      <div style="width:100%;background:#27ae60;border-radius:2px 2px 0 0;height:${ch}px;"></div>
-      <div style="width:100%;background:#e74c3c;border-radius:2px 2px 0 0;height:${wh}px;"></div>
+    return `<div title="${r.date}\n開始:${r.start || 0} 結果到達:${r.completion || 0}${completionRate}\n旧プレイ:${r.play || 0} 学習:${r.learn || 0}\n正解:${r.correct || 0} 外れ:${r.wrong || 0} 離脱:${r.dropoff || 0}${accStr}" class="admin-layout-flex--default-f37d4a4">
+      <div class="admin-chart-bar admin-chart-bar--start" style="--bar-height:${sh}px;"></div>
+      <div class="admin-chart-bar admin-chart-bar--completion" style="--bar-height:${ph}px;"></div>
+      <div class="admin-chart-bar admin-chart-bar--learn" style="--bar-height:${lh}px;"></div>
+      <div class="admin-chart-bar admin-chart-bar--correct" style="--bar-height:${ch}px;"></div>
+      <div class="admin-chart-bar admin-chart-bar--wrong" style="--bar-height:${wh}px;"></div>
     </div>`;
   }).join('');
 }
@@ -111,10 +118,10 @@ async function saveParams() {
   const data = await res.json();
   const msg  = document.getElementById('param-msg');
   if (data.errors && data.errors.length) {
-    msg.style.color = '#e74c3c';
+    setAdminTone(msg, '#e74c3c');
     msg.textContent = data.errors.join(', ');
   } else {
-    msg.style.color = '#27ae60';
+    setAdminTone(msg, '#27ae60');
     msg.textContent = '保存しました';
     setTimeout(() => msg.textContent = '', 3000);
   }
@@ -125,7 +132,7 @@ async function saveShareNote(resultName, targetId, btn) {
   const msg = document.getElementById(`${targetId}-msg`);
   if (!textarea) return;
   if (msg) {
-    msg.style.color = '#aaa';
+    setAdminTone(msg, '#aaa');
     msg.textContent = '保存中...';
   }
   btn.disabled = true;
@@ -139,12 +146,12 @@ async function saveShareNote(resultName, targetId, btn) {
   try { data = await res.json(); } catch { data = {}; }
   if (res.ok) {
     if (msg) {
-      msg.style.color = '#27ae60';
+      setAdminTone(msg, '#27ae60');
       msg.textContent = textarea.value.trim() ? '保存しました' : '削除しました';
       setTimeout(() => { msg.textContent = ''; }, 3000);
     }
   } else if (msg) {
-    msg.style.color = '#e74c3c';
+    setAdminTone(msg, '#e74c3c');
     msg.textContent = data.message || '保存に失敗しました';
   }
 }
@@ -154,24 +161,24 @@ function renderPromotedStatsRepairResult(data, targetId = 'repair-promoted-stats
   if (!result) return;
   const rows = data.rows || [];
   if (!rows.length) {
-    result.innerHTML = '<div style="color:#888;">移動対象のランキング履歴はありません。</div>';
+    result.innerHTML = '<div class="admin-copy--muted-f348024">移動対象のランキング履歴はありません。</div>';
     return;
   }
   const totalRows = rows.reduce((sum, row) => sum + Number.parseInt(row.row_count || 0, 10), 0);
   const totalValue = Number.parseInt(data.total_value || 0, 10);
   const tableRows = rows.map(row => `
     <tr>
-      <td style="color:#666;">${Number.parseInt(row.old_id, 10)} → ${Number.parseInt(row.new_id, 10)}</td>
+      <td class="admin-cell--muted-e492eba">${Number.parseInt(row.old_id, 10)} → ${Number.parseInt(row.new_id, 10)}</td>
       <td><code>${escapeHtml(row.old_key)}</code></td>
       <td><code>${escapeHtml(row.new_key)}</code></td>
-      <td style="text-align:right;color:#aaa;">${Number.parseInt(row.row_count || 0, 10)}</td>
-      <td style="text-align:right;color:#aaa;">${Number.parseInt(row.value_sum || 0, 10)}</td>
+      <td class="admin-cell-number--muted-7668873">${Number.parseInt(row.row_count || 0, 10)}</td>
+      <td class="admin-cell-number--muted-7668873">${Number.parseInt(row.value_sum || 0, 10)}</td>
     </tr>`).join('');
   result.innerHTML = `
-    <div style="margin-bottom:6px;color:#ccc;">対象キー ${rows.length} 件 / 行 ${totalRows} 件 / 合計値 ${totalValue}</div>
-    <div style="overflow-x:auto;">
-      <table style="max-width:100%;min-width:520px;">
-        <thead><tr><th>ID</th><th>旧キー</th><th>新キー</th><th style="text-align:right;">行</th><th style="text-align:right;">値</th></tr></thead>
+    <div class="admin-copy--default-68bfd94">対象キー ${rows.length} 件 / 行 ${totalRows} 件 / 合計値 ${totalValue}</div>
+    <div class="admin-content--default-67428c8">
+      <table class="admin-content--default-0d87b9a">
+        <thead><tr><th>ID</th><th>旧キー</th><th>新キー</th><th class="admin-cell-number--default-e2b0e2a">行</th><th class="admin-cell-number--default-e2b0e2a">値</th></tr></thead>
         <tbody>${tableRows}</tbody>
       </table>
     </div>`;
@@ -183,19 +190,19 @@ async function repairPromotedStatsHistory(apply) {
   const confirmText = document.getElementById('repair-confirm-text')?.value || '';
   const msg = document.getElementById('repair-promoted-stats-msg');
   if (msg) {
-    msg.style.color = '#aaa';
+    setAdminTone(msg, '#aaa');
     msg.textContent = '確認中...';
   }
   if (!Number.isInteger(oldId) || !Number.isInteger(newId)) {
     if (msg) {
-      msg.style.color = '#e74c3c';
+      setAdminTone(msg, '#e74c3c');
       msg.textContent = '昇格前IDと昇格後IDを入力してください';
     }
     return;
   }
   if (apply && confirmText !== 'REPAIR_PROMOTED_STATS') {
     if (msg) {
-      msg.style.color = '#e74c3c';
+      setAdminTone(msg, '#e74c3c');
       msg.textContent = '適用には確認文字列 REPAIR_PROMOTED_STATS が必要です';
     }
     return;
@@ -214,14 +221,14 @@ async function repairPromotedStatsHistory(apply) {
   try { data = await res.json(); } catch { data = {}; }
   if (!res.ok) {
     if (msg) {
-      msg.style.color = '#e74c3c';
+      setAdminTone(msg, '#e74c3c');
       msg.textContent = data.message || '修復確認に失敗しました';
     }
     return;
   }
   renderPromotedStatsRepairResult(data);
   if (msg) {
-    msg.style.color = apply ? '#27ae60' : '#f5a623';
+    setAdminTone(msg, apply ? '#27ae60' : '#f5a623');
     msg.textContent = apply ? '適用しました' : 'dry-run完了。問題なければ確認文字列を入力して適用してください';
   }
 }
@@ -252,15 +259,15 @@ async function updateFetishLookup(input) {
     target.textContent = '';
     return;
   }
-  target.style.color = '#888';
+  setAdminTone(target, '#888');
   target.textContent = '確認中...';
   const item = await lookupFetishName(fetishId);
   if (!item) {
-    target.style.color = '#e74c3c';
+    setAdminTone(target, '#e74c3c');
     target.textContent = '見つかりません';
     return;
   }
-  target.style.color = item.is_player_fetish ? '#f5a623' : '#27ae60';
+  setAdminTone(target, item.is_player_fetish ? '#f5a623' : '#27ae60');
   target.textContent = `${item.name || ''}（ID ${item.id}${item.is_player_fetish ? ' / プレイヤー追加' : ''}）`;
 }
 
@@ -281,7 +288,7 @@ async function renderMoveStatsHistoryPreview() {
     const newName = newItem ? newItem.name : '見つかりません';
     lines.push(`<div><code>${mapping.old_id}</code> ${escapeHtml(oldName)} → <code>${mapping.new_id}</code> ${escapeHtml(newName)}</div>`);
   }
-  preview.innerHTML = `<div style="color:#ccc;margin-bottom:4px;">移動先確認</div>${lines.join('')}`;
+  preview.innerHTML = `<div class="admin-copy--default-29f94b4">移動先確認</div>${lines.join('')}`;
 }
 
 function parseStatsHistoryMappings(text) {
@@ -300,19 +307,19 @@ async function moveStatsHistory(apply) {
   const confirmText = document.getElementById('move-stats-history-confirm')?.value || '';
   const msg = document.getElementById('move-stats-history-msg');
   if (msg) {
-    msg.style.color = '#aaa';
+    setAdminTone(msg, '#aaa');
     msg.textContent = '確認中...';
   }
   if (!mappings.length) {
     if (msg) {
-      msg.style.color = '#e74c3c';
+      setAdminTone(msg, '#e74c3c');
       msg.textContent = '移動ペアを入力してください';
     }
     return;
   }
   if (apply && confirmText !== 'MOVE_STATS_HISTORY') {
     if (msg) {
-      msg.style.color = '#e74c3c';
+      setAdminTone(msg, '#e74c3c');
       msg.textContent = '適用には確認文字列 MOVE_STATS_HISTORY が必要です';
     }
     return;
@@ -329,14 +336,14 @@ async function moveStatsHistory(apply) {
   try { data = await res.json(); } catch { data = {}; }
   if (!res.ok) {
     if (msg) {
-      msg.style.color = '#e74c3c';
+      setAdminTone(msg, '#e74c3c');
       msg.textContent = data.message || 'ID移動に失敗しました';
     }
     return;
   }
   renderPromotedStatsRepairResult(data, 'move-stats-history-result');
   if (msg) {
-    msg.style.color = apply ? '#27ae60' : '#f5a623';
+    setAdminTone(msg, apply ? '#27ae60' : '#f5a623');
     msg.textContent = apply ? 'ID移動を適用しました' : 'dry-run完了。件数を確認してから適用してください';
   }
 }
@@ -362,22 +369,22 @@ function renderLogRows(rows) {
     const acc = r.acc == null ? -1 : Number.parseFloat(r.acc);
     const warn = acc >= 0 && acc < 40 && Number.parseInt(r.guessed, 10) >= 3;
     const accText = acc >= 0 ? `${acc}%` : '—';
-    const accColor = acc >= 0 && acc < 50 ? '#e74c3c' : (acc >= 0 ? '#27ae60' : '#555');
-    return `<tr id="logrow-${Number.parseInt(r.id, 10)}"${warn ? ' style="background:#2a1010"' : ''}
-      data-name="${escapeHtml(r.name)}" data-guessed="${Number.parseInt(r.guessed, 10)}" data-acc="${acc}">
-      <td style="color:#666;font-size:0.75rem">${i + 1 + ((_logPage - 1) * _logPerPage)}</td>
-      <td style="color:#666;font-size:0.75rem">${Number.parseInt(r.id, 10)}</td>
-      <td style="font-size:0.82rem">${escapeHtml(r.name)}${warn ? '<span class="tag-low" title="wrong率60%超">⚠</span>' : ''}</td>
-      <td style="color:#aaa;font-size:0.8rem" data-val="${Number.parseInt(r.guessed, 10)}">${Number.parseInt(r.guessed, 10)}</td>
-      <td style="color:#27ae60;font-size:0.8rem" data-val="${Number.parseInt(r.correct, 10)}">${Number.parseInt(r.correct, 10)}</td>
-      <td style="color:#e74c3c;font-size:0.8rem" data-val="${Number.parseInt(r.wrong, 10)}">${Number.parseInt(r.wrong, 10)}</td>
-      <td style="font-size:0.8rem;color:${accColor}" data-val="${acc}">${accText}</td>
-      <td style="color:#888;font-size:0.8rem" data-val="${Number.parseInt(r.unfeedback || 0, 10)}">${Number.parseInt(r.unfeedback || 0, 10)}</td>
-      <td><button class="btn-toggle" data-action="toggle-fetish-history" data-fid="${Number.parseInt(r.id, 10)}" style="font-size:0.72rem;padding:2px 8px;">履歴</button></td>
+    const accTone = acc >= 0 && acc < 50 ? 'danger' : (acc >= 0 ? 'positive' : 'quiet');
+    return `<tr id="logrow-${Number.parseInt(r.id, 10)}"${warn ? '' : ''}
+      data-name="${escapeHtml(r.name)}" data-guessed="${Number.parseInt(r.guessed, 10)}" data-acc="${acc}" class="admin-table-row--default-efff4a1">
+      <td class="admin-cell--muted-cd2c156">${i + 1 + ((_logPage - 1) * _logPerPage)}</td>
+      <td class="admin-cell--muted-cd2c156">${Number.parseInt(r.id, 10)}</td>
+      <td class="admin-cell--default-ada9949">${escapeHtml(r.name)}${warn ? '<span class="tag-low" title="wrong率60%超">⚠</span>' : ''}</td>
+      <td data-val="${Number.parseInt(r.guessed, 10)}" class="admin-cell--muted-cb9913d">${Number.parseInt(r.guessed, 10)}</td>
+      <td data-val="${Number.parseInt(r.correct, 10)}" class="admin-cell--positive-2ca1781">${Number.parseInt(r.correct, 10)}</td>
+      <td data-val="${Number.parseInt(r.wrong, 10)}" class="admin-cell--danger-9c63175">${Number.parseInt(r.wrong, 10)}</td>
+      <td class="admin-history-accuracy admin-tone--${accTone}" data-val="${acc}">${accText}</td>
+      <td data-val="${Number.parseInt(r.unfeedback || 0, 10)}" class="admin-cell--muted-de59b12">${Number.parseInt(r.unfeedback || 0, 10)}</td>
+      <td><button class="btn-toggle admin-action--default-df677d3" data-action="toggle-fetish-history" data-fid="${Number.parseInt(r.id, 10)}">履歴</button></td>
     </tr>
-    <tr id="logrow-hist-${Number.parseInt(r.id, 10)}" style="display:none;">
-      <td colspan="9" style="padding:8px 4px 12px;">
-        <div id="logrow-hist-content-${Number.parseInt(r.id, 10)}" style="font-size:0.78rem;color:#888;"></div>
+    <tr id="logrow-hist-${Number.parseInt(r.id, 10)}" class="admin-history-row">
+      <td colspan="9" class="admin-cell--default-d377fc5">
+        <div id="logrow-hist-content-${Number.parseInt(r.id, 10)}" class="admin-copy--muted-eb16a90"></div>
       </td>
     </tr>`;
   }).join('');
@@ -420,25 +427,25 @@ function filterLogTable() {
 async function toggleFetishHistory(fid, btn) {
   const histRow = document.getElementById(`logrow-hist-${fid}`);
   const content = document.getElementById(`logrow-hist-content-${fid}`);
-  if (histRow.style.display !== 'none') { histRow.style.display = 'none'; return; }
+  if (histRow.classList.contains('is-open')) { histRow.classList.remove('is-open'); return; }
   content.textContent = '読み込み中…';
-  histRow.style.display = '';
+  histRow.classList.add('is-open');
   const res = await adminFetch(`/api/admin/fetish_history/${fid}?days=30`, {method: 'GET'});
-  if (!res) { histRow.style.display = 'none'; return; }
+  if (!res) { histRow.classList.remove('is-open'); return; }
   const data = await res.json();
   const hasSome = data.some(d => d.correct > 0 || d.wrong > 0);
   if (!hasSome) { content.textContent = 'フィードバックデータなし（記録は今後蓄積されます）'; return; }
   const maxV = Math.max(1, ...data.map(d => d.correct + d.wrong));
-  let html = '<div style="display:flex;align-items:flex-end;gap:2px;height:36px;overflow-x:auto;">';
+  let html = '<div class="admin-layout-flex--default-ce389d1">';
   data.forEach(d => {
     const tot = d.correct + d.wrong;
     const h   = Math.round(tot / maxV * 34);
     const acc = tot > 0 ? Math.round(d.correct / tot * 100) : null;
-    const bg  = acc === null ? '#333' : acc >= 70 ? '#27ae60' : acc >= 40 ? '#f5a623' : '#e74c3c';
+    const tone = acc === null ? 'empty' : acc >= 70 ? 'positive' : acc >= 40 ? 'warning' : 'danger';
     html += `<div title="${d.date}: 正解${d.correct}/外れ${d.wrong}${acc!==null?' ('+acc+'%)':''}"
-               style="flex:1;min-width:4px;height:${Math.max(h,2)}px;background:${bg};border-radius:2px 2px 0 0;"></div>`;
+               class="admin-history-chart-bar is-${tone}" style="--bar-height:${Math.max(h,2)}px;"></div>`;
   });
-  html += '</div><div style="font-size:0.72rem;color:#555;margin-top:3px;">過去30日（緑=正解多, 橙=接戦, 赤=外れ多）</div>';
+  html += '</div><div class="admin-copy--muted-9141dc8">過去30日（緑=正解多, 橙=接戦, 赤=外れ多）</div>';
   content.innerHTML = html;
 }
 
@@ -452,7 +459,7 @@ async function promotePlayerFetish(fid, btn) {
     const row = document.getElementById(`pfrow-${fid}`);
     if (row) {
       row.id = `promoted-pfrow-${data.new_id}`;
-      row.style.opacity = '0.72';
+      row.classList.add('is-promoted');
       row.cells[0].textContent = data.new_id;
       const nameEl = document.getElementById(`pfname-${fid}`);
       const descEl = document.getElementById(`pfdesc-${fid}`);
@@ -460,8 +467,8 @@ async function promotePlayerFetish(fid, btn) {
       if (nameEl) nameEl.id = `promoted-pfname-${data.new_id}`;
       if (descEl) descEl.id = `promoted-pfdesc-${data.new_id}`;
       if (worksEl) worksEl.id = `promoted-pfworks-${data.new_id}`;
-      row.cells[3].innerHTML = `<span style="color:#27ae60;font-size:0.78rem">シード性癖に格上げ済み</span>`;
-      row.cells[4].innerHTML = `<a class="btn-toggle" href="/fetish/${data.new_id}" target="_blank" rel="noopener" style="text-decoration:none;">詳細</a>`;
+      row.cells[3].innerHTML = `<span class="admin-copy--positive-63c922d">シード性癖に格上げ済み</span>`;
+      row.cells[4].innerHTML = `<a class="btn-toggle admin-action--default-febbf98" href="/fetish/${data.new_id}" target="_blank" rel="noopener">詳細</a>`;
     }
   } else {
     alert(data.message || '格上げに失敗しました');
@@ -500,7 +507,7 @@ async function editFetish(fid, btn) {
     const curName  = nameEl.textContent;
     const curDesc  = descEl.textContent;
     const curWorks = worksEl.textContent === '（なし）' ? '' : worksEl.textContent;
-    const inp = 'style="background:#1a1a2e;color:#eee;border:1px solid #555;padding:2px 6px;border-radius:4px;font-size:0.82rem;width:100%"';
+    const inp = 'class="admin-edit-field"';
     nameEl.innerHTML  = `<input value="${escapeHtml(curName)}" ${inp}>`;
     descEl.innerHTML  = `<input value="${escapeHtml(curDesc)}" ${inp}>`;
     worksEl.innerHTML = `<input value="${escapeHtml(curWorks)}" placeholder="作品名|URL, 作品名, ..." ${inp}>`;
@@ -515,7 +522,7 @@ async function editFetishById() {
   const desc  = document.getElementById('ef-desc').value.trim() || undefined;
   const worksRaw = document.getElementById('ef-works').value.trim();
   const msg   = document.getElementById('ef-msg');
-  if (!Number.isInteger(fid) || fid < 0) { msg.style.color = '#e74c3c'; msg.textContent = 'IDを入力してください'; return; }
+  if (!Number.isInteger(fid) || fid < 0) { setAdminTone(msg, '#e74c3c'); msg.textContent = 'IDを入力してください'; return; }
   const body = {};
   if (name) body.name = name;
   if (desc) body.desc = desc;
@@ -524,13 +531,13 @@ async function editFetishById() {
   if (!res) return;
   const data = await res.json();
   if (res.ok) {
-    msg.style.color = '#27ae60';
+    setAdminTone(msg, '#27ae60');
     const worksCount = data.works ? data.works.length : 0;
     msg.textContent = `保存しました: ${data.name}（作品${worksCount}件）`;
     setTimeout(() => msg.textContent = '', 4000);
     document.getElementById('ef-works').value = '';
   } else {
-    msg.style.color = '#e74c3c';
+    setAdminTone(msg, '#e74c3c');
     msg.textContent = data.message || 'エラーが発生しました';
   }
 }
@@ -558,7 +565,7 @@ async function capturepriors() {
   if (!res) return;
   const data = await res.json();
   const msg  = document.getElementById('capture-msg');
-  msg.style.color = data.status === 'ok' ? '#27ae60' : '#e74c3c';
+  setAdminTone(msg, data.status === 'ok' ? '#27ae60' : '#e74c3c');
   msg.textContent = data.status === 'ok' ? '保存しました' : 'エラーが発生しました';
   setTimeout(() => msg.textContent = '', 3000);
 }
@@ -567,20 +574,20 @@ async function adminAddFetish() {
   const name = document.getElementById('af-name').value.trim();
   const desc = document.getElementById('af-desc').value.trim();
   const msg  = document.getElementById('af-msg');
-  if (!name) { msg.style.color = '#e74c3c'; msg.textContent = '名前を入力してください'; return; }
+  if (!name) { setAdminTone(msg, '#e74c3c'); msg.textContent = '名前を入力してください'; return; }
   const res  = await adminFetch('/api/admin/add_fetish', {method: 'POST', body: JSON.stringify({name, desc})});
   if (!res) return;
   const data = await res.json();
   if (data.status === 'created') {
-    msg.style.color = '#27ae60';
+    setAdminTone(msg, '#27ae60');
     msg.textContent = `追加しました (ID: ${data.fetish_id})`;
     document.getElementById('af-name').value = '';
     document.getElementById('af-desc').value = '';
   } else if (data.status === 'exists') {
-    msg.style.color = '#f5a623';
+    setAdminTone(msg, '#f5a623');
     msg.textContent = `既に存在します (ID: ${data.fetish_id})`;
   } else {
-    msg.style.color = '#e74c3c';
+    setAdminTone(msg, '#e74c3c');
     msg.textContent = data.message || 'エラーが発生しました';
   }
 }
@@ -618,7 +625,7 @@ async function editQuestion(qId, btn) {
     }
   } else {
     const cur = cell.textContent.replace(/低識別力$/, '').trim();
-    cell.innerHTML = `<input value="${escapeHtml(cur)}" style="background:#1a1a2e;color:#eee;border:1px solid #555;padding:2px 6px;border-radius:4px;font-size:0.8rem;width:100%">`;
+    cell.innerHTML = `<input value="${escapeHtml(cur)}" class="admin-field--muted-a6b3b5f">`;
     btn.dataset.editing = '1';
     btn.textContent = '保存';
     cell.querySelector('input').focus();
@@ -629,27 +636,27 @@ async function checkSimilarity() {
   const id_a = parseInt(document.getElementById('sim-a').value);
   const id_b = parseInt(document.getElementById('sim-b').value);
   const out  = document.getElementById('sim-result');
-  if (!id_a || !id_b) { out.style.color='#e74c3c'; out.textContent='IDを両方入力してください'; return; }
+  if (!id_a || !id_b) { setAdminTone(out, '#e74c3c'); out.textContent='IDを両方入力してください'; return; }
   const res  = await adminFetch('/api/admin/fetish_similarity', {method: 'POST', body: JSON.stringify({id_a, id_b})});
   if (!res) return;
   const d = await res.json();
-  if (!res.ok) { out.style.color='#e74c3c'; out.textContent=d.message||'エラー'; return; }
+  if (!res.ok) { setAdminTone(out, '#e74c3c'); out.textContent=d.message||'エラー'; return; }
   const pct = Math.round((d.cosine + 1) / 2 * 100);
-  const color = pct >= 70 ? '#e94560' : pct >= 40 ? '#f5a623' : '#27ae60';
-  let html = `<div style="margin-bottom:8px;">
-    <span style="color:#eee;font-weight:bold;">${escapeHtml(d.name_a)}</span>
-    <span style="color:#555;"> × </span>
-    <span style="color:#eee;font-weight:bold;">${escapeHtml(d.name_b)}</span>
-    &nbsp;&nbsp;コサイン類似度: <span style="color:${color};">${escapeHtml(d.cosine)}</span>
+  const tone = pct >= 70 ? 'brand' : pct >= 40 ? 'warning' : 'positive';
+  let html = `<div class="admin-content--default-e1bf037">
+    <span class="admin-metric--default-ddec48b">${escapeHtml(d.name_a)}</span>
+    <span class="admin-copy--muted-2915f89"> × </span>
+    <span class="admin-metric--default-ddec48b">${escapeHtml(d.name_b)}</span>
+    &nbsp;&nbsp;コサイン類似度: <span class="admin-tone--${tone}">${escapeHtml(d.cosine)}</span>
   </div>
-  <div style="color:#888;margin-bottom:4px;">差異が大きい質問 TOP5:</div>
-  <table style="width:100%;border-collapse:collapse;font-size:0.78rem;">`;
-  html += `<tr><th style="color:#555;text-align:left;padding:2px 6px;">質問</th><th style="color:#555;padding:2px 6px;">${escapeHtml(d.name_a)}</th><th style="color:#555;padding:2px 6px;">${escapeHtml(d.name_b)}</th></tr>`;
+  <div class="admin-copy--muted-6196567">差異が大きい質問 TOP5:</div>
+  <table class="admin-copy--default-7ae9e0a">`;
+  html += `<tr><th class="admin-cell--muted-e394c17">質問</th><th class="admin-cell--muted-a700f58">${escapeHtml(d.name_a)}</th><th class="admin-cell--muted-a700f58">${escapeHtml(d.name_b)}</th></tr>`;
   d.top_diff.forEach(q => {
-    html += `<tr style="border-top:1px solid #1a1a2e;">
-      <td style="padding:2px 6px;color:#aaa;">${escapeHtml(q.text)}</td>
-      <td style="text-align:center;padding:2px 6px;color:#f5a623;">${escapeHtml(q.p_a)}</td>
-      <td style="text-align:center;padding:2px 6px;color:#f5a623;">${escapeHtml(q.p_b)}</td>
+    html += `<tr class="admin-table-row--default-a6c73cc">
+      <td class="admin-cell--muted-2cad44a">${escapeHtml(q.text)}</td>
+      <td class="admin-cell-center--warning-3fcd3c9">${escapeHtml(q.p_a)}</td>
+      <td class="admin-cell-center--warning-3fcd3c9">${escapeHtml(q.p_b)}</td>
     </tr>`;
   });
   html += '</table>';
@@ -684,7 +691,7 @@ async function mergeFetishes() {
   const new_name  = document.getElementById('mg-name').value.trim() || undefined;
   const new_desc  = document.getElementById('mg-desc').value.trim() || undefined;
   const msg = document.getElementById('mg-msg');
-  if (!id_keep || !id_remove) { msg.style.color='#e74c3c'; msg.textContent='IDを両方入力してください'; return; }
+  if (!id_keep || !id_remove) { setAdminTone(msg, '#e74c3c'); msg.textContent='IDを両方入力してください'; return; }
   const text = prompt(`ID ${id_keep} に ID ${id_remove} をマージし、ID ${id_remove} を削除します。\n続行するには MERGE と入力してください。`);
   if (text !== 'MERGE') return;
   const body = {id_keep, id_remove, confirm_text: text};
@@ -694,10 +701,10 @@ async function mergeFetishes() {
   if (!res) return;
   const data = await res.json();
   if (res.ok) {
-    msg.style.color = '#27ae60';
+    setAdminTone(msg, '#27ae60');
     msg.textContent = `統合しました: ${data.name}`;
   } else {
-    msg.style.color = '#e74c3c';
+    setAdminTone(msg, '#e74c3c');
     msg.textContent = data.message || 'エラーが発生しました';
   }
 }
@@ -714,14 +721,14 @@ async function loadCompoundWorks() {
 
 function renderCompoundWorks(items) {
   const el = document.getElementById('cw-list');
-  if (!items.length) { el.innerHTML = '<p style="color:#555;font-size:0.82rem;">登録なし</p>'; return; }
-  el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:4px;">
-    <tr><th style="text-align:left;color:#888;padding:4px 8px;">ペア</th><th style="text-align:left;color:#888;padding:4px 8px;">作品</th><th></th></tr>
+  if (!items.length) { el.innerHTML = '<p class="admin-copy--muted-c572ec4">登録なし</p>'; return; }
+  el.innerHTML = `<table class="admin-copy--default-a2bf037">
+    <tr><th class="admin-cell--muted-31457f0">ペア</th><th class="admin-cell--muted-31457f0">作品</th><th></th></tr>
     ${items.map(it => `
-    <tr id="cwrow-${escapeHtml(String(it.key).replace(',','-'))}" style="border-top:1px solid #222;">
-      <td style="padding:4px 8px;color:#ccc;white-space:nowrap;">${escapeHtml(it.name_a)}<br><span style="color:#888;">× ${escapeHtml(it.name_b)}</span></td>
-      <td style="padding:4px 8px;color:#f0d06a;">${escapeHtml(worksToInputStr(it.works))}</td>
-      <td style="padding:4px 8px;"><button class="btn-toggle" data-action="delete-compound-works" data-key="${escapeHtml(it.key)}" data-id-a="${Number.parseInt(it.id_a, 10)}" data-id-b="${Number.parseInt(it.id_b, 10)}">削除</button></td>
+    <tr id="cwrow-${escapeHtml(String(it.key).replace(',','-'))}" class="admin-table-row--default-c34119d">
+      <td class="admin-cell--default-fee5a54">${escapeHtml(it.name_a)}<br><span class="admin-copy--muted-f348024">× ${escapeHtml(it.name_b)}</span></td>
+      <td class="admin-cell--default-125a472">${escapeHtml(worksToInputStr(it.works))}</td>
+      <td class="admin-cell--default-2975d9c"><button class="btn-toggle" data-action="delete-compound-works" data-key="${escapeHtml(it.key)}" data-id-a="${Number.parseInt(it.id_a, 10)}" data-id-b="${Number.parseInt(it.id_b, 10)}">削除</button></td>
     </tr>`).join('')}
   </table>`;
 }
@@ -731,21 +738,21 @@ async function saveCompoundWorks() {
   const id_b = parseInt(document.getElementById('cw-b').value);
   const worksRaw = document.getElementById('cw-works').value.trim();
   const msg = document.getElementById('cw-msg');
-  if (!Number.isInteger(id_a) || id_a < 0 || !Number.isInteger(id_b) || id_b < 0) { msg.style.color='#e74c3c'; msg.textContent='IDを両方入力してください'; return; }
-  if (!worksRaw) { msg.style.color='#e74c3c'; msg.textContent='作品を入力してください'; return; }
+  if (!Number.isInteger(id_a) || id_a < 0 || !Number.isInteger(id_b) || id_b < 0) { setAdminTone(msg, '#e74c3c'); msg.textContent='IDを両方入力してください'; return; }
+  if (!worksRaw) { setAdminTone(msg, '#e74c3c'); msg.textContent='作品を入力してください'; return; }
   const works = worksRaw.split(',').map(s => s.trim()).filter(Boolean);
   const res = await adminFetch('/api/admin/compound_works', {method: 'POST', body: JSON.stringify({id_a, id_b, works})});
   if (!res) return;
   const data = await res.json();
   if (res.ok) {
-    msg.style.color = '#27ae60';
+    setAdminTone(msg, '#27ae60');
     msg.textContent = `保存しました（${data.works.length}件）`;
     setTimeout(() => msg.textContent = '', 3000);
     document.getElementById('cw-works').value = '';
     _cwLoaded = false;
     loadCompoundWorks();
   } else {
-    msg.style.color = '#e74c3c';
+    setAdminTone(msg, '#e74c3c');
     msg.textContent = data.message || 'エラーが発生しました';
   }
 }
@@ -774,7 +781,7 @@ function renderWorkCatalog() {
   const aliases = _workCatalog.work_aliases.map(row => `<tr><td>${escapeHtml(row.alias)}</td><td>${escapeHtml(row.work_id)}</td><td>${catalogButton('編集', 'alias_update', 'alias-id', row.alias_id)} ${catalogButton('削除', 'alias_delete', 'alias-id', row.alias_id)}</td></tr>`).join('');
   const reviews = _workCatalog.review_queue.map(row => `<tr><td>${escapeHtml(row.review_type)}</td><td>${escapeHtml((row.titles || []).join(' / '))}</td><td>${escapeHtml(row.status || 'pending')}</td><td>${row.status === 'pending' ? `${catalogButton('別作品を維持', 'review_keep', 'review-id', row.review_id)} ${catalogButton('統合', 'review_merge', 'review-id', row.review_id)}` : escapeHtml(row.decision || '-')}</td></tr>`).join('');
   const links = [..._workCatalog.fetish_work_links, ..._workCatalog.compound_work_links].map(row => `<tr><td>${escapeHtml(row.link_id)}</td><td>${escapeHtml(row.context_label || '')}</td><td>${escapeHtml(row.recommendation_reason || '')}</td><td>${catalogButton('文脈・理由', 'link_update', 'link-id', row.link_id)}</td></tr>`).join('');
-  const table = (title, heads, body) => `<h4 style="color:#aaa;margin:12px 0 4px;">${title}</h4><table style="width:100%;border-collapse:collapse;"><tr>${heads.map(head => `<th style="text-align:left;color:#777;padding:4px;">${head}</th>`).join('')}</tr>${body || `<tr><td colspan="${heads.length}" style="color:#555;padding:4px;">なし</td></tr>`}</table>`;
+  const table = (title, heads, body) => `<h4 class="admin-copy--muted-080ab07">${title}</h4><table class="admin-content--default-824da49"><tr>${heads.map(head => `<th class="admin-cell--muted-bd0b789">${head}</th>`).join('')}</tr>${body || `<tr><td colspan="${heads.length}" class="admin-cell--muted-bad0eaf">なし</td></tr>`}</table>`;
   root.innerHTML = table('Master', ['正式名', '種別', '状態', '操作'], masters)
     + table('販売版', ['ASIN', 'URL', '形式', '操作'], editions)
     + table('別名', ['別名', 'work_id', '操作'], aliases)
@@ -806,11 +813,11 @@ async function mutateWorkCatalog(operation, payload, destructive = false) {
   const data = await res.json();
   const msg = document.getElementById('wc-msg');
   if (!res.ok) {
-    msg.style.color = '#e74c3c';
+    setAdminTone(msg, '#e74c3c');
     msg.textContent = data.message || '更新に失敗しました。再読込してください。';
     return false;
   }
-  msg.style.color = '#27ae60';
+  setAdminTone(msg, '#27ae60');
   msg.textContent = '保存しました';
   _workCatalog = null;
   await loadWorkCatalog(true);
@@ -870,11 +877,11 @@ async function toggleQuestion(qId) {
   const row  = document.getElementById(`qrow-${qId}`);
   const btn  = document.getElementById(`qtoggle-${qId}`);
   if (data.disabled) {
-    row.style.opacity = '0.4';
+    row.classList.add('is-disabled');
     btn.textContent = '無効';
     btn.classList.add('disabled');
   } else {
-    row.style.opacity = '';
+    row.classList.remove('is-disabled');
     btn.textContent = '有効';
     btn.classList.remove('disabled');
   }

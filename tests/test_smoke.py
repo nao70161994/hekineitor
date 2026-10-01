@@ -1,5 +1,6 @@
 import base64
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -60,6 +61,19 @@ class TestSmoke(unittest.TestCase):
             self.assertIn(b'function loadPreflight', f.read())
         with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'admin.css'), 'rb') as f:
             self.assertIn(b'.btn-save', f.read())
+
+    def test_admin_templates_keep_static_presentation_in_css(self):
+        template_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
+        templates = ('admin.html', '_admin_analytics.html', '_admin_controls.html', '_admin_learning_stats.html')
+        for template_name in templates:
+            with open(os.path.join(template_root, template_name), encoding='utf-8') as template_file:
+                for style in re.findall(r'\bstyle="([^"]*)"', template_file.read()):
+                    self.assertTrue('{{' in style or '{%' in style, f'{template_name} has static inline style: {style}')
+        static_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static')
+        for script_name in ('admin.js', 'admin_ops.js'):
+            with open(os.path.join(static_root, script_name), encoding='utf-8') as script_file:
+                for style in re.findall(r'\bstyle="([^\"]*)"', script_file.read()):
+                    self.assertIn('${', style, f'{script_name} has static inline style: {style}')
 
     def test_client_module_scripts_are_loaded_in_dependency_order(self):
         res = self.client.get('/')

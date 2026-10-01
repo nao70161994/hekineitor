@@ -1,14 +1,14 @@
 {% if player_fetishes %}
-<h2 style="color:#f5a623;font-size:1rem;margin-top:32px;margin-bottom:8px;">プレイヤーが追加した性癖（{{ player_fetishes|length }}件）</h2>
+<h2 class="admin-copy--warning-3b6f58c">プレイヤーが追加した性癖（{{ player_fetishes|length }}件）</h2>
 <table>
   <tr><th>ID</th><th>名前</th><th>説明</th><th>作品</th><th></th></tr>
   {% for f in player_fetishes %}
   <tr id="pfrow-{{ f.id }}">
     <td class="admin-caption--muted">{{ f.id }}</td>
     <td id="pfname-{{ f.id }}">{{ f.name }}</td>
-    <td style="color:#888;font-size:0.82rem" id="pfdesc-{{ f.id }}">{{ f.desc }}</td>
-    <td style="color:#4a9;font-size:0.75rem" id="pfworks-{{ f.id }}">{{ f.works | join(', ') if f.works else '（なし）' }}</td>
-    <td style="display:flex;gap:4px;flex-wrap:wrap;">
+    <td id="pfdesc-{{ f.id }}" class="admin-cell--muted-c3a9ebd">{{ f.desc }}</td>
+    <td id="pfworks-{{ f.id }}" class="admin-cell--positive-395cb68">{{ f.works | join(', ') if f.works else '（なし）' }}</td>
+    <td class="admin-cell--default-821639b">
       <button class="btn-toggle" data-action="promote-player-fetish" data-fid="{{ f.id }}" title="シード性癖に格上げ">↑格上げ</button>
       <button class="btn-toggle" data-action="edit-fetish" data-fid="{{ f.id }}">編集</button>
       <button class="btn-toggle" data-action="delete-player-fetish" data-fid="{{ f.id }}">削除</button>
@@ -17,10 +17,10 @@
   {% endfor %}
 </table>
 {% else %}
-<p style="color:#555;font-size:0.85rem;margin-top:32px;">プレイヤーが追加した性癖はまだありません。</p>
+<p class="admin-copy--muted-4240633">プレイヤーが追加した性癖はまだありません。</p>
 {% endif %}
 
-<details style="margin-top:16px;" id="seed-edit-section">
+<details id="seed-edit-section" class="admin-section--default-bfcc2be">
 <summary class="admin-section-toggle">シード性癖を編集</summary>
 <p class="admin-help-text--compact">性癖IDを指定して名前・説明文・作品リストを変更します。</p>
 <div class="admin-form-stack">
@@ -36,7 +36,7 @@
 </div>
 </details>
 
-<details style="margin-top:40px;" id="q-section">
+<details id="q-section" class="admin-section--default-67bb0ae">
 <summary class="admin-section-toggle">質問の識別力（低い順、展開で表示）</summary>
 <p class="admin-help-text--compact">識別力 = 各性癖でP(yes)が0.5からどれだけ離れているかの平均（0〜0.5。低いほど全性癖に均等で区別しにくい）</p>
 
@@ -46,37 +46,37 @@
 {% set unused_qs    = question_stats | selectattr('ask_count','lt',[avg_ask*0.25,0.5]|max) | selectattr('disabled','eq',false) | list %}
 {% set overused_qs  = question_stats | selectattr('ask_count','gt',avg_ask*4.0) | list %}
 {% if low_disc_qs or unused_qs or overused_qs %}
-<div style="background:#1a0d0d;border-radius:8px;padding:10px 14px;margin-bottom:12px;border:1px solid #3a1515;">
-  <div style="font-size:0.8rem;color:#e74c3c;margin-bottom:6px;">⚠ 要確認の質問</div>
+<div class="admin-panel--default-761ee33">
+  <div class="admin-copy--danger-c2b7523">⚠ 要確認の質問</div>
   {% if low_disc_qs %}
-  <div style="font-size:0.75rem;color:#c0392b;margin-bottom:4px;">識別力 &lt;0.03（無効化を検討）: {{ low_disc_qs|map(attribute='id')|list|join(', ') }}</div>
+  <div class="admin-copy--danger-dcea51e">識別力 &lt;0.03（無効化を検討）: {{ low_disc_qs|map(attribute='id')|list|join(', ') }}</div>
   {% endif %}
   {% if unused_qs %}
-  <div style="font-size:0.75rem;color:#8b6914;margin-bottom:4px;">使用量が平均の25%未満（UCBが機能しているか確認）: {{ unused_qs|map(attribute='id')|list|join(', ') }}</div>
+  <div class="admin-copy--warning-17dacae">使用量が平均の25%未満（UCBが機能しているか確認）: {{ unused_qs|map(attribute='id')|list|join(', ') }}</div>
   {% endif %}
   {% if overused_qs %}
-  <div style="font-size:0.75rem;color:#8b6914;margin-bottom:0;">使用量が平均の4倍超（特定質問に偏りあり）: {{ overused_qs|map(attribute='id')|list|join(', ') }}</div>
+  <div class="admin-copy--warning-b8c33d9">使用量が平均の4倍超（特定質問に偏りあり）: {{ overused_qs|map(attribute='id')|list|join(', ') }}</div>
   {% endif %}
 </div>
 {% else %}
-<div style="background:#0d2010;border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:0.78rem;color:#27ae60;border:1px solid #1a4a1a;">✓ 問題のある質問なし（avg_ask={{ avg_ask }}）</div>
+<div class="admin-panel--positive-2520cd0">✓ 問題のある質問なし（avg_ask={{ avg_ask }}）</div>
 {% endif %}
 <table id="q-table" class="admin-subsection-offset">
   <tr><th>QID</th><th>質問</th><th data-action="sort-q-table" class="admin-selectable">識別力 ↕</th><th></th><th class="admin-meta--nowrap" title="UCB使用回数（学習累計）">使用量</th><th class="admin-meta--nowrap" title="バリアント（別表現）の数">Var</th><th>操作</th></tr>
   {% set max_d = [question_stats[-1].disc, 0.01] | max if question_stats else 0.01 %}
   {% for q in question_stats %}
-  <tr id="qrow-{{ q.id }}" style="{% if q.disabled %}opacity:0.4{% elif q.disc < 0.03 %}background:#1a0a0a{% elif q.ask_count < avg_ask*0.25 and avg_ask > 1 %}background:#1a1500{% endif %}">
-    <td style="color:#666;font-size:0.78rem">{{ q.id }}</td>
-    <td id="qtext-{{ q.id }}" style="font-size:0.82rem;max-width:260px">{{ q.text }}{% if q.disc < 0.05 %}<span class="tag-low">低識別力</span>{% endif %}</td>
+  <tr id="qrow-{{ q.id }}" class="admin-question-row{% if q.disabled %} is-disabled{% elif q.disc < 0.03 %} is-low-signal{% elif q.ask_count < avg_ask*0.25 and avg_ask > 1 %} is-underused{% endif %}">
+    <td class="admin-cell--muted-bddbbf4">{{ q.id }}</td>
+    <td id="qtext-{{ q.id }}" class="admin-cell--default-f52eca7">{{ q.text }}{% if q.disc < 0.05 %}<span class="tag-low">低識別力</span>{% endif %}</td>
     <td>
-      <div class="bar-wrap" style="width:100px;">
-        <div class="bar-fill" style="width: {{ [[(q.disc / max_d * 100)|int, 2]|max, 100]|min }}%;background:linear-gradient(90deg,#0f3460,#e94560);"></div>
+      <div class="bar-wrap admin-content--default-8c87e1b">
+        <div class="bar-fill admin-progress--question-disc" style="width: {{ [[(q.disc / max_d * 100)|int, 2]|max, 100]|min }}%;"></div>
       </div>
     </td>
-    <td style="color:#888;font-size:0.78rem">{{ q.disc }}</td>
-    <td style="color:#{% if q.ask_count < 10 %}e74c3c{% elif q.ask_count < 50 %}f5a623{% else %}555{% endif %};font-size:0.75rem;text-align:right;">{{ q.ask_count | int }}</td>
-    <td style="color:#{% if q.variants_count > 0 %}7af0a0{% else %}555{% endif %};font-size:0.75rem;text-align:center;">{{ q.variants_count }}</td>
-    <td style="display:flex;gap:4px;">
+    <td class="admin-cell--muted-ad04469">{{ q.disc }}</td>
+    <td class="admin-question-count admin-tone--{% if q.ask_count < 10 %}danger{% elif q.ask_count < 50 %}warning{% else %}muted{% endif %}">{{ q.ask_count | int }}</td>
+    <td class="admin-variant-count admin-tone--{% if q.variants_count > 0 %}positive{% else %}muted{% endif %}">{{ q.variants_count }}</td>
+    <td class="admin-cell--default-749614f">
       <button class="btn-toggle {% if q.disabled %}disabled{% endif %}" id="qtoggle-{{ q.id }}"
           data-action="toggle-question" data-qid="{{ q.id }}">{% if q.disabled %}無効{% else %}有効{% endif %}</button>
       <button class="btn-toggle" data-action="edit-question" data-qid="{{ q.id }}">編集</button>
@@ -104,50 +104,50 @@
 
 <div class="admin-summary-card">
   <div class="admin-cell-center--narrow">
-    <div style="font-size:1.3rem;font-weight:bold;color:#e94560;">{{ diagnosed|length }}</div>
+    <div class="admin-metric--danger-82e4ed6">{{ diagnosed|length }}</div>
     <div class="admin-footnote--small">診断済み性癖</div>
   </div>
   <div class="admin-cell-center--narrow">
-    <div style="font-size:1.3rem;font-weight:bold;color:#f5a623;">{{ total_guessed }}</div>
+    <div class="admin-metric--warning-388821e">{{ total_guessed }}</div>
     <div class="admin-footnote--small">総診断回数</div>
   </div>
   <div class="admin-cell-center--narrow">
-    <div style="font-size:1.3rem;font-weight:bold;color:#27ae60;">{% if total_feedback > 0 %}{{ ((total_correct / total_feedback) * 100)|int }}%{% else %}—{% endif %}</div>
+    <div class="admin-metric--positive-fedca37">{% if total_feedback > 0 %}{{ ((total_correct / total_feedback) * 100)|int }}%{% else %}—{% endif %}</div>
     <div class="admin-footnote--small">FB正解率</div>
   </div>
   <div class="admin-cell-center--narrow">
-    <div style="font-size:1.3rem;font-weight:bold;color:#888;">{{ total_unfeedback }}</div>
+    <div class="admin-metric--muted-a8a48b4">{{ total_unfeedback }}</div>
     <div class="admin-footnote--small">未FB診断</div>
   </div>
   <div class="admin-cell-center--narrow">
-    <div style="font-size:1.3rem;font-weight:bold;color:#555;">{{ undiagnosed_count }}</div>
+    <div class="admin-metric--muted-bd4eff1">{{ undiagnosed_count }}</div>
     <div class="admin-footnote--small">未診断性癖</div>
   </div>
 </div>
 
 {% if ranked %}
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
-  <div style="background:#0d2010;border-radius:8px;padding:10px 12px;">
-    <p style="color:#27ae60;font-size:0.75rem;margin-bottom:6px;">✓ FB正解率 TOP5（3FB以上)</p>
+<div class="admin-layout-grid--default-1d7121c">
+  <div class="admin-content--default-3753604">
+    <p class="admin-copy--positive-2901019">✓ FB正解率 TOP5（3FB以上)</p>
     {% for r in top_acc[:5] %}
     <div class="admin-inline-center--compact">
-      <div style="width:80px;font-size:0.72rem;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ r.name }}">{{ r.name }}</div>
-      <div style="flex:1;background:#0f3460;border-radius:3px;height:8px;overflow:hidden;">
-        <div style="height:100%;border-radius:3px;background:#27ae60;width:{{ r.acc }}%;"></div>
+      <div title="{{ r.name }}" class="admin-copy--muted-7c72a8f">{{ r.name }}</div>
+      <div class="admin-content--info-435d8d7">
+        <div class="admin-progress--accuracy-positive" style="width:{{ r.acc }}%;"></div>
       </div>
-      <div style="font-size:0.7rem;color:#27ae60;min-width:34px;text-align:right;">{{ r.acc }}%</div>
+      <div class="admin-copy--positive-edbd76a">{{ r.acc }}%</div>
     </div>
     {% endfor %}
   </div>
-  <div style="background:#2a1010;border-radius:8px;padding:10px 12px;">
-    <p style="color:#e74c3c;font-size:0.75rem;margin-bottom:6px;">✗ 要改善 BOTTOM5（3FB以上)</p>
+  <div class="admin-content--default-551a68d">
+    <p class="admin-copy--danger-e39836d">✗ 要改善 BOTTOM5（3FB以上)</p>
     {% for r in bot_acc[:5] %}
     <div class="admin-inline-center--compact">
-      <div style="width:80px;font-size:0.72rem;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ r.name }}">{{ r.name }}</div>
-      <div style="flex:1;background:#0f3460;border-radius:3px;height:8px;overflow:hidden;">
-        <div style="height:100%;border-radius:3px;background:#e74c3c;width:{{ [r.acc, 1]|max }}%;"></div>
+      <div title="{{ r.name }}" class="admin-copy--muted-7c72a8f">{{ r.name }}</div>
+      <div class="admin-content--info-435d8d7">
+        <div class="admin-progress--accuracy-danger" style="width:{{ [r.acc, 1]|max }}%;"></div>
       </div>
-      <div style="font-size:0.7rem;color:#e74c3c;min-width:34px;text-align:right;">{{ r.acc }}%<span style="color:#555;font-size:0.65rem;">({{ r.guessed }})</span></div>
+      <div class="admin-copy--danger-e7047d6">{{ r.acc }}%<span class="admin-copy--muted-c9fe1e1">({{ r.guessed }})</span></div>
     </div>
     {% endfor %}
   </div>
@@ -158,20 +158,20 @@
 {% set low_sample = low_exposure[:10] %}
 {% if low_sample %}
 <div class="admin-stack-gap">
-  <p style="color:#888;font-size:0.78rem;margin-bottom:6px;">診断結果として提示が少ない性癖 TOP{{ low_sample|length }}</p>
+  <p class="admin-copy--muted-bea9e7f">診断結果として提示が少ない性癖 TOP{{ low_sample|length }}</p>
   {% for r in low_sample %}
-  <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
-    <div style="width:120px;font-size:0.72rem;color:#aaa;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="ID {{ r.id }}: {{ r.name }}">{{ r.name }}</div>
-    <div style="flex:1;max-width:200px;background:#111;border-radius:3px;height:10px;overflow:hidden;">
-      <div style="height:100%;border-radius:3px;width:{{ [[r.guessed * 10, 2]|max, 100]|min }}%;background:{% if r.guessed == 0 %}#555{% else %}#5b8dd9{% endif %};"></div>
+  <div class="admin-layout-flex--default-54604be">
+    <div title="ID {{ r.id }}: {{ r.name }}" class="admin-copy--muted-c5a95e9">{{ r.name }}</div>
+    <div class="admin-content--default-ae8aead">
+      <div class="admin-progress--exposure{% if r.guessed == 0 %} is-empty{% else %} is-visible{% endif %}" style="width:{{ [[r.guessed * 10, 2]|max, 100]|min }}%;"></div>
     </div>
-    <div style="font-size:0.72rem;color:#666;min-width:34px;">{{ r.guessed }}</div>
-    <div style="font-size:0.68rem;color:#555;min-width:58px;">ID {{ r.id }}</div>
+    <div class="admin-copy--muted-85cb4ce">{{ r.guessed }}</div>
+    <div class="admin-copy--muted-a03873e">ID {{ r.id }}</div>
   </div>
   {% endfor %}
-  <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;">
-    <a href="/api/admin/low_exposure_fetishes?threshold=3&limit=50" class="btn-action" style="font-size:0.72rem;padding:3px 10px;text-decoration:none;">低提示JSON</a>
-    <a href="/api/admin/fetish_log_rows?sort=guessed&order=asc&per_page=50" class="btn-action" style="font-size:0.72rem;padding:3px 10px;text-decoration:none;">一覧JSON</a>
+  <div class="admin-layout-flex--default-c9f39fe">
+    <a href="/api/admin/low_exposure_fetishes?threshold=3&limit=50" class="btn-action admin-action--default-d55e012">低提示JSON</a>
+    <a href="/api/admin/fetish_log_rows?sort=guessed&order=asc&per_page=50" class="btn-action admin-action--default-d55e012">一覧JSON</a>
   </div>
 </div>
 {% endif %}
@@ -179,26 +179,26 @@
 {% set top10 = fetish_log_rows[:10] %}
 {% if top10 and top10[0].guessed > 0 %}
 <div class="admin-stack-gap">
-  <p style="color:#888;font-size:0.78rem;margin-bottom:6px;">診断回数 TOP{{ top10|length }}</p>
+  <p class="admin-copy--muted-bea9e7f">診断回数 TOP{{ top10|length }}</p>
   {% set max_g = [top10[0].guessed, 1] | max %}
   {% for r in top10 %}
-  <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
-    <div style="width:90px;font-size:0.72rem;color:#aaa;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ r.name }}">{{ r.name }}</div>
-    <div style="flex:1;max-width:200px;background:#0f3460;border-radius:3px;height:10px;overflow:hidden;">
-      <div style="height:100%;border-radius:3px;width:{{ [[((r.guessed / max_g) * 100)|int, 2]|max, 100]|min }}%;background:{% if loop.index == 1 %}linear-gradient(90deg,#e94560,#f5a623){% else %}#1a4a8a{% endif %};"></div>
+  <div class="admin-layout-flex--default-54604be">
+    <div title="{{ r.name }}" class="admin-copy--muted-657e78d">{{ r.name }}</div>
+    <div class="admin-content--info-fb4155e">
+      <div class="admin-progress--ranking{% if loop.index == 1 %} is-first{% endif %}" style="width:{{ [[((r.guessed / max_g) * 100)|int, 2]|max, 100]|min }}%;"></div>
     </div>
-    <div style="font-size:0.72rem;color:#666;min-width:28px;">{{ r.guessed }}</div>
+    <div class="admin-copy--muted-d2afbbc">{{ r.guessed }}</div>
   </div>
   {% endfor %}
 </div>
 {% endif %}
-<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
-  <a href="/api/admin/export_log" class="btn-action" class="btn-action admin-action-button--small">CSVエクスポート</a>
-  <a href="/api/admin/export_matrix" class="btn-action" class="btn-action admin-action-button--small">Matrix JSONエクスポート</a>
-  <a href="/api/admin/audit_log?format=csv" class="btn-action" class="btn-action admin-action-button--small">監査ログCSV</a>
-  <a href="/api/admin/preflight" class="btn-action" class="btn-action admin-action-button--small">Preflight</a>
-  <a href="/api/admin/performance" class="btn-action" class="btn-action admin-action-button--small">Performance</a>
-  <a href="/api/admin/works_review" target="_blank" class="btn-action" class="btn-action admin-action-button--small">作品リンク確認</a>
+<div class="admin-layout-flex--default-1fee4fa">
+  <a href="/api/admin/export_log" class="btn-action admin-action-button--small" >CSVエクスポート</a>
+  <a href="/api/admin/export_matrix" class="btn-action admin-action-button--small" >Matrix JSONエクスポート</a>
+  <a href="/api/admin/audit_log?format=csv" class="btn-action admin-action-button--small" >監査ログCSV</a>
+  <a href="/api/admin/preflight" class="btn-action admin-action-button--small" >Preflight</a>
+  <a href="/api/admin/performance" class="btn-action admin-action-button--small" >Performance</a>
+  <a href="/api/admin/works_review" target="_blank" class="btn-action admin-action-button--small" >作品リンク確認</a>
 </div>
 <details class="admin-stack-gap">
 <summary class="admin-section-toggle">作品URL修正キュー</summary>
@@ -207,13 +207,13 @@
 <div id="works-link-queue-result" class="admin-meta--subtle-offset"></div>
 </details>
 <details class="admin-stack-gap">
-<summary style="color:#f5a623;font-size:0.85rem;cursor:pointer;">Matrix JSONインポート</summary>
+<summary class="admin-section-toggle--warning-c07e7f8">Matrix JSONインポート</summary>
 <p class="admin-help-text">先にdry-runで検証してから本インポートします。本インポート時は現在のmatrixを自動バックアップします。</p>
 <input id="matrix-import-file" type="file" accept="application/json,.json"
-  style="display:block;margin-bottom:8px;color:#aaa;font-size:0.8rem;">
+  class="admin-field--muted-0951c98">
 <textarea id="matrix-import-json" placeholder="export_matrix のJSONを貼り付け"
-  style="width:100%;max-width:680px;min-height:120px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:8px 10px;border-radius:6px;font-size:0.8rem;"></textarea>
-<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+  class="admin-field--default-6fbf0fa"></textarea>
+<div class="admin-layout-flex--default-d89315d">
   <button class="btn-action" data-action="dry-run-matrix-import">dry-run検証</button>
   <button class="btn-save admin-action--flush" data-action="import-matrix">本インポート</button>
   <span id="matrix-import-msg" class="admin-meta--subtle-large"></span>
@@ -222,16 +222,16 @@
 <details class="admin-stack-gap">
 <summary class="admin-section-toggle">Matrixバックアップ復元</summary>
 <p class="admin-help-text">import/restore 前に作成されたバックアップです。復元時も現在のmatrixを退避します。</p>
-<button class="btn-action" data-action="refresh-matrix-backups" style="font-size:0.76rem;padding:3px 10px;margin-bottom:8px;">一覧更新</button>
+<button class="btn-action admin-action--default-4422560" data-action="refresh-matrix-backups">一覧更新</button>
 <div id="matrix-backup-list" class="admin-meta--subtle-large">
   {% for b in matrix_backups[:10] %}
-  <div style="display:flex;gap:8px;align-items:center;border-top:1px solid #222;padding:6px 0;flex-wrap:wrap;">
+  <div class="admin-layout-flex--default-306a85e">
     <code class="admin-text-light">{{ b.name }}</code>
     <span class="admin-muted">{{ b.size }} bytes</span>
     <button class="btn-toggle" data-action="restore-matrix-backup" data-name="{{ b.name }}">復元</button>
   </div>
   {% else %}
-  <p style="color:#555;">バックアップはまだありません。</p>
+  <p class="admin-copy--muted-2915f89">バックアップはまだありません。</p>
   {% endfor %}
 </div>
 <span id="matrix-restore-msg" class="admin-meta--subtle-large"></span>
@@ -252,36 +252,36 @@
 <summary class="admin-section-toggle">管理操作ログ</summary>
 <div class="admin-help-text--offset">
   {% for row in audit_rows %}
-  <div style="border-top:1px solid #222;padding:6px 0;">
-    <code style="color:{% if row.status == 'ok' %}#27ae60{% else %}#e74c3c{% endif %};">{{ row.status }}</code>
+  <div class="admin-content--default-f4146b2">
+    <code class="admin-tone--{% if row.status == 'ok' %}positive{% else %}danger{% endif %}">{{ row.status }}</code>
     <span class="admin-text-light">{{ row.action }}</span>
     <span class="admin-muted">{{ row.ts }}</span>
     <span class="admin-muted">{{ row.path or '' }}</span>
   </div>
   {% else %}
-  <p style="color:#555;">操作ログはまだありません。</p>
+  <p class="admin-copy--muted-2915f89">操作ログはまだありません。</p>
   {% endfor %}
 </div>
 </details>
-<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
+<div class="admin-layout-flex--default-1fee4fa">
   <label for="log-search" class="sr-only">性癖名で絞り込み</label>
   <input id="log-search" type="text" placeholder="名前で絞り込み" data-action="filter-log"
-    style="flex:1;min-width:120px;max-width:200px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:4px 10px;border-radius:6px;font-size:0.82rem;">
+    class="admin-field--default-909a310">
   <label for="log-min-guessed" class="sr-only">最小診断数</label>
-  <select id="log-min-guessed" data-action="filter-log" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:4px 8px;border-radius:6px;font-size:0.82rem;">
+  <select id="log-min-guessed" data-action="filter-log" class="admin-field--default-0f50a6c">
     <option value="0">診断数 すべて</option>
     <option value="3">3回以上</option>
     <option value="10">10回以上</option>
   </select>
   <label for="log-acc-filter" class="sr-only">正解率フィルター</label>
-  <select id="log-acc-filter" data-action="filter-log" style="background:#1a1a2e;color:#eee;border:1px solid #333;padding:4px 8px;border-radius:6px;font-size:0.82rem;">
+  <select id="log-acc-filter" data-action="filter-log" class="admin-field--default-0f50a6c">
     <option value="all">FB正解率 すべて</option>
     <option value="low">FB正解率 低い（&lt;50%）</option>
     <option value="high">FB正解率 高い（≥70%）</option>
     <option value="none">未FB</option>
   </select>
 </div>
-<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap;">
+<div class="admin-layout-flex--default-24754e5">
   <button class="btn-toggle" data-action="log-page-prev">前へ</button>
   <span id="log-page-info" class="admin-meta--muted">{{ fetish_log_page.page }} / {{ fetish_log_page.pages }}（{{ fetish_log_page.total }}件）</span>
   <button class="btn-toggle" data-action="log-page-next">次へ</button>
@@ -302,23 +302,23 @@
   </thead>
   <tbody id="log-table-body">
   {% for r in fetish_log_page.rows %}
-  <tr id="logrow-{{ r.id }}"{% if r.acc is not none and r.acc < 40 and r.feedback_total >= 3 %} style="background:#2a1010"{% endif %}
+  <tr id="logrow-{{ r.id }}"{% if r.acc is not none and r.acc < 40 and r.feedback_total >= 3 %} class="admin-log-row--warning"{% endif %}
       data-name="{{ r.name }}" data-guessed="{{ r.guessed }}" data-acc="{{ r.acc if r.acc is not none else -1 }}">
-    <td style="color:#666;font-size:0.75rem">{{ loop.index + ((fetish_log_page.page - 1) * fetish_log_page.per_page) }}</td>
-    <td style="color:#666;font-size:0.75rem">{{ r.id }}</td>
-    <td style="font-size:0.82rem">{{ r.name }}{% if r.acc is not none and r.acc < 40 and r.feedback_total >= 3 %}<span class="tag-low" title="FB正解率40%未満">⚠</span>{% endif %}</td>
-    <td style="color:#aaa;font-size:0.8rem" data-val="{{ r.guessed }}">{{ r.guessed }}</td>
-    <td style="color:#27ae60;font-size:0.8rem" data-val="{{ r.correct }}">{{ r.correct }}</td>
-    <td style="color:#e74c3c;font-size:0.8rem" data-val="{{ r.wrong }}">{{ r.wrong }}</td>
-    <td style="font-size:0.8rem;{% if r.acc is not none and r.acc < 50 %}color:#e74c3c{% elif r.acc is not none %}color:#27ae60{% else %}color:#555{% endif %}"
+    <td class="admin-cell--muted-cd2c156">{{ loop.index + ((fetish_log_page.page - 1) * fetish_log_page.per_page) }}</td>
+    <td class="admin-cell--muted-cd2c156">{{ r.id }}</td>
+    <td class="admin-cell--default-ada9949">{{ r.name }}{% if r.acc is not none and r.acc < 40 and r.feedback_total >= 3 %}<span class="tag-low" title="FB正解率40%未満">⚠</span>{% endif %}</td>
+    <td data-val="{{ r.guessed }}" class="admin-cell--muted-cb9913d">{{ r.guessed }}</td>
+    <td data-val="{{ r.correct }}" class="admin-cell--positive-2ca1781">{{ r.correct }}</td>
+    <td data-val="{{ r.wrong }}" class="admin-cell--danger-9c63175">{{ r.wrong }}</td>
+    <td class="admin-log-accuracy {% if r.acc is not none and r.acc < 50 %}is-low{% elif r.acc is not none %}is-good{% else %}is-empty{% endif %}"
         data-val="{{ r.acc if r.acc is not none else -1 }}">
       {% if r.acc is not none %}{{ r.acc }}%{% else %}—{% endif %}
     </td>
-    <td style="color:#888;font-size:0.8rem" data-val="{{ r.unfeedback }}">{{ r.unfeedback }}</td>
-    <td><button class="btn-toggle" data-action="toggle-fetish-history" data-fid="{{ r.id }}" style="font-size:0.72rem;padding:2px 8px;">履歴</button></td>
+    <td data-val="{{ r.unfeedback }}" class="admin-cell--muted-de59b12">{{ r.unfeedback }}</td>
+    <td><button class="btn-toggle admin-action--default-df677d3" data-action="toggle-fetish-history" data-fid="{{ r.id }}">履歴</button></td>
   </tr>
-  <tr id="logrow-hist-{{ r.id }}" style="display:none;">
-    <td colspan="9" style="padding:8px 4px 12px;">
+  <tr id="logrow-hist-{{ r.id }}" class="admin-history-row">
+    <td colspan="9" class="admin-cell--default-d377fc5">
       <div id="logrow-hist-content-{{ r.id }}" class="admin-meta--muted"></div>
     </td>
   </tr>
@@ -331,19 +331,19 @@
 <summary class="admin-section-toggle">性癖別・重要質問サジェスト（DOMAIN_PRIORS整備用、展開で表示）</summary>
 <p class="admin-help-text--section">現在の学習済みmatrixから P(yes) が高い/低い質問を表示。DOMAIN_PRIORS と乖離していれば更新を検討。</p>
 {% for f in domain_suggestions %}
-<details style="margin-bottom:4px;">
-  <summary style="color:#aaa;font-size:0.82rem;cursor:pointer;">{{ f.fetish_name }} (id={{ f.fetish_id }})</summary>
-  <div style="display:flex;gap:16px;margin:6px 0 8px;flex-wrap:wrap;">
+<details class="admin-section--default-605aebc">
+  <summary class="admin-section-toggle--muted-a82e1e8">{{ f.fetish_name }} (id={{ f.fetish_id }})</summary>
+  <div class="admin-layout-flex--default-fe8ff1a">
     <div>
-      <p style="color:#27ae60;font-size:0.75rem;margin-bottom:4px;">P(yes) 高い質問</p>
+      <p class="admin-copy--positive-f4c020d">P(yes) 高い質問</p>
       {% for q in f.high %}
-      <div style="font-size:0.75rem;color:#aaa;">Q{{ q.q_id }}: {{ q.text }} <span style="color:#27ae60">{{ q.p }}</span></div>
+      <div class="admin-copy--muted-f41986b">Q{{ q.q_id }}: {{ q.text }} <span class="admin-copy--positive-724cf3b">{{ q.p }}</span></div>
       {% endfor %}
     </div>
     <div>
-      <p style="color:#e74c3c;font-size:0.75rem;margin-bottom:4px;">P(yes) 低い質問</p>
+      <p class="admin-copy--danger-e98ccb3">P(yes) 低い質問</p>
       {% for q in f.low %}
-      <div style="font-size:0.75rem;color:#aaa;">Q{{ q.q_id }}: {{ q.text }} <span style="color:#e74c3c">{{ q.p }}</span></div>
+      <div class="admin-copy--muted-f41986b">Q{{ q.q_id }}: {{ q.text }} <span class="admin-copy--danger-ca25c41">{{ q.p }}</span></div>
       {% endfor %}
     </div>
   </div>
@@ -357,11 +357,11 @@
 <table class="admin-subsection-offset">
   <tr><th>順位</th><th>Q1</th><th>Q2</th><th>cos</th></tr>
   {% for p in corr_stats %}
-  <tr style="{% if p.cos|abs >= 0.8 %}color:#e74c3c{% elif p.cos|abs >= 0.6 %}color:#f5a623{% else %}color:#aaa{% endif %}">
-    <td style="font-size:0.75rem;color:#555">{{ loop.index }}</td>
-    <td style="font-size:0.78rem;max-width:220px">Q{{ p.q1_id }}: {{ p.q1_text }}</td>
-    <td style="font-size:0.78rem;max-width:220px">Q{{ p.q2_id }}: {{ p.q2_text }}</td>
-    <td style="font-size:0.8rem;min-width:48px">{{ p.cos }}</td>
+  <tr class="admin-tone--{% if p.cos|abs >= 0.8 %}danger{% elif p.cos|abs >= 0.6 %}warning{% else %}muted{% endif %}">
+    <td class="admin-cell--muted-2320272">{{ loop.index }}</td>
+    <td class="admin-cell--default-805cdee">Q{{ p.q1_id }}: {{ p.q1_text }}</td>
+    <td class="admin-cell--default-805cdee">Q{{ p.q2_id }}: {{ p.q2_text }}</td>
+    <td class="admin-cell--default-fc10b9e">{{ p.cos }}</td>
   </tr>
   {% endfor %}
 </table>
@@ -371,20 +371,20 @@
 <summary class="admin-section-toggle">Matrix ヒートマップ（上位20性癖×20質問、展開で表示）</summary>
 <p class="admin-help-text--section">P(yes) の色: 青=低 / 白=0.5 / 赤=高。学習データが多い性癖ほど上に表示。</p>
 <div class="admin-overflow-container">
-<table id="heatmap-table" style="border-collapse:collapse;font-size:0.65rem;white-space:nowrap;">
+<table id="heatmap-table" class="admin-copy--default-7326721">
   <tr>
-    <th style="color:#555;padding:2px 4px;min-width:80px;"></th>
+    <th class="admin-cell--muted-73d6f42"></th>
     {% for lbl in matrix_heatmap.q_labels %}
-    <th style="color:#666;padding:2px 3px;writing-mode:vertical-rl;height:60px;vertical-align:bottom;" title="{{ matrix_heatmap.q_texts[loop.index0] }}">{{ lbl }}</th>
+    <th title="{{ matrix_heatmap.q_texts[loop.index0] }}" class="admin-cell--muted-9d86ecf">{{ lbl }}</th>
     {% endfor %}
   </tr>
   {% for row in matrix_heatmap.rows %}
   <tr>
-    <td style="color:#aaa;padding:2px 4px;max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="{{ row.name }}">{{ row.name }}</td>
+    <td title="{{ row.name }}" class="admin-cell--muted-0e6f028">{{ row.name }}</td>
     {% for p in row.cells %}
     {% set r = (p * 2 - 1) if p > 0.5 else 0 %}
     {% set b = (1 - p * 2) if p < 0.5 else 0 %}
-    <td style="background:rgb({{ (r*180)|int }},{{ (40*(1-r-b))|int }},{{ (b*180)|int }});width:18px;height:16px;text-align:center;color:{% if p < 0.25 or p > 0.75 %}#fff{% else %}#000{% endif %};font-size:0.6rem;" title="{{ p }}">{{ (p*100)|int }}</td>
+    <td class="admin-heatmap-cell{% if p < 0.25 or p > 0.75 %} is-high-contrast{% endif %}" style="--heatmap-color:rgb({{ (r*180)|int }},{{ (40*(1-r-b))|int }},{{ (b*180)|int }});" title="{{ p }}">{{ (p*100)|int }}</td>
     {% endfor %}
   </tr>
   {% endfor %}
@@ -394,19 +394,19 @@
 
 <details class="admin-section-spacer">
 <summary class="admin-section-toggle">質問軸バランス（コンテンツ/抽象/パーソナリティ軸サマリー）</summary>
-<table style="width:100%;border-collapse:collapse;font-size:0.82rem;margin-top:8px;">
-  <tr style="color:#aaa;border-bottom:1px solid #333;">
-    <th style="text-align:left;padding:4px 8px;">軸</th>
+<table class="admin-copy--default-96a83c0">
+  <tr class="admin-table-row--muted-7300055">
+    <th class="admin-cell--default-ce3a380">軸</th>
     <th class="admin-cell-padding">質問数</th>
     <th class="admin-cell-padding">平均識別力</th>
     <th class="admin-cell-padding">無効化数</th>
   </tr>
   {% for ax in axis_stats %}
-  <tr style="border-bottom:1px solid #1a1a2e;">
-    <td style="padding:4px 8px;color:#eee;">{{ ax.name }}</td>
-    <td style="padding:4px 8px;text-align:center;color:#aaa;">{{ ax.count }}</td>
-    <td style="padding:4px 8px;text-align:center;color:{% if ax.avg_disc >= 0.15 %}#27ae60{% elif ax.avg_disc >= 0.08 %}#f5a623{% else %}#e94560{% endif %};">{{ ax.avg_disc }}</td>
-    <td style="padding:4px 8px;text-align:center;color:{% if ax.disabled > 0 %}#e94560{% else %}#555{% endif %};">{{ ax.disabled }}</td>
+  <tr class="admin-table-row--default-c111f1f">
+    <td class="admin-cell--default-a71d11f">{{ ax.name }}</td>
+    <td class="admin-cell-center--muted-4298292">{{ ax.count }}</td>
+    <td class="admin-cell-center admin-tone--{% if ax.avg_disc >= 0.15 %}positive{% elif ax.avg_disc >= 0.08 %}warning{% else %}danger{% endif %}">{{ ax.avg_disc }}</td>
+    <td class="admin-cell-center admin-tone--{% if ax.disabled > 0 %}danger{% else %}muted{% endif %}">{{ ax.disabled }}</td>
   </tr>
   {% endfor %}
 </table>
@@ -419,7 +419,7 @@
 <details class="admin-section-spacer" id="compound-works-section">
 <summary class="admin-section-toggle" data-action="load-compound-works">複合診断の特化作品（展開で表示・編集）</summary>
 <p class="admin-help-text--compact">2つの性癖IDペアに両方の要素を持つ作品を登録します。複合診断時に金色タグで優先表示されます。</p>
-<div style="display:flex;flex-direction:column;gap:6px;max-width:520px;margin-bottom:12px;">
+<div class="admin-layout-flex--default-3d983d7">
   <div class="admin-inline-actions">
     <input list="fetish-list" id="cw-a-name" placeholder="性癖A（名前で検索）" data-action="fill-id" data-target="cw-a" class="admin-input--flex">
     <input id="cw-a" type="number" placeholder="ID" class="admin-input--narrow">
@@ -435,20 +435,20 @@
     <span id="cw-msg" class="admin-text-small"></span>
   </div>
 </div>
-<div id="cw-list" style="font-size:0.82rem;"></div>
+<div id="cw-list" class="admin-copy--default-0e6bc34"></div>
 </details>
 
 <details class="admin-section-spacer" id="work-catalog-section">
 <summary class="admin-section-toggle" data-action="load-work-catalog">作品catalog（master・販売版・別名・review）</summary>
 <p class="admin-help-text--compact">安定ID付き作品を編集します。更新競合は自動的に拒否され、再読込できます。</p>
-<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
-  <input id="wc-title" type="text" maxlength="200" placeholder="新しい作品の正式タイトル" style="min-width:240px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;">
-  <input id="wc-media" type="text" maxlength="40" placeholder="種別（任意）" style="width:140px;background:#1a1a2e;color:#eee;border:1px solid #333;padding:6px 10px;border-radius:6px;">
+<div class="admin-layout-flex--default-aa07102">
+  <input id="wc-title" type="text" maxlength="200" placeholder="新しい作品の正式タイトル" class="admin-field--default-1e35048">
+  <input id="wc-media" type="text" maxlength="40" placeholder="種別（任意）" class="admin-field--default-3b5962b">
   <button class="btn-action" data-action="catalog-create-master">master追加</button>
   <button class="btn-toggle" data-action="catalog-refresh">再読込</button>
 </div>
 <p id="wc-msg" class="admin-meta--muted"></p>
-<div id="wc-list" style="font-size:0.78rem;overflow-x:auto;"></div>
+<div id="wc-list" class="admin-copy--default-a6bfcd1"></div>
 </details>
 
 
@@ -465,7 +465,7 @@
     <input id="sim-b" type="number" placeholder="ID" class="admin-input--narrow">
   </div>
   <div><button class="btn-action" data-action="check-similarity">比較</button></div>
-  <div id="sim-result" style="font-size:0.82rem;"></div>
+  <div id="sim-result" class="admin-copy--default-0e6bc34"></div>
 </div>
 </details>
 
