@@ -1202,8 +1202,7 @@ def project_approved_inline_correction_manifests(
         return {
             str(
                 row.get('key') or f'{min(int(row["id_a"]), int(row["id_b"]))},{max(int(row["id_a"]), int(row["id_b"]))}'
-            ): row.get('works')
-            or []
+            ): row.get('works') or []
             for row in rows
         }
 
