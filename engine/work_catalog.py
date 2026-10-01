@@ -271,7 +271,6 @@ def build_catalog_from_inline(fetishes, *, compound_rows=(), seed_overrides=None
     return catalog
 
 
-
 def _catalog_indexes(catalog):
     validate_catalog(catalog)
     return (
@@ -1203,7 +1202,8 @@ def project_approved_inline_correction_manifests(
         return {
             str(
                 row.get('key') or f'{min(int(row["id_a"]), int(row["id_b"]))},{max(int(row["id_a"]), int(row["id_b"]))}'
-            ): row.get('works') or []
+            ): row.get('works')
+            or []
             for row in rows
         }
 

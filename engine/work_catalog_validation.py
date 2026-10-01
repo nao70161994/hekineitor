@@ -32,7 +32,6 @@ def upgrade_catalog_schema(catalog):
     return upgraded
 
 
-
 def validate_catalog(catalog):
     if not isinstance(catalog, dict):
         raise ValueError('work catalog must be an object')
@@ -143,5 +142,3 @@ def validate_catalog_fetish_references(catalog, fetish_ids):
     if missing_ids:
         raise ValueError(f'work catalog references unknown fetish ids: {missing_ids}')
     return True
-
-
