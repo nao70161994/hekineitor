@@ -81,7 +81,7 @@ h1 { color:#e94560; font-size:1.55rem; line-height:1.35; margin-bottom:8px; }
 
   <div class="grid" id="catalog-grid">
     {% for f in fetishes %}
-    <div class="item" data-href="/fetish/{{ f.id }}" data-fetish-id="{{ f.id }}" data-category="{{ f.category }}" data-search="{{ (f.name ~ ' ' ~ f.desc)|lower }}" tabindex="0" role="link" aria-label="{{ f.name }}の詳細を見る">
+    <div class="item" data-href="/fetish/{{ f.id }}" data-fetish-id="{{ f.id }}" data-category="{{ f.category }}" data-search="{{ (f.name ~ ' ' ~ f.desc)|lower }}" tabindex="0" role="group" aria-label="{{ f.name }}の詳細を見る">
       <span class="category-tag">{{ f.category_label }}</span>
       <div class="name"><a class="name-link" href="/fetish/{{ f.id }}">{{ f.name }}</a></div>
       <div class="desc">{{ f.desc }}</div>
@@ -112,7 +112,7 @@ document.addEventListener('click', event => {
 document.addEventListener('keydown', event => {
   if (event.key !== 'Enter' && event.key !== ' ') return;
   const item = event.target.closest('.item[data-href]');
-  if (!item) return;
+  if (!item || event.target !== item) return;
   event.preventDefault();
   window.location.href = item.dataset.href;
 });
