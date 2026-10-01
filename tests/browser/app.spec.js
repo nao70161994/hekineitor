@@ -363,7 +363,7 @@ test('stages compound detail feedback and finalizes one atomic batch', async ({p
   await page.getByRole('button', {name: '診断をはじめる'}).click();
   await page.getByRole('button', {name: 'はい', exact: true}).click();
   await page.getByRole("button", {name: "結果を詳しく見る"}).click();
-  await expect(page.locator('.result-icon')).toBeInViewport();
+  await expect(page.locator('.result-crystal')).toBeInViewport();
   await expect(page.locator('#result-name')).toBeInViewport();
   await expect(page.getByRole('region', {name: '対抗候補「対抗候補」との差になった回答'}))
     .toContainText('対抗候補との差になった決め手');

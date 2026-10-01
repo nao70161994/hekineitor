@@ -176,12 +176,26 @@
   </section>
 
   <!-- 結果画面 -->
-  <section id="result-screen" class="hidden" aria-labelledby="result-name">
-    <div class="result-icon">🔮</div>
-    <div class="result-kicker" id="result-kicker"></div>
-    <h2 class="result-name" id="result-name" tabindex="-1"></h2>
-    <div class="result-badges" id="result-badges"></div>
-    <div class="result-desc" id="result-desc"></div>
+<section id="result-screen" class="hidden" aria-labelledby="result-name">
+    <div class="result-reveal">
+      <svg class="result-crystal" viewBox="0 0 72 72" aria-hidden="true" focusable="false">
+        <defs>
+          <radialGradient id="result-crystal-fill" cx="34%" cy="30%" r="70%">
+            <stop offset="0%" stop-color="#d8b4fe"></stop>
+            <stop offset="48%" stop-color="#713bb3"></stop>
+            <stop offset="100%" stop-color="#17132d"></stop>
+          </radialGradient>
+        </defs>
+        <circle class="result-crystal-halo" cx="36" cy="36" r="31"></circle>
+        <circle class="result-crystal-orb" cx="36" cy="36" r="19"></circle>
+        <path class="result-crystal-spark" d="M36 9v7M36 56v7M9 36h7M56 36h7M17 17l5 5M50 50l5 5M55 17l-5 5M22 50l-5 5"></path>
+        <path class="result-crystal-glint" d="M29 29c3-4 8-6 13-4"></path>
+      </svg>
+      <div class="result-kicker" id="result-kicker"></div>
+      <h2 class="result-name" id="result-name" tabindex="-1"></h2>
+      <div class="result-badges" id="result-badges"></div>
+      <div class="result-desc" id="result-desc"></div>
+    </div>
     <div class="quick-feedback" id="quick-feedback">
       <div class="quick-feedback-label">この結果、どうでしたか？</div>
       <div class="quick-feedback-actions">

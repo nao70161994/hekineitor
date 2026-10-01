@@ -22,7 +22,7 @@ const result = {
   profile: [{fetish_name: '日常の余韻', probability: 41}],
   related: [{fetish_id: 4, fetish_name: '日常の余韻'}],
   reasons: [{text: '静かな場所では、細かな変化に気づきやすい？', ans: 1}],
-  works: [],
+  works: [{title: '星灯りの約束', work_id: 'visual-work-1'}],
   cross_works: [],
 };
 
@@ -64,4 +64,20 @@ test('desktop result screen', async ({page}) => {
   await expect(page.locator('#result-prob')).toHaveText('推定一致度 72%');
   await expectSkipLinkHidden(page);
   await expect(page).toHaveScreenshot('result-desktop.png', {animations: 'disabled', fullPage: true});
+});
+
+test('mobile result screen', async ({page}) => {
+  await page.setViewportSize({width: 375, height: 812});
+  await page.route('**/api/start', route => route.fulfill({json: question}));
+  await page.route('**/api/answer', route => route.fulfill({json: result}));
+  await page.goto('/');
+  await page.getByRole('button', {name: '診断をはじめる'}).click();
+  await page.getByRole('button', {name: 'はい', exact: true}).click();
+  await expect(page.locator('#result-prob')).toHaveText('推定一致度 72%');
+  await expect(page.locator('.result-crystal')).toBeVisible();
+  await expectSkipLinkHidden(page);
+  await expect(page).toHaveScreenshot('result-mobile.png', {animations: 'disabled', fullPage: true});
+  await page.getByRole('button', {name: '結果を詳しく見る'}).click();
+  await expect(page.locator('#works-section')).toBeVisible();
+  await expect(page).toHaveScreenshot('result-mobile-details.png', {animations: 'disabled', fullPage: true});
 });
