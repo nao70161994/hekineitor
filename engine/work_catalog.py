@@ -25,7 +25,7 @@ from engine.work_catalog_validation import (
     SUPPORTED_CATALOG_SCHEMA_VERSIONS,
     upgrade_catalog_schema,
     validate_catalog,
-    validate_catalog_fetish_references as validate_catalog_fetish_references,
+    validate_catalog_fetish_references,  # noqa: F401 -- compatibility re-export
 )
 from work_utils import normalized_work_title, safe_work_url, work_title, work_title_candidate_key
 
