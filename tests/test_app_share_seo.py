@@ -340,8 +340,9 @@ class TestShareAndSEO(APITestCase):
         body = res.data.decode('utf-8')
         self.assertIn('<link rel="canonical"', body)
         self.assertIn('最大7日間', body)
-        self.assertIn('標準保持期間は90日', body)
-        self.assertIn('IPアドレス、User-Agent、session識別子を保存しません', body)
+        self.assertIn('PostgreSQLでは質問・共有・結果表示を含む分析イベントを90日保持します', body)
+        self.assertIn('分析用イベントにはIPアドレス、User-Agent、session識別子を含めません', body)
+        self.assertIn('接続元IPアドレスをレート制限情報として保存', body)
         self.assertIn('新しい性癖名や説明を任意で登録した場合', body)
 
     def test_fetish_index_page(self):
