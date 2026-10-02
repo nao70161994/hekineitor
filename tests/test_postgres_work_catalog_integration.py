@@ -284,9 +284,7 @@ class PostgresWorkCatalogIntegrationTests(unittest.TestCase):
                 get_conn_fn=self.get_conn,
                 put_conn_fn=self.put_conn,
             )
-        event_store._LAST_RETENTION_PRUNE.pop(
-            f'analytics_events:{event_store.POSTGRES_RETENTION_DAYS}', None
-        )
+        event_store._LAST_RETENTION_PRUNE.pop(f'analytics_events:{event_store.POSTGRES_RETENTION_DAYS}', None)
         event_store.record_event(
             event_type,
             json_event,
