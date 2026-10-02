@@ -274,7 +274,8 @@ class PostgresWorkCatalogIntegrationTests(unittest.TestCase):
             )
         old_event = {**json_event, 'timestamp': (now - timedelta(days=91)).isoformat(timespec='seconds')}
         old_event_types = [
-            f'{kind}_integration_{uuid.uuid4().hex}' for kind in ('question', 'share', 'result_exposure')
+            f'{kind}_integration_{uuid.uuid4().hex}'
+            for kind in ('question', 'share', 'result_exposure')
         ]
         for old_event_type in [event_type, *old_event_types]:
             event_store.record_event(
