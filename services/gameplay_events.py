@@ -43,7 +43,7 @@ SCHEMA_VERSION = 2
 SUMMARY_SESSION_KEY = '_gameplay_summary_v2'
 _LOCK = threading.Lock()
 _MAX_LOG_BYTES = 5 * 1024 * 1024
-POSTGRES_RETENTION_DAYS = 90
+POSTGRES_RETENTION_DAYS = event_store.POSTGRES_RETENTION_DAYS
 
 
 def event_log_path(environ=None):
@@ -253,9 +253,7 @@ def event_count(*, path=None, environ=None):
 
 def storage_status(*, path=None, environ=None):
     if path is None and event_store.enabled(environ):
-        status = event_store.storage_status('gameplay')
-        status['retention'] = {'mode': 'age', 'days': POSTGRES_RETENTION_DAYS}
-        return status
+        return event_store.storage_status('gameplay')
     target = os.path.abspath(path or event_log_path(environ))
     parent = os.path.dirname(target)
     exists = os.path.exists(target)

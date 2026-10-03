@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from storage import get_conn, put_conn, use_db
 
 TABLE_NAME = 'analytics_events'
+POSTGRES_RETENTION_DAYS = 90
 _RETENTION_LOCK = threading.Lock()
 _LAST_RETENTION_PRUNE = {}
 
@@ -30,6 +31,7 @@ def ensure_schema(conn):
     cur.execute(
         'CREATE INDEX IF NOT EXISTS idx_analytics_events_type_timestamp ON analytics_events (event_type, timestamp)'
     )
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_analytics_events_timestamp ON analytics_events (timestamp)')
 
 
 def record_event(
@@ -51,10 +53,11 @@ def record_event(
                 retention_days = max(1, int(retention_days))
                 now = now_fn() if now_fn else datetime.now(timezone.utc)
                 prune_day = now.date().isoformat()
+                retention_key = f'analytics_events:{retention_days}'
                 pending_marker = f'pending:{prune_day}'
                 with _RETENTION_LOCK:
-                    if _LAST_RETENTION_PRUNE.get(str(event_type)) not in {prune_day, pending_marker}:
-                        _LAST_RETENTION_PRUNE[str(event_type)] = pending_marker
+                    if _LAST_RETENTION_PRUNE.get(retention_key) not in {prune_day, pending_marker}:
+                        _LAST_RETENTION_PRUNE[retention_key] = pending_marker
                         pruned_on = prune_day
                         cutoff = (
                             (now - timedelta(days=retention_days))
@@ -62,8 +65,8 @@ def record_event(
                             .isoformat(timespec='seconds')
                         )
                         cur.execute(
-                            'DELETE FROM analytics_events WHERE event_type = %s AND timestamp < %s',
-                            (str(event_type), cutoff),
+                            'DELETE FROM analytics_events WHERE timestamp < %s',
+                            (cutoff,),
                         )
             cur.execute(
                 'INSERT INTO analytics_events (event_type, timestamp, payload) VALUES (%s, %s, %s)',
@@ -75,12 +78,13 @@ def record_event(
             )
         if pruned_on:
             with _RETENTION_LOCK:
-                _LAST_RETENTION_PRUNE[str(event_type)] = pruned_on
+                _LAST_RETENTION_PRUNE[f'analytics_events:{retention_days}'] = pruned_on
     except BaseException:
         if pruned_on:
             with _RETENTION_LOCK:
-                if _LAST_RETENTION_PRUNE.get(str(event_type)) == f'pending:{pruned_on}':
-                    _LAST_RETENTION_PRUNE.pop(str(event_type), None)
+                retention_key = f'analytics_events:{retention_days}'
+                if _LAST_RETENTION_PRUNE.get(retention_key) == f'pending:{pruned_on}':
+                    _LAST_RETENTION_PRUNE.pop(retention_key, None)
         raise
     finally:
         put_conn_fn(conn)
@@ -148,4 +152,5 @@ def storage_status(event_type, *, get_conn_fn=get_conn, put_conn_fn=put_conn):
         'file_writable': ok,
         'storage': 'postgres',
         'count': count,
+        'retention': {'mode': 'age', 'days': POSTGRES_RETENTION_DAYS},
     }

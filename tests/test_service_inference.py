@@ -241,19 +241,19 @@ class TestServiceInference(unittest.TestCase):
             patch.object(
                 share_events.event_store,
                 'record_event',
-                side_effect=lambda event_type, event: stored.append((event_type, event)) or event,
+                side_effect=lambda event_type, event, **kwargs: stored.append((event_type, event, kwargs)) or event,
             ),
             patch.object(question_events.event_store, 'enabled', return_value=True),
             patch.object(
                 question_events.event_store,
                 'record_event',
-                side_effect=lambda event_type, event: stored.append((event_type, event)) or event,
+                side_effect=lambda event_type, event, **kwargs: stored.append((event_type, event, kwargs)) or event,
             ),
             patch.object(result_exposure.event_store, 'enabled', return_value=True),
             patch.object(
                 result_exposure.event_store,
                 'record_event',
-                side_effect=lambda event_type, event: stored.append((event_type, event)) or event,
+                side_effect=lambda event_type, event, **kwargs: stored.append((event_type, event, kwargs)) or event,
             ),
         ):
             share_events.record_event('result_page_view', result_name='眼鏡', channel='result_page', success=True)
@@ -264,6 +264,10 @@ class TestServiceInference(unittest.TestCase):
         self.assertEqual(stored[0][1]['result_name'], '眼鏡')
         self.assertEqual(stored[1][1]['question_id'], 1)
         self.assertEqual(stored[2][1]['fetish_name'], '白衣')
+        self.assertEqual(
+            [row[2]['retention_days'] for row in stored],
+            [event_store.POSTGRES_RETENTION_DAYS] * 3,
+        )
 
     def test_analytics_events_read_from_postgres_store_when_enabled(self):
         def fake_read(event_type, **kwargs):
@@ -293,12 +297,14 @@ class TestServiceInference(unittest.TestCase):
                     'count': 2,
                     'parent_writable': True,
                     'file_writable': True,
+                    'retention': {'mode': 'age', 'days': event_store.POSTGRES_RETENTION_DAYS},
                 },
             ),
         ):
             status = share_events.storage_status()
         self.assertEqual(status['storage'], 'postgres')
         self.assertEqual(status['count'], 2)
+        self.assertEqual(status['retention'], {'mode': 'age', 'days': event_store.POSTGRES_RETENTION_DAYS})
         self.assertNotIn('DATABASE_URL', status['path'])
 
     def test_inference_make_guess_records_visible_top_chart_candidates(self):

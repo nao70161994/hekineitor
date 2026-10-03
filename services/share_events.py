@@ -147,7 +147,7 @@ def record_event(
         return None
     if path is None and event_store.enabled(environ):
         try:
-            return event_store.record_event('share', event)
+            return event_store.record_event('share', event, retention_days=event_store.POSTGRES_RETENTION_DAYS)
         except Exception:
             pass
     target = path or event_log_path(environ)
@@ -184,6 +184,7 @@ def storage_status(*, path=None, environ=None):
         'parent_writable': bool(parent_writable),
         'file_writable': bool(file_writable),
         'count': event_count(path=target),
+        'retention': {'mode': 'size_rotation', 'max_bytes_per_generation': _MAX_LOG_BYTES, 'generations': 2},
     }
 
 
