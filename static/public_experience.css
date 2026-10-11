@@ -590,6 +590,7 @@ body[data-screen="question-screen"] {
 /* Focused gameplay states */
 #start-screen { display: flex; flex-direction: column; text-align: center; }
 #start-screen .screen-title { order: 1; }
+#start-screen .start-intro { order: 2; }
 #start-screen > [data-action="start-game"] { order: 3; width: 100%; }
 .start-meta { order: 4; margin: 9px 0 0; color: var(--color-text-subtle); font-size: 0.78rem; }
 #resume-banner { order: 2; margin: 0 0 14px; }

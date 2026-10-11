@@ -9,6 +9,7 @@ SECRET_KEY_SHORT_WARNING = 'SECRET_KEY が短すぎます（16文字以上推奨
 SECRET_KEY_SHORT_MESSAGE = '本番環境の SECRET_KEY は16文字以上で設定してください。'
 DEV_SECRET_KEY = 'hekineitor_dev_secret_2024'
 DEFAULT_MAX_CONTENT_LENGTH = 16 * 1024 * 1024
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def max_content_length(environ):
@@ -49,31 +50,21 @@ def secret_key(environ, stderr=None, warn_fn=None):
     return secret
 
 
+_STATIC_ASSET_PATHS = tuple(
+    sorted(
+        os.path.relpath(os.path.join(root, filename), _PROJECT_ROOT)
+        for root, _dirs, filenames in os.walk(os.path.join(_PROJECT_ROOT, 'static'))
+        for filename in filenames
+    )
+)
+
 APP_VERSION_PATHS = (
     'app.py',
     'engine/__init__.py',
     'engine/facade.py',
     'templates/index.html',
     'templates/sw.js',
-    'static/app.css',
-    'static/game_state.js',
-    'static/api_client.js',
-    'static/utils.js',
-    'static/renderers.js',
-    'static/app.js',
-    'static/network.js',
-    'static/ui.js',
-    'static/game_flow.js',
-    'static/draft.js',
-    'static/teach.js',
-    'static/history.js',
-    'static/feedback.js',
-    'static/share.js',
-    'static/pwa.js',
-    'static/events.js',
-    'static/manifest.json',
-    'static/icon-192.png',
-    'static/icon-512.png',
+    *_STATIC_ASSET_PATHS,
 )
 
 

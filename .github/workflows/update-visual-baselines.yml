@@ -1,5 +1,8 @@
 name: Update visual baselines
 
+permissions:
+  contents: read
+
 on:
   workflow_dispatch:
 
@@ -10,6 +13,8 @@ jobs:
       SECRET_KEY: visual_baseline_ci_secret
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v7
         with:

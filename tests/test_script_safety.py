@@ -242,14 +242,7 @@ class CheckScriptTests(unittest.TestCase):
 
     def test_check_script_covers_tracked_and_root_maintenance_python(self):
         script = (ROOT / 'scripts' / 'check.sh').read_text(encoding='utf-8')
-        self.assertIn("git ls-files -z -- '*.py'", script)
-        for filename in (
-            'check_works_links.py',
-            'config.py',
-            'restore_matrix.py',
-            'run_coverage.py',
-        ):
-            self.assertGreaterEqual(script.count(filename), 2)
+        self.assertEqual(script.count("git ls-files -z -- '*.py' | xargs -0 python -m ruff"), 2)
 
         static_check = (ROOT / 'scripts' / 'static_check.py').read_text(encoding='utf-8')
         self.assertIn("['git', 'ls-files', '-z', '--', '*.py']", static_check)

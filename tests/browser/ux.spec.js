@@ -18,7 +18,13 @@ test('start experience is understandable, keyboard reachable, and accessible', a
   }}));
   await page.goto('/');
 
-  await expect(page.getByRole('heading', {name: 'あなたの「好き」、見抜けるかも'})).toBeVisible();
+  const startHeading = page.getByRole('heading', {name: 'あなたの「好き」、見抜けるかも'});
+  const startIntro = page.locator('.start-intro');
+  await expect(startHeading).toBeVisible();
+  await expect(startIntro).toBeVisible();
+  const headingBox = await startHeading.boundingBox();
+  const introBox = await startIntro.boundingBox();
+  expect(introBox.y).toBeGreaterThan(headingBox.y + headingBox.height);
   await expect(page.getByRole('button', {name: '診断をはじめる'})).toBeVisible();
   await expect(page.getByText('20〜30問・約3〜5分')).toBeVisible();
   await expect(page.getByRole('link', {name: 'データの扱い', exact: true})).toHaveAttribute('href', '/privacy');

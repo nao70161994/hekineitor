@@ -344,6 +344,7 @@ class TestShareAndSEO(APITestCase):
         self.assertIn('分析用イベントにはIPアドレス、User-Agent、session識別子を含めません', body)
         self.assertIn('接続元IPアドレスをレート制限情報として保存', body)
         self.assertIn('新しい性癖名や説明を任意で登録した場合', body)
+        self.assertIn('質問ID、表示された質問文（最大120文字）、回答値（5段階）', body)
 
     def test_fetish_index_page(self):
         res = self.client.get('/fetishes')

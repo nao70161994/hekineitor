@@ -140,10 +140,31 @@ class TestServiceAppConfig(unittest.TestCase):
         self.assertIn('static/icon-192.png', app_meta.APP_VERSION_PATHS)
         self.assertIn('static/icon-512.png', app_meta.APP_VERSION_PATHS)
         self.assertIn('templates/sw.js', app_meta.APP_VERSION_PATHS)
+        self.assertIn('static/public_experience.css', app_meta.APP_VERSION_PATHS)
+
+    def test_app_version_tracks_every_static_asset(self):
+        root = Path(__file__).resolve().parents[1]
+        expected = {
+            str(path.relative_to(root)).replace(os.sep, '/')
+            for path in (root / 'static').rglob('*')
+            if path.is_file()
+        }
+        self.assertLessEqual(expected, set(app_meta.APP_VERSION_PATHS))
+
+    def test_app_version_changes_when_public_experience_css_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            css = Path(tmp) / 'static' / 'public_experience.css'
+            css.parent.mkdir()
+            css.write_text('first', encoding='utf-8')
+            first = app_meta.app_version(tmp)
+            css.write_text('second', encoding='utf-8')
+            second = app_meta.app_version(tmp)
+        self.assertNotEqual(first, second)
 
     def test_app_version_default_includes_main_client_assets(self):
         expected = (
             'static/app.css',
+            'static/public_experience.css',
             'static/app.js',
             'static/game_flow.js',
             'static/share.js',
