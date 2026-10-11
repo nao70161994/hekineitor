@@ -5,6 +5,7 @@ window.HekiGameFlow = (() => {
   let dropoffSent = false;
   let pendingAnswerRequest = null;
   let pendingAnswerTimer = null;
+  let genieReactionTimer = null;
 
 
 function resetAnswerPending(failed = false) {
@@ -32,7 +33,12 @@ function setAnswerPending(answer) {
   selected?.classList.add('answer-selected');
   selected?.setAttribute('aria-pressed', 'true');
   const status = document.getElementById('answer-status');
-  if (status) status.textContent = '回答を受け取りました。考え中…';
+  if (status) {
+    const choice = selected?.textContent.trim();
+    status.textContent = choice
+      ? `「${choice}」だね。手がかりに加えて、考えてみるよ…`
+      : '答えを受け取ったよ。手がかりに加えて考えてみるね…';
+  }
   setGenieState('thinking');
   pendingAnswerTimer = setTimeout(() => {
     if (status) status.textContent = 'まだ考えています。もう少しお待ちください…';
@@ -89,7 +95,8 @@ async function startGame(excludeIds) {
   }
 }
 
-function showQuestion(data) {
+function showQuestion(data, previousAnswer = null) {
+  clearTimeout(genieReactionTimer);
   resetAnswerPending();
   currentQuestionId = data.question_id;
   answeredCount = Number(data.count || 0);
@@ -100,11 +107,42 @@ function showQuestion(data) {
   const questionNumber = answeredCount + 1;
   const stageLabel = document.getElementById("question-stage-label");
   if (stageLabel) stageLabel.textContent = `質問 ${questionNumber}`;
+  const progress = document.getElementById('question-progress');
+  const progressFill = document.getElementById('question-progress-fill');
+  const total = Math.max(questionNumber, Number(data.total) || 30);
+  const current = Math.min(questionNumber, total);
+  if (progress) {
+    progress.setAttribute('aria-valuemax', String(total));
+    progress.setAttribute('aria-valuenow', String(current));
+    progress.setAttribute('aria-valuetext', `質問 ${current} / ${total}`);
+  }
+  if (progressFill) progressFill.style.width = `${Math.round(current / total * 100)}%`;
+  const context = document.getElementById('question-context');
+  if (context) {
+    const frame = typeof data.answer_frame === 'string' ? data.answer_frame.trim() : '';
+    context.textContent = frame ? `今回の視点：${frame}` : '';
+    context.classList.toggle('hidden', !frame);
+  }
+  const genieLine = document.getElementById('genie-line');
+  if (genieLine) {
+    genieLine.textContent = data.hint || data.progress_message || 'あなたの答えから、少しずつ輪郭を探しているよ。';
+  }
   const answerGuide = document.getElementById("answer-guide");
   answerGuide?.classList.toggle("hidden", answeredCount > 0);
   document.getElementById("btn-back").style.visibility = answeredCount > 0 ? "visible" : "hidden";
   show("question-screen");
-  setGenieState("idle");
+  if (previousAnswer != null) {
+    const answerButton = [...document.querySelectorAll('#question-screen [data-action="send-answer"]')]
+      .find(button => Number(button.dataset.answer) === Number(previousAnswer));
+    const status = document.getElementById('answer-status');
+    if (status) status.textContent = `「${answerButton?.textContent.trim() || '回答'}」を手がかりに加えたよ。次の質問だね。`;
+    setGenieState('acknowledge');
+    genieReactionTimer = setTimeout(() => {
+      if (currentQuestionId === data.question_id && !resultShown) setGenieState('idle');
+    }, 650);
+  } else {
+    setGenieState("idle");
+  }
 }
 
 async function goBack() {
@@ -159,7 +197,7 @@ async function submitPendingAnswer(maxAttempts) {
       _pushDraft(request.questionId, request.answer);
       _saveDraft();
       if (data.action === 'question') {
-        showQuestion(data);
+        showQuestion(data, request.answer);
       } else {
         _pauseDraft();
         showGuess(data);

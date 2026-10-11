@@ -33,7 +33,7 @@ function show(id) {
 
 function setGenieState(state) {
   const g = document.getElementById('genie');
-  g.classList.remove('thinking', 'reveal');
+  g.classList.remove('thinking', 'reveal', 'acknowledge');
 
   const smirk  = document.getElementById('mouth-smirk');
   const think  = document.getElementById('mouth-think');
@@ -62,6 +62,11 @@ function setGenieState(state) {
     // 両眉をつり上げてニタァ顔
     browL.setAttribute('d', 'M36,50 Q47,44 56,50');
     browR.setAttribute('d', 'M64,50 Q73,44 84,50');
+  } else if (state === 'acknowledge') {
+    g.classList.add('acknowledge');
+    smirk.setAttribute('opacity', '1');
+    browL.setAttribute('d', 'M37,51 Q47,45 56,51');
+    browR.setAttribute('d', 'M64,51 Q73,45 83,51');
   } else {
     smirk.setAttribute('opacity', '1');
   }

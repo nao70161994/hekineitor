@@ -39,6 +39,76 @@ test('start experience is understandable, keyboard reachable, and accessible', a
   await expectNoSeriousAccessibilityViolations(page);
 });
 
+test('question host frames the answer, acknowledges the choice, and tracks progress', async ({page}) => {
+  await page.route('**/api/start', route => route.fulfill({json: {
+    action: 'question',
+    question_id: 0,
+    question: 'この関係性の変化に惹かれる？',
+    count: 0,
+    total: 20,
+    answer_frame: '作品・設定の好みとして',
+    progress_message: '最初の手がかりを見つけたよ',
+  }}));
+  await page.route('**/api/answer', async route => {
+    await new Promise(resolve => setTimeout(resolve, 250));
+    await route.fulfill({json: {
+      action: 'question',
+      question_id: 1,
+      question: 'ふたりの距離が近づく展開が好き？',
+      count: 1,
+      total: 20,
+      answer_frame: '人物・関係性の好みとして',
+      progress_message: '少しずつ輪郭が見えてきたよ',
+    }});
+  });
+
+  await page.goto('/');
+  await page.getByRole('button', {name: '診断をはじめる'}).click();
+  await expect(page.getByText('今回の視点：作品・設定の好みとして')).toBeVisible();
+  await expect(page.locator('#question-progress')).toHaveAttribute('aria-valuetext', '質問 1 / 20');
+  await expect(page.getByText('最初の手がかりを見つけたよ')).toBeVisible();
+
+  await page.getByRole('button', {name: 'はい', exact: true}).click();
+  await expect(page.locator('#genie')).toHaveClass(/thinking/);
+  await expect(page.locator('#question-text')).toHaveText('ふたりの距離が近づく展開が好き？');
+  await expect(page.locator('#question-progress')).toHaveAttribute('aria-valuetext', '質問 2 / 20');
+  await expect(page.getByText('今回の視点：人物・関係性の好みとして')).toBeVisible();
+  await expect(page.locator('#genie')).toHaveClass(/acknowledge/);
+  await expect(page.locator('#answer-status')).toHaveText('「はい」を手がかりに加えたよ。次の質問だね。');
+});
+
+test('long questions stay readable in landscape without hiding the genie or causing horizontal overflow', async ({page}) => {
+  const longQuestion = '物語のなかで、立場や価値観の違う人物たちが時間をかけて理解し合い、少しずつ信頼を深めていく展開に惹かれる？';
+  await page.setViewportSize({width: 812, height: 375});
+  await page.route('**/api/start', route => route.fulfill({json: {
+    action: 'question',
+    question_id: 0,
+    question: longQuestion,
+    count: 0,
+    total: 20,
+    answer_frame: '作品・設定の好みとして',
+  }}));
+  await page.goto('/');
+  await page.getByRole('button', {name: '診断をはじめる'}).click();
+  await expect(page.locator('#question-text')).toHaveText(longQuestion);
+  await expect(page.getByRole('button', {name: 'どちらかといえばいいえ'})).toBeVisible();
+
+  const layout = await page.evaluate(() => {
+    const genie = document.querySelector('#genie').getBoundingClientRect();
+    return {
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      genieVisible: genie.bottom > 0 && genie.top < innerHeight,
+      questionHeight: document.querySelector('#question-text').getBoundingClientRect().height,
+      answersFit: [...document.querySelectorAll('#question-screen .btn-group button')]
+        .every(button => button.getBoundingClientRect().bottom <= innerHeight),
+    };
+  });
+  expect(layout.overflow).toBeLessThanOrEqual(1);
+  expect(layout.genieVisible).toBe(true);
+  expect(layout.questionHeight).toBeGreaterThan(80);
+  expect(layout.answersFit).toBe(true);
+});
+
 test('public pages fit small screens and enlarged Japanese text', async ({page}) => {
   for (const viewport of [
     {width: 320, height: 568},

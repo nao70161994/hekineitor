@@ -54,6 +54,23 @@ test('mobile question screen', async ({page}) => {
   await expect(page).toHaveScreenshot('question-mobile.png', {animations: 'disabled', fullPage: true});
 });
 
+test('landscape question keeps the genie and all five answers in view', async ({page}) => {
+  await page.setViewportSize({width: 812, height: 375});
+  await page.route('**/api/start', route => route.fulfill({json: {
+    action: 'question',
+    question_id: 7,
+    question: '物語のなかで、立場や価値観の違う人物たちが時間をかけて理解し合い、少しずつ信頼を深めていく展開に惹かれる？',
+    axis: 'abstract',
+    count: 0,
+    total: 20,
+    answer_frame: '作品・設定の好みとして',
+    progress_message: '最初の手がかりを見つけたよ',
+  }}));
+  await page.goto('/');
+  await page.getByRole('button', {name: '診断をはじめる'}).click();
+  await expect(page).toHaveScreenshot('question-landscape.png', {animations: 'disabled', fullPage: true});
+});
+
 test('desktop result screen', async ({page}) => {
   await page.setViewportSize({width: 1280, height: 900});
   await page.route('**/api/start', route => route.fulfill({json: question}));

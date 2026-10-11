@@ -137,7 +137,9 @@
 
   <!-- スタート画面 -->
   <section id="start-screen" aria-labelledby="start-title">
+    <p class="start-eyebrow">🔮 へきネイターの推理室</p>
     <h2 id="start-title" class="screen-title">あなたの「好き」、見抜けるかも</h2>
+    <p class="start-intro">答えるほど、魔人の推理が冴えていく。</p>
     <button class="btn btn-start" data-action="start-game">診断をはじめる</button>
     <p class="start-meta">20〜30問・約3〜5分</p>
     <button class="history-btn hidden" id="history-btn" data-action="toggle-history" aria-expanded="false" aria-controls="history-panel">診断履歴<span id="history-badge" class="history-badge hidden"></span></button>
@@ -162,7 +164,11 @@
       <span id="question-stage-label" class="question-stage-label" aria-live="polite">質問 1</span>
       <button class="btn-exit" data-action="confirm-restart">中断</button>
     </nav>
+    <div class="question-progress-track" id="question-progress" role="progressbar" aria-label="質問の進行状況" aria-valuemin="1" aria-valuemax="30" aria-valuenow="1" aria-valuetext="質問 1 / 30">
+      <span class="question-progress-fill" id="question-progress-fill"></span>
+    </div>
     <h2 class="question-text" id="question-text" tabindex="-1">読み込み中…</h2>
+    <p class="question-context hidden" id="question-context"></p>
     <p class="answer-guide" id="answer-guide">自分の好みに当てはまるほど「はい」、違うほど「いいえ」</p>
     <div class="btn-group" role="group" aria-label="回答">
       <button class="btn btn-yes" data-action="send-answer" data-answer="1" aria-pressed="false">はい</button>
@@ -171,6 +177,7 @@
       <button class="btn btn-prob-no" data-action="send-answer" data-answer="-0.5" aria-pressed="false">どちらかといえばいいえ</button>
       <button class="btn btn-no" data-action="send-answer" data-answer="-1" aria-pressed="false">いいえ</button>
     </div>
+    <p class="genie-line" id="genie-line" aria-live="polite">あなたの答えから、少しずつ輪郭を探しているよ。</p>
     <div id="answer-status" class="answer-status" role="status" aria-live="polite"></div>
     <button id="answer-reconcile" class="btn btn-idk answer-reconcile hidden" data-action="retry-pending-answer">同じ回答IDで状態を確認する</button>
   </section>
