@@ -143,7 +143,7 @@ window.HekiRenderers = (() => {
       ? (data.provisional_message || 'まだ読み切れません。今の回答から見える暫定結果です。')
       : 'あなたの『癖』は……';
     if (badges) {
-      badges.innerHTML = `<span id="result-prob">推定一致度 ${escapeHtml(data.probability)}%</span>`;
+      badges.innerHTML = `<span id="result-prob" aria-describedby="result-score-note">一致の目安 ${escapeHtml(data.probability)}%</span>`;
     }
     if (rival) {
       if (data.provisional) {
@@ -161,14 +161,14 @@ window.HekiRenderers = (() => {
     const probEl = document.getElementById('result-prob');
     if (!probEl) return;
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-      probEl.textContent = `推定一致度 ${target}%`;
+      probEl.textContent = `一致の目安 ${target}%`;
       return;
     }
     let current = 0;
     const step = Math.max(1, Math.round(target / 30));
     const timer = setInterval(() => {
       current = Math.min(current + step, target);
-      probEl.textContent = `推定一致度 ${current}%`;
+      probEl.textContent = `一致の目安 ${current}%`;
       if (current >= target) clearInterval(timer);
     }, 30);
   }

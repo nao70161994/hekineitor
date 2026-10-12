@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ fetish_name }} — へきネイター {{ display_version }}</title>
 <meta name="robots" content="noindex,follow">
-<meta name="description" content="あなたの『癖』は…… {{ fetish_name }}{% if probability %} 推定一致度{{ probability }}%{% endif %}">
+<meta name="description" content="あなたの『癖』は…… {{ fetish_name }}{% if probability %} 一致の目安{{ probability }}%（回答傾向との近さを示す参考値）{% endif %}">
 <meta property="og:title" content="あなたの『癖』は…… {{ fetish_name }}">
-<meta property="og:description" content="{% if probability %}推定一致度{{ probability }}%。{% endif %}次はあなたの番です……">
+<meta property="og:description" content="{% if probability %}一致の目安{{ probability }}%。回答傾向との近さを示す参考値です。{% endif %}次はあなたの番です……">
 <meta property="og:type" content="website">
 <meta property="og:url" content="{{ share_url }}">
 {% if og_image %}<meta property="og:image" content="{{ og_image }}">{% endif %}
@@ -16,7 +16,7 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="あなたの『癖』は…… {{ fetish_name }}">
-<meta name="twitter:description" content="{% if probability %}推定一致度{{ probability }}%。{% endif %}次はあなたの番です……">
+<meta name="twitter:description" content="{% if probability %}一致の目安{{ probability }}%。回答傾向との近さを示す参考値です。{% endif %}次はあなたの番です……">
 {% if og_image %}<meta name="twitter:image" content="{{ og_image }}">{% endif %}
 <meta name="twitter:image:alt" content="へきネイター診断結果 {{ fetish_name }}">
 {% if adsense_client and ad_slot %}
@@ -41,7 +41,8 @@
   }
   .label { color: #8f98a8; font-size: 0.92rem; margin-bottom: 22px; letter-spacing: 0.04em; }
   .name { color: #f1f5f9; font-size: 1.75rem; font-weight: bold; margin-bottom: 18px; line-height: 1.35; }
-  .prob { color: #b7c8df; font-size: 1.05rem; margin-bottom: 28px; letter-spacing: 0.03em; }
+  .prob { color: #b7c8df; font-size: 1.05rem; margin-bottom: 8px; letter-spacing: 0.03em; }
+  .prob-note { color: #8792a6; font-size: 0.76rem; line-height: 1.55; margin-bottom: 22px; }
   .desc { color: #6f7a8c; font-size: 0.82rem; line-height: 1.7; margin-bottom: 24px; }
   .share-box {
     background: #0d1b2a; border: 1px solid #23314d; border-radius: 10px;
@@ -68,7 +69,10 @@
   <div class="label">あなたの『癖』は……</div>
   {% if fetish_name %}
   <div class="name">{{ fetish_name }}</div>
-  {% if probability %}<div class="prob">推定一致度{{ probability }}%</div>{% endif %}
+  {% if probability %}
+  <div class="prob">一致の目安{{ probability }}%</div>
+  <div class="prob-note">回答傾向との近さを示す参考値です。正解の確率ではありません。</div>
+  {% endif %}
   {% if desc %}<div class="desc">{{ desc }}</div>{% endif %}
   <div class="share-box">{{ share_text }}</div>
   {% else %}

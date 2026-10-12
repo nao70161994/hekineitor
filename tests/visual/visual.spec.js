@@ -95,7 +95,7 @@ test('desktop result screen', async ({page}) => {
   await page.goto('/');
   await page.getByRole('button', {name: '診断をはじめる'}).click();
   await page.getByRole('button', {name: 'はい', exact: true}).click();
-  await expect(page.locator('#result-prob')).toHaveText('推定一致度 72%');
+  await expect(page.locator('#result-prob')).toHaveText('一致の目安 72%');
   await expectSkipLinkHidden(page);
   await expectVisualSnapshot(page, 'result-desktop.png');
 });
@@ -107,7 +107,7 @@ test('mobile result screen', async ({page}) => {
   await page.goto('/');
   await page.getByRole('button', {name: '診断をはじめる'}).click();
   await page.getByRole('button', {name: 'はい', exact: true}).click();
-  await expect(page.locator('#result-prob')).toHaveText('推定一致度 72%');
+  await expect(page.locator('#result-prob')).toHaveText('一致の目安 72%');
   await expect(page.locator('.result-crystal')).toBeVisible();
   await expectSkipLinkHidden(page);
   await expectVisualSnapshot(page, 'result-mobile.png', {fullPage: false});

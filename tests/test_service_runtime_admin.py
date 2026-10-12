@@ -397,6 +397,7 @@ class TestServiceRuntimeAdmin(unittest.TestCase):
         self.assertEqual(ctx.public_base_url(), 'https://example.com')
         self.assertEqual(ctx.clean_probability('88.0'), '88')
         self.assertIn('あなたの『癖』は……', ctx.result_share_text('A', '88'))
+        self.assertIn('正解の確率ではありません。', ctx.result_share_text('A', '88'))
         self.assertEqual(ctx.result_title('88'), 'あなたの『癖』は……')
         self.assertEqual(ctx.result_rarity('88'), 'AI観測ログ')
         self.assertEqual(ctx.player_fetish_base_id, 1000)

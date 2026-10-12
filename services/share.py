@@ -28,7 +28,8 @@ def result_share_text(name, prob):
         f'『{name or "???"}』',
     ]
     if prob:
-        lines.extend(['', f'推定一致度{prob}%'])
+        lines.extend(['', f'一致の目安{prob}%'])
+        lines.extend(['回答傾向との近さを示す参考値です。正解の確率ではありません。'])
     lines.extend(['', '次はあなたの番です……'])
     return '\n'.join(lines)
 
@@ -54,7 +55,7 @@ def canonical_result_description(engine, name):
 def result_tagline(name, prob):
     if not name:
         return ''
-    return f'推定一致度{prob}%' if prob else '観測済み'
+    return f'一致の目安{prob}%' if prob else '観測済み'
 
 
 def public_base_url(environ, request):
