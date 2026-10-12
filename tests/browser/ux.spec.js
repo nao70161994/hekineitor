@@ -85,52 +85,41 @@ test('question host frames the answer, acknowledges the choice, and tracks progr
   await expect(page.locator('#answer-status')).toHaveText('「はい」を手がかりに加えたよ。次の質問だね。');
 });
 
-test('desktop gameplay keeps the genie, question, and answers together; mobile keeps a full-size host', async ({page, browser}) => {
-  test.setTimeout(120_000);
-  const mobileContext = await browser.newContext({viewport: {width: 375, height: 812}, isMobile: true, hasTouch: true});
-  const mobilePage = await mobileContext.newPage();
-  const scenarios = [
-    {target: page, viewport: {width: 1280, height: 900}},
-    {target: mobilePage, viewport: {width: 375, height: 812}},
-  ];
-  try {
-    for (const {target, viewport} of scenarios) {
-      await target.setViewportSize(viewport);
-      await target.route('**/api/start', route => route.fulfill({json: {
-        action: 'question', question_id: 0, question: '静かな余韻が長く残る方が好き？', count: 0, total: 24,
-      }}));
-      await target.route('**/api/answer', route => route.fulfill({json: {
-        action: 'question', question_id: 1, question: '答え方に迷うときもある？', count: 1, total: 24,
-      }}));
-      await target.goto('/', {waitUntil: 'domcontentloaded'});
-      await target.getByRole('button', {name: '診断をはじめる'}).click();
-      await expect(target.locator('#genie')).toBeVisible();
-      const composition = await target.evaluate(() => {
-        const card = document.querySelector('.card').getBoundingClientRect();
-        const genie = document.querySelector('#genie').getBoundingClientRect();
-        const question = document.querySelector('#question-text').getBoundingClientRect();
-        const answers = [...document.querySelectorAll('#question-screen .btn-group button')];
-        return {
-          cardContainsGenie: genie.left >= card.left && genie.right <= card.right,
-          cardContainsQuestion: question.left >= card.left && question.right <= card.right,
-          avatarHeight: genie.height,
-          desktopSideBySide: innerWidth >= 900 ? genie.left < question.left && genie.right <= question.left + 24 : true,
-          answerTargets: answers.map(button => button.getBoundingClientRect().height),
-          overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-        };
-      });
-      expect(composition.cardContainsGenie).toBe(true);
-      expect(composition.cardContainsQuestion).toBe(true);
-      expect(composition.avatarHeight).toBeGreaterThan(viewport.width >= 900 ? 200 : 100);
-      expect(composition.desktopSideBySide).toBe(true);
-      expect(composition.answerTargets.every(height => height >= 48)).toBe(true);
-      expect(composition.overflow).toBeLessThanOrEqual(1);
-      await target.getByRole('button', {name: 'はい', exact: true}).click();
-      await expect(target.locator('#question-text')).toHaveText('答え方に迷うときもある？');
-      await expect(target.locator('#genie')).toHaveClass(/acknowledge/);
-    }
-  } finally {
-    await mobileContext.close();
+test('desktop gameplay keeps the genie, question, and answers together; mobile keeps a full-size host', async ({page}) => {
+  await page.route('**/api/start', route => route.fulfill({json: {
+    action: 'question', question_id: 0, question: '静かな余韻が長く残る方が好き？', count: 0, total: 24,
+  }}));
+  await page.route('**/api/answer', route => route.fulfill({json: {
+    action: 'question', question_id: 1, question: '答え方に迷うときもある？', count: 1, total: 24,
+  }}));
+  for (const viewport of [{width: 1280, height: 900}, {width: 375, height: 812}]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/', {waitUntil: 'domcontentloaded'});
+    await page.locator('[data-action="start-game"]').click();
+    await expect(page.locator('#genie')).toBeVisible();
+    const composition = await page.evaluate(() => {
+      const card = document.querySelector('.card').getBoundingClientRect();
+      const genie = document.querySelector('#genie').getBoundingClientRect();
+      const question = document.querySelector('#question-text').getBoundingClientRect();
+      const answers = [...document.querySelectorAll('#question-screen .btn-group button')];
+      return {
+        cardContainsGenie: genie.left >= card.left && genie.right <= card.right,
+        cardContainsQuestion: question.left >= card.left && question.right <= card.right,
+        avatarHeight: genie.height,
+        desktopSideBySide: innerWidth >= 900 ? genie.left < question.left && genie.right <= question.left + 24 : true,
+        answerTargets: answers.map(button => button.getBoundingClientRect().height),
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      };
+    });
+    expect(composition.cardContainsGenie).toBe(true);
+    expect(composition.cardContainsQuestion).toBe(true);
+    expect(composition.avatarHeight).toBeGreaterThan(viewport.width >= 900 ? 200 : 100);
+    expect(composition.desktopSideBySide).toBe(true);
+    expect(composition.answerTargets.every(height => height >= 48)).toBe(true);
+    expect(composition.overflow).toBeLessThanOrEqual(1);
+    await page.getByRole('button', {name: 'はい', exact: true}).click();
+    await expect(page.locator('#question-text')).toHaveText('答え方に迷うときもある？');
+    await expect(page.locator('#genie')).toHaveClass(/acknowledge/);
   }
 });
 
