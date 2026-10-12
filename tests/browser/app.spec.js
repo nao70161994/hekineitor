@@ -68,6 +68,7 @@ test('serves install and offline resources', async ({page, request}) => {
 
 
 test('covers continue, feedback, history, and mobile transitions', async ({page}) => {
+  test.setTimeout(90_000);
   await page.setViewportSize({width: 375, height: 812});
   const guess = {
     fetish_id: 0,

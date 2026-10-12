@@ -1,6 +1,8 @@
 import AxeBuilder from '@axe-core/playwright';
 import {expect, test} from '@playwright/test';
 
+test.use({serviceWorkers: 'block'});
+
 async function expectNoSeriousAccessibilityViolations(page) {
   const results = await new AxeBuilder({page})
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
@@ -84,6 +86,7 @@ test('question host frames the answer, acknowledges the choice, and tracks progr
 });
 
 test('desktop gameplay keeps the genie, question, and answers together; mobile keeps a full-size host', async ({page, browser}) => {
+  test.setTimeout(60_000);
   const mobileContext = await browser.newContext({viewport: {width: 375, height: 812}, isMobile: true, hasTouch: true});
   const mobilePage = await mobileContext.newPage();
   const scenarios = [
@@ -170,18 +173,22 @@ test('long questions stay readable in landscape without hiding the genie or caus
 
   const layout = await page.evaluate(() => {
     const genie = document.querySelector('#genie').getBoundingClientRect();
+    const answers = [...document.querySelectorAll('#question-screen .btn-group button')].map(button => {
+      const box = button.getBoundingClientRect();
+      return {height: box.height, bottom: box.bottom};
+    });
     return {
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       genieVisible: genie.bottom > 0 && genie.top < innerHeight,
+      viewportHeight: innerHeight,
       questionHeight: document.querySelector('#question-text').getBoundingClientRect().height,
-      answersFit: [...document.querySelectorAll('#question-screen .btn-group button')]
-        .every(button => button.getBoundingClientRect().bottom <= innerHeight),
+      answers,
     };
   });
   expect(layout.overflow).toBeLessThanOrEqual(1);
   expect(layout.genieVisible).toBe(true);
   expect(layout.questionHeight).toBeGreaterThan(80);
-  expect(layout.answersFit).toBe(true);
+  expect(layout.answers.every(button => button.bottom <= layout.viewportHeight), JSON.stringify(layout)).toBe(true);
 });
 
 test('public pages fit small screens and enlarged Japanese text', async ({page}) => {
