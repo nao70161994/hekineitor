@@ -468,9 +468,7 @@ def evaluate_unannotated_sensitivity(engine, personas, adaptive):
             sum(row['unannotated_answers_withheld'] for row in rows) / question_count,
             4,
         ),
-        'changed_top_result_count': sum(
-            row['baseline_top_result_id'] != row['top_result_id'] for row in rows
-        ),
+        'changed_top_result_count': sum(row['baseline_top_result_id'] != row['top_result_id'] for row in rows),
         'rows': rows,
     }
 
@@ -710,9 +708,7 @@ def main():
     engine = Engine()
     transcript = evaluate_transcripts(engine, fixture['personas'])
     adaptive = evaluate_adaptive(engine, fixture['personas'], args.max_questions)
-    scored_personas = [
-        persona for persona in fixture['personas'] if persona.get('accuracy_scored', True) is not False
-    ]
+    scored_personas = [persona for persona in fixture['personas'] if persona.get('accuracy_scored', True) is not False]
     # Keep each adaptive question path fixed and remove assumed answers from
     # inference. This isolates how much the default-answer assumption moves
     # candidate ranks without running a second simulated game.
