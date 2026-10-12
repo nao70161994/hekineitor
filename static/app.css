@@ -11,6 +11,10 @@
   --color-text-subtle: #98a6c2;
   --color-brand: #ff5470;
   --color-brand-strong: #d93658;
+  --color-answer-yes: #713bb3;
+  --color-answer-yes-muted: #54317f;
+  --color-answer-maybe: #ffc05c;
+  --color-answer-no: #b52f55;
   --color-accent: #ffc05c;
   --color-positive: #239a57;
   --color-negative: #d94338;
@@ -106,16 +110,15 @@
   }
   :focus-visible { outline: 2px solid #f5a623; outline-offset: 2px; }
   .btn:active { transform: scale(0.97); opacity: 0.85; }
-  .btn-yes      { background: #713bb3; color: #fff; }
-  .btn-prob-yes { background: #54317f; color: #fff; font-size: 0.9rem; }
-  .btn-no       { background: #b52f55; color: #fff; }
+  .btn-yes      { background: var(--color-answer-yes); color: #fff; }
+  .btn-prob-yes { background: var(--color-answer-yes-muted); color: #fff; font-size: 0.9rem; }
+  .btn-no       { background: var(--color-answer-no); color: #fff; }
   .btn-prob-no  { background: #7b2944; color: #fff; font-size: 0.9rem; }
   .btn-idk      { background: #39445f; color: #f0f2f8; }
   .btn-start  { background: #e94560; color: #fff; width: 100%; }
   .btn-retry  { background: #0f3460; color: #eee; width: 100%; }
 
   /* 結果画面 */
-  .result-icon { font-size: 3rem; text-align: center; margin-bottom: 10px; }
   .result-kicker {
     color: #f5a623;
     font-size: 0.84rem;

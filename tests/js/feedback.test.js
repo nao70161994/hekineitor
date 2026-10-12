@@ -28,6 +28,7 @@ describe('near-miss feedback', () => {
     window.setFetching = vi.fn(value => { window.gameState.fetching = value; });
     window.show = vi.fn();
     window.showToast = vi.fn();
+    window.setGenieState = vi.fn();
     window.escapeHtml = value => String(value);
     window._guessedId = 1;
     window._compoundIds = [];
@@ -44,11 +45,23 @@ describe('near-miss feedback', () => {
 
     await window.HekiFeedback.quickFeedback('maybe');
 
+    expect(window.setGenieState).toHaveBeenCalledWith('thinking');
     expect(document.querySelectorAll('#fetish-list .fetish-item')).toHaveLength(5);
     expect(document.querySelectorAll('#fetish-list .candidate-extra.hidden')).toHaveLength(2);
     expect(document.getElementById('teach-more-candidates').classList.contains('hidden')).toBe(false);
     window.HekiTeach.showMoreCandidates();
     expect(document.querySelectorAll('#fetish-list .candidate-extra.hidden')).toHaveLength(0);
+  });
+
+  it('uses a puzzled reaction when the result is wrong', async () => {
+    window.apiFetch.mockResolvedValue({
+      status: 'wrong',
+      fetishes: [{id: 2, name: '正解候補'}],
+    });
+
+    await window.HekiFeedback.quickFeedback('no');
+
+    expect(window.setGenieState).toHaveBeenCalledWith('miss');
   });
 
   it('keeps a near-miss choice single-select and finalizes skipped feedback', async () => {

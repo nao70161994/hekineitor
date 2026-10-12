@@ -83,6 +83,75 @@ test('question host frames the answer, acknowledges the choice, and tracks progr
   await expect(page.locator('#answer-status')).toHaveText('「はい」を手がかりに加えたよ。次の質問だね。');
 });
 
+test('desktop gameplay keeps the genie, question, and answers together; mobile keeps a full-size host', async ({page, browser}) => {
+  const mobileContext = await browser.newContext({viewport: {width: 375, height: 812}, isMobile: true, hasTouch: true});
+  const mobilePage = await mobileContext.newPage();
+  const scenarios = [
+    {target: page, viewport: {width: 1280, height: 900}},
+    {target: mobilePage, viewport: {width: 375, height: 812}},
+  ];
+  try {
+    for (const {target, viewport} of scenarios) {
+      await target.setViewportSize(viewport);
+      await target.route('**/api/start', route => route.fulfill({json: {
+        action: 'question', question_id: 0, question: '静かな余韻が長く残る方が好き？', count: 0, total: 24,
+      }}));
+      await target.route('**/api/answer', route => route.fulfill({json: {
+        action: 'question', question_id: 1, question: '答え方に迷うときもある？', count: 1, total: 24,
+      }}));
+      await target.goto('/');
+      await target.getByRole('button', {name: '診断をはじめる'}).click();
+      await expect(target.locator('#genie')).toBeVisible();
+      const composition = await target.evaluate(() => {
+        const card = document.querySelector('.card').getBoundingClientRect();
+        const genie = document.querySelector('#genie').getBoundingClientRect();
+        const question = document.querySelector('#question-text').getBoundingClientRect();
+        const answers = [...document.querySelectorAll('#question-screen .btn-group button')];
+        return {
+          cardContainsGenie: genie.left >= card.left && genie.right <= card.right,
+          cardContainsQuestion: question.left >= card.left && question.right <= card.right,
+          avatarHeight: genie.height,
+          desktopSideBySide: innerWidth >= 900 ? genie.left < question.left && genie.right <= question.left + 24 : true,
+          answerTargets: answers.map(button => button.getBoundingClientRect().height),
+          overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        };
+      });
+      expect(composition.cardContainsGenie).toBe(true);
+      expect(composition.cardContainsQuestion).toBe(true);
+      expect(composition.avatarHeight).toBeGreaterThan(viewport.width >= 900 ? 200 : 100);
+      expect(composition.desktopSideBySide).toBe(true);
+      expect(composition.answerTargets.every(height => height >= 48)).toBe(true);
+      expect(composition.overflow).toBeLessThanOrEqual(1);
+      await target.getByRole('button', {name: 'はい', exact: true}).click();
+      await expect(target.locator('#question-text')).toHaveText('答え方に迷うときもある？');
+      await expect(target.locator('#genie')).toHaveClass(/acknowledge/);
+    }
+  } finally {
+    await mobileContext.close();
+  }
+});
+
+test('result reveal leaves feedback available and the genie celebrates a correct guess', async ({page}) => {
+  await page.route('**/api/start', route => route.fulfill({json: {
+    action: 'question', question_id: 0, question: '静かな余韻が長く残る方が好き？', count: 0, total: 20,
+  }}));
+  await page.route('**/api/answer', route => route.fulfill({json: {
+    fetish_id: 65, fetish_name: '静かな共同生活', fetish_desc: '日々の積み重ねに惹かれる傾向です。',
+    probability: 72, compound: [], top_chart: [], profile: [], related: [],
+    reasons: [{text: '静かな余韻が長く残る方が好き？', ans: 1}], works: [], cross_works: [],
+  }}));
+  await page.route('**/api/confirm', route => route.fulfill({json: {status: 'learned'}}));
+  await page.goto('/');
+  await page.getByRole('button', {name: '診断をはじめる'}).click();
+  await page.getByRole('button', {name: 'はい', exact: true}).click();
+  await expect(page.locator('#genie')).toHaveClass(/reveal/);
+  await expect(page.getByRole('button', {name: '当たってる'})).toBeEnabled();
+  await expect(page.getByRole('button', {name: '共有する'})).toBeEnabled();
+  await page.getByRole('button', {name: '当たってる'}).click();
+  await expect(page.locator('#genie')).toHaveClass(/celebrate/);
+  await expect(page.locator('#quick-feedback-status')).toContainText('正解として学習しました');
+});
+
 test('long questions stay readable in landscape without hiding the genie or causing horizontal overflow', async ({page}) => {
   const longQuestion = '物語のなかで、立場や価値観の違う人物たちが時間をかけて理解し合い、少しずつ信頼を深めていく展開に惹かれる？';
   await page.setViewportSize({width: 812, height: 375});
