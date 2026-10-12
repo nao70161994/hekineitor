@@ -10,6 +10,20 @@ on:
   pull_request:
 
 jobs:
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Audit pinned Python dependencies
+        # Pin the official PyPA action to its reviewed v1.1.0 commit.
+        uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266 # v1.1.0
+        with:
+          inputs: requirements-dev.txt
+          no-deps: true
+
   test:
     runs-on: ubuntu-latest
     env:
