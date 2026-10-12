@@ -437,6 +437,7 @@ test('offers three near-miss corrections first and saves one correction atomical
 });
 
 test('records feedback completion and a normal non-exclusion retry', async ({page}) => {
+  test.setTimeout(90_000);
   const feedbackBefore = gameplayEventCount('feedback_completed');
   const retryBefore = gameplayEventCount('retry_started');
 

@@ -73,7 +73,7 @@ class TestServiceAppConfig(unittest.TestCase):
 
         summary = works_links.build_work_maintenance_summary(
             fetishes,
-            work_title_fn=lambda work: (work.get('title', '') if isinstance(work, dict) else str(work)),
+            work_title_fn=lambda work: work.get('title', '') if isinstance(work, dict) else str(work),
             safe_work_url_fn=lambda url: str(url).startswith('https://www.amazon.co.jp/'),
             sample_limit=5,
         )

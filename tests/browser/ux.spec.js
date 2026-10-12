@@ -56,7 +56,7 @@ test('question host frames the answer, acknowledges the choice, and tracks progr
     progress_message: '最初の手がかりを見つけたよ',
   }}));
   await page.route('**/api/answer', async route => {
-    await new Promise(resolve => setTimeout(resolve, 250));
+    await new Promise(resolve => setTimeout(resolve, 700));
     await route.fulfill({json: {
       action: 'question',
       question_id: 1,

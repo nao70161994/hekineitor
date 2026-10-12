@@ -5,7 +5,6 @@ window.HekiGameFlow = (() => {
   let dropoffSent = false;
   let pendingAnswerRequest = null;
   let pendingAnswerTimer = null;
-  let genieReactionTimer = null;
 
 
 function resetAnswerPending(failed = false) {
@@ -96,7 +95,6 @@ async function startGame(excludeIds) {
 }
 
 function showQuestion(data, previousAnswer = null) {
-  clearTimeout(genieReactionTimer);
   resetAnswerPending();
   currentQuestionId = data.question_id;
   answeredCount = Number(data.count || 0);
@@ -137,9 +135,6 @@ function showQuestion(data, previousAnswer = null) {
     const status = document.getElementById('answer-status');
     if (status) status.textContent = `「${answerButton?.textContent.trim() || '回答'}」を手がかりに加えたよ。次の質問だね。`;
     setGenieState('acknowledge');
-    genieReactionTimer = setTimeout(() => {
-      if (currentQuestionId === data.question_id && !resultShown) setGenieState('idle');
-    }, 1200);
   } else {
     setGenieState("idle");
   }
