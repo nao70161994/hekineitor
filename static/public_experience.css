@@ -432,6 +432,9 @@ body[data-screen="question-screen"] {
 #start-screen { padding: 6px 4px 0; }
 .start-eyebrow {
   display: inline-flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
   min-height: 30px;
   margin: 0 auto 12px;
@@ -697,6 +700,7 @@ body[data-screen="question-screen"] {
 
 /* Focused gameplay states */
 #start-screen { display: flex; flex-direction: column; text-align: center; }
+#start-screen > * { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 #start-screen .screen-title { order: 1; }
 #start-screen .start-intro { order: 2; }
 #start-screen > [data-action="start-game"] { order: 3; width: 100%; }
@@ -911,13 +915,13 @@ body[data-screen="result-screen"] #install-banner:not(.hidden) {
 @media (orientation: landscape) and (max-height: 520px) and (max-width: 899px) {
   body[data-screen="question-screen"] .genie-wrap { height: 100px; margin: 0 auto 4px; overflow: hidden; }
   body[data-screen="question-screen"] #genie { width: 64px; height: 102px; }
-  body[data-screen="question-screen"] .card { padding: 4px 14px; }
+  body[data-screen="question-screen"] .card { padding: 2px 14px; }
   body[data-screen="question-screen"] .question-nav { margin-bottom: 5px; }
   body[data-screen="question-screen"] .question-progress-track { margin: 0 2px 4px; }
   body[data-screen="question-screen"] #question-screen .question-text { min-height: 0; margin-bottom: 3px; padding: 8px 14px; font-size: 1rem; line-height: 1.35; }
   body[data-screen="question-screen"] .answer-guide { margin: 1px 0 3px; }
   body[data-screen="question-screen"] .btn-group { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-  body[data-screen="question-screen"] .btn-group .btn { min-height: 45px; padding: 5px; font-size: .7rem; }
+  body[data-screen="question-screen"] .btn-group .btn { min-height: 44px; padding: 4px; font-size: .7rem; }
   body[data-screen="question-screen"] .genie-line { min-height: 0; margin-top: 3px; padding: 3px 8px; font-size: .68rem; }
 }
 @media (orientation: landscape) and (min-width: 700px) and (max-height: 520px) {

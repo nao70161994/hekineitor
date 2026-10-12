@@ -209,10 +209,14 @@ test('public pages fit small screens and enlarged Japanese text', async ({page})
     await page.setViewportSize({width: 320, height: 568});
     await page.goto('/');
     await page.evaluate(value => { document.documentElement.style.fontSize = value; }, scale);
-    const enlargedOverflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    );
-    expect(enlargedOverflow).toBeLessThanOrEqual(1);
+    const enlargedLayout = await page.evaluate(() => ({
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      overflowing: [...document.querySelectorAll('body *')]
+        .map(element => ({tag: element.tagName, className: element.className?.baseVal ?? element.className, right: element.getBoundingClientRect().right}))
+        .filter(element => element.right > innerWidth + 1)
+        .slice(0, 8),
+    }));
+    expect(enlargedLayout.overflow, JSON.stringify(enlargedLayout)).toBeLessThanOrEqual(1);
   }
 
   await page.goto('/privacy');
