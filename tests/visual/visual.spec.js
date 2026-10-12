@@ -40,8 +40,8 @@ async function expectSkipLinkHidden(page) {
   expect(box.y + box.height).toBeLessThanOrEqual(0);
 }
 
-async function expectVisualSnapshot(page, name) {
-  const options = {animations: 'disabled', fullPage: true};
+async function expectVisualSnapshot(page, name, {fullPage = true} = {}) {
+  const options = {animations: 'disabled', fullPage};
   // CI runs Linux Chromium while local snapshots may come from Android Chromium.
   if (process.env.CI) options.maxDiffPixelRatio = 0.07;
   await expect(page).toHaveScreenshot(name, options);
@@ -110,8 +110,8 @@ test('mobile result screen', async ({page}) => {
   await expect(page.locator('#result-prob')).toHaveText('推定一致度 72%');
   await expect(page.locator('.result-crystal')).toBeVisible();
   await expectSkipLinkHidden(page);
-  await expectVisualSnapshot(page, 'result-mobile.png');
+  await expectVisualSnapshot(page, 'result-mobile.png', {fullPage: false});
   await page.getByRole('button', {name: '結果を詳しく見る'}).click();
   await expect(page.locator('#works-section')).toBeVisible();
-  await expectVisualSnapshot(page, 'result-mobile-details.png');
+  await expectVisualSnapshot(page, 'result-mobile-details.png', {fullPage: false});
 });
