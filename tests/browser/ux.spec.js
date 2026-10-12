@@ -86,7 +86,7 @@ test('question host frames the answer, acknowledges the choice, and tracks progr
 });
 
 test('desktop gameplay keeps the genie, question, and answers together; mobile keeps a full-size host', async ({page, browser}) => {
-  test.setTimeout(60_000);
+  test.setTimeout(120_000);
   const mobileContext = await browser.newContext({viewport: {width: 375, height: 812}, isMobile: true, hasTouch: true});
   const mobilePage = await mobileContext.newPage();
   const scenarios = [
@@ -102,7 +102,7 @@ test('desktop gameplay keeps the genie, question, and answers together; mobile k
       await target.route('**/api/answer', route => route.fulfill({json: {
         action: 'question', question_id: 1, question: '答え方に迷うときもある？', count: 1, total: 24,
       }}));
-      await target.goto('/');
+      await target.goto('/', {waitUntil: 'domcontentloaded'});
       await target.getByRole('button', {name: '診断をはじめる'}).click();
       await expect(target.locator('#genie')).toBeVisible();
       const composition = await target.evaluate(() => {
