@@ -73,12 +73,8 @@ class TestServiceAppConfig(unittest.TestCase):
 
         summary = works_links.build_work_maintenance_summary(
             fetishes,
-            work_title_fn=lambda work: (
-                work.get('title', '') if isinstance(work, dict) else str(work)
-            ),
-            safe_work_url_fn=lambda url: str(url).startswith(
-                'https://www.amazon.co.jp/'
-            ),
+            work_title_fn=lambda work: (work.get('title', '') if isinstance(work, dict) else str(work)),
+            safe_work_url_fn=lambda url: str(url).startswith('https://www.amazon.co.jp/'),
             sample_limit=5,
         )
 
@@ -138,9 +134,7 @@ class TestServiceAppConfig(unittest.TestCase):
         ]
         original = copy.deepcopy((fetishes, compound))
 
-        report = works_links.build_work_catalog_report(
-            fetishes, compound_rows=compound, sample_limit=10
-        )
+        report = works_links.build_work_catalog_report(fetishes, compound_rows=compound, sample_limit=10)
 
         self.assertEqual(report['total_works'], 6)
         self.assertEqual(report['fetish_work_count'], 5)
@@ -148,9 +142,7 @@ class TestServiceAppConfig(unittest.TestCase):
         self.assertEqual(report['within_owner_exact_duplicate_count'], 1)
         self.assertEqual(report['same_asin_alias_count'], 1)
         self.assertEqual(report['normalization_conflict_count'], 1)
-        self.assertEqual(
-            report['normalization_conflicts'][0]['asins'], ['B000000002', 'B000000003']
-        )
+        self.assertEqual(report['normalization_conflicts'][0]['asins'], ['B000000002', 'B000000003'])
         self.assertEqual(report['identity_policy'], 'review_only_no_automatic_merge')
         self.assertEqual((fetishes, compound), original)
 
@@ -162,13 +154,9 @@ class TestServiceAppConfig(unittest.TestCase):
         compound_rows = []
         for key, works in compound_data.items():
             id_a, id_b = key.split(',', 1)
-            compound_rows.append(
-                {'key': key, 'id_a': int(id_a), 'id_b': int(id_b), 'works': works}
-            )
+            compound_rows.append({'key': key, 'id_a': int(id_a), 'id_b': int(id_b), 'works': works})
 
-        report = works_links.build_work_catalog_report(
-            fetishes, compound_rows=compound_rows, sample_limit=200
-        )
+        report = works_links.build_work_catalog_report(fetishes, compound_rows=compound_rows, sample_limit=200)
 
         self.assertEqual(report['within_owner_exact_duplicate_count'], 0)
         self.assertEqual(report['within_owner_exact_duplicates'], [])
@@ -183,9 +171,7 @@ class TestServiceAppConfig(unittest.TestCase):
     def test_app_version_tracks_every_static_asset(self):
         root = Path(__file__).resolve().parents[1]
         expected = {
-            str(path.relative_to(root)).replace(os.sep, '/')
-            for path in (root / 'static').rglob('*')
-            if path.is_file()
+            str(path.relative_to(root)).replace(os.sep, '/') for path in (root / 'static').rglob('*') if path.is_file()
         }
         self.assertLessEqual(expected, set(app_meta.APP_VERSION_PATHS))
 
@@ -248,17 +234,13 @@ class TestServiceAppConfig(unittest.TestCase):
     def test_secret_key_uses_dev_fallback_with_warning(self):
         warnings = []
         with open(os.devnull, 'w') as stderr:
-            secret = app_meta.secret_key(
-                {}, stderr=stderr, warn_fn=lambda *args, **kwargs: warnings.append(args)
-            )
+            secret = app_meta.secret_key({}, stderr=stderr, warn_fn=lambda *args, **kwargs: warnings.append(args))
         self.assertEqual(secret, app_meta.DEV_SECRET_KEY)
         self.assertEqual(warnings[0][0], app_meta.SECRET_KEY_MISSING_WARNING)
 
     def test_secret_key_returns_configured_value(self):
         with open(os.devnull, 'w') as stderr:
-            secret = app_meta.secret_key(
-                {'SECRET_KEY': 'long_enough_secret'}, stderr=stderr
-            )
+            secret = app_meta.secret_key({'SECRET_KEY': 'long_enough_secret'}, stderr=stderr)
         self.assertEqual(secret, 'long_enough_secret')
 
     def test_public_base_url_prefers_configured_site_base_url(self):
