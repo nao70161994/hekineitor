@@ -1,4 +1,5 @@
 import {expect, test} from '@playwright/test';
+import process from 'node:process';
 
 const question = {
   action: 'question',
@@ -39,10 +40,17 @@ async function expectSkipLinkHidden(page) {
   expect(box.y + box.height).toBeLessThanOrEqual(0);
 }
 
+async function expectVisualSnapshot(page, name) {
+  const options = {animations: 'disabled', fullPage: true};
+  // CI runs Linux Chromium while local snapshots may come from Android Chromium.
+  if (process.env.CI) options.maxDiffPixelRatio = 0.07;
+  await expect(page).toHaveScreenshot(name, options);
+}
+
 test('mobile start screen', async ({page}) => {
   await page.setViewportSize({width: 375, height: 812});
   await page.goto('/');
-  await expect(page).toHaveScreenshot('start-mobile.png', {animations: 'disabled', fullPage: true});
+  await expectVisualSnapshot(page, 'start-mobile.png');
 });
 
 test('mobile question screen', async ({page}) => {
@@ -51,7 +59,7 @@ test('mobile question screen', async ({page}) => {
   await page.goto('/');
   await page.getByRole('button', {name: '診断をはじめる'}).click();
   await expectSkipLinkHidden(page);
-  await expect(page).toHaveScreenshot('question-mobile.png', {animations: 'disabled', fullPage: true});
+  await expectVisualSnapshot(page, 'question-mobile.png');
 });
 
 test('desktop question composition', async ({page}) => {
@@ -60,7 +68,7 @@ test('desktop question composition', async ({page}) => {
   await page.goto('/');
   await page.getByRole('button', {name: '診断をはじめる'}).click();
   await expect(page.locator('#question-text')).toBeVisible();
-  await expect(page).toHaveScreenshot('question-desktop.png', {animations: 'disabled', fullPage: true});
+  await expectVisualSnapshot(page, 'question-desktop.png');
 });
 
 test('landscape question keeps the genie and all five answers in view', async ({page}) => {
@@ -77,7 +85,7 @@ test('landscape question keeps the genie and all five answers in view', async ({
   }}));
   await page.goto('/');
   await page.getByRole('button', {name: '診断をはじめる'}).click();
-  await expect(page).toHaveScreenshot('question-landscape.png', {animations: 'disabled', fullPage: true});
+  await expectVisualSnapshot(page, 'question-landscape.png');
 });
 
 test('desktop result screen', async ({page}) => {
@@ -89,7 +97,7 @@ test('desktop result screen', async ({page}) => {
   await page.getByRole('button', {name: 'はい', exact: true}).click();
   await expect(page.locator('#result-prob')).toHaveText('推定一致度 72%');
   await expectSkipLinkHidden(page);
-  await expect(page).toHaveScreenshot('result-desktop.png', {animations: 'disabled', fullPage: true});
+  await expectVisualSnapshot(page, 'result-desktop.png');
 });
 
 test('mobile result screen', async ({page}) => {
@@ -102,8 +110,8 @@ test('mobile result screen', async ({page}) => {
   await expect(page.locator('#result-prob')).toHaveText('推定一致度 72%');
   await expect(page.locator('.result-crystal')).toBeVisible();
   await expectSkipLinkHidden(page);
-  await expect(page).toHaveScreenshot('result-mobile.png', {animations: 'disabled', fullPage: true});
+  await expectVisualSnapshot(page, 'result-mobile.png');
   await page.getByRole('button', {name: '結果を詳しく見る'}).click();
   await expect(page.locator('#works-section')).toBeVisible();
-  await expect(page).toHaveScreenshot('result-mobile-details.png', {animations: 'disabled', fullPage: true});
+  await expectVisualSnapshot(page, 'result-mobile-details.png');
 });
