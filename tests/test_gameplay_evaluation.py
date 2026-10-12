@@ -45,6 +45,48 @@ def passing_report():
 
 
 class GameplayEvaluationTests(unittest.TestCase):
+    def test_persona_answer_distinguishes_scripted_defaults_and_unknown_answers(self):
+        persona = {'answers': {'4': 0}, 'default_answer': -0.5}
+
+        self.assertEqual(evaluate_gameplay.persona_answer(persona, 4), (0.0, 'scripted'))
+        self.assertEqual(evaluate_gameplay.persona_answer(persona, 9), (-0.5, 'default'))
+        self.assertEqual(
+            evaluate_gameplay.persona_answer({'answers': {}}, 9),
+            (0.0, 'unknown'),
+        )
+
+    def test_unannotated_sensitivity_withholds_defaults_on_the_same_question_path(self):
+        class FakeEngine:
+            fetishes = [{'id': 1}, {'id': 2}]
+
+            def __init__(self):
+                self.seen_answers = None
+
+            def posteriors(self, answers):
+                self.seen_answers = dict(answers)
+                return [0.8, 0.2] if answers.get('4') == 1 else [0.2, 0.8]
+
+        engine = FakeEngine()
+        personas = [{'id': 'rank', 'target_result_id': 1, 'answers': {'4': 1}}]
+        adaptive = {
+            'rows': [
+                {
+                    'persona_id': 'rank',
+                    'question_ids': [4, 8],
+                    'target_rank': 2,
+                    'top_result_id': 2,
+                }
+            ]
+        }
+
+        report = evaluate_gameplay.evaluate_unannotated_sensitivity(engine, personas, adaptive)
+
+        self.assertEqual(engine.seen_answers, {'4': 1.0})
+        self.assertEqual(report['rows'][0]['unannotated_answers_withheld'], 1)
+        self.assertEqual(report['rows'][0]['baseline_target_rank'], 2)
+        self.assertEqual(report['rows'][0]['target_rank'], 1)
+        self.assertEqual(report['top1_rate'], 1.0)
+
     def test_adaptive_report_keeps_per_question_explanations(self):
         class FakeEngine:
             fetishes = [{'id': 1}, {'id': 2}]
@@ -72,6 +114,8 @@ class GameplayEvaluationTests(unittest.TestCase):
         self.assertIn('information_gain', trace)
         self.assertIn('effective_candidate_reduction', trace)
         self.assertEqual(report['question_metrics'][0]['times_selected'], 1)
+        self.assertEqual(report['rows'][0]['scripted_answers'], 1)
+        self.assertEqual(report['scripted_answer_rate'], 1.0)
 
     def test_absolute_failure_includes_actual_and_expected_values(self):
         report = passing_report()
