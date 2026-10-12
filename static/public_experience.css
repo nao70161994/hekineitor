@@ -296,15 +296,15 @@
   padding-top: 0;
   border-top: 0;
 }
-.card.confidence-high {
+.card.score-high {
   border-color: rgba(255, 192, 92, 0.62);
   box-shadow: 0 0 26px rgba(255, 192, 92, 0.26), var(--shadow-card);
 }
-.card.confidence-medium {
+.card.score-medium {
   border-color: rgba(255, 84, 112, 0.42);
   box-shadow: 0 0 18px rgba(255, 84, 112, 0.18), var(--shadow-card);
 }
-.card.confidence-low { border-color: rgba(255,255,255,0.12); }
+.card.score-low { border-color: rgba(255,255,255,0.12); }
 .works-section {
   border-color: rgba(255, 192, 92, 0.32);
   background: linear-gradient(160deg, rgba(29, 40, 72, 0.96), rgba(20, 27, 49, 0.98));

@@ -35,6 +35,12 @@ describe('HekiHistory', () => {
     expect(window.trackGameplayEvent).toHaveBeenCalledWith('history_reopened', expect.any(Object));
   });
 
+  it('labels saved candidate scores as scores out of 100', () => {
+    window.HekiHistory.saveHistory('主結果', 70, 3);
+    window.HekiHistory.toggleHistory();
+    expect(document.querySelector('#history-panel .h-meta').textContent).toContain('スコア 70 / 100');
+  });
+
   it('stores and excludes result ID zero instead of treating it as missing', () => {
     window.HekiHistory.saveHistory('NTR', 80, 0);
     const saved = JSON.parse(storage.get('heki_history'));

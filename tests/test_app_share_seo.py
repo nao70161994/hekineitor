@@ -32,7 +32,7 @@ class TestShareAndSEO(APITestCase):
         self.assertIn('NTR', body)
         self.assertIn('82', body)
         self.assertIn('あなたの『癖』は……', body)
-        self.assertIn('一致の目安82%', body)
+        self.assertIn('候補スコア 82 / 100', body)
         self.assertIn('正解の確率ではありません', body)
         self.assertIn('次はあなたの番です……', body)
         self.assertNotIn('称号', body)
@@ -88,7 +88,7 @@ class TestShareAndSEO(APITestCase):
                 self.assertEqual(res.status_code, 200)
                 body = res.data.decode('utf-8')
                 self.assertIn(result_name, body)
-                self.assertIn(f'一致の目安{guess["probability"]:g}%', body)
+                self.assertIn(f'候補スコア {guess["probability"]:g} / 100', body)
                 self.assertNotIn('不正な差し替え文字列', body)
                 self.assertIn(f'/r/{data["share_id"]}', body)
                 self.assertIn('/ogp.png?f=', body)
@@ -113,7 +113,7 @@ class TestShareAndSEO(APITestCase):
         self.assertEqual(res.status_code, 200)
         body = res.data.decode('utf-8')
         self.assertIn('白衣', body)
-        self.assertIn('一致の目安71%', body)
+        self.assertIn('候補スコア 71 / 100', body)
 
     def test_result_share_by_id_rate_limit_can_be_enforced(self):
         import app as app_module
@@ -174,7 +174,7 @@ class TestShareAndSEO(APITestCase):
         texts = ogp_service._ogp_texts('眼鏡', '88', cjk_supported=False)
         self.assertEqual(texts['label'], 'Your observed pattern is...')
         self.assertEqual(texts['name'], 'Megane')
-        self.assertEqual(texts['prob'], 'Match guide 88%')
+        self.assertEqual(texts['prob'], 'Candidate score 88/100')
         self.assertEqual(texts['side'], 'Next observation: you.')
         self.assertEqual(texts['mark_sub'], 'LOG')
 
@@ -182,14 +182,16 @@ class TestShareAndSEO(APITestCase):
         texts = ogp_service._ogp_texts('眼鏡', '88', cjk_supported=True)
         self.assertEqual(texts['label'], 'あなたの『癖』は……')
         self.assertEqual(texts['name'], '眼鏡')
-        self.assertEqual(texts['prob'], '一致の目安 88%')
+        self.assertEqual(texts['prob'], '候補スコア 88/100')
         self.assertEqual(texts['mark'], 'AI')
         self.assertEqual(texts['mark_sub'], '観測ログ')
 
     def test_legacy_svg_ogp_uses_ai_badge_instead_of_question_mark(self):
         svg = ogp_service.render_svg('眼鏡', '88')
         self.assertIn('>あなたの『癖』は……</text>', svg)
-        self.assertIn('>一致の目安 88%</text>', svg)
+        self.assertIn('>候補スコア 88/100</text>', svg)
+        self.assertIn('<rect x="412" y="', svg)
+        self.assertIn('width="376" height="56"', svg)
         self.assertNotIn('>?</text>', svg)
 
     def test_result_share_clamps_probability(self):
@@ -198,7 +200,7 @@ class TestShareAndSEO(APITestCase):
             with patch.dict(os.environ, {'SHARE_LINKS_PATH': path}):
                 res = self.client.get('/r', query_string={'f': 'NTR（寝取られ）', 'p': '999', 'd': 'テスト'})
         body = res.data.decode('utf-8')
-        self.assertIn('一致の目安100%', body)
+        self.assertIn('候補スコア 100 / 100', body)
         self.assertIn(f'/ogp.png?f={ENCODED_NTR_RESULT}&amp;p=100', body)
         self.assertIn(f'/r?f={ENCODED_NTR_RESULT}&amp;p=100&amp;d=', body)
 

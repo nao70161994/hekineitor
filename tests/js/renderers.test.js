@@ -32,6 +32,13 @@ describe('HekiRenderers screen transitions', () => {
     expect(document.getElementById('result-rival').classList.contains('hidden')).toBe(false);
   });
 
+  it('labels the adjusted result value as a candidate score, not a probability', () => {
+    document.body.innerHTML += '<div id="result-kicker"></div><div id="result-badges"></div><div id="result-score-note">確率ではありません</div>';
+    window.HekiRenderers.renderResultDrama({probability: 3.9}, '結果', String);
+    expect(document.getElementById('result-prob').textContent).toBe('候補スコア 3.9 / 100');
+    expect(document.getElementById('result-prob').getAttribute('aria-describedby')).toBe('result-score-note');
+  });
+
   it('separates contrastive evidence from ordinary reasons with an accessible label', () => {
     document.body.innerHTML += `
       <section id="reasons-section" class="hidden">
@@ -56,6 +63,7 @@ describe('HekiRenderers screen transitions', () => {
     document.body.innerHTML += `
       <div id="result-kicker"></div><div id="result-badges"></div>
       <div id="result-rival" class="hidden"></div><div id="result-desc"></div><div id="result-detail-desc"></div><div id="fetish-detail-link-slot"></div>
+      <div id="confirm-items"></div><section id="profile-section" class="hidden"><div id="profile-list"></div></section>
       <div id="top-chart"></div>
       <section id="reasons-section" class="hidden">
         <div class="reasons-label">決め手になった回答</div>
@@ -71,8 +79,8 @@ describe('HekiRenderers screen transitions', () => {
         contrastive_reasons: [{text: '対抗候補との差になった回答', ans: 1}],
         reasons: [{text: '本命そのものの決め手', ans: 0.5}],
         compound_explanation: '本命と要素Aの傾向が同時に表れました。',
-        compound: [{fetish_id: 2, fetish_name: '要素A', fetish_desc: '要素Aの説明'}],
-        profile: [], related: [], works: [], cross_works: [], top_chart: [
+        compound: [{fetish_id: 2, fetish_name: '要素A', fetish_desc: '要素Aの説明', probability: 50}],
+        profile: [{fetish_name: '近い傾向', probability: 42}], related: [], works: [], cross_works: [], top_chart: [
           {fetish_name: '本命', probability: 72},
           {fetish_name: '対抗候補', probability: 63},
         ],
@@ -90,6 +98,10 @@ describe('HekiRenderers screen transitions', () => {
     expect(chart.querySelectorAll('progress')).toHaveLength(2);
     expect(chart.querySelector('progress').value).toBe(100);
     expect(chart.querySelector('progress').getAttribute('aria-label')).toContain('本命');
+    expect(chart.querySelector('.chart-value').textContent).toBe('72 / 100');
+    expect(document.querySelectorAll('.confirm-item-prob')[0].textContent).toBe('72 / 100');
+    expect(document.querySelectorAll('.confirm-item-prob')[1].textContent).toBe('50 / 100');
+    expect(document.querySelector('#profile-list .profile-item span').textContent).toBe('42 / 100');
   });
 
   it('renders stable work identity attributes', () => {

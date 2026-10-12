@@ -239,7 +239,7 @@ test('restart dialog traps keyboard focus, hides the background, and restores th
   await expect(page.locator('#app-main')).not.toHaveAttribute('aria-hidden');
 });
 
-test('result hierarchy explains confidence before offering share actions', async ({page}) => {
+test('result hierarchy explains the candidate score before offering share actions', async ({page}) => {
   await page.route('**/api/start', route => route.fulfill({json: {
     action: 'question', question_id: 0, question: '静かな余韻が長く残る方が好き？', count: 0, total: 30,
   }}));
@@ -263,7 +263,7 @@ test('result hierarchy explains confidence before offering share actions', async
   await expect(page.locator("#result-details")).toBeHidden();
   await expect(page.locator('#result-score-note')).toBeVisible();
   await expect(page.locator('#result-prob')).toHaveAttribute('aria-describedby', 'result-score-note');
-  await expect(page.getByText('回答傾向との近さの目安です（正解の確率ではありません）。')).toBeVisible();
+  await expect(page.getByText('回答傾向から算出した候補スコアです（正解の確率ではありません）。')).toBeVisible();
   const descriptionBox = await page.locator('#result-desc').boundingBox();
   const shareBox = await page.getByRole('button', {name: '共有する', exact: true}).boundingBox();
   const shareStyle = await page.getByRole('button', {name: '共有する', exact: true}).evaluate(button => ({
@@ -274,6 +274,8 @@ test('result hierarchy explains confidence before offering share actions', async
   expect(shareStyle.backgroundImage).toBe('none');
   expect(shareStyle.boxShadow).toBe('none');
   await page.getByRole("button", {name: "結果を詳しく見る"}).click();
-  await expect(page.getByText('表示候補の順位調整には、候補が最近表示された回数も反映しています。')).toBeVisible();
+  await expect(page.getByText('候補スコアは回答傾向と最近の表示回数を順位づけに反映した値（100点満点）です。正解率や正解の確率ではありません。棒グラフは本命を100とした相対比較です。')).toBeVisible();
+  await expect(page.locator('#top-chart .chart-value')).toHaveText(['72 / 100', '63 / 100']);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectNoSeriousAccessibilityViolations(page);
 });

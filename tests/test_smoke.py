@@ -180,7 +180,7 @@ class TestSmoke(unittest.TestCase):
         self.assertIn('property="og:image"', body)
         self.assertIn('name="twitter:card" content="summary_large_image"', body)
         self.assertIn('白衣', body)
-        self.assertIn('一致の目安91%', body)
+        self.assertIn('候補スコア 91 / 100', body)
 
     def test_service_worker_keeps_static_and_offline_cache_paths(self):
         res = self.client.get('/sw.js')
