@@ -43,12 +43,12 @@ summaryは`summary_status`、`retry_kind`、`answered_count`、`result_reached`�
 
 ## 保存先・保持・プライバシー
 
-- PostgreSQL: 汎用`analytics_events`に同じJSON payloadを保存する。`(event_type, timestamp)` indexを作り、gameplay書き込み時に1プロセス1日1回、90日より古いgameplay行を削除する。
+- PostgreSQL: 汎用`analytics_events`に同じJSON payloadを保存する。`(event_type, timestamp)` indexを使い、イベント書き込み時に1プロセス1日1回、90日より古い全イベント行を削除する。質問、共有、結果表示も同じ90日保持。
 - ローカル/DB障害fallback: `data/gameplay_events.jsonl`。5 MiBを超えると`.1`へローテーションし、最大2世代（約10 MiB）に制限する。
 - test-playでは記録しない。計測失敗はゲーム進行を止めない。
 - CSVを外部共有する場合も、必要期間のsummaryだけを扱い、自由記述や他ログと個人単位で結合しない。
 
-`GET /api/admin/gameplay_events`のstorage statusに実際の保持方式を返します。PostgreSQLとJSONLはpayload契約が同一で、保存先を切り替えてもschema versionとreleaseの意味は変わりません。
+各イベントのstorage statusに実際の保持方式を返します。PostgreSQLはage-based 90日保持、JSONLは5 MiB×2世代のサイズ保持です。JSONLでの実日数は記録量により変わります。PostgreSQLとJSONLはpayload契約が同一で、保存先を切り替えてもschema versionとreleaseの意味は変わりません。
 
 ## 移行・rollback・運用
 

@@ -5,6 +5,7 @@ from flask import Blueprint
 from services import share, share_links
 
 MAX_NEW_FETISHES_PER_DIAGNOSIS = 3
+MAX_EXCLUDE_IDS = 256
 _SHOWN_QUESTIONS_KEY = 'shown_question_payloads'
 
 
@@ -71,13 +72,31 @@ def _question_response(ctx, payload):
     return ctx.jsonify(_remember_question_payload(ctx, payload))
 
 
-def _parse_exclude_ids(raw_ids):
-    ids = []
-    for value in raw_ids or []:
+def _parse_exclude_ids(raw_ids, engine):
+    if raw_ids is None:
+        return []
+    if not isinstance(raw_ids, list):
+        raise ValueError('exclude_ids はリストで指定してください')
+    if len(raw_ids) > MAX_EXCLUDE_IDS:
+        raise ValueError('除外する候補が多すぎます')
+    valid_ids = set()
+    for fetish in getattr(engine, 'fetishes', []):
         try:
-            ids.append(int(value))
-        except (ValueError, TypeError):
-            pass
+            valid_ids.add(int(fetish['id']))
+        except (KeyError, TypeError, ValueError):
+            continue
+    ids = []
+    seen = set()
+    for value in raw_ids:
+        if isinstance(value, bool) or (isinstance(value, float) and not value.is_integer()):
+            continue
+        try:
+            fetish_id = int(value)
+        except (ValueError, TypeError, OverflowError):
+            continue
+        if fetish_id in valid_ids and fetish_id not in seen:
+            ids.append(fetish_id)
+            seen.add(fetish_id)
     return ids
 
 
@@ -282,6 +301,10 @@ def start(ctx):
     if limited:
         return limited
     data = ctx.request.get_json(silent=True) or {}
+    try:
+        exclude_ids = _parse_exclude_ids(data.get('exclude_ids', []), ctx.engine)
+    except ValueError as exc:
+        return ctx.jsonify({'status': 'error', 'message': str(exc)}), 400
     previously_completed = bool(ctx.session.get('completed'))
     if not ctx.learning_disabled():
         ctx.finalize_gameplay_summary('completed' if previously_completed else 'restarted')
@@ -298,7 +321,7 @@ def start(ctx):
     ctx.session['confidence_history'] = []
     ctx.session['dropoff_recorded'] = False
     ctx.session['completion_recorded'] = False
-    ctx.session['exclude_ids'] = _parse_exclude_ids(data.get('exclude_ids', []))
+    ctx.session['exclude_ids'] = exclude_ids
     if not ctx.learning_disabled():
         if ctx.session['exclude_ids']:
             event_name = 'exclude_retry_started'
@@ -335,6 +358,32 @@ def resume(ctx):
     if len(pairs) > ctx.hard_max_questions:
         return ctx.jsonify({'status': 'error', 'message': '復元する回答数が多すぎます'}), 400
 
+    try:
+        exclude_ids = _parse_exclude_ids(data.get('exclude_ids', []), ctx.engine)
+    except ValueError as exc:
+        return ctx.jsonify({'status': 'error', 'message': str(exc)}), 400
+    validated_pairs = []
+    seen_question_ids = set()
+    for item in pairs:
+        try:
+            if not isinstance(item, dict) or isinstance(item.get('q_id'), bool) or isinstance(item.get('answer'), bool):
+                raise ValueError
+            raw_question_id = item['q_id']
+            if isinstance(raw_question_id, float) and not raw_question_id.is_integer():
+                raise ValueError
+            question_id = int(raw_question_id)
+            answer = float(item['answer'])
+        except (KeyError, ValueError, TypeError, OverflowError):
+            return ctx.jsonify({'status': 'error', 'message': '不正な復元データです'}), 400
+        if answer not in (1, 0.5, 0, -0.5, -1):
+            return ctx.jsonify({'status': 'error', 'message': '不正な回答値です'}), 400
+        if question_id < 0 or question_id >= len(ctx.engine.questions):
+            return ctx.jsonify({'status': 'error', 'message': '不正な質問IDです'}), 400
+        if question_id in seen_question_ids:
+            return ctx.jsonify({'status': 'error', 'message': '重複した質問IDです'}), 400
+        validated_pairs.append((question_id, answer))
+        seen_question_ids.add(question_id)
+
     if not ctx.learning_disabled():
         ctx.finalize_gameplay_summary('completed' if ctx.session.get('completed') else 'restarted')
     test_play_enabled = ctx.preserve_test_play_flag()
@@ -349,25 +398,14 @@ def resume(ctx):
     ctx.session['idk_streak'] = 0
     ctx.session['idk_recovery_count'] = 0
     ctx.session['confidence_history'] = []
-    ctx.session['exclude_ids'] = _parse_exclude_ids(data.get('exclude_ids', []))
+    ctx.session['exclude_ids'] = exclude_ids
     if not ctx.learning_disabled():
         ctx.record_gameplay_event('resume_started', source='resume', outcome='success', answered_count=len(pairs))
     ctx.session['client_resumed'] = bool(pairs)
     ctx.session['resume_learning_verified'] = not bool(pairs)
     if pairs and not ctx.learning_disabled():
         ctx.engine.increment_start_count()
-    for item in pairs:
-        try:
-            question_id = int(item['q_id'])
-            answer = float(item['answer'])
-        except (KeyError, ValueError, TypeError):
-            return ctx.jsonify({'status': 'error', 'message': '不正な復元データです'}), 400
-        if answer not in (1, 0.5, 0, -0.5, -1):
-            return ctx.jsonify({'status': 'error', 'message': '不正な回答値です'}), 400
-        if question_id < 0 or question_id >= len(ctx.engine.questions):
-            return ctx.jsonify({'status': 'error', 'message': '不正な質問IDです'}), 400
-        if str(question_id) in ctx.session['answers']:
-            return ctx.jsonify({'status': 'error', 'message': '重複した質問IDです'}), 400
+    for question_id, answer in validated_pairs:
         ctx.session['answers'][str(question_id)] = answer
         ctx.session['asked'].append(question_id)
         ctx.session['idk_streak'] = ctx.session['idk_streak'] + 1 if answer == 0 else 0

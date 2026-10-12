@@ -62,6 +62,9 @@ jobs:
       - name: Import matrix to Render
         env:
           ALLOW_IGNORED_SOURCE_ROWS: ${{ inputs.allow_ignored_source_rows }}
+          ADMIN_USER: ${{ secrets.ADMIN_USER }}
+          ADMIN_PASS: ${{ secrets.ADMIN_PASS }}
+          APP_URL: ${{ secrets.APP_URL }}
         run: |
           python - <<'PY'
           import json
@@ -78,8 +81,8 @@ jobs:
               json.dump(payload, f, ensure_ascii=False)
           PY
           curl -s -c /tmp/admin_cookies.txt \
-            -u "${{ secrets.ADMIN_USER }}:${{ secrets.ADMIN_PASS }}" \
-            "${{ secrets.APP_URL }}/admin" \
+            -u "$ADMIN_USER:$ADMIN_PASS" \
+            "$APP_URL/admin" \
             -o /tmp/admin.html
           CSRF=$(python - <<'PY'
           import re
@@ -93,11 +96,11 @@ jobs:
           HTTP=$(curl -s -w "%{http_code}" -o /tmp/restore_result.json \
             -X POST \
             -b /tmp/admin_cookies.txt \
-            -u "${{ secrets.ADMIN_USER }}:${{ secrets.ADMIN_PASS }}" \
+            -u "$ADMIN_USER:$ADMIN_PASS" \
             -H "Content-Type: application/json" \
             -H "X-CSRF-Token: $CSRF" \
             -d @/tmp/restore_payload.json \
-            "${{ secrets.APP_URL }}/api/admin/import_matrix")
+            "$APP_URL/api/admin/import_matrix")
           echo "HTTP status: $HTTP"
           cat /tmp/restore_result.json
           if [ "$HTTP" != "200" ]; then

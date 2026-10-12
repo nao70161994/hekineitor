@@ -48,13 +48,16 @@ class TestServiceEvents(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             share_path = os.path.join(tmp, 'share_events.jsonl')
             question_path = os.path.join(tmp, 'question_events.jsonl')
+            exposure_path = os.path.join(tmp, 'result_exposures.jsonl')
             share_events.record_event(
                 'result_page_view', result_name='NTR', channel='result_page', success=True, path=share_path
             )
             question_events.record_event('question_shown', question_id=1, path=question_path)
+            result_exposure.record_result(1, '眼鏡', path=exposure_path)
 
             share_status = share_events.storage_status(path=share_path)
             question_status = question_events.storage_status(path=question_path)
+            exposure_status = result_exposure.storage_status(path=exposure_path)
 
         self.assertEqual(share_status['path'], share_path)
         self.assertEqual(question_status['path'], question_path)
@@ -62,6 +65,10 @@ class TestServiceEvents(unittest.TestCase):
         self.assertTrue(question_status['file_writable'])
         self.assertEqual(share_status['count'], 1)
         self.assertEqual(question_status['count'], 1)
+        for status in (share_status, question_status, exposure_status):
+            self.assertEqual(status['retention']['mode'], 'size_rotation')
+            self.assertEqual(status['retention']['max_bytes_per_generation'], 5 * 1024 * 1024)
+            self.assertEqual(status['retention']['generations'], 2)
 
     def test_question_events_report_counts_rates_categories_and_warnings(self):
         class Engine:

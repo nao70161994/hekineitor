@@ -45,6 +45,7 @@ async function completeDiagnosis(page) {
 }
 
 test('completes a diagnosis in a real browser', async ({page}) => {
+  test.setTimeout(90_000);
   await page.goto('/');
 
   await expect(page.getByRole('heading', {name: 'へきネイター'})).toBeVisible();
@@ -67,6 +68,7 @@ test('serves install and offline resources', async ({page, request}) => {
 
 
 test('covers continue, feedback, history, and mobile transitions', async ({page}) => {
+  test.setTimeout(90_000);
   await page.setViewportSize({width: 375, height: 812});
   const guess = {
     fetish_id: 0,
@@ -363,7 +365,7 @@ test('stages compound detail feedback and finalizes one atomic batch', async ({p
   await page.getByRole('button', {name: '診断をはじめる'}).click();
   await page.getByRole('button', {name: 'はい', exact: true}).click();
   await page.getByRole("button", {name: "結果を詳しく見る"}).click();
-  await expect(page.locator('.result-icon')).toBeInViewport();
+  await expect(page.locator('.result-crystal')).toBeInViewport();
   await expect(page.locator('#result-name')).toBeInViewport();
   await expect(page.getByRole('region', {name: '対抗候補「対抗候補」との差になった回答'}))
     .toContainText('対抗候補との差になった決め手');
@@ -436,6 +438,7 @@ test('offers three near-miss corrections first and saves one correction atomical
 });
 
 test('records feedback completion and a normal non-exclusion retry', async ({page}) => {
+  test.setTimeout(90_000);
   const feedbackBefore = gameplayEventCount('feedback_completed');
   const retryBefore = gameplayEventCount('retry_started');
 

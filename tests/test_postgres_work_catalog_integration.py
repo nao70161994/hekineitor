@@ -273,13 +273,19 @@ class PostgresWorkCatalogIntegrationTests(unittest.TestCase):
                 correction_count=1,
             )
         old_event = {**json_event, 'timestamp': (now - timedelta(days=91)).isoformat(timespec='seconds')}
-        event_store.record_event(
-            event_type,
-            old_event,
-            get_conn_fn=self.get_conn,
-            put_conn_fn=self.put_conn,
-        )
-        event_store._LAST_RETENTION_PRUNE.pop(event_type, None)
+        old_event_types = [
+            f'question_integration_{uuid.uuid4().hex}',
+            f'share_integration_{uuid.uuid4().hex}',
+            f'result_exposure_integration_{uuid.uuid4().hex}',
+        ]
+        for old_event_type in [event_type, *old_event_types]:
+            event_store.record_event(
+                old_event_type,
+                old_event,
+                get_conn_fn=self.get_conn,
+                put_conn_fn=self.put_conn,
+            )
+        event_store._LAST_RETENTION_PRUNE.pop(f'analytics_events:{event_store.POSTGRES_RETENTION_DAYS}', None)
         event_store.record_event(
             event_type,
             json_event,
@@ -298,6 +304,15 @@ class PostgresWorkCatalogIntegrationTests(unittest.TestCase):
         self.assertEqual(stored, [json_event])
         self.assertEqual(stored[0]['schema_version'], gameplay_events.SCHEMA_VERSION)
         self.assertEqual(stored[0]['release'], '2026.08.09')
+        for old_event_type in old_event_types:
+            self.assertEqual(
+                event_store.read_events(
+                    old_event_type,
+                    get_conn_fn=self.get_conn,
+                    put_conn_fn=self.put_conn,
+                ),
+                [],
+            )
 
 
 if __name__ == '__main__':

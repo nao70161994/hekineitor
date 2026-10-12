@@ -296,6 +296,6 @@ GitHub Actions checks retry read-only admin API calls with `NTFY_ADMIN_RETRIES` 
 2. `invariants.valid=true`である。
 3. `feedback_completion_rate`が100%を超えない。
 4. `/api/admin/gameplay_events/summaries.csv`の列に永続識別子や回答値がない。
-5. storage statusがPostgreSQLなら90日、JSONLなら5 MiB×2世代の保持方式を返す。
+5. gameplay、question、share、result exposureのstorage statusが、PostgreSQLなら全イベント共通の90日保持、JSONLなら各ログ5 MiB×2世代の保持方式を返す。
 
 不変条件違反時は率を意思決定に使わず、該当releaseのclient/server event順序を調査します。旧releaseへのrollbackでversionなしイベントが再発してもlegacyへ隔離されます。詳細は [GAMEPLAY_METRICS.md](GAMEPLAY_METRICS.md) を参照してください。

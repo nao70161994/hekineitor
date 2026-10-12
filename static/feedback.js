@@ -46,6 +46,7 @@ window.HekiFeedback = (() => {
     const ids = resultFeedbackIds();
     if (!ids.length) return;
     setFetching(true);
+    window.setGenieState?.(kind === 'yes' ? 'celebrate' : kind === 'no' ? 'miss' : 'thinking');
     try {
       if (kind === 'yes') {
         setAllItemStates('yes');

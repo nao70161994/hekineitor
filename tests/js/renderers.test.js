@@ -15,6 +15,7 @@ describe('HekiRenderers screen transitions', () => {
       <div id="done-screen"><h2 id="done-msg" tabindex="-1">D</h2></div>`;
     vi.stubGlobal('requestAnimationFrame', callback => callback());
     Element.prototype.scrollIntoView = vi.fn();
+    window.scrollTo = vi.fn();
     window.trackGameplayEvent = vi.fn();
     delete window.IntersectionObserver;
     window.eval(source);
@@ -102,34 +103,30 @@ describe('HekiRenderers screen transitions', () => {
   });
 
   it.each([
-    ['start-screen', 'start-title', 'start-title'],
-    ['question-screen', 'question-text', 'question-text'],
-    ['result-screen', 'result-name', 'result-screen'],
-    ['teach-screen', 'teach-label', 'teach-label'],
-    ['done-screen', 'done-msg', 'done-msg'],
-  ])('scrolls to the intended content and focuses the main heading for %s', (screenId, headingId, scrollTargetId) => {
+    ['start-screen', 'start-title', true],
+    ['question-screen', 'question-text', false],
+    ['result-screen', 'result-name', false],
+    ['teach-screen', 'teach-label', true],
+    ['done-screen', 'done-msg', true],
+  ])('focuses the main heading for %s and preserves the host when needed', (screenId, headingId, shouldScrollToHeading) => {
     window.HekiRenderers.showScreen(screenId);
     const heading = document.getElementById(headingId);
-    const scrollTarget = document.getElementById(scrollTargetId);
-    expect(scrollTarget.scrollIntoView).toHaveBeenCalledWith({block: 'start', behavior: 'auto'});
+    if (shouldScrollToHeading) {
+      expect(heading.scrollIntoView).toHaveBeenCalledWith({block: 'start', behavior: 'auto'});
+    } else {
+      expect(heading.scrollIntoView).not.toHaveBeenCalled();
+    }
 
     expect(document.body.dataset.screen).toBe(screenId);
     expect(document.body.dataset.screen).toBe(screenId);
     expect(document.activeElement).toBe(heading);
 
   });
-  it('keeps the result card padding in view when the screen is inside a card', () => {
-    document.getElementById('result-screen').remove();
-    document.body.insertAdjacentHTML(
-      'beforeend',
-      '<main class="card"><section id="result-screen"><h2 id="result-name" tabindex="-1">結果</h2></section></main>',
-    );
-    const card = document.querySelector('.card');
-    card.scrollIntoView = vi.fn();
-
+  it('scrolls a result transition back to the genie when the player has scrolled down', () => {
+    Object.defineProperty(window, 'scrollY', {configurable: true, value: 120});
     window.HekiRenderers.showScreen('result-screen');
 
-    expect(card.scrollIntoView).toHaveBeenCalledWith({block: 'start', behavior: 'auto'});
+    expect(window.scrollTo).toHaveBeenCalledWith(0, 0);
     expect(document.activeElement).toBe(document.getElementById('result-name'));
   });
   it('renders the deciding answers for every compound component', () => {

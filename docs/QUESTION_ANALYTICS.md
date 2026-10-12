@@ -12,7 +12,7 @@
 - `question_result_contribution`: 結果表示時に理由として採用された
 - `question_feedback_learned`: 正解・不正解・惜しい等のfeedbackを受け、回答済み質問が学習処理に使われた
 
-`question_feedback_learned` は、回答値が0（不明）の質問とテストプレイを除外します。`feedback_kind` と学習対象結果数 `target_count` は記録しますが、IP、User-Agent、ユーザーID、session IDは保存しません。
+`question_feedback_learned` は、回答値が0（不明）の質問とテストプレイを除外します。`feedback_kind` と学習対象結果数 `target_count` は記録しますが、IP、User-Agent、ユーザーID、session IDは保存しません。 質問イベントには質問ID、実際に表示した質問文（最大120文字）、5段階の回答値と集計用の回答bucket、カテゴリ・軸、必要な場合の結果名を記録します。質問文はイベント発生時の表現を確認するために保持し、PostgreSQLでは90日、JSONLでは5 MiB×最大2世代で保持します。
 
 本番で `DATABASE_URL` が有効な場合は `analytics_events` テーブルへ保存します。`QUESTION_EVENT_LOG_PATH` が指定された場合、またはDB未使用のローカル環境ではJSONLへ保存します。
 

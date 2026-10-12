@@ -1,4 +1,5 @@
 import {expect, test} from '@playwright/test';
+import process from 'node:process';
 
 const question = {
   action: 'question',
@@ -22,7 +23,7 @@ const result = {
   profile: [{fetish_name: '日常の余韻', probability: 41}],
   related: [{fetish_id: 4, fetish_name: '日常の余韻'}],
   reasons: [{text: '静かな場所では、細かな変化に気づきやすい？', ans: 1}],
-  works: [],
+  works: [{title: '星灯りの約束', work_id: 'visual-work-1'}],
   cross_works: [],
 };
 
@@ -39,10 +40,17 @@ async function expectSkipLinkHidden(page) {
   expect(box.y + box.height).toBeLessThanOrEqual(0);
 }
 
+async function expectVisualSnapshot(page, name, {fullPage = true} = {}) {
+  const options = {animations: 'disabled', fullPage};
+  // CI runs Linux Chromium while local snapshots may come from Android Chromium.
+  if (process.env.CI) options.maxDiffPixelRatio = 0.07;
+  await expect(page).toHaveScreenshot(name, options);
+}
+
 test('mobile start screen', async ({page}) => {
   await page.setViewportSize({width: 375, height: 812});
   await page.goto('/');
-  await expect(page).toHaveScreenshot('start-mobile.png', {animations: 'disabled', fullPage: true});
+  await expectVisualSnapshot(page, 'start-mobile.png');
 });
 
 test('mobile question screen', async ({page}) => {
@@ -51,7 +59,33 @@ test('mobile question screen', async ({page}) => {
   await page.goto('/');
   await page.getByRole('button', {name: '診断をはじめる'}).click();
   await expectSkipLinkHidden(page);
-  await expect(page).toHaveScreenshot('question-mobile.png', {animations: 'disabled', fullPage: true});
+  await expectVisualSnapshot(page, 'question-mobile.png');
+});
+
+test('desktop question composition', async ({page}) => {
+  await page.setViewportSize({width: 1280, height: 900});
+  await page.route('**/api/start', route => route.fulfill({json: question}));
+  await page.goto('/');
+  await page.getByRole('button', {name: '診断をはじめる'}).click();
+  await expect(page.locator('#question-text')).toBeVisible();
+  await expectVisualSnapshot(page, 'question-desktop.png');
+});
+
+test('landscape question keeps the genie and all five answers in view', async ({page}) => {
+  await page.setViewportSize({width: 812, height: 375});
+  await page.route('**/api/start', route => route.fulfill({json: {
+    action: 'question',
+    question_id: 7,
+    question: '物語のなかで、立場や価値観の違う人物たちが時間をかけて理解し合い、少しずつ信頼を深めていく展開に惹かれる？',
+    axis: 'abstract',
+    count: 0,
+    total: 20,
+    answer_frame: '作品・設定の好みとして',
+    progress_message: '最初の手がかりを見つけたよ',
+  }}));
+  await page.goto('/');
+  await page.getByRole('button', {name: '診断をはじめる'}).click();
+  await expectVisualSnapshot(page, 'question-landscape.png');
 });
 
 test('desktop result screen', async ({page}) => {
@@ -63,5 +97,21 @@ test('desktop result screen', async ({page}) => {
   await page.getByRole('button', {name: 'はい', exact: true}).click();
   await expect(page.locator('#result-prob')).toHaveText('推定一致度 72%');
   await expectSkipLinkHidden(page);
-  await expect(page).toHaveScreenshot('result-desktop.png', {animations: 'disabled', fullPage: true});
+  await expectVisualSnapshot(page, 'result-desktop.png');
+});
+
+test('mobile result screen', async ({page}) => {
+  await page.setViewportSize({width: 375, height: 812});
+  await page.route('**/api/start', route => route.fulfill({json: question}));
+  await page.route('**/api/answer', route => route.fulfill({json: result}));
+  await page.goto('/');
+  await page.getByRole('button', {name: '診断をはじめる'}).click();
+  await page.getByRole('button', {name: 'はい', exact: true}).click();
+  await expect(page.locator('#result-prob')).toHaveText('推定一致度 72%');
+  await expect(page.locator('.result-crystal')).toBeVisible();
+  await expectSkipLinkHidden(page);
+  await expectVisualSnapshot(page, 'result-mobile.png', {fullPage: false});
+  await page.getByRole('button', {name: '結果を詳しく見る'}).click();
+  await expect(page.locator('#works-section')).toBeVisible();
+  await expectVisualSnapshot(page, 'result-mobile-details.png', {fullPage: false});
 });

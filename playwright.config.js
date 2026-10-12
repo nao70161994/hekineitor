@@ -14,6 +14,20 @@ export default defineConfig({
       name: 'chromium',
       use: {...devices['Desktop Chrome']},
     },
+    {
+      name: 'firefox',
+      testMatch: '**/ux.spec.js',
+      use: {...devices['Desktop Firefox']},
+    },
+    {
+      name: 'webkit',
+      testMatch: '**/ux.spec.js',
+      use: {...devices['Desktop Safari']},
+    },
+    {
+      name: 'mobile-chromium',
+      use: {...devices['Pixel 7']},
+    },
   ],
   webServer: {
     command: 'SECRET_KEY=playwright_test_secret APP_ENV=testing SESSION_STORAGE=memory FLASK_PORT=5010 python app.py',

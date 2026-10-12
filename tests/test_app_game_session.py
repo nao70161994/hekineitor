@@ -399,6 +399,37 @@ class TestGameSessionFlow(APITestCase):
         data = res.get_json()
         self.assertIn('question_id', data)
 
+    def test_start_bounds_and_normalizes_exclude_ids_before_replacing_session(self):
+        with self.client.session_transaction() as session:
+            session['started'] = True
+            session['answers'] = {'3': 0.5}
+            session['sentinel'] = 'keep'
+
+        response = self.client.post('/api/start', json={'exclude_ids': [0] * 257})
+
+        self.assertEqual(response.status_code, 400)
+        with self.client.session_transaction() as session:
+            self.assertTrue(session['started'])
+            self.assertEqual(session['answers'], {'3': 0.5})
+            self.assertEqual(session['sentinel'], 'keep')
+
+        response = self.client.post('/api/start', json={'exclude_ids': [0, 0, -1, 'invalid', 999999]})
+        self.assertEqual(response.status_code, 200)
+        with self.client.session_transaction() as session:
+            self.assertEqual(session['exclude_ids'], [0])
+
+    def test_start_rejects_non_list_exclude_ids_without_clearing_session(self):
+        with self.client.session_transaction() as session:
+            session['started'] = True
+            session['answers'] = {'2': -1.0}
+
+        response = self.client.post('/api/start', json={'exclude_ids': {'id': 1}})
+
+        self.assertEqual(response.status_code, 400)
+        with self.client.session_transaction() as session:
+            self.assertTrue(session['started'])
+            self.assertEqual(session['answers'], {'2': -1.0})
+
     def test_guess_excludes_ids(self):
         """exclude_ids に指定された性癖が1位になっていないことを診断で確認。"""
         from app import engine as app_engine
@@ -693,6 +724,38 @@ class TestGameSessionFlow(APITestCase):
         self.assertIn(data.get('action'), ('question', 'guess'))
         with self.client.session_transaction() as session:
             self.assertEqual(session['exclude_ids'], [0, 1])
+
+    def test_invalid_resume_is_rejected_without_changing_current_session(self):
+        with self.client.session_transaction() as session:
+            session['started'] = True
+            session['completed'] = False
+            session['answers'] = {'2': -0.5}
+            session['asked'] = [2, 4]
+            session['exclude_ids'] = [7]
+            session['sentinel'] = 'keep'
+            original = dict(session)
+
+        response = self.client.post(
+            '/api/resume',
+            json={'pairs': [{'q_id': 0, 'answer': 1}, {'q_id': 999999, 'answer': -1}]},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        with self.client.session_transaction() as session:
+            self.assertEqual(dict(session), original)
+
+    def test_invalid_resume_exclusions_are_rejected_before_session_changes(self):
+        with self.client.session_transaction() as session:
+            session['started'] = True
+            session['answers'] = {'1': 1}
+            session['sentinel'] = 'keep'
+            original = dict(session)
+
+        response = self.client.post('/api/resume', json={'pairs': [], 'exclude_ids': [0] * 257})
+
+        self.assertEqual(response.status_code, 400)
+        with self.client.session_transaction() as session:
+            self.assertEqual(dict(session), original)
 
     def test_resume_empty_pairs_returns_first_question(self):
         from app import engine as app_engine

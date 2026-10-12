@@ -57,8 +57,12 @@ window.HekiRenderers = (() => {
     if (focusTarget) {
       // Move focus before the browser repairs focus for the now-hidden control.
       // Deferring this by one frame can briefly focus and expose the skip link.
-      const scrollTarget = id === 'result-screen' ? (target.closest('.card') || target) : focusTarget;
-      scrollTarget.scrollIntoView({block: 'start', behavior: 'auto'});
+      // Keep the genie visible when a question or result screen replaces the old one.
+      if (id === 'question-screen' || id === 'result-screen') {
+        if (window.scrollY > 0) window.scrollTo(0, 0);
+      } else {
+        focusTarget.scrollIntoView({block: 'start', behavior: 'auto'});
+      }
       focusTarget.focus({preventScroll: true});
     }
   }
@@ -156,6 +160,10 @@ window.HekiRenderers = (() => {
   function animateProbability(target) {
     const probEl = document.getElementById('result-prob');
     if (!probEl) return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      probEl.textContent = `推定一致度 ${target}%`;
+      return;
+    }
     let current = 0;
     const step = Math.max(1, Math.round(target / 30));
     const timer = setInterval(() => {

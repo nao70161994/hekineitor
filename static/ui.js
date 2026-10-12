@@ -33,11 +33,12 @@ function show(id) {
 
 function setGenieState(state) {
   const g = document.getElementById('genie');
-  g.classList.remove('thinking', 'reveal');
+  g.classList.remove('thinking', 'reveal', 'acknowledge', 'celebrate', 'miss');
 
   const smirk  = document.getElementById('mouth-smirk');
   const think  = document.getElementById('mouth-think');
   const reveal = document.getElementById('mouth-reveal');
+  const miss = document.getElementById('mouth-miss');
   const arm    = document.getElementById('arm-think');
   const browL  = document.getElementById('brow-l');
   const browR  = document.getElementById('brow-r');
@@ -45,6 +46,7 @@ function setGenieState(state) {
   smirk.setAttribute('opacity',  '0');
   think.setAttribute('opacity',  '0');
   reveal.setAttribute('opacity', '0');
+  miss?.setAttribute('opacity', '0');
   arm.setAttribute('opacity',    '0');
   browL.setAttribute('d', 'M37,53 Q47,48 56,53');
   browR.setAttribute('d', 'M64,53 Q73,48 83,53');
@@ -62,6 +64,21 @@ function setGenieState(state) {
     // 両眉をつり上げてニタァ顔
     browL.setAttribute('d', 'M36,50 Q47,44 56,50');
     browR.setAttribute('d', 'M64,50 Q73,44 84,50');
+  } else if (state === 'miss') {
+    g.classList.add('miss');
+    miss?.setAttribute('opacity', '1');
+    browL.setAttribute('d', 'M37,54 Q47,59 56,54');
+    browR.setAttribute('d', 'M64,54 Q73,59 83,54');
+  } else if (state === 'celebrate') {
+    g.classList.add('celebrate');
+    reveal.setAttribute('opacity', '1');
+    browL.setAttribute('d', 'M36,49 Q47,41 56,49');
+    browR.setAttribute('d', 'M64,49 Q73,41 84,49');
+  } else if (state === 'acknowledge') {
+    g.classList.add('acknowledge');
+    smirk.setAttribute('opacity', '1');
+    browL.setAttribute('d', 'M37,51 Q47,45 56,51');
+    browR.setAttribute('d', 'M64,51 Q73,45 83,51');
   } else {
     smirk.setAttribute('opacity', '1');
   }

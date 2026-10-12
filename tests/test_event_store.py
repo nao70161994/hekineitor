@@ -30,7 +30,7 @@ class EventStoreRetentionTests(unittest.TestCase):
     def setUp(self):
         event_store._LAST_RETENTION_PRUNE.clear()
 
-    def test_postgres_retention_prunes_once_per_event_type_and_day(self):
+    def test_postgres_retention_prunes_all_event_types_once_per_day(self):
         connections = []
 
         def get_conn():
@@ -40,9 +40,9 @@ class EventStoreRetentionTests(unittest.TestCase):
 
         now_fn = lambda: datetime(2026, 8, 9, tzinfo=timezone.utc)
         event = {'timestamp': '2026-08-09T00:00:00+00:00', 'event_name': 'diagnosis_summary'}
-        for _ in range(2):
+        for event_type in ('gameplay', 'question', 'share'):
             event_store.record_event(
-                'gameplay',
+                event_type,
                 event,
                 retention_days=90,
                 now_fn=now_fn,
@@ -57,10 +57,11 @@ class EventStoreRetentionTests(unittest.TestCase):
             if call[0].startswith('DELETE FROM analytics_events')
         ]
         self.assertEqual(len(deletes), 1)
-        self.assertEqual(deletes[0][1], ('gameplay', '2026-05-11T00:00:00+00:00'))
+        self.assertEqual(deletes[0][1], ('2026-05-11T00:00:00+00:00',))
         self.assertTrue(
             any('idx_analytics_events_type_timestamp' in call[0] for call in connections[0].cursor_value.calls)
         )
+        self.assertTrue(any('idx_analytics_events_timestamp' in call[0] for call in connections[0].cursor_value.calls))
 
     def test_failed_prune_is_retried_instead_of_marked_complete(self):
         class FailingCursor(_Cursor):
@@ -80,7 +81,7 @@ class EventStoreRetentionTests(unittest.TestCase):
                 put_conn_fn=returned.append,
             )
 
-        self.assertNotIn('gameplay', event_store._LAST_RETENTION_PRUNE)
+        self.assertNotIn('analytics_events:90', event_store._LAST_RETENTION_PRUNE)
         self.assertEqual(len(returned), 1)
 
 
