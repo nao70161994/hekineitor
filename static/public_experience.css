@@ -271,6 +271,13 @@
   font-weight: 800;
   letter-spacing: 0.02em;
 }
+.result-score-note {
+  max-width: 38ch;
+  margin: -1px auto 9px;
+  color: var(--color-text-subtle);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
 .result-reveal .result-desc { max-width: 34rem; margin: 0 auto; color: var(--color-text-muted); line-height: 1.65; }
 .result-rival { color: var(--color-text-muted); background: rgba(255, 255, 255, 0.035); border-color: rgba(192, 132, 252, 0.2); }
 .result-desc {

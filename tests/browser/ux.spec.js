@@ -261,6 +261,9 @@ test('result hierarchy explains confidence before offering share actions', async
 
   await expect(page.getByRole('heading', {name: '静かな共同生活'})).toBeFocused();
   await expect(page.locator("#result-details")).toBeHidden();
+  await expect(page.locator('#result-score-note')).toBeVisible();
+  await expect(page.locator('#result-prob')).toHaveAttribute('aria-describedby', 'result-score-note');
+  await expect(page.getByText('回答傾向との近さの目安です（正解の確率ではありません）。')).toBeVisible();
   const descriptionBox = await page.locator('#result-desc').boundingBox();
   const shareBox = await page.getByRole('button', {name: '共有する', exact: true}).boundingBox();
   const shareStyle = await page.getByRole('button', {name: '共有する', exact: true}).evaluate(button => ({
@@ -271,6 +274,6 @@ test('result hierarchy explains confidence before offering share actions', async
   expect(shareStyle.backgroundImage).toBe('none');
   expect(shareStyle.boxShadow).toBe('none');
   await page.getByRole("button", {name: "結果を詳しく見る"}).click();
-  await expect(page.getByText("一致度は回答との近さを表す参考値です。表示結果の偏りを抑える調整も行っています。")).toBeVisible();
+  await expect(page.getByText('表示候補の順位調整には、候補が最近表示された回数も反映しています。')).toBeVisible();
   await expectNoSeriousAccessibilityViolations(page);
 });
