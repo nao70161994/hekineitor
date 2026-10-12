@@ -139,7 +139,7 @@ function showQuestion(data, previousAnswer = null) {
     setGenieState('acknowledge');
     genieReactionTimer = setTimeout(() => {
       if (currentQuestionId === data.question_id && !resultShown) setGenieState('idle');
-    }, 650);
+    }, 1200);
   } else {
     setGenieState("idle");
   }
