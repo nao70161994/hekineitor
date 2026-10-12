@@ -42,7 +42,9 @@ window.HekiShare = (() => {
   function buildShareText(name, probability, guessData = {}) {
     if (guessData.share_text) return guessData.share_text;
     const result = name ? `『${name}』` : '診断結果';
-    const score = probability !== '' && probability != null ? ` (${probability}%)` : '';
+    const score = probability !== '' && probability != null
+      ? `\n候補スコア ${probability} / 100（回答傾向にもとづく順位づけ用の値。正解の確率ではありません）`
+      : '';
     return `へきネイターの観測結果: ${result}${score}`;
   }
 

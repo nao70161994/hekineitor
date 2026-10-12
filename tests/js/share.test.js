@@ -50,6 +50,13 @@ describe('HekiShare', () => {
     expect(window.open.mock.calls[0][0]).toContain('twitter.com/intent/tweet');
   });
 
+  it('labels the shared value as a candidate score rather than a percentage', () => {
+    const text = window.HekiShare.buildShareText('結果', 82);
+    expect(text).toContain('候補スコア 82 / 100');
+    expect(text).toContain('正解の確率ではありません');
+    expect(text).not.toContain('82%');
+  });
+
   it('records a versioned gameplay work click without player identity', () => {
     document.body.innerHTML = '<a href="https://example.com" data-work-title="作品" data-work-id="work_1" data-edition-id="ed_1">作品</a>';
     document.querySelector('a').dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true}));

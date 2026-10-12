@@ -153,7 +153,7 @@ def _ogp_texts(name, prob, cjk_supported=True):
         return {
             'label': 'あなたの『癖』は……',
             'name': name or '???',
-            'prob': f'一致の目安 {prob}%' if prob else '',
+            'prob': f'候補スコア {prob}/100' if prob else '',
             'title': '',
             'side': '次はあなたの番です……',
             'mark': 'AI',
@@ -163,7 +163,7 @@ def _ogp_texts(name, prob, cjk_supported=True):
     return {
         'label': 'Your observed pattern is...',
         'name': _ascii_name_fallback(name),
-        'prob': f'Match guide {prob}%' if prob else '',
+        'prob': f'Candidate score {prob}/100' if prob else '',
         'title': '',
         'side': 'Next observation: you.',
         'mark': 'AI',
@@ -244,7 +244,9 @@ def generate_png(name, prob):
         _center_text(draw, 600, y, line, name_font, (255, 248, 242))
     if prob:
         prob_y = y1 + len(lines) * (name_font_size + 8) + 28
-        badge_w = 310 if cjk_supported else 390
+        score_bbox = _text_bbox(draw, texts['prob'], prob_font)
+        score_width = score_bbox[2] - score_bbox[0]
+        badge_w = min(880, max(310, score_width + 48))
         draw.rounded_rectangle(
             (600 - badge_w // 2, prob_y - 36, 600 + badge_w // 2, prob_y + 20),
             radius=18,
@@ -281,7 +283,11 @@ def render_svg(name, prob):
         line1, line2 = name, ''
     line1 = _html.escape(line1, quote=False)
     line2 = _html.escape(line2, quote=False)
-    prob_text = _html.escape(prob, quote=False)
+    score_label_text = f'候補スコア {prob}/100'
+    score_label = _html.escape(score_label_text, quote=False)
+    score_width = sum(38 if ord(char) > 127 else 12 if char.isspace() else 21 for char in score_label_text)
+    score_badge_width = max(350, score_width + 48)
+    score_badge_x = (OGP_WIDTH - score_badge_width) // 2
     fs_name = 72 if len(line1) <= 8 else 60
     y1 = 260 if line2 else 290
     y2 = y1 + fs_name + 12
@@ -303,7 +309,7 @@ def render_svg(name, prob):
   <text x="603" y="{y1 + 3}" text-anchor="middle" font-family="sans-serif" font-size="{fs_name}" font-weight="bold" fill="#2a0c16">{line1}</text>
   <text x="600" y="{y1}" text-anchor="middle" font-family="sans-serif" font-size="{fs_name}" font-weight="bold" fill="#fff8f2">{line1}</text>
   {'<text x="603" y="' + str(y2 + 3) + '" text-anchor="middle" font-family="sans-serif" font-size="' + str(fs_name) + '" font-weight="bold" fill="#2a0c16">' + line2 + '</text><text x="600" y="' + str(y2) + '" text-anchor="middle" font-family="sans-serif" font-size="' + str(fs_name) + '" font-weight="bold" fill="#fff8f2">' + line2 + '</text>' if line2 else ''}
-  {'<rect x="425" y="' + str((y2 if line2 else y1) + 44) + '" width="350" height="56" rx="18" fill="#24141c" stroke="#e94c60" stroke-width="2"/><text x="600" y="' + str((y2 if line2 else y1) + 84) + '" text-anchor="middle" font-family="sans-serif" font-size="38" fill="#f5a623">一致の目安 ' + prob_text + '%</text>' if prob else ''}
+  {'<rect x="' + str(score_badge_x) + '" y="' + str((y2 if line2 else y1) + 44) + '" width="' + str(score_badge_width) + '" height="56" rx="18" fill="#24141c" stroke="#e94c60" stroke-width="2"/><text x="600" y="' + str((y2 if line2 else y1) + 84) + '" text-anchor="middle" font-family="sans-serif" font-size="38" fill="#f5a623">' + score_label + '</text>' if prob else ''}
   <text x="600" y="525" text-anchor="middle" font-family="sans-serif" font-size="30" fill="#becadc">次はあなたの番です……</text>
   <text x="600" y="570" text-anchor="middle" font-family="sans-serif" font-size="18" fill="#5c6a80">hekineitor.onrender.com</text>
 </svg>'''

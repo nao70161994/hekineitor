@@ -74,7 +74,7 @@ window.HekiHistory = (() => {
       panel.innerHTML = history.map((entry, index) => `
         <div class="history-item">
           <strong>${escapeHtml(entry.name)}</strong>
-          <span class="h-meta">${escapeHtml(entry.prob)}% · ${escapeHtml(entry.date)}</span>
+          <span class="h-meta">スコア ${escapeHtml(entry.prob)} / 100 · ${escapeHtml(entry.date)}</span>
           <button class="h-view" data-action="view-history" data-index="${index}">結果を見る</button>
           <button class="h-retry" data-action="retry-excluding" data-index="${index}" title="この診断を除外して再診断">当て直す</button>
         </div>`).join('');

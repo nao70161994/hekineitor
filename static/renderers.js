@@ -112,12 +112,12 @@ window.HekiRenderers = (() => {
 
     const card = document.getElementById('result-screen')?.closest('.card');
     if (card) {
-      const probability = data.probability;
-      card.classList.remove('confidence-high', 'confidence-medium', 'confidence-low');
-      card.classList.add(probability >= 75 ? 'confidence-high' : probability >= 50 ? 'confidence-medium' : 'confidence-low');
+      const score = data.probability;
+      card.classList.remove('score-high', 'score-medium', 'score-low');
+      card.classList.add(score >= 75 ? 'score-high' : score >= 50 ? 'score-medium' : 'score-low');
     }
 
-    animateProbability(data.probability);
+    animateCandidateScore(data.probability);
     renderTopChart(data.top_chart, escapeHtml);
     resetFeedbackControls();
     renderConfirmItems(data, escapeHtml);
@@ -143,7 +143,7 @@ window.HekiRenderers = (() => {
       ? (data.provisional_message || 'まだ読み切れません。今の回答から見える暫定結果です。')
       : 'あなたの『癖』は……';
     if (badges) {
-      badges.innerHTML = `<span id="result-prob" aria-describedby="result-score-note">一致の目安 ${escapeHtml(data.probability)}%</span>`;
+      badges.innerHTML = `<span id="result-prob" aria-describedby="result-score-note">候補スコア ${escapeHtml(data.probability)} / 100</span>`;
     }
     if (rival) {
       if (data.provisional) {
@@ -157,18 +157,18 @@ window.HekiRenderers = (() => {
     }
   }
 
-  function animateProbability(target) {
-    const probEl = document.getElementById('result-prob');
-    if (!probEl) return;
+  function animateCandidateScore(target) {
+    const scoreEl = document.getElementById('result-prob');
+    if (!scoreEl) return;
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-      probEl.textContent = `一致の目安 ${target}%`;
+      scoreEl.textContent = `候補スコア ${target} / 100`;
       return;
     }
     let current = 0;
     const step = Math.max(1, Math.round(target / 30));
     const timer = setInterval(() => {
       current = Math.min(current + step, target);
-      probEl.textContent = `一致の目安 ${current}%`;
+      scoreEl.textContent = `候補スコア ${current} / 100`;
       if (current >= target) clearInterval(timer);
     }, 30);
   }
@@ -184,8 +184,8 @@ window.HekiRenderers = (() => {
         const name = escapeHtml(item.fetish_name);
         return `<div class="chart-row${primaryClass}">
           <div class="chart-name" title="${name}">${index === 0 ? '本命 ' : ''}${name}</div>
-          <progress class="chart-progress" aria-label="${name}の相対一致度" max="100" value="${targetW}">${targetW}%</progress>
-          <div class="chart-value">${escapeHtml(item.probability)}%</div>
+          <progress class="chart-progress" aria-label="${name}の相対スコア（本命を100とした比較）" max="100" value="${targetW}">${targetW}</progress>
+          <div class="chart-value">${escapeHtml(item.probability)} / 100</div>
         </div>`;
       }).join('');
     } else {
@@ -225,7 +225,7 @@ window.HekiRenderers = (() => {
       const id = Number.parseInt(item.fetish_id, 10);
       return `<div class="confirm-item" id="ci-${id}" data-id="${id}" data-state="">
         <span class="confirm-item-name">${escapeHtml(item.fetish_name)}</span>
-        <span class="confirm-item-prob">${escapeHtml(item.probability)}%</span>
+        <span class="confirm-item-prob">${escapeHtml(item.probability)} / 100</span>
         <div class="confirm-toggle">
           <button data-action="set-item-state" data-id="${id}" data-state="yes" aria-label="${escapeHtml(item.fetish_name)}: 当たっている" aria-pressed="false">○</button>
           <button data-action="set-item-state" data-id="${id}" data-state="maybe" aria-label="${escapeHtml(item.fetish_name)}: 惜しい" aria-pressed="false">△</button>
@@ -240,7 +240,7 @@ window.HekiRenderers = (() => {
     const list = document.getElementById('profile-list');
     if (!section || !list) return;
     if (profile && profile.length > 0) {
-      list.innerHTML = profile.map(row => `<div class="profile-item">${escapeHtml(row.fetish_name)}<span>${escapeHtml(row.probability)}%</span></div>`).join('');
+      list.innerHTML = profile.map(row => `<div class="profile-item">${escapeHtml(row.fetish_name)}<span>${escapeHtml(row.probability)} / 100</span></div>`).join('');
       section.classList.remove('hidden');
     } else {
       section.classList.add('hidden');
