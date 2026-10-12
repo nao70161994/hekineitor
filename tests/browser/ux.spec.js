@@ -263,7 +263,13 @@ test('result hierarchy explains confidence before offering share actions', async
   await expect(page.locator("#result-details")).toBeHidden();
   const descriptionBox = await page.locator('#result-desc').boundingBox();
   const shareBox = await page.getByRole('button', {name: '共有する', exact: true}).boundingBox();
+  const shareStyle = await page.getByRole('button', {name: '共有する', exact: true}).evaluate(button => ({
+    backgroundImage: getComputedStyle(button).backgroundImage,
+    boxShadow: getComputedStyle(button).boxShadow,
+  }));
   expect(descriptionBox.y).toBeLessThan(shareBox.y);
+  expect(shareStyle.backgroundImage).toBe('none');
+  expect(shareStyle.boxShadow).toBe('none');
   await page.getByRole("button", {name: "結果を詳しく見る"}).click();
   await expect(page.getByText("一致度は回答との近さを表す参考値です。表示結果の偏りを抑える調整も行っています。")).toBeVisible();
   await expectNoSeriousAccessibilityViolations(page);
