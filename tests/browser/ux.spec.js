@@ -188,7 +188,8 @@ test('long questions stay readable in landscape without hiding the genie or caus
   expect(layout.overflow).toBeLessThanOrEqual(1);
   expect(layout.genieVisible).toBe(true);
   expect(layout.questionHeight).toBeGreaterThan(80);
-  expect(layout.answers.every(button => button.bottom <= layout.viewportHeight), JSON.stringify(layout)).toBe(true);
+  // Layout engines return fractional CSS pixels; ignore subpixel rounding under 1px.
+  expect(layout.answers.every(button => button.bottom <= layout.viewportHeight + 1), JSON.stringify(layout)).toBe(true);
 });
 
 test('public pages fit small screens and enlarged Japanese text', async ({page}) => {
