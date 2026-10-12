@@ -95,6 +95,17 @@ def next_question(engine, answers, asked, *, exclude_ids=None):
     )
 
 
+def persona_answer(persona, question_id):
+    """Return a scripted answer or label the simulation's fallback assumption."""
+    scripted = persona.get('answers', {})
+    key = str(question_id)
+    if key in scripted:
+        return float(scripted[key]), 'scripted'
+    if 'default_answer' in persona:
+        return float(persona['default_answer']), 'default'
+    return 0.0, 'unknown'
+
+
 def evaluate_transcripts(engine, personas):
     rows = []
     top_results = Counter()
@@ -145,12 +156,14 @@ def evaluate_adaptive(engine, personas, max_questions):
     top_results = Counter()
     question_observations = {}
     for persona in personas:
-        scripted = {str(key): float(value) for key, value in persona['answers'].items()}
         exclude_ids = persona.get('exclude_result_ids', [])
         answers = {}
         asked = []
         unknown_answers = 0
         idk_answers = 0
+        scripted_answers = 0
+        defaulted_answers = 0
+        unannotated_answers = 0
         idk_streak = 0
         recovery_count = 0
         probe_count = 0
@@ -194,9 +207,11 @@ def evaluate_adaptive(engine, personas, max_questions):
                 answers,
                 exclude_ids=exclude_ids,
             )['probabilities']
-            has_scripted_answer = str(question_id) in scripted
-            answer = scripted.get(str(question_id), float(persona.get('default_answer', 0.0)))
-            unknown_answers += int(not has_scripted_answer and 'default_answer' not in persona)
+            answer, answer_source = persona_answer(persona, question_id)
+            scripted_answers += int(answer_source == 'scripted')
+            defaulted_answers += int(answer_source == 'default')
+            unannotated_answers += int(answer_source != 'scripted')
+            unknown_answers += int(answer_source in {'unknown', 'unannotated'})
             idk_answers += int(answer == 0)
             idk_streak = idk_streak + 1 if answer == 0 else 0
             if answer != 0:
@@ -263,6 +278,9 @@ def evaluate_adaptive(engine, personas, max_questions):
                     'asked': list(asked),
                     'unknown_answers': unknown_answers,
                     'idk_answers': idk_answers,
+                    'scripted_answers': scripted_answers,
+                    'defaulted_answers': defaulted_answers,
+                    'unannotated_answers': unannotated_answers,
                     'question_trace': list(question_trace),
                     'stopping': dict(stopping),
                 }
@@ -280,6 +298,9 @@ def evaluate_adaptive(engine, personas, max_questions):
                 'asked': list(asked),
                 'unknown_answers': unknown_answers,
                 'idk_answers': idk_answers,
+                'scripted_answers': scripted_answers,
+                'defaulted_answers': defaulted_answers,
+                'unannotated_answers': unannotated_answers,
                 'question_trace': list(question_trace),
                 'stopping': {
                     'reason': 'questions_exhausted',
@@ -334,6 +355,9 @@ def evaluate_adaptive(engine, personas, max_questions):
                 ),
                 'unknown_answers': selected_state['unknown_answers'],
                 'idk_answers': selected_state['idk_answers'],
+                'scripted_answers': selected_state['scripted_answers'],
+                'defaulted_answers': selected_state['defaulted_answers'],
+                'unannotated_answers': selected_state['unannotated_answers'],
                 'question_ids': selected_state['asked'],
                 'question_trace': selected_state['question_trace'],
             }
@@ -368,6 +392,18 @@ def evaluate_adaptive(engine, personas, max_questions):
             sum(row['unknown_answers'] for row in rows) / question_count,
             4,
         ),
+        'scripted_answer_rate': round(
+            sum(row['scripted_answers'] for row in rows) / question_count,
+            4,
+        ),
+        'defaulted_answer_rate': round(
+            sum(row['defaulted_answers'] for row in rows) / question_count,
+            4,
+        ),
+        'unannotated_answer_rate': round(
+            sum(row['unannotated_answers'] for row in rows) / question_count,
+            4,
+        ),
         'idk_answer_rate': round(sum(row['idk_answers'] for row in rows) / question_count, 4),
         'question_metrics': [
             {
@@ -384,6 +420,57 @@ def evaluate_adaptive(engine, personas, max_questions):
             }
             for question_id, observations in sorted(question_observations.items())
         ],
+        'rows': rows,
+    }
+
+
+def evaluate_unannotated_sensitivity(engine, personas, adaptive):
+    """Re-rank each adaptive question path using only human-scripted answers."""
+    adaptive_rows = {row['persona_id']: row for row in adaptive['rows']}
+    rows = []
+    for persona in personas:
+        adaptive_row = adaptive_rows.get(persona['id'])
+        if adaptive_row is None:
+            continue
+        asked = {str(question_id) for question_id in adaptive_row['question_ids']}
+        answers = {
+            str(question_id): float(answer)
+            for question_id, answer in persona['answers'].items()
+            if str(question_id) in asked
+        }
+        _probabilities, ranking = ranked_ids(
+            engine,
+            answers,
+            exclude_ids=persona.get('exclude_result_ids'),
+        )
+        target_id = int(persona['target_result_id'])
+        target_rank = ranking.index(target_id) + 1 if target_id in ranking else None
+        rows.append(
+            {
+                'persona_id': persona['id'],
+                'questions': len(adaptive_row['question_ids']),
+                'scripted_answers': len(answers),
+                'unannotated_answers_withheld': len(adaptive_row['question_ids']) - len(answers),
+                'baseline_target_rank': adaptive_row['target_rank'],
+                'target_rank': target_rank,
+                'baseline_top_result_id': adaptive_row['top_result_id'],
+                'top_result_id': ranking[0],
+            }
+        )
+    denominator = max(1, len(rows))
+    question_count = max(1, sum(row['questions'] for row in rows))
+    return {
+        'mode': 'same_adaptive_question_path_scripted_answers_only',
+        'accuracy_scored_persona_count': len(rows),
+        'top1_rate': round(sum(row['target_rank'] == 1 for row in rows) / denominator, 4),
+        'top3_rate': round(sum((row['target_rank'] or 999999) <= 3 for row in rows) / denominator, 4),
+        'unannotated_answer_rate': round(
+            sum(row['unannotated_answers_withheld'] for row in rows) / question_count,
+            4,
+        ),
+        'changed_top_result_count': sum(
+            row['baseline_top_result_id'] != row['top_result_id'] for row in rows
+        ),
         'rows': rows,
     }
 
@@ -621,13 +708,23 @@ def main():
         raise SystemExit('invalid gameplay persona fixture')
     random.seed(args.seed)
     engine = Engine()
+    transcript = evaluate_transcripts(engine, fixture['personas'])
+    adaptive = evaluate_adaptive(engine, fixture['personas'], args.max_questions)
+    scored_personas = [
+        persona for persona in fixture['personas'] if persona.get('accuracy_scored', True) is not False
+    ]
+    # Keep each adaptive question path fixed and remove assumed answers from
+    # inference. This isolates how much the default-answer assumption moves
+    # candidate ranks without running a second simulated game.
+    sensitivity = evaluate_unannotated_sensitivity(engine, scored_personas, adaptive)
     report = {
         'schema_version': SCHEMA_VERSION,
         'seed': args.seed,
         'max_questions': args.max_questions,
         'persona_fixture': args.personas,
-        'transcript': evaluate_transcripts(engine, fixture['personas']),
-        'adaptive': evaluate_adaptive(engine, fixture['personas'], args.max_questions),
+        'transcript': transcript,
+        'adaptive': adaptive,
+        'adaptive_unannotated_sensitivity': sensitivity,
         'diversity': evaluate_diversity(engine),
         'question_design': evaluate_question_design(engine),
         'thresholds': DEFAULT_THRESHOLDS,
