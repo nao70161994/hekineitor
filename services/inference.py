@@ -27,10 +27,19 @@ def compute_guess(ctx, answers):
     adjusted_score_provider = getattr(ctx, 'adjusted_score_provider', None)
     if callable(adjusted_score_provider):
         score_details = adjusted_score_provider(probs, ranked)
+
+    def ranking_score(index):
+        details = score_details.get(index, {})
+        value = details.get('ranking_score')
+        if value is None:
+            value = details.get('adjusted_score', float(probs[index]))
+        return float(value or 0.0)
+
+    if callable(adjusted_score_provider):
         ranked = sorted(
             ranked,
             key=lambda index: (
-                -score_details.get(index, {}).get('adjusted_score', float(probs[index])),
+                -ranking_score(index),
                 raw_ranked.index(index),
             ),
         )
@@ -42,7 +51,8 @@ def compute_guess(ctx, answers):
     best_scores = score_details.get(
         best_i, {'raw_probability': float(probs[best_i]), 'factor': 1.0, 'adjusted_score': float(probs[best_i])}
     )
-    best_p = float(best_scores.get('adjusted_score') or 0.0)
+    best_p = ranking_score(best_i)
+    best_display_p = float(best_scores.get('adjusted_score') or 0.0)
     best_f = engine.fetishes[best_i]
     best_db = best_f['id']
 
@@ -50,10 +60,7 @@ def compute_guess(ctx, answers):
     triple_ratio = engine.config.get('triple_ratio', ctx.triple_ratio)
     compound = []
     compound_db_ids = set()
-    if (
-        len(ranked) > 1
-        and score_details.get(ranked[1], {}).get('adjusted_score', float(probs[ranked[1]])) >= best_p * compound_ratio
-    ):
+    if len(ranked) > 1 and ranking_score(ranked[1]) >= best_p * compound_ratio:
         candidate = engine.fetishes[ranked[1]]
         candidate_scores = score_details.get(
             ranked[1],
@@ -71,10 +78,7 @@ def compute_guess(ctx, answers):
             }
         )
         compound_db_ids.add(candidate['id'])
-        if (
-            len(ranked) > 2
-            and score_details.get(ranked[2], {}).get('adjusted_score', float(probs[ranked[2]])) >= best_p * triple_ratio
-        ):
+        if len(ranked) > 2 and ranking_score(ranked[2]) >= best_p * triple_ratio:
             candidate = engine.fetishes[ranked[2]]
             candidate_scores = score_details.get(
                 ranked[2],
@@ -107,8 +111,9 @@ def compute_guess(ctx, answers):
                 'adjusted_score': float(probs[fetish_index]),
             },
         )
+        candidate_rank_score = ranking_score(fetish_index)
         adjusted_score = float(candidate_scores.get('adjusted_score') or 0.0)
-        if adjusted_score >= threshold:
+        if candidate_rank_score >= threshold:
             profile.append(
                 {
                     'fetish_id': fetish['id'],
@@ -234,12 +239,13 @@ def compute_guess(ctx, answers):
     runner_up = None
     contrastive_reasons = []
     if runner_i is not None:
-        runner_score = float(score_details.get(runner_i, {}).get('adjusted_score', probs[runner_i]) or 0.0)
+        runner_details = score_details.get(runner_i, {})
+        runner_score = float(runner_details.get('adjusted_score', probs[runner_i]) or 0.0)
         runner_up = {
             'fetish_id': engine.fetishes[runner_i]['id'],
             'fetish_name': engine.fetishes[runner_i]['name'],
             'probability': round(runner_score * 100, 1),
-            'gap_points': round(max(0.0, best_p - runner_score) * 100, 1),
+            'gap_points': round(max(0.0, best_display_p - runner_score) * 100, 1),
         }
         contrast_provider = getattr(engine, 'get_contrastive_answer_contributions', None)
         if callable(contrast_provider):
@@ -256,7 +262,7 @@ def compute_guess(ctx, answers):
         'fetish_id': best_db,
         'fetish_name': best_f['name'],
         'fetish_desc': best_f['desc'],
-        'probability': round(best_p * 100, 1),
+        'probability': round(best_display_p * 100, 1),
         'raw_probability': round(float(best_scores.get('raw_probability') or 0.0) * 100, 1),
         'diversity_factor': round(float(best_scores.get('factor') or 1.0), 4),
         'compound': compound,

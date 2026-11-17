@@ -201,29 +201,32 @@ def ensure_schema(engine, *, get_conn, put_conn, execute_values, player_base_id,
                 )
             cur.execute("UPDATE fetishes SET works='[]' WHERE works <> '[]'")
             nq = len(engine.questions)
-            cur.execute('SELECT MAX(question_id) FROM matrix')
-            max_qid = cur.fetchone()[0]
-            if max_qid is not None and max_qid < nq - 1:
-                cur.execute('SELECT id FROM fetishes')
-                all_fids = [row[0] for row in cur.fetchall()]
+            cur.execute(
+                'SELECT f.id, q.question_id FROM fetishes f '
+                'CROSS JOIN generate_series(0, %s - 1) AS q(question_id) '
+                'WHERE NOT EXISTS (SELECT 1 FROM matrix m '
+                'WHERE m.fetish_id = f.id AND m.question_id = q.question_id)',
+                (nq,),
+            )
+            missing_pairs = cur.fetchall()
+            if missing_pairs:
                 alpha = 2.0
                 full_yes, full_total = build_initial_matrix(len(seed), nq)
                 seed_id_to_idx = {fetish['id']: idx for idx, fetish in enumerate(seed)}
                 new_question_rows = []
-                for fetish_id in all_fids:
+                for fetish_id, question_idx in missing_pairs:
                     seed_idx = seed_id_to_idx.get(fetish_id)
-                    for question_idx in range(max_qid + 1, nq):
-                        if seed_idx is None:
-                            new_question_rows.append((fetish_id, question_idx, alpha, alpha * 2.0))
-                        else:
-                            new_question_rows.append(
-                                (
-                                    fetish_id,
-                                    question_idx,
-                                    full_yes[seed_idx][question_idx],
-                                    full_total[seed_idx][question_idx],
-                                )
+                    if seed_idx is None:
+                        new_question_rows.append((fetish_id, question_idx, alpha, alpha * 2.0))
+                    else:
+                        new_question_rows.append(
+                            (
+                                fetish_id,
+                                question_idx,
+                                full_yes[seed_idx][question_idx],
+                                full_total[seed_idx][question_idx],
                             )
+                        )
                 if new_question_rows:
                     execute_values(
                         cur,

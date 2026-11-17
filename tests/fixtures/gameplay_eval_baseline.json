@@ -25,7 +25,7 @@
     }
   },
   "diversity": {
-    "exponent": -3.0,
+    "exponent": -5.0,
     "preserved": true
   }
 }

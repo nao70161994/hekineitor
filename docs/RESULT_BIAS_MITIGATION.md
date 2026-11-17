@@ -65,19 +65,20 @@ The broad near-miss factor is still above regular positive learning, but lower t
 
 ## Recent Exposure Balancing
 
-最終結果には、直近の表示実績を使った強い分散補正を意図的に適用します。これは同じ高posterior結果ばかり返す状態を避け、発見性とリプレイ性を確保するためのプロダクト仕様です。純粋なposterior順位の再現性よりも、十分に適合する候補の中で結果の多様性を優先します。
+最終結果には、直近の表示実績を使った強い分散補正を意図的に適用します。これは同じ高posterior結果ばかり返す状態を避け、発見性とリプレイ性を確保するためのプロダクト仕様です。補正は全候補に適用されるため、回答への適合度と結果の多様性を別々に評価します。
 
-補正は、直近 `1000` 件のprimary result exposureについて、各結果の実表示比率と均等期待比率を比較します。
+補正は、直近 `1000` 件の表示イベントから候補一覧を除いた主結果と複合結果について、各結果の実表示比率と均等期待比率を比較します。管理レポートも同じ範囲を使用します。
 
 ```text
-exposure_factor = ((actual_count + 2) / (expected_count + 2)) ** -3
-adjusted_score = clamp(raw_posterior * exposure_factor, 0, 1)
+exposure_factor = ((actual_count + 2) / (expected_count + 2)) ** -5
+ranking_score = raw_posterior * exposure_factor
+adjusted_score = clamp(ranking_score, 0, 1)
 ```
 
-- 指数 `-3` は、弱い微調整ではなく強い分散を作るための意図的な値です。
+- 指数 `-5` は、弱い微調整ではなく強い分散を作るための値です。
 - 最低サンプル数による無効化やfactorの上下限clampは設けません。少数時から分散を働かせる設計です。
-- 上位だけの救済poolではなく、全候補をadjusted scoreで比較します。
-- adjusted scoreは最終順位、表示確率、複合結果・プロフィール・上位チャートに一貫して使います。
+- 上位だけの救済poolではなく、全候補を上限適用前のranking scoreで比較します。
+- 最終順位と複合結果などの判定にはranking score、表示には上限を適用したadjusted scoreを使います。
 - 質問の早期終了、低確信延長、進捗表示はraw posteriorの上位候補だけで判定します。強い分散係数が低いraw確率を押し上げても、AIが確信したことにはしません。
 - raw posteriorは `raw_probability` として保持され、質問選択・matrix・priorの計算自体は変更しません。
 
@@ -114,7 +115,7 @@ adjusted_score = clamp(raw_posterior * exposure_factor, 0, 1)
 - Question matrix values
 - Prior weights
 - Existing stats or learning data
-- 強い分散指数 `-3` と表示文言
+- 強い分散と表示文言
 
 ## Result analytics source
 

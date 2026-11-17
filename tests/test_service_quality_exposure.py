@@ -10,6 +10,21 @@ from tests._service_test_support import (
 
 
 class TestServiceQualityExposure(unittest.TestCase):
+    def test_factor_report_uses_same_event_window_as_runtime(self):
+        class Engine:
+            fetishes = [{'id': 1, 'name': 'A'}, {'id': 2, 'name': 'B'}]
+
+        events = [result_exposure.build_event(1, 'A') for _ in range(1000)]
+        for _ in range(200):
+            events.append(result_exposure.build_event(2, 'B'))
+            events.extend(result_exposure.build_event(1, 'A', rank=101, source='top_chart') for _ in range(4))
+        runtime = result_exposure.adjusted_scores(Engine(), [0.6, 0.4], [0, 1], events=events[-1000:])
+        report = result_exposure.factor_report(Engine.fetishes, events=events, top_n=2)
+        factors = {row['fetish_id']: row['factor'] for row in report['most_downweighted']}
+        self.assertEqual(report['sample']['main_total'], 200)
+        self.assertAlmostEqual(factors[1], runtime[0]['factor'], places=4)
+        self.assertAlmostEqual(factors[2], runtime[1]['factor'], places=4)
+
     def test_quality_stats_records_guess_and_feedback_keys(self):
         calls = []
 
@@ -308,7 +323,7 @@ class TestServiceQualityExposure(unittest.TestCase):
         self.assertTrue(report['sample']['active'])
         self.assertNotIn('candidate_pool', report['config'])
         self.assertNotIn('low_exposure_rescue_limit', report['config'])
-        self.assertEqual(report['config']['diversity_alpha'], 3.0)
+        self.assertEqual(report['config']['diversity_alpha'], result_exposure.DIVERSITY_ALPHA)
         self.assertNotIn('min_factor', report['config'])
         self.assertNotIn('max_factor', report['config'])
         self.assertAlmostEqual(report['sample']['expected_per_result'], 85 / 3, places=4)
@@ -361,7 +376,7 @@ class TestServiceQualityExposure(unittest.TestCase):
         events.extend(result_exposure.build_event(2, '白衣', 80) for _ in range(5))
         ranked = result_exposure.adjust_ranked(Engine(), [0.95, 0.50, 0.2], [0, 1, 2], events=events)
 
-        self.assertEqual(ranked[0], 1)
+        self.assertLess(ranked.index(1), ranked.index(0))
 
     def test_result_exposure_adjustment_can_promote_close_low_exposure_candidate(self):
         class Engine:
@@ -375,7 +390,7 @@ class TestServiceQualityExposure(unittest.TestCase):
         events.extend(result_exposure.build_event(2, '白衣', 80) for _ in range(5))
         ranked = result_exposure.adjust_ranked(Engine(), [0.62, 0.58, 0.1], [0, 1, 2], events=events)
 
-        self.assertEqual(ranked[0], 1)
+        self.assertLess(ranked.index(1), ranked.index(0))
 
     def test_result_exposure_adjusted_scores_are_clamped_to_probability_range(self):
         class Engine:
@@ -390,6 +405,21 @@ class TestServiceQualityExposure(unittest.TestCase):
         self.assertLessEqual(scores[0]['adjusted_score'], 1.0)
         self.assertEqual(scores[0]['adjusted_score'], 1.0)
         self.assertGreater(scores[0]['factor'], 1.0)
+
+    def test_ranking_uses_uncapped_scores_when_display_values_tie(self):
+        class Engine:
+            fetishes = [{'id': 1, 'name': 'A'}, {'id': 2, 'name': 'B'}, {'id': 3, 'name': 'C'}]
+
+        events = [result_exposure.build_event(1, 'A') for _ in range(80)]
+        events.extend(result_exposure.build_event(2, 'B') for _ in range(5))
+        probs = [0.62, 0.58, 0.1]
+        with patch.object(result_exposure, 'DIVERSITY_ALPHA', 3.0):
+            scores = result_exposure.adjusted_scores(Engine(), probs, [0, 1, 2], events=events)
+            ranked = result_exposure.adjust_ranked(Engine(), probs, [0, 1, 2], events=events)
+        self.assertEqual(scores[1]['adjusted_score'], 1.0)
+        self.assertEqual(scores[2]['adjusted_score'], 1.0)
+        self.assertGreater(scores[2]['ranking_score'], scores[1]['ranking_score'])
+        self.assertEqual(ranked[0], 2)
 
     def test_result_exposure_adjustment_extends_pool_for_low_exposure_candidates(self):
         class Engine:
@@ -421,7 +451,7 @@ class TestServiceQualityExposure(unittest.TestCase):
         events.extend(result_exposure.build_event(2, '白衣', 80) for _ in range(5))
         ranked = result_exposure.adjust_ranked(Engine(), [0.90, 0.58, 0.1], [0, 1, 2], events=events)
 
-        self.assertEqual(ranked[0], 1)
+        self.assertLess(ranked.index(1), ranked.index(0))
 
     def test_result_exposure_explores_deeper_low_exposure_candidates_globally(self):
         class Engine:

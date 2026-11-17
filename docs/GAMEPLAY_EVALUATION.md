@@ -11,6 +11,10 @@
 - transcript: 人手で明示した回答だけをholdoutとして一括推論し、Top1/Top3とconfidence calibrationを測る。
 - adaptive: 実際の質問選択、複合的な停止判定、最大30問、IDK回復、低露出軸probe、除外を再現し、personaが選ばれた質問へ回答する。
 
+`display_transcript`は同じ明示回答について、表示分散補正後の主結果順位、Top1/Top3、結果分布を別に報告する。既定では先頭候補が100回表示された合成履歴を使用し、`--exposure-events`で別のJSONイベント配列を指定できる。履歴を固定した小規模な感度分析であり、利用者の正答率や連続プレイの分布ではない。既存のraw評価に加えて、表示後のTop1・Top3・最大集中も独立した品質gateとして確認する。
+
+分散指数の確認は既定で5を期待する。変更案を評価するときは`--expected-diversity-alpha 3`のように明示できる。指定によって実際の指数は変更されず、期待値と実装の不一致は引き続き失敗する。
+
 personaのtargetや回答を変更する時は、質問文の意味と期待する嗜好像を人がレビューします。品質gateを通す目的でmatrixの値を読み取って回答を自動反転させてはいけません。
 
 adaptive personaには各質問の回答を網羅した実利用者データがありません。主評価はfixtureの`default_answer`で未注釈質問を補い、選択された質問のうち明示レビュー回答と既定回答がそれぞれ何割だったかも報告します。既定回答はシミュレーション上の仮定であり、Top1 / Top3を実ユーザー精度として解釈してはいけません。併記する`adaptive_unannotated_sensitivity`は主評価と同じ質問列を固定し、未注釈回答を推論材料から外して候補順位を再計算します。質問選択や停止条件を再シミュレーションする値ではなく、既定回答の仮定が順位に与えた影響を見る診断用です。主評価・baseline・品質gateは置き換えません。
@@ -25,7 +29,7 @@ adaptive personaには各質問の回答を網羅した実利用者データが�
 - legacy無信号質問とcold-start質問の選択数
 - 質問反復数と質問ID transcript
 - 結果分布と最大集中のgate
-- 強い結果分散の実効べき指数`-3`、数式一致、低露出候補のboost数
+- 強い結果分散の実効べき指数`-5`、数式一致、低露出候補のboost数
 - seed、最大質問数、実行秒数
 - 停止理由、停止時のraw Top1/Top2比・実効候補数・leader安定回答数、停止後30問までshadow継続した場合のleader変化
 - standard / IDK多め / 近接候補 / 除外再挑戦のscenario coverage
@@ -45,7 +49,9 @@ seedの既定値は`20260809`です。`--check`は絶対閾値またはbaseline�
 
 `adaptive.rows[].question_trace`には質問ID、persona回答、情報利得、実効候補削減量、無信号/cold-start判定を残します。`adaptive.question_metrics`は同じ値を質問IDごとに集約するため、平均指標が悪化した時に原因となった質問まで追跡できます。
 
-質問継続と停止はraw posteriorで評価し、指数`-3`の分散補正は最終結果順位にだけ適用します。最低12問まではconfidenceで終了せず、その後は絶対確率だけでなくTop1/Top2比、posterior entropyから算出した実効候補数、同じleaderが続いた回答数を組み合わせます。hard limitは30問、IDK連続終了は6回です。production-likeな大きいexposure factorでもraw確信度が低い1問目で終了しないことをAPI回帰テストで確認します。
+質問継続と停止はraw posteriorで評価し、指数`-5`の分散補正は最終結果順位にだけ適用します。最低12問まではconfidenceで終了せず、その後は絶対確率だけでなくTop1/Top2比、posterior entropyから算出した実効候補数、同じleaderが続いた回答数を組み合わせます。hard limitは30問、IDK連続終了は6回です。production-likeな大きいexposure factorでもraw確信度が低い1問目で終了しないことをAPI回帰テストで確認します。
+
+20問以降の安定首位による停止はTop1/Top2比1.8以上を要求する。空の診断ログを使う評価で、比1.63のまま23問で停止した後に30問時点で首位が変わったため、1.6から引き上げた。4種類のseedでの試算では平均質問数が増える一方、停止後の首位変化が減った。評価には仮定回答が多く、実利用者の正答率を保証するものではない。
 
 絶対gateはTop1/Top3、calibration、平均28問以下、confidence停止後のleader変化0、hard-limit比率、情報利得、実効候補削減、無信号0、cold-start 1診断1問以下、反復0、全scenario、直接結果名0、`answer_frame`欠落0、結果集中、分散数式、60秒以内を確認します。baseline gateはTop1/Top3、calibration、情報利得、実効候補削減、未定義回答率の悪化を許容差内に制限します。
 
@@ -59,4 +65,4 @@ baselineは機能変更と同じPRで無条件に更新しません。次を満�
 4. 意図的な退行ならゲーム設計上の理由を記録した。
 5. `sh scripts/check.sh`とbrowser E2Eが通る。
 
-現在の強い結果分散は意図的な仕様です。`DIVERSITY_ALPHA=3.0`をfactorへ負のべきとして適用するため、レポート上の実効指数は`-3.0`です。弱める変更を「偏り修正」としてbaseline更新してはいけません。
+現在の強い結果分散は意図的な仕様です。`DIVERSITY_ALPHA=5.0`をfactorへ負のべきとして適用するため、レポート上の実効指数は`-5.0`です。指数変更時は、結果の集中と回答への適合度の両方を評価します。
