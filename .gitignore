@@ -18,6 +18,7 @@ data/share_improvement_notes.json
 data/share_links.json
 data/matrix_import_backups/
 .env
+.admin-read-token
 gen_icons.py
 .coverage
 htmlcov/

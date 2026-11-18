@@ -18,7 +18,7 @@ MAIN_WINDOW = 1000
 SHORT_WINDOW = 300
 MIN_SAMPLES = 50
 SMOOTHING = 2.0
-DIVERSITY_ALPHA = 3.0
+DIVERSITY_ALPHA = 5.0
 
 
 def event_log_path(environ=None):
@@ -636,7 +636,7 @@ def _factor_events(events):
 
 def exposure_factors(fetishes, *, events=None, path=None, environ=None):
     events = list(events) if events is not None else read_events(path=path, environ=environ, limit=MAIN_WINDOW)
-    factor_events = _factor_events(events)
+    factor_events = _factor_events(events[-MAIN_WINDOW:])
     main_events = factor_events[-MAIN_WINDOW:]
     main_total = len(main_events)
     ids = [fetish.get('id') for fetish in fetishes if fetish.get('id') is not None]
@@ -670,10 +670,14 @@ def adjusted_scores(engine, probs, ranked, *, events=None, path=None, environ=No
         fetish = engine.fetishes[index]
         fetish_id = fetish.get('id')
         factor = factors.get(fetish_id, 1.0)
-        adjusted_score = max(0.0, min(float(probs[index]) * float(factor), 1.0))
+        ranking_score = max(0.0, float(probs[index]) * float(factor))
+        adjusted_score = min(ranking_score, 1.0)
         scores[index] = {
             'raw_probability': float(probs[index]),
             'factor': float(factor),
+            # Keep the unbounded value for ranking. adjusted_score remains the
+            # bounded value used by existing result and chart displays.
+            'ranking_score': ranking_score,
             'adjusted_score': adjusted_score,
         }
     return scores
@@ -685,7 +689,7 @@ def adjust_ranked(engine, probs, ranked, *, events=None, path=None, environ=None
         return ranked
     scores = adjusted_scores(engine, probs, ranked, events=events, path=path, environ=environ)
     rank_position = {index: position for position, index in enumerate(ranked)}
-    adjusted = [(scores[index]['adjusted_score'], rank_position[index], index) for index in ranked]
+    adjusted = [(scores[index]['ranking_score'], rank_position[index], index) for index in ranked]
     adjusted.sort(key=lambda item: (-item[0], item[1]))
     return [index for _score, _position, index in adjusted]
 
@@ -700,7 +704,7 @@ def factor_report(fetishes, *, events=None, path=None, environ=None, limit=5000,
     except (TypeError, ValueError):
         display_limit = 30
     events = list(events) if events is not None else read_events(path=path, environ=environ, limit=row_limit)
-    factor_events = _factor_events(events)
+    factor_events = _factor_events(events[-MAIN_WINDOW:])
     main_events = factor_events[-MAIN_WINDOW:]
     short_events = main_events[-SHORT_WINDOW:]
     current_names = {fetish.get('id'): fetish.get('name', '') for fetish in fetishes if fetish.get('id') is not None}

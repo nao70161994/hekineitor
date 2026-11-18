@@ -254,6 +254,81 @@ class FakeEngine:
 
 
 class TestEngineDbLoadAndConfigHelpers(unittest.TestCase):
+    def test_ensure_schema_fills_missing_pairs_without_overwriting_existing_values(self):
+        class StateCursor:
+            def __init__(self):
+                self.fetishes = {0}
+                self.matrix = {(0, 0): (7.0, 10.0)}
+                self.result = []
+
+            def execute(self, sql, params=None):
+                sql = ' '.join(sql.split())
+                if sql == 'SELECT COUNT(*) FROM fetishes':
+                    self.result = [(len(self.fetishes),)]
+                elif sql == 'SELECT COUNT(*) FROM matrix':
+                    self.result = [(len(self.matrix),)]
+                elif sql == 'SELECT id FROM fetishes':
+                    self.result = [(fid,) for fid in self.fetishes]
+                elif 'CROSS JOIN generate_series' in sql:
+                    self.result = [
+                        (fid, q) for fid in self.fetishes for q in range(params[0]) if (fid, q) not in self.matrix
+                    ]
+
+            def fetchone(self):
+                return self.result[0]
+
+            def fetchall(self):
+                return self.result
+
+        class TwoSeedEngine(FakeEngine):
+            def _load_json(self, name):
+                if name == 'fetishes.json':
+                    return [{'id': 0, 'name': 'Old', 'desc': ''}, {'id': 1, 'name': 'New', 'desc': ''}]
+                return super()._load_json(name)
+
+        cursor = StateCursor()
+        cursor.fetishes.add(10000)
+        cursor.matrix[(10000, 0)] = (3.0, 5.0)
+        conn = FakeConn(cursor)
+
+        def insert(_cur, sql, rows):
+            if 'INSERT INTO fetishes' in sql:
+                cursor.fetishes.update(row[0] for row in rows)
+            elif 'INSERT INTO matrix' in sql:
+                for fid, q, yes, total in rows:
+                    cursor.matrix.setdefault((fid, q), (yes, total))
+
+        def ensure():
+            engine_db.ensure_schema(
+                TwoSeedEngine(),
+                get_conn=lambda: conn,
+                put_conn=lambda _c: None,
+                execute_values=insert,
+                player_base_id=10000,
+                build_initial_matrix=lambda nf, nq: ([[2.0] * nq for _ in range(nf)], [[4.0] * nq for _ in range(nf)]),
+            )
+
+        with (
+            patch('engine.db.db_work_catalog.ensure_schema'),
+            patch('engine.db.db_work_catalog.catalog_is_empty', return_value=False),
+        ):
+            ensure()
+            self.assertEqual(
+                cursor.matrix,
+                {
+                    (0, 0): (7.0, 10.0),
+                    (0, 1): (2.0, 4.0),
+                    (1, 0): (2.0, 4.0),
+                    (1, 1): (2.0, 4.0),
+                    (10000, 0): (3.0, 5.0),
+                    (10000, 1): (2.0, 4.0),
+                },
+            )
+            del cursor.matrix[(0, 0)]
+            ensure()
+            self.assertEqual(cursor.matrix[(0, 0)], (2.0, 4.0))
+            self.assertEqual(len(cursor.matrix), 6)
+
     def test_parse_fetish_rows_ignores_retired_inline_works(self):
         self.assertEqual(
             engine_db.parse_fetish_rows(
@@ -374,31 +449,33 @@ class TestEngineDbLoadAndConfigHelpers(unittest.TestCase):
 
     def test_ensure_schema_preserves_table_creation_seed_and_question_migration_contract(self):
         cursor = FakeCursor(
-            fetchone_values=[(0,), (0,), (0,), (0,)],
-            fetchall_values=[[(0,)], [(0, '[]')], [(0, 'Seed', 'Desc', '["Work"]')], [(0,), (1,)]],
+            fetchone_values=[(0,), (0,)],
+            fetchall_values=[[(0,)], [(0, 1)]],
         )
         conn = FakeConn(cursor)
         engine = FakeEngine()
         execute_values_calls = []
         returned = []
 
-        engine_db.ensure_schema(
-            engine,
-            get_conn=lambda: conn,
-            put_conn=returned.append,
-            execute_values=lambda cur, sql, rows: execute_values_calls.append((sql, list(rows))),
-            player_base_id=100000,
-            build_initial_matrix=lambda nf, nq: ([[2.0] * nq for _ in range(nf)], [[4.0] * nq for _ in range(nf)]),
-        )
+        with (
+            patch('engine.db.db_work_catalog.ensure_schema'),
+            patch('engine.db.db_work_catalog.catalog_is_empty', return_value=False),
+        ):
+            engine_db.ensure_schema(
+                engine,
+                get_conn=lambda: conn,
+                put_conn=returned.append,
+                execute_values=lambda cur, sql, rows: execute_values_calls.append((sql, list(rows))),
+                player_base_id=100000,
+                build_initial_matrix=lambda nf, nq: ([[2.0] * nq for _ in range(nf)], [[4.0] * nq for _ in range(nf)]),
+            )
 
         executed_sql = '\n'.join(sql for sql, _params in cursor.executed)
         self.assertIn('CREATE TABLE IF NOT EXISTS fetishes', executed_sql)
         self.assertIn('ALTER TABLE fetishes ADD COLUMN IF NOT EXISTS works', executed_sql)
         self.assertIn('CREATE TABLE IF NOT EXISTS matrix', executed_sql)
         self.assertIn('CREATE TABLE IF NOT EXISTS stats_history', executed_sql)
-        self.assertIn('CREATE TABLE IF NOT EXISTS works_master', executed_sql)
-        self.assertIn('CREATE TABLE IF NOT EXISTS compound_work_links', executed_sql)
-        self.assertIn('SELECT MAX(question_id) FROM matrix', executed_sql)
+        self.assertIn('CROSS JOIN generate_series', executed_sql)
         self.assertEqual(len(engine.seed_calls), 1)
         self.assertIn('INSERT INTO fetishes', execute_values_calls[0][0])
         matrix_insert = next(call for call in execute_values_calls if 'INSERT INTO matrix' in call[0])

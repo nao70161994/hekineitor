@@ -16,6 +16,12 @@ def passing_report():
             'calibration_brier': 0.5,
             'result_distribution': {'1': 2, '2': 2, '3': 2, '4': 2},
         },
+        'display_transcript': {
+            'persona_count': 8,
+            'top1_rate': 0.75,
+            'top3_rate': 0.875,
+            'result_distribution': {'1': 2, '2': 2, '3': 2, '4': 2},
+        },
         'adaptive': {
             'top1_rate': 0.75,
             'top3_rate': 0.75,
@@ -45,6 +51,44 @@ def passing_report():
 
 
 class GameplayEvaluationTests(unittest.TestCase):
+    def test_quality_gate_detects_display_concentration_and_low_fit(self):
+        report = passing_report()
+        report['display_transcript'].update(
+            {'top1_rate': 0.125, 'top3_rate': 0.25, 'result_distribution': {'1': 7, '2': 1}}
+        )
+        failures = evaluate_gameplay.quality_failures(report, evaluate_gameplay.DEFAULT_THRESHOLDS)
+        self.assertTrue(
+            {'display_top1_rate_min', 'display_top3_rate_min', 'display_result_distribution_max_share'}
+            <= {failure['check'] for failure in failures}
+        )
+
+    def test_diversity_check_requires_explicit_expected_exponent(self):
+        class FakeEngine:
+            fetishes = [{'id': 1, 'name': 'A'}, {'id': 2, 'name': 'B'}]
+
+        with mock.patch.object(evaluate_gameplay.result_exposure, 'DIVERSITY_ALPHA', 5.0):
+            self.assertTrue(evaluate_gameplay.evaluate_diversity(FakeEngine())['preserved'])
+            self.assertFalse(evaluate_gameplay.evaluate_diversity(FakeEngine(), expected_alpha=3.0)['preserved'])
+            configured = evaluate_gameplay.evaluate_diversity(FakeEngine(), expected_alpha=5.0)
+        self.assertTrue(configured['preserved'])
+        self.assertTrue(configured['formula_matches'])
+
+    def test_display_transcript_measures_adjusted_winner_and_exclusions(self):
+        class FakeEngine:
+            fetishes = [{'id': 1, 'name': 'A'}, {'id': 2, 'name': 'B'}]
+
+            def posteriors(self, _answers):
+                return [0.9, 0.1]
+
+        events = [evaluate_gameplay.result_exposure.build_event(1, 'A') for _ in range(100)]
+        personas = [
+            {'id': 'promoted', 'target_result_id': 2, 'answers': {'0': 1}},
+            {'id': 'excluded', 'target_result_id': 1, 'answers': {}, 'exclude_result_ids': [2]},
+        ]
+        report = evaluate_gameplay.evaluate_display_transcripts(FakeEngine(), personas, events)
+        self.assertEqual([row['top_result_id'] for row in report['rows']], [2, 1])
+        self.assertEqual(report['top1_rate'], 1.0)
+
     def test_persona_answer_distinguishes_scripted_defaults_and_unknown_answers(self):
         persona = {'answers': {'4': 0}, 'default_answer': -0.5}
 

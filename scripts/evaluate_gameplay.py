@@ -34,6 +34,9 @@ DEFAULT_MAX_QUESTIONS = 30
 DEFAULT_THRESHOLDS = {
     'transcript_top1_rate_min': 0.25,
     'transcript_top3_rate_min': 0.50,
+    'display_top1_rate_min': 0.25,
+    'display_top3_rate_min': 0.50,
+    'display_result_distribution_max_share': 0.50,
     'adaptive_legacy_no_signal_max': 0,
     'adaptive_cold_start_per_persona_max': 1.0,
     'adaptive_repeat_max': 0,
@@ -143,6 +146,37 @@ def evaluate_transcripts(engine, personas):
         'top3_rate': round(sum((row['target_rank'] or 999999) <= 3 for row in scored_rows) / count, 4),
         'calibration_brier': round(sum(squared_errors) / count, 6),
         'result_distribution': {str(key): value for key, value in sorted(top_results.items())},
+        'rows': rows,
+    }
+
+
+def evaluate_display_transcripts(engine, personas, events, *, history='provided'):
+    """Score displayed rankings against a fixed, explicit exposure history."""
+    rows = []
+    counts = Counter()
+    for persona in personas:
+        if persona.get('accuracy_scored', True) is False:
+            continue
+        answers = {str(key): float(value) for key, value in persona['answers'].items()}
+        probs = engine.posteriors(answers)
+        raw = sorted(range(len(probs)), key=lambda index: probs[index], reverse=True)
+        ranked = result_exposure.adjust_ranked(engine, probs, raw, events=events)
+        excluded = set(persona.get('exclude_result_ids', []))
+        ranked = [i for i in ranked if engine.fetishes[i]['id'] not in excluded] + [
+            i for i in ranked if engine.fetishes[i]['id'] in excluded
+        ]
+        ids = [engine.fetishes[index]['id'] for index in ranked]
+        target_rank = ids.index(int(persona['target_result_id'])) + 1
+        counts[ids[0]] += 1
+        rows.append({'persona_id': persona['id'], 'target_rank': target_rank, 'top_result_id': ids[0]})
+    count = len(rows)
+    return {
+        'history': history,
+        'exposure_count': len(events),
+        'persona_count': count,
+        'top1_rate': round(sum(row['target_rank'] == 1 for row in rows) / count, 4) if count else 0.0,
+        'top3_rate': round(sum(row['target_rank'] <= 3 for row in rows) / count, 4) if count else 0.0,
+        'result_distribution': {str(key): value for key, value in sorted(counts.items())},
         'rows': rows,
     }
 
@@ -473,16 +507,18 @@ def evaluate_unannotated_sensitivity(engine, personas, adaptive):
     }
 
 
-def evaluate_diversity(engine):
+def evaluate_diversity(engine, *, expected_alpha=5.0):
     first = engine.fetishes[0]
     events = [result_exposure.build_event(first['id'], first['name']) for _ in range(100)]
     factors = result_exposure.exposure_factors(engine.fetishes, events=events)
     expected = len(events) / len(engine.fetishes)
-    expected_factor = ((len(events) + result_exposure.SMOOTHING) / (expected + result_exposure.SMOOTHING)) ** -3
+    expected_factor = ((len(events) + result_exposure.SMOOTHING) / (expected + result_exposure.SMOOTHING)) ** (
+        -expected_alpha
+    )
     actual_factor = float(factors[first['id']])
     return {
         'exponent': -result_exposure.DIVERSITY_ALPHA,
-        'preserved': result_exposure.DIVERSITY_ALPHA == 3.0,
+        'preserved': result_exposure.DIVERSITY_ALPHA == expected_alpha,
         'overexposed_factor': round(actual_factor, 10),
         'expected_overexposed_factor': round(expected_factor, 10),
         'formula_matches': math.isclose(actual_factor, expected_factor, rel_tol=1e-12),
@@ -530,10 +566,19 @@ def _max_distribution_share(distribution, count):
 
 def quality_failures(report, thresholds, baseline=None):
     transcript = report['transcript']
+    display = report['display_transcript']
     adaptive = report['adaptive']
     checks = [
         ('transcript_top1_rate_min', transcript['top1_rate'], '>=', thresholds['transcript_top1_rate_min']),
         ('transcript_top3_rate_min', transcript['top3_rate'], '>=', thresholds['transcript_top3_rate_min']),
+        ('display_top1_rate_min', display['top1_rate'], '>=', thresholds['display_top1_rate_min']),
+        ('display_top3_rate_min', display['top3_rate'], '>=', thresholds['display_top3_rate_min']),
+        (
+            'display_result_distribution_max_share',
+            _max_distribution_share(display['result_distribution'], display['persona_count']),
+            '<=',
+            thresholds['display_result_distribution_max_share'],
+        ),
         (
             'adaptive_legacy_no_signal_max',
             adaptive['legacy_no_signal_selected'],
@@ -698,8 +743,12 @@ def main():
     parser.add_argument('--output')
     parser.add_argument('--seed', type=int, default=DEFAULT_SEED)
     parser.add_argument('--max-questions', type=int, default=DEFAULT_MAX_QUESTIONS)
+    parser.add_argument('--exposure-events', help='JSON array of result exposure events for display evaluation')
+    parser.add_argument('--expected-diversity-alpha', type=float, default=5.0)
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args()
+    if not math.isfinite(args.expected_diversity_alpha) or args.expected_diversity_alpha <= 0:
+        parser.error('--expected-diversity-alpha must be a positive finite number')
 
     fixture = json.loads(Path(args.personas).read_text(encoding='utf-8'))
     if fixture.get('schema_version') != 2 or not fixture.get('personas'):
@@ -707,6 +756,16 @@ def main():
     random.seed(args.seed)
     engine = Engine()
     transcript = evaluate_transcripts(engine, fixture['personas'])
+    if args.exposure_events:
+        display_events = json.loads(Path(args.exposure_events).read_text(encoding='utf-8'))
+        if not isinstance(display_events, list) or not all(isinstance(event, dict) for event in display_events):
+            raise SystemExit('exposure events must be a JSON array of objects')
+        history = 'provided'
+    else:
+        first = engine.fetishes[0]
+        display_events = [result_exposure.build_event(first['id'], first['name']) for _ in range(100)]
+        history = 'synthetic_first_result_100'
+    display_transcript = evaluate_display_transcripts(engine, fixture['personas'], display_events, history=history)
     adaptive = evaluate_adaptive(engine, fixture['personas'], args.max_questions)
     scored_personas = [persona for persona in fixture['personas'] if persona.get('accuracy_scored', True) is not False]
     # Keep each adaptive question path fixed and remove assumed answers from
@@ -719,9 +778,10 @@ def main():
         'max_questions': args.max_questions,
         'persona_fixture': args.personas,
         'transcript': transcript,
+        'display_transcript': display_transcript,
         'adaptive': adaptive,
         'adaptive_unannotated_sensitivity': sensitivity,
-        'diversity': evaluate_diversity(engine),
+        'diversity': evaluate_diversity(engine, expected_alpha=args.expected_diversity_alpha),
         'question_design': evaluate_question_design(engine),
         'thresholds': DEFAULT_THRESHOLDS,
     }

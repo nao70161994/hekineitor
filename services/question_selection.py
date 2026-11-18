@@ -105,8 +105,8 @@ def stopping_assessment(
     effective_share = effective_candidates / candidate_count
     tiers = (
         (16, 4, 0.08, 2.0, 0.80, 'strong_stable_leader'),
-        (20, 4, 0.045, 1.6, 0.75, 'stable_leader'),
-        (24, 6, 0.04, 1.6, 0.75, 'mature_stable_leader'),
+        (20, 4, 0.045, 1.8, 0.75, 'stable_leader'),
+        (24, 6, 0.04, 1.8, 0.75, 'mature_stable_leader'),
     )
     for min_count, min_stable, min_probability, min_ratio, max_effective_share, reason in tiers:
         if (

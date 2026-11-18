@@ -71,6 +71,23 @@ class TestServiceInference(unittest.TestCase):
         self.assertEqual(assessment['reason'], 'stable_leader')
         self.assertEqual(assessment['stable_answers'], 4)
 
+    def test_stopping_assessment_keeps_questioning_when_leader_gap_is_narrow(self):
+        snapshot = {
+            'top_id': 7,
+            'top_probability': 0.057,
+            'second_probability': 0.035,
+            'gap_ratio': 1.63,
+            'effective_candidates': 94.5,
+            'candidate_count': 127,
+            'concentration': 0.25,
+        }
+        history = [{'top_id': 7}] * 8
+        for count in (23, 26):
+            with self.subTest(count=count):
+                assessment = question_selection.stopping_assessment(snapshot, count=count, confidence_history=history)
+                self.assertFalse(assessment['should_guess'])
+                self.assertEqual(assessment['reason'], 'insufficient_evidence')
+
     def test_stopping_assessment_rejects_an_unstable_or_crowded_leader(self):
         snapshot = {
             'top_id': 7,

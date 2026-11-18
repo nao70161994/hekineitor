@@ -8,6 +8,7 @@ import unittest
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from engine import db as engine_db
 from engine import db_stats, db_work_catalog, work_catalog
@@ -105,6 +106,81 @@ class PostgresWorkCatalogIntegrationTests(unittest.TestCase):
                     return db_work_catalog.replace_catalog(cur, catalog, execute_values=extras.execute_values)
         finally:
             self.put_conn(conn)
+
+    def test_matrix_migration_fills_individual_gaps_on_real_postgres(self):
+        """Adding candidates and questions together must not hide old gaps."""
+        conn = self.get_conn()
+        try:
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute("ALTER TABLE fetishes ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT ''")
+                    cur.execute('ALTER TABLE fetishes ADD COLUMN IF NOT EXISTS "desc" TEXT NOT NULL DEFAULT \'\'')
+                    cur.execute("ALTER TABLE fetishes ADD COLUMN IF NOT EXISTS works TEXT NOT NULL DEFAULT '[]'")
+                    cur.execute('DELETE FROM fetishes')
+                    cur.execute('INSERT INTO fetishes (id) VALUES (1), (10000)')
+                    cur.execute('DROP TABLE IF EXISTS matrix')
+                    cur.execute(
+                        'CREATE TABLE matrix (fetish_id INTEGER, question_id INTEGER, '
+                        'yes_count REAL NOT NULL, total_count REAL NOT NULL, '
+                        'PRIMARY KEY (fetish_id, question_id))'
+                    )
+                    cur.execute('INSERT INTO matrix VALUES (1, 0, 7, 10), (10000, 0, 3, 5)')
+        finally:
+            self.put_conn(conn)
+
+        class Fixture:
+            questions = [{'id': 0}, {'id': 1}]
+
+            @staticmethod
+            def _load_json(name):
+                if name != 'fetishes.json':
+                    raise AssertionError(name)
+                return [{'id': 1, 'name': 'old', 'desc': ''}, {'id': 2, 'name': 'new', 'desc': ''}]
+
+        def ensure():
+            engine_db.ensure_schema(
+                Fixture(),
+                get_conn=self.get_conn,
+                put_conn=self.put_conn,
+                execute_values=extras.execute_values,
+                player_base_id=10000,
+                build_initial_matrix=lambda nf, nq: ([[1.0, 3.0], [2.0, 6.0]], [[4.0, 8.0], [4.0, 8.0]]),
+            )
+
+        with (
+            patch.object(db_work_catalog, 'ensure_schema'),
+            patch.object(db_work_catalog, 'catalog_is_empty', return_value=False),
+        ):
+            ensure()
+            ensure()
+            conn = self.get_conn()
+            try:
+                with conn:
+                    with conn.cursor() as cur:
+                        cur.execute('SELECT fetish_id, question_id, yes_count, total_count FROM matrix ORDER BY 1, 2')
+                        self.assertEqual(
+                            cur.fetchall(),
+                            [
+                                (1, 0, 7.0, 10.0),
+                                (1, 1, 3.0, 8.0),
+                                (2, 0, 2.0, 4.0),
+                                (2, 1, 6.0, 8.0),
+                                (10000, 0, 3.0, 5.0),
+                                (10000, 1, 2.0, 4.0),
+                            ],
+                        )
+                        cur.execute('DELETE FROM matrix WHERE fetish_id = 1 AND question_id = 0')
+            finally:
+                self.put_conn(conn)
+            ensure()
+            conn = self.get_conn()
+            try:
+                with conn:
+                    with conn.cursor() as cur:
+                        cur.execute('SELECT yes_count, total_count FROM matrix WHERE fetish_id = 1 AND question_id = 0')
+                        self.assertEqual(cur.fetchone(), (1.0, 4.0))
+            finally:
+                self.put_conn(conn)
 
     def test_crud_projection_restore_and_transaction_rollback_match_pure_catalog(self):
         self.assertEqual(self.snapshot(), self.base)
