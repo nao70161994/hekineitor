@@ -507,7 +507,7 @@ def evaluate_unannotated_sensitivity(engine, personas, adaptive):
     }
 
 
-def evaluate_diversity(engine, *, expected_alpha=5.0):
+def evaluate_diversity(engine, *, expected_alpha=2.0):
     first = engine.fetishes[0]
     events = [result_exposure.build_event(first['id'], first['name']) for _ in range(100)]
     factors = result_exposure.exposure_factors(engine.fetishes, events=events)
@@ -744,7 +744,7 @@ def main():
     parser.add_argument('--seed', type=int, default=DEFAULT_SEED)
     parser.add_argument('--max-questions', type=int, default=DEFAULT_MAX_QUESTIONS)
     parser.add_argument('--exposure-events', help='JSON array of result exposure events for display evaluation')
-    parser.add_argument('--expected-diversity-alpha', type=float, default=5.0)
+    parser.add_argument('--expected-diversity-alpha', type=float, default=2.0)
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args()
     if not math.isfinite(args.expected_diversity_alpha) or args.expected_diversity_alpha <= 0:

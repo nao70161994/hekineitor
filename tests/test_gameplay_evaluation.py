@@ -66,10 +66,10 @@ class GameplayEvaluationTests(unittest.TestCase):
         class FakeEngine:
             fetishes = [{'id': 1, 'name': 'A'}, {'id': 2, 'name': 'B'}]
 
-        with mock.patch.object(evaluate_gameplay.result_exposure, 'DIVERSITY_ALPHA', 5.0):
+        with mock.patch.object(evaluate_gameplay.result_exposure, 'DIVERSITY_ALPHA', 2.0):
             self.assertTrue(evaluate_gameplay.evaluate_diversity(FakeEngine())['preserved'])
             self.assertFalse(evaluate_gameplay.evaluate_diversity(FakeEngine(), expected_alpha=3.0)['preserved'])
-            configured = evaluate_gameplay.evaluate_diversity(FakeEngine(), expected_alpha=5.0)
+            configured = evaluate_gameplay.evaluate_diversity(FakeEngine(), expected_alpha=2.0)
         self.assertTrue(configured['preserved'])
         self.assertTrue(configured['formula_matches'])
 

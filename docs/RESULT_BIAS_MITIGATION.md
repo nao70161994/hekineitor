@@ -65,24 +65,25 @@ The broad near-miss factor is still above regular positive learning, but lower t
 
 ## Recent Exposure Balancing
 
-最終結果には、直近の表示実績を使った強い分散補正を意図的に適用します。これは同じ高posterior結果ばかり返す状態を避け、発見性とリプレイ性を確保するためのプロダクト仕様です。補正は全候補に適用されるため、回答への適合度と結果の多様性を別々に評価します。
+最終結果には、直近の表示実績を使った分散補正を意図的に適用します。これは同じ高posterior結果ばかり返す状態を避け、発見性とリプレイ性を確保するためのプロダクト仕様です。補正は全候補に適用されるため、回答への適合度と結果の多様性を別々に評価します。
 
 補正は、直近 `1000` 件の表示イベントから候補一覧を除いた主結果と複合結果について、各結果の実表示比率と均等期待比率を比較します。管理レポートも同じ範囲を使用します。
 
 ```text
-exposure_factor = ((actual_count + 2) / (expected_count + 2)) ** -5
+exposure_factor = ((actual_count + 2) / (expected_count + 2)) ** -2
 ranking_score = raw_posterior * exposure_factor
 adjusted_score = clamp(ranking_score, 0, 1)
 ```
 
-- 指数 `-5` は、弱い微調整ではなく強い分散を作るための値です。
+- 指数 `-2` は、分散と回答への適合度のトレードオフを抑えるための試行値です。少数の合成回答に基づく比較であり、実利用での最適性は未検証です。
+- 本番バックアップと表示履歴を起点に、8種類の回答を順序を変えて反復した20回の仮想比較では、指数5から2への変更で、想定候補の主結果一致は平均8.7%から20.6%、最頻結果の割合は4.3%から12.5%になりました。8回答の繰り返しであり、実利用者の正答率や独立した1600人分の観測ではありません。
 - 最低サンプル数による無効化やfactorの上下限clampは設けません。少数時から分散を働かせる設計です。
 - 上位だけの救済poolではなく、全候補を上限適用前のranking scoreで比較します。
 - 最終順位と複合結果などの判定にはranking score、表示には上限を適用したadjusted scoreを使います。
 - 質問の早期終了、低確信延長、進捗表示はraw posteriorの上位候補だけで判定します。強い分散係数が低いraw確率を押し上げても、AIが確信したことにはしません。
 - raw posteriorは `raw_probability` として保持され、質問選択・matrix・priorの計算自体は変更しません。
 
-したがって、表示結果がraw posteriorの1位と一致しないことは不具合ではありません。強度を弱める、最低サンプル数を加える、候補poolを狭める変更は、結果多様性というプロダクト方針を変更するときだけ行います。
+したがって、表示結果がraw posteriorの1位と一致しないことは不具合ではありません。補正強度を変える場合は、結果集中と回答への適合度の両方を比較します。
 
 本番で `DATABASE_URL` が有効な場合、primary result exposureは `analytics_events` に保存されます。`RESULT_EXPOSURE_LOG_PATH` が指定された場合、またはDBが使えないローカル環境では `data/result_exposures.jsonl` にfallbackします。保存対象は結果ID・結果名・確率・順位・timestampのみで、IP、User-Agent、session ID、ユーザー識別子は保存しません。
 
