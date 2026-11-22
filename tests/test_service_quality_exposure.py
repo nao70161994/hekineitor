@@ -10,6 +10,31 @@ from tests._service_test_support import (
 
 
 class TestServiceQualityExposure(unittest.TestCase):
+    def test_repeated_games_use_saved_result_history_to_reduce_concentration(self):
+        class Engine:
+            fetishes = [{'id': i, 'name': f'候補{i}'} for i in range(10)]
+
+        # Each game has the same inference probabilities. Only recorded primary
+        # results should influence the next game; chart-only rows must not.
+        probabilities = [0.55, 0.2, 0.1, 0.05, 0.03, 0.025, 0.02, 0.01, 0.01, 0.005]
+        raw_ranked = list(range(10))
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, 'exposures.jsonl')
+            winners = []
+            for _ in range(12):
+                ranked = result_exposure.adjust_ranked(Engine(), probabilities, raw_ranked, path=path)
+                winner = ranked[0]
+                winners.append(winner)
+                result_exposure.record_result(winner, f'候補{winner}', rank=1, path=path)
+                for index in ranked[1:5]:
+                    result_exposure.record_result(index, f'候補{index}', rank=101, source='top_chart', path=path)
+
+        # Without saved-history correction this input returns candidate 0 every
+        # time. Do not require an exact sequence: only guard against collapse.
+        self.assertEqual(winners[0], 0)
+        self.assertGreaterEqual(len(set(winners)), 4)
+        self.assertLessEqual(max(winners.count(winner) for winner in set(winners)), 6)
+
     def test_factor_report_uses_same_event_window_as_runtime(self):
         class Engine:
             fetishes = [{'id': 1, 'name': 'A'}, {'id': 2, 'name': 'B'}]
