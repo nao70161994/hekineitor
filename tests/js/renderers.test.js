@@ -59,6 +59,21 @@ describe('HekiRenderers screen transitions', () => {
     expect(document.querySelector('#reasons-section').textContent).toContain('決め手になった回答');
   });
 
+  it('names the runner-up without a point difference when both scores reach the display cap', () => {
+    document.body.innerHTML += '<div id="result-rival" class="hidden"></div>';
+    window.HekiRenderers.renderGuess(
+      {
+        fetish_id: 1,
+        fetish_name: '本命',
+        probability: 100,
+        runner_up: {fetish_name: '次点', probability: 100, gap_points: 0},
+      },
+      {escapeHtml: String, safeExternalUrl: String},
+    );
+
+    expect(document.getElementById('result-rival').textContent).toBe('対抗候補は「次点」でした。');
+  });
+
   it('renders runner-up evidence and the compound explanation in separate regions', () => {
     document.body.innerHTML += `
       <div id="result-kicker"></div><div id="result-badges"></div>

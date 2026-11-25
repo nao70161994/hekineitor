@@ -68,6 +68,22 @@ class TestGameSessionFlow(APITestCase):
         self.assertNotIn('q_hint', data)
         self.assertEqual(data['count'], 0)
 
+    def test_unavailable_first_question_preserves_current_session(self):
+        from app import engine as app_engine
+
+        self._start()
+        with self.client.session_transaction() as session:
+            original = dict(session)
+
+        with patch.object(app_engine, 'best_question', return_value=None):
+            for path, payload in (('/api/start', {}), ('/api/resume', {'pairs': []})):
+                with self.subTest(path=path):
+                    response = self.client.post(path, json=payload)
+                    self.assertEqual(response.status_code, 503)
+                    self.assertEqual(response.get_json()['message'], '現在利用できる質問がありません')
+                    with self.client.session_transaction() as session:
+                        self.assertEqual(dict(session), original)
+
     def test_answer_yes(self):
         start = self._start()
         res = self.client.post('/api/answer', json={'question_id': start['question_id'], 'answer': 1.0})

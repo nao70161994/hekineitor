@@ -148,8 +148,10 @@ window.HekiRenderers = (() => {
     if (rival) {
       if (data.provisional) {
         rival.textContent = '追加質問に答えると、結果をさらに絞り込めます。';
-      } else if (data.runner_up) {
+      } else if (data.runner_up && data.runner_up.gap_points > 0) {
         rival.textContent = `対抗候補「${data.runner_up.fetish_name}」との差は${data.runner_up.gap_points}ポイントでした。`;
+      } else if (data.runner_up) {
+        rival.textContent = `対抗候補は「${data.runner_up.fetish_name}」でした。`;
       } else {
         rival.textContent = '';
       }

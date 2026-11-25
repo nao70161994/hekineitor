@@ -296,6 +296,10 @@ def _learning_skipped(ctx):
     return ctx.learning_disabled() or resumed_unverified
 
 
+def _no_available_questions(ctx):
+    return ctx.jsonify({'status': 'error', 'message': '現在利用できる質問がありません'}), 503
+
+
 def start(ctx):
     limited = ctx.rate_limit('api_start', 120)
     if limited:
@@ -305,6 +309,9 @@ def start(ctx):
         exclude_ids = _parse_exclude_ids(data.get('exclude_ids', []), ctx.engine)
     except ValueError as exc:
         return ctx.jsonify({'status': 'error', 'message': str(exc)}), 400
+    question_id = ctx.best_question(ctx.engine, {}, [], exclude_ids=exclude_ids)
+    if question_id is None:
+        return _no_available_questions(ctx)
     previously_completed = bool(ctx.session.get('completed'))
     if not ctx.learning_disabled():
         ctx.finalize_gameplay_summary('completed' if previously_completed else 'restarted')
@@ -330,7 +337,6 @@ def start(ctx):
         else:
             event_name = 'diagnosis_started'
         ctx.record_gameplay_event(event_name, source='start', outcome='success')
-    question_id = ctx.best_question(ctx.engine, {}, [], exclude_ids=ctx.session.get('exclude_ids', []))
     ctx.session['asked'].append(question_id)
     q_data, q_text = _question_text(ctx, question_id)
     _record_question_shown(ctx, question_id, q_text)
@@ -384,6 +390,11 @@ def resume(ctx):
         validated_pairs.append((question_id, answer))
         seen_question_ids.add(question_id)
 
+    if not validated_pairs:
+        first_question_id = ctx.best_question(ctx.engine, {}, [], exclude_ids=exclude_ids)
+        if first_question_id is None:
+            return _no_available_questions(ctx)
+
     if not ctx.learning_disabled():
         ctx.finalize_gameplay_summary('completed' if ctx.session.get('completed') else 'restarted')
     test_play_enabled = ctx.preserve_test_play_flag()
@@ -412,8 +423,8 @@ def resume(ctx):
 
     answers = ctx.session['answers']
     asked = ctx.session['asked']
-    if not answers:
-        question_id = ctx.best_question(ctx.engine, {}, [], exclude_ids=ctx.session.get('exclude_ids', []))
+    if not validated_pairs:
+        question_id = first_question_id
         ctx.session['asked'].append(question_id)
         q_data, q_text = _question_text(ctx, question_id)
         _record_question_shown(ctx, question_id, q_text)
