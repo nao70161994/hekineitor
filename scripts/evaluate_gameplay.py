@@ -166,16 +166,24 @@ def evaluate_display_transcripts(engine, personas, events, *, history='provided'
             i for i in ranked if engine.fetishes[i]['id'] in excluded
         ]
         ids = [engine.fetishes[index]['id'] for index in ranked]
-        target_rank = ids.index(int(persona['target_result_id'])) + 1
+        target_id = int(persona['target_result_id'])
+        target_rank = ids.index(target_id) + 1 if target_id in ids else None
         counts[ids[0]] += 1
-        rows.append({'persona_id': persona['id'], 'target_rank': target_rank, 'top_result_id': ids[0]})
+        rows.append(
+            {
+                'persona_id': persona['id'],
+                'target_result_id': target_id,
+                'target_rank': target_rank,
+                'top_result_id': ids[0],
+            }
+        )
     count = len(rows)
     return {
         'history': history,
         'exposure_count': len(events),
         'persona_count': count,
         'top1_rate': round(sum(row['target_rank'] == 1 for row in rows) / count, 4) if count else 0.0,
-        'top3_rate': round(sum(row['target_rank'] <= 3 for row in rows) / count, 4) if count else 0.0,
+        'top3_rate': round(sum(row['target_rank'] in (1, 2, 3) for row in rows) / count, 4) if count else 0.0,
         'result_distribution': {str(key): value for key, value in sorted(counts.items())},
         'rows': rows,
     }

@@ -89,6 +89,21 @@ class GameplayEvaluationTests(unittest.TestCase):
         self.assertEqual([row['top_result_id'] for row in report['rows']], [2, 1])
         self.assertEqual(report['top1_rate'], 1.0)
 
+    def test_display_transcript_counts_missing_target_as_a_miss(self):
+        class FakeEngine:
+            fetishes = [{'id': 1, 'name': 'A'}]
+
+            def posteriors(self, _answers):
+                return [1.0]
+
+        personas = [{'id': 'removed', 'target_result_id': 99, 'answers': {}}]
+        report = evaluate_gameplay.evaluate_display_transcripts(FakeEngine(), personas, [])
+        self.assertEqual(report['persona_count'], 1)
+        self.assertEqual(report['top1_rate'], 0.0)
+        self.assertEqual(report['top3_rate'], 0.0)
+        self.assertEqual(report['rows'][0]['target_result_id'], 99)
+        self.assertIsNone(report['rows'][0]['target_rank'])
+
     def test_persona_answer_distinguishes_scripted_defaults_and_unknown_answers(self):
         persona = {'answers': {'4': 0}, 'default_answer': -0.5}
 
